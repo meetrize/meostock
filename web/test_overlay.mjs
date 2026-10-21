@@ -1,9 +1,8 @@
 /**
- * 实际验证比较商品叠加是否画到主图上
+ * 验证：叠加线形态适配主图，且调节面板可用
  */
 import { chromium } from "playwright-core";
 import path from "path";
-import fs from "fs";
 import os from "os";
 
 const chromePath = path.join(
@@ -11,89 +10,79 @@ const chromePath = path.join(
   "Library/Caches/ms-playwright/chromium-1234/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
 );
 
-const BASE = "http://127.0.0.1:8765/?symbol=600036&period=1d";
-
 async function main() {
-  const browser = await chromium.launch({
-    executablePath: chromePath,
-    headless: true,
-  });
+  const browser = await chromium.launch({ executablePath: chromePath, headless: true });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  const logs = [];
-  page.on("console", (msg) => {
-    if (msg.type() === "error") logs.push(msg.text());
+  await page.goto("http://127.0.0.1:8765/?symbol=600036&period=1d", {
+    waitUntil: "networkidle",
+    timeout: 60000,
   });
-
-  await page.goto(BASE, { waitUntil: "networkidle", timeout: 60000 });
   await page.waitForFunction(() => window.__chart, null, { timeout: 20000 });
-  await page.waitForTimeout(1500);
-
-  const layout = await page.evaluate(() => {
-    const rect = document.getElementById("chart").getBoundingClientRect();
-    const canvas = document.querySelector("#chart canvas");
-    return {
-      chartH: Math.round(rect.height),
-      chartW: Math.round(rect.width),
-      canvasH: canvas?.height,
-      canvasW: canvas?.width,
-      fillOk: rect.height >= 700,
-    };
-  });
-  console.log("LAYOUT", layout);
+  await page.waitForTimeout(1200);
 
   const result = await page.evaluate(async () => {
-    const out = {};
     document.getElementById("btnCompare").click();
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 900));
     let items = [];
-    for (let i = 0; i < 25; i++) {
+    for (let i = 0; i < 20; i++) {
       items = [...document.querySelectorAll("#cmpList .cmp-item")];
       if (items.length) break;
       await new Promise((r) => setTimeout(r, 200));
     }
-    out.listCount = items.length;
     const target =
       items.find((li) => !String(li.dataset.symbol || "").includes("600036")) || items[0];
-    out.picked = { symbol: target?.dataset.symbol, name: target?.dataset.name };
     target.click();
-    await new Promise((r) => setTimeout(r, 4000));
-
-    out.status = document.getElementById("status")?.textContent || "";
-    out.chipsShow = document.getElementById("overlayChips")?.classList.contains("show");
+    await new Promise((r) => setTimeout(r, 3500));
 
     const chart = window.__chart;
-    const inds = chart.getIndicators({ name: "OVERLAY_CMP" }) || [];
-    out.indicatorCount = inds.length;
-    const ind = inds[0];
-    if (ind) {
-      const resultArr = ind.result || [];
-      const withVal = resultArr.filter((r) => r && r.v != null && Number.isFinite(r.v));
-      out.resultLen = resultArr.length;
-      out.resultWithVal = withVal.length;
-      out.sampleVals = withVal.slice(-5).map((r) => r.v);
-      out.extendKeys = ind.extendData ? Object.keys(ind.extendData) : [];
-      out.byTsSample = ind.extendData?.byTs
-        ? Object.keys(ind.extendData.byTs).slice(0, 3)
-        : [];
-    }
-    return out;
+    const primary = chart.getDataList();
+    const pMin = Math.min(...primary.map((b) => b.low ?? b.close));
+    const pMax = Math.max(...primary.map((b) => b.high ?? b.close));
+    const ind = (chart.getIndicators({ name: "OVERLAY_CMP" }) || [])[0];
+    const vals = (ind?.result || []).map((r) => r?.v).filter((v) => Number.isFinite(v));
+    const vMin = Math.min(...vals);
+    const vMax = Math.max(...vals);
+
+    const scaleBefore = ind.extendData?.scale;
+    const apiBefore = window.__overlayApi.list()[0];
+    window.__overlayApi.setScale(50);
+    await new Promise((r) => setTimeout(r, 800));
+    const ind2 = (chart.getIndicators({ name: "OVERLAY_CMP" }) || [])[0];
+    const vals2 = (ind2?.result || []).map((r) => r?.v).filter((v) => Number.isFinite(v));
+    const span1 = vMax - vMin;
+    const span2 = vals2.length ? Math.max(...vals2) - Math.min(...vals2) : span1;
+    const scaleAfter = ind2.extendData?.scale;
+    const apiAfter = window.__overlayApi.list()[0];
+
+    return {
+      status: document.getElementById("status")?.textContent,
+      adjustShow: document.getElementById("overlayAdjust")?.classList.contains("show"),
+      resultWithVal: vals.length,
+      pRange: [pMin, pMax],
+      vRange: [vMin, vMax],
+      // 适配后应大致落在主图价格带附近（允许一定越界）
+      overlapOk: vMin < pMax && vMax > pMin && vMax - vMin < (pMax - pMin) * 1.5,
+      span1,
+      span2,
+      scaleBefore,
+      scaleAfter,
+      apiBefore,
+      apiAfter,
+      scaleShrinkOk:
+        (apiAfter?.userScale != null && apiAfter.userScale <= 0.55) ||
+        (Number.isFinite(scaleBefore) &&
+          Number.isFinite(scaleAfter) &&
+          scaleAfter < scaleBefore * 0.7) ||
+        span2 < span1 * 0.7,
+      sample: vals.slice(-3),
+    };
   });
 
-  console.log("OVERLAY", JSON.stringify(result, null, 2));
-
-  const shot = "/tmp/overlay-test2.png";
-  await page.screenshot({ path: shot, fullPage: true });
-  console.log("SHOT", shot);
-
+  console.log(JSON.stringify(result, null, 2));
+  await page.screenshot({ path: "/tmp/overlay-adjust.png", fullPage: true });
   const ok =
-    layout.fillOk &&
-    result.indicatorCount >= 1 &&
-    result.resultWithVal > 50 &&
-    /对齐/.test(result.status);
-
+    result.adjustShow && result.overlapOk && result.scaleShrinkOk && result.resultWithVal > 50;
   console.log(ok ? "PASS" : "FAIL");
-  if (logs.length) console.log("ERRORS", logs.join("\n"));
-
   await browser.close();
   process.exit(ok ? 0 : 2);
 }

@@ -352,29 +352,40 @@
     .ind-item:hover { background: var(--btn-active-bg); }
     .ind-item input { width: 16px; height: 16px; accent-color: var(--accent); }
 
-    /* 比较商品 chips */
-    .overlay-chips {
+    /* 比较商品 chips + 调节条 */
+    .overlay-bar {
       display: none;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
+      flex-direction: column;
       flex-shrink: 0;
-      padding: 4px 10px 6px;
       border-bottom: 1px solid var(--line);
       background: var(--panel);
     }
-    .overlay-chips.show { display: flex; }
+    .overlay-bar.show { display: flex; }
+    .overlay-chips {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 4px 10px 6px;
+    }
     .overlay-chip {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      height: 24px;
-      padding: 0 8px 0 6px;
-      border-radius: 12px;
+      height: 26px;
+      padding: 0 6px 0 8px;
+      border-radius: 13px;
       border: 1px solid var(--line);
       font-size: 12px;
       color: var(--text);
       background: var(--input-bg);
+      cursor: pointer;
+      user-select: none;
+    }
+    .overlay-chip:hover { border-color: var(--btn-hover); }
+    .overlay-chip.active {
+      border-color: var(--accent);
+      background: var(--btn-active-bg);
     }
     .overlay-chip .dot {
       width: 8px;
@@ -382,16 +393,74 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
+    .overlay-chip .adj,
     .overlay-chip .x {
       border: none;
       background: transparent;
       color: var(--muted);
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1;
-      padding: 0 2px;
+      padding: 2px 3px;
+      border-radius: 4px;
     }
-    .overlay-chip .x:hover { color: var(--text); }
+    .overlay-chip .adj:hover,
+    .overlay-chip .x:hover { color: var(--text); background: var(--btn-active-bg); }
+    .overlay-adjust {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 6px 12px 8px;
+      border-top: 1px dashed var(--line);
+      background: var(--header-bottom);
+    }
+    .overlay-adjust.show { display: flex; }
+    .overlay-adjust .adj-title {
+      font-size: 12px;
+      color: var(--muted);
+      min-width: 72px;
+    }
+    .overlay-adjust .adj-title b { color: var(--text); font-weight: 650; }
+    .overlay-adjust .adj-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .overlay-adjust input[type="range"] {
+      width: 140px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .overlay-adjust .adj-val {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text);
+      min-width: 42px;
+    }
+    .overlay-adjust .adj-btn {
+      height: 26px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--btn-bg);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .overlay-adjust .adj-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .overlay-adjust .adj-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .overlay-hint {
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: auto;
+    }
 
     /* 比较商品弹窗（参考 TradingView） */
     .modal-compare { width: min(560px, calc(100vw - 24px)); max-height: min(78vh, 640px); }
@@ -562,7 +631,25 @@
         </button>
       </div>
     </header>
-    <div class="overlay-chips" id="overlayChips"></div>
+    <div class="overlay-bar" id="overlayBar">
+      <div class="overlay-chips" id="overlayChips"></div>
+      <div class="overlay-adjust" id="overlayAdjust">
+        <span class="adj-title">调节 <b id="adjName">--</b></span>
+        <label class="adj-row" title="上下平移（相对主图价格区间）">
+          偏移
+          <input type="range" id="adjOffset" min="-100" max="100" step="1" value="0" />
+          <span class="adj-val" id="adjOffsetVal">0%</span>
+        </label>
+        <label class="adj-row" title="放大/缩小波动幅度">
+          幅度
+          <input type="range" id="adjScale" min="10" max="200" step="1" value="100" />
+          <span class="adj-val" id="adjScaleVal">100%</span>
+        </label>
+        <button type="button" class="adj-btn primary" id="adjFit">适配主图</button>
+        <button type="button" class="adj-btn" id="adjReset">重置</button>
+        <span class="overlay-hint">忽略绝对价格 · 只比走势形态</span>
+      </div>
+    </div>
     <div id="chart"></div>
   </div>
   <div class="status" id="status">初始化…</div>
@@ -695,14 +782,14 @@
       "rgba(63, 81, 181, 0.85)",
     ];
     let overlayColorIdx = 0;
-    let compareOverlays = []; // { key, symbol, name, color, indicatorId }
+    let compareOverlays = []; // { key, symbol, name, color, indicatorId, raw, fit, userScale, userOffset }
     let compareFilter = "cn";
     let comparePage = 1;
     let compareHasMore = false;
     let compareSearchTimer = null;
     let compareLoading = false;
     let overlayIndicatorReady = false;
-    let axisTypeBeforeCompare = null; // 叠加时切到百分比轴，清空后恢复
+    let activeAdjustKey = null;
 
     function dayKey(ts) {
       const d = new Date(Number(ts));
@@ -720,19 +807,27 @@
         shortName: "CMP",
         series: "price",
         precision: 2,
-        // 与主图同轴画线；calc 必须返回与 dataList 等长的数组
+        // 形态线：display = offset + (raw/baseSec - 1) * scale
         figures: [{ key: "v", title: "CMP: ", type: "line" }],
         calc: (dataList, indicator) => {
-          // 注意：klinecharts override 会 clone extendData，不能用 Map（会被克隆成空对象）
+          // 注意：klinecharts override 会 clone extendData，不能用 Map
           const pack = indicator.extendData || {};
           const byTs = pack.byTs || {};
           const byDay = pack.byDay || {};
+          const baseSec = Number(pack.baseSec) || 0;
+          const scale = Number(pack.scale);
+          const offset = Number(pack.offset);
+          const sc = Number.isFinite(scale) ? scale : 1;
+          const off = Number.isFinite(offset) ? offset : 0;
           return dataList.map((bar) => {
             const ts = bar.timestamp;
-            let v = byTs[ts];
-            if (v == null) v = byTs[String(ts)];
-            if (v == null) v = byDay[dayKey(ts)];
-            return v != null && Number.isFinite(Number(v)) ? { v: Number(v) } : {};
+            let raw = byTs[ts];
+            if (raw == null) raw = byTs[String(ts)];
+            if (raw == null) raw = byDay[dayKey(ts)];
+            raw = Number(raw);
+            if (!Number.isFinite(raw) || !baseSec) return {};
+            const shape = raw / baseSec - 1;
+            return { v: off + shape * sc };
           });
         },
       });
@@ -1233,25 +1328,138 @@
       setTimeout(() => input.focus(), 50);
     }
 
+    function lookupClose(byTs, byDay, ts) {
+      let v = byTs[ts];
+      if (v == null) v = byTs[String(ts)];
+      if (v == null) v = byDay[dayKey(ts)];
+      return v;
+    }
+
+    /** 原始副图收盘价（普通对象，供 clone） */
+    function buildRawSeries(secondaryBars) {
+      const byTs = Object.create(null);
+      const byDay = Object.create(null);
+      for (const b of secondaryBars) {
+        const ts = b.timestamp;
+        byTs[ts] = b.close;
+        byTs[String(ts)] = b.close;
+        const dk = dayKey(ts);
+        if (dk && byDay[dk] == null) byDay[dk] = b.close;
+      }
+      return { byTs, byDay };
+    }
+
+    /**
+     * 按走势形态适配到主图价格带：
+     * display = fitOffset + (raw/baseSec - 1) * fitScale
+     * 用户再叠加 userOffset / userScale
+     */
+    function computeFitTransform(primaryBars, raw) {
+      const pairs = [];
+      for (const b of primaryBars) {
+        const sec = lookupClose(raw.byTs, raw.byDay, b.timestamp);
+        if (sec != null && Number.isFinite(sec) && sec !== 0) {
+          pairs.push({ p: b.close, s: sec });
+        }
+      }
+      if (pairs.length < 2) {
+        return { baseSec: pairs[0]?.s || 1, fitScale: 1, fitOffset: pairs[0]?.p || 0, matched: pairs.length };
+      }
+      const baseSec = pairs[0].s;
+      const shapes = pairs.map((x) => x.s / baseSec - 1);
+      const pries = pairs.map((x) => x.p);
+      let sMin = Math.min(...shapes);
+      let sMax = Math.max(...shapes);
+      let pMin = Math.min(...pries);
+      let pMax = Math.max(...pries);
+      const sSpan = Math.max(sMax - sMin, 1e-9);
+      const pSpan = Math.max(pMax - pMin, 1e-9);
+      // 副图形态映射到主图区间的 70%，避免贴边、也避免撑爆坐标
+      const fitScale = (pSpan * 0.7) / sSpan;
+      const sMid = (sMin + sMax) / 2;
+      const pMid = (pMin + pMax) / 2;
+      const fitOffset = pMid - sMid * fitScale;
+      return { baseSec, fitScale, fitOffset, matched: pairs.length, pSpan };
+    }
+
+    function finalTransform(o) {
+      const userScale = o.userScale ?? 1;
+      const userOffsetPct = o.userOffsetPct ?? 0; // -1..1 relative to pSpan
+      const pSpan = o.fit?.pSpan || 1;
+      return {
+        scale: (o.fit?.fitScale || 1) * userScale,
+        offset: (o.fit?.fitOffset || 0) + userOffsetPct * pSpan,
+        baseSec: o.fit?.baseSec || 1,
+      };
+    }
+
+    function packExtendData(o) {
+      const t = finalTransform(o);
+      return {
+        byTs: o.raw.byTs,
+        byDay: o.raw.byDay,
+        baseSec: t.baseSec,
+        scale: t.scale,
+        offset: t.offset,
+      };
+    }
+
+    function applyOverlayToChart(o) {
+      if (!chart || !o?.indicatorId) return;
+      // klinecharts：仅改 extendData 只重绘不重算，需 bump calcParams 才能刷新线
+      o._rev = (o._rev || 0) + 1;
+      chart.overrideIndicator({
+        id: o.indicatorId,
+        shortName: (o.name || o.symbol || "CMP").slice(0, 8),
+        calcParams: [o._rev],
+        extendData: packExtendData(o),
+        styles: { lines: [{ color: o.color, size: 2, style: "solid" }] },
+      });
+    }
+
+    function syncAdjustPanel() {
+      const panel = document.getElementById("overlayAdjust");
+      const o = compareOverlays.find((x) => x.key === activeAdjustKey);
+      if (!o) {
+        panel.classList.remove("show");
+        return;
+      }
+      panel.classList.add("show");
+      document.getElementById("adjName").textContent = o.name || o.symbol;
+      const offPct = Math.round((o.userOffsetPct ?? 0) * 100);
+      const scPct = Math.round((o.userScale ?? 1) * 100);
+      document.getElementById("adjOffset").value = String(offPct);
+      document.getElementById("adjScale").value = String(scPct);
+      document.getElementById("adjOffsetVal").textContent = `${offPct}%`;
+      document.getElementById("adjScaleVal").textContent = `${scPct}%`;
+    }
+
     function renderOverlayChips() {
+      const bar = document.getElementById("overlayBar");
       const box = document.getElementById("overlayChips");
       if (!compareOverlays.length) {
-        box.classList.remove("show");
+        bar.classList.remove("show");
         box.innerHTML = "";
+        activeAdjustKey = null;
+        document.getElementById("overlayAdjust").classList.remove("show");
       } else {
-        box.classList.add("show");
+        bar.classList.add("show");
+        if (activeAdjustKey && !compareOverlays.some((o) => o.key === activeAdjustKey)) {
+          activeAdjustKey = compareOverlays[0].key;
+        }
         box.innerHTML = compareOverlays
           .map(
             (o) => `
-        <span class="overlay-chip" data-key="${o.key}">
+        <span class="overlay-chip ${o.key === activeAdjustKey ? "active" : ""}" data-key="${o.key}" title="点击调节">
           <span class="dot" style="background:${o.color}"></span>
           <span>${o.name || o.symbol}</span>
+          <button type="button" class="adj" data-adjust="${o.key}" title="调节位置/幅度">⇅</button>
           <button type="button" class="x" data-remove="${o.key}" title="移除">×</button>
         </span>`
           )
           .join("");
+        syncAdjustPanel();
       }
-      // chips 显隐会改变图表容器高度
       if (chart) {
         requestAnimationFrame(() => {
           try {
@@ -1261,61 +1469,28 @@
       }
     }
 
-    function lookupClose(byTs, byDay, ts) {
-      let v = byTs[ts];
-      if (v == null) v = byTs[String(ts)];
-      if (v == null) v = byDay[dayKey(ts)];
-      return v;
+    function openAdjust(key) {
+      activeAdjustKey = key;
+      renderOverlayChips();
     }
 
-    function buildOverlayData(primaryBars, secondaryBars) {
-      // 用普通对象（勿用 Map：库内部 clone 会丢 Map 内容）
-      // 将副图按「重叠首根」缩放到主图价格，便于同轴；叠加时还会切百分比轴
-      const byTsRaw = Object.create(null);
-      const byDayRaw = Object.create(null);
-      for (const b of secondaryBars) {
-        const ts = b.timestamp;
-        byTsRaw[ts] = b.close;
-        byTsRaw[String(ts)] = b.close;
-        const dk = dayKey(ts);
-        if (dk && byDayRaw[dk] == null) byDayRaw[dk] = b.close;
+    function updateActiveTransform({ scalePct, offsetPct, refit = false, reset = false }) {
+      const o = compareOverlays.find((x) => x.key === activeAdjustKey);
+      if (!o || !chart) return;
+      if (reset) {
+        o.userScale = 1;
+        o.userOffsetPct = 0;
       }
-      let basePri = null;
-      let baseSec = null;
-      for (const b of primaryBars) {
-        const sec = lookupClose(byTsRaw, byDayRaw, b.timestamp);
-        if (sec != null && sec !== 0) {
-          basePri = b.close;
-          baseSec = sec;
-          break;
-        }
+      if (refit) {
+        const primary = chart.getDataList?.() || [];
+        o.fit = computeFitTransform(primary, o.raw);
+        o.userScale = 1;
+        o.userOffsetPct = 0;
       }
-      const ratio = basePri && baseSec ? basePri / baseSec : 1;
-      const byTs = Object.create(null);
-      const byDay = Object.create(null);
-      for (const k of Object.keys(byTsRaw)) byTs[k] = byTsRaw[k] * ratio;
-      for (const k of Object.keys(byDayRaw)) byDay[k] = byDayRaw[k] * ratio;
-      return { byTs, byDay };
-    }
-
-    function enableCompareAxis() {
-      if (!chart || axisTypeBeforeCompare != null) return;
-      axisTypeBeforeCompare = chartSettings.axisType || "normal";
-      try {
-        chart.overrideYAxis({ paneId: "candle_pane", type: "percentage" });
-      } catch (_) {}
-    }
-
-    function restoreCompareAxis() {
-      if (!chart || axisTypeBeforeCompare == null) return;
-      const t = axisTypeBeforeCompare;
-      axisTypeBeforeCompare = null;
-      try {
-        chart.overrideYAxis({
-          paneId: "candle_pane",
-          type: chartSettings.axisType || t || "normal",
-        });
-      } catch (_) {}
+      if (scalePct != null) o.userScale = Math.max(0.1, scalePct / 100);
+      if (offsetPct != null) o.userOffsetPct = Math.max(-1, Math.min(1, offsetPct / 100));
+      applyOverlayToChart(o);
+      syncAdjustPanel();
     }
 
     async function addCompareOverlay(item) {
@@ -1332,6 +1507,7 @@
       if (compareOverlays.some((o) => o.key === key)) {
         setStatus(`${item.name || norm.code} 已在比较中`);
         document.getElementById("compareModal").classList.remove("show");
+        openAdjust(key);
         return;
       }
       if (currentSymbol && normalizeSymbol(currentSymbol).code === norm.code &&
@@ -1349,26 +1525,32 @@
         const primary = chart.getDataList?.() || [];
         const { bars } = await fetchKline(symbol, currentPeriod);
         if (!bars.length) throw new Error("无 K 线数据");
-        const overlayData = buildOverlayData(primary, bars);
-        const matched = primary.filter((b) => {
-          return (
-            overlayData.byTs[b.timestamp] != null ||
-            overlayData.byTs[String(b.timestamp)] != null ||
-            overlayData.byDay[dayKey(b.timestamp)] != null
-          );
-        }).length;
-        if (!matched) throw new Error("时间轴无法对齐，请换同市场标的或日线周期试试");
+        const raw = buildRawSeries(bars);
+        const fit = computeFitTransform(primary, raw);
+        if (fit.matched < 2) throw new Error("时间轴无法对齐，请换同市场标的或日线周期试试");
         const color = OVERLAY_COLORS[overlayColorIdx % OVERLAY_COLORS.length];
         overlayColorIdx += 1;
         const short = (item.name || norm.code).slice(0, 8);
         const indicatorId = `OVERLAY_CMP_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
+        const draft = {
+          key,
+          symbol,
+          name: item.name || norm.code,
+          color,
+          indicatorId,
+          paneId: "candle_pane",
+          raw,
+          fit,
+          userScale: 1,
+          userOffsetPct: 0,
+        };
         const createdId = chart.createIndicator(
           {
             id: indicatorId,
             name: "OVERLAY_CMP",
             shortName: short,
             paneId: "candle_pane",
-            extendData: overlayData,
+            extendData: packExtendData(draft),
             styles: {
               lines: [{ color, size: 2, style: "solid" }],
             },
@@ -1400,24 +1582,12 @@
           true
         );
         if (!createdId) throw new Error("createIndicator 失败（可能重复或未注册）");
-        // 强制再写一次 extendData，确保 calc 用到完整数据
-        chart.overrideIndicator({
-          id: indicatorId,
-          extendData: overlayData,
-          styles: { lines: [{ color, size: 2, style: "solid" }] },
-        });
-        compareOverlays.push({
-          key,
-          symbol,
-          name: item.name || norm.code,
-          color,
-          indicatorId,
-          paneId: "candle_pane",
-        });
-        enableCompareAxis();
+        applyOverlayToChart(draft);
+        compareOverlays.push(draft);
+        activeAdjustKey = key;
         renderOverlayChips();
         document.getElementById("compareModal").classList.remove("show");
-        setStatus(`已叠加 ${item.name || norm.code}（${matched} 点对齐，百分比坐标）`);
+        setStatus(`已叠加 ${item.name || norm.code}（形态适配主图，可拖动偏移/幅度）`);
       } catch (e) {
         setStatus(`叠加失败: ${e.message || e}`);
       }
@@ -1432,7 +1602,7 @@
       } else {
         chart.removeIndicator({ paneId: "candle_pane", name: "OVERLAY_CMP" });
       }
-      if (!compareOverlays.length) restoreCompareAxis();
+      if (activeAdjustKey === key) activeAdjustKey = compareOverlays[0]?.key || null;
       renderOverlayChips();
     }
 
@@ -1443,16 +1613,17 @@
       for (const o of compareOverlays) {
         try {
           const { bars } = await fetchKline(o.symbol, currentPeriod);
-          const overlayData = buildOverlayData(primary, bars);
-          if (o.indicatorId) {
-            chart.overrideIndicator({
-              id: o.indicatorId,
-              extendData: overlayData,
-              styles: { lines: [{ color: o.color, size: 2, style: "solid" }] },
-            });
-          }
+          o.raw = buildRawSeries(bars);
+          // 保留用户偏移/幅度，只重算适配基准
+          const prevUserScale = o.userScale;
+          const prevUserOffset = o.userOffsetPct;
+          o.fit = computeFitTransform(primary, o.raw);
+          o.userScale = prevUserScale;
+          o.userOffsetPct = prevUserOffset;
+          applyOverlayToChart(o);
         } catch (_) {}
       }
+      syncAdjustPanel();
     }
 
     function renderQuote(symbol, q) {
@@ -1839,10 +2010,45 @@
       loadCompareBrowse({ append: true });
     });
     document.getElementById("overlayChips").addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-remove]");
-      if (!btn) return;
-      removeCompareOverlay(btn.dataset.remove);
+      const removeBtn = e.target.closest("[data-remove]");
+      if (removeBtn) {
+        removeCompareOverlay(removeBtn.dataset.remove);
+        return;
+      }
+      const adjBtn = e.target.closest("[data-adjust]");
+      if (adjBtn) {
+        openAdjust(adjBtn.dataset.adjust);
+        return;
+      }
+      const chip = e.target.closest(".overlay-chip[data-key]");
+      if (chip) openAdjust(chip.dataset.key);
     });
+    function onAdjOffsetInput(e) {
+      updateActiveTransform({ offsetPct: Number(e.target.value) });
+    }
+    function onAdjScaleInput(e) {
+      updateActiveTransform({ scalePct: Number(e.target.value) });
+    }
+    document.getElementById("adjOffset").addEventListener("input", onAdjOffsetInput);
+    document.getElementById("adjOffset").addEventListener("change", onAdjOffsetInput);
+    document.getElementById("adjScale").addEventListener("input", onAdjScaleInput);
+    document.getElementById("adjScale").addEventListener("change", onAdjScaleInput);
+    document.getElementById("adjFit").addEventListener("click", () => {
+      updateActiveTransform({ refit: true });
+      setStatus("已按主图区间重新适配走势线");
+    });
+    document.getElementById("adjReset").addEventListener("click", () => {
+      updateActiveTransform({ reset: true });
+      setStatus("已重置偏移与幅度");
+    });
+    // 调试/自动化用
+    window.__overlayApi = {
+      list: () => compareOverlays.map((o) => ({ key: o.key, userScale: o.userScale, userOffsetPct: o.userOffsetPct })),
+      setScale: (pct) => updateActiveTransform({ scalePct: pct }),
+      setOffset: (pct) => updateActiveTransform({ offsetPct: pct }),
+      fit: () => updateActiveTransform({ refit: true }),
+      reset: () => updateActiveTransform({ reset: true }),
+    };
     document.getElementById("settingReset").addEventListener("click", resetChartSettings);
     document.getElementById("settingModal").addEventListener("change", (e) => {
       if (e.target.closest(".setting-grid")) readSettingForm();
