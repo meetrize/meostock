@@ -1439,9 +1439,17 @@
     function resolveYf(input) {
       let s = String(input || "").trim();
       if (!s) return null;
-      if (/^yf:/i.test(s)) s = s.slice(3);
-      // Yahoo 常见形态：GC=F / BTC-USD / ^GSPC / EURUSD=X / 000001.SS
-      if (/[=^.-]/.test(s) || /^[A-Z]{2,5}-USD$/i.test(s) || /^\^[A-Z0-9.]+$/i.test(s)) {
+      const hadPrefix = /^yf:/i.test(s);
+      if (hadPrefix) s = s.slice(3);
+      if (!s) return null;
+      // 显式 yf: 前缀一律视为 Yahoo；否则识别常见形态 GC=F / BTC-USD / ^GSPC / EURUSD=X
+      if (
+        hadPrefix ||
+        /[=^]/.test(s) ||
+        /-\w+$/i.test(s) ||
+        /^\^[A-Z0-9.]+$/i.test(s) ||
+        /\.(SS|SZ|HK|L|T|TO|AX|DE|PA|MI|KS|KQ)$/i.test(s)
+      ) {
         return { symbol: s, code: s };
       }
       return null;
@@ -1451,6 +1459,20 @@
       if (/^yf:/i.test(String(input || "")) || resolveYf(input)) return "YF";
       if (resolveFutures(input)) return "FUT";
       return normalizeSymbol(input).market;
+    }
+
+    /** 主图可加载的代码：stock-sdk / 期货 / yfinance */
+    function canLoadSymbol(input) {
+      const s = String(input || "").trim();
+      if (!s) return false;
+      if (/^yf:/i.test(s) || /^fut:/i.test(s)) return true;
+      if (resolveFutures(s) || resolveYf(s)) return true;
+      try {
+        normalizeSymbol(s);
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
 
     function toBars(rows) {
@@ -1497,10 +1519,34 @@
           },
         };
       }
+      const yf = resolveYf(symbol) || (/^yf:/i.test(String(symbol || "")) ? { symbol: String(symbol).slice(3) } : null);
+      if (yf && yf.symbol) {
+        const code = yf.symbol;
+        const res = await fetch(`/api/yf/quotes?symbols=${encodeURIComponent(code)}`);
+        const data = await res.json();
+        const q = (data.ok && Array.isArray(data.quotes) && data.quotes[0]) || null;
+        if (!q) throw new Error("yfinance 行情为空");
+        return {
+          market: "YF",
+          quote: {
+            code: q.code || code,
+            name: q.name || code,
+            price: Number(q.price),
+            change: Number(q.change ?? 0),
+            changePercent: Number(q.changePercent ?? 0),
+            prevClose: q.prevClose != null ? Number(q.prevClose) : undefined,
+            open: q.open != null ? Number(q.open) : undefined,
+            high: q.high != null ? Number(q.high) : undefined,
+            low: q.low != null ? Number(q.low) : undefined,
+            volume: q.volume != null ? Number(q.volume) : undefined,
+          },
+        };
+      }
       const market = resolveMarket(symbol);
       let list;
       if (market === "US") list = await sdk.quotes.us([symbol]);
       else if (market === "HK") list = await sdk.quotes.hk([symbol]);
+      else if (market === "YF") throw new Error("yfinance 行情为空");
       else list = await sdk.quotes.cnSimple([symbol]);
       if (!list?.length) throw new Error("行情为空");
       return { market, quote: list[0] };
@@ -2435,13 +2481,11 @@
       const { pushUrl = false, skipUrlSync = false } = options;
       const symbol = (document.getElementById("symbol").value || "").trim();
       if (!symbol) {
-        setStatus("请输入代码，如 600036 / 00700 / AAPL / 105.AAPL");
+        setStatus("请输入代码，如 600036 / 00700 / AAPL / yf:GC=F");
         return;
       }
-      try {
-        normalizeSymbol(symbol);
-      } catch (e) {
-        setStatus(`无效代码: ${e.message || e}`);
+      if (!canLoadSymbol(symbol)) {
+        setStatus(`无效代码: ${symbol}（支持 A/H/美股、fut:主连、yf:Yahoo 如 yf:GC=F）`);
         return;
       }
       currentSymbol = symbol;
@@ -2449,7 +2493,9 @@
       bindDataLoader(symbol);
       await refreshQuote(symbol);
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(() => refreshQuote(currentSymbol), 15000);
+      // yfinance 轮询放宽，降低限流
+      const interval = resolveMarket(symbol) === "YF" ? 60000 : 15000;
+      pollTimer = setInterval(() => refreshQuote(currentSymbol), interval);
     }
 
     function bootstrapFromUrl() {
