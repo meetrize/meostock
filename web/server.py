@@ -1,8 +1,10 @@
-"""静态站点 + 轻量符号列表代理（东方财富 clist，供比较商品弹窗浏览）。"""
+"""静态站点 + 符号列表代理 + yfinance 市场摘要 / K 线。"""
 
 from __future__ import annotations
 
 import json
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -13,9 +15,16 @@ from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from yf_catalog import (
+    YF_MARKETS,
+    catalog_items,
+    market_label,
+    translate_name,
+)
+
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-app = FastAPI(title="stock-sdk K-Line Demo", version="0.3.0")
+app = FastAPI(title="stock-sdk K-Line Demo", version="0.4.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
@@ -34,7 +43,6 @@ MARKET_LABEL = {
     "fund": "基金",
     "index": "指数",
 }
-# f13 → 交易所展示
 EXCHANGE_BY_MKT = {
     0: "SZSE",
     1: "SSE",
@@ -45,12 +53,22 @@ EXCHANGE_BY_MKT = {
     128: "HKEX",
 }
 
+# yfinance 列表缓存：market -> {ts, items, live}
+_YF_LIST_CACHE: dict[str, dict[str, Any]] = {}
+_YF_LIST_LOCK = threading.Lock()
+_YF_LIST_TTL = 600  # 秒
+
+# yfinance K 线缓存：key=(symbol, period) -> {ts, bars, name}
+_YF_KLINE_CACHE: dict[str, dict[str, Any]] = {}
+_YF_KLINE_LOCK = threading.Lock()
+_YF_KLINE_TTL = 300  # 秒
+
 
 def _http_get_json(url: str, timeout: float = 12.0) -> dict[str, Any]:
     req = urllib.request.Request(
         url,
         headers={
-            "User-Agent": "Mozilla/5.0 (compatible; mootdx-kline/0.3)",
+            "User-Agent": "Mozilla/5.0 (compatible; mootdx-kline/0.4)",
             "Referer": "https://quote.eastmoney.com/",
         },
         method="GET",
@@ -66,12 +84,220 @@ def _to_symbol(code: str, mkt: int, market: str) -> str:
         return code.upper()
     if market == "hk":
         return code.zfill(5) if code.isdigit() else code
-    # A股 / 基金 / 指数：带交易所前缀，便于 normalizeSymbol
     if mkt == 1:
         return f"sh{code}"
     if mkt == 0:
         return f"sz{code}"
     return code
+
+
+def _yf_live_items(market: str) -> list[dict[str, Any]] | None:
+    """尝试从 yfinance Market.summary 拉实时列表；失败返回 None。"""
+    try:
+        import yfinance as yf
+    except ImportError:
+        return None
+    try:
+        summary = yf.Market(market).summary
+    except Exception:
+        return None
+    if not isinstance(summary, dict) or not summary:
+        return None
+
+    label = market_label(market)
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for _ex, row in summary.items():
+        if not isinstance(row, dict):
+            continue
+        sym = str(row.get("symbol") or "").strip()
+        if not sym or sym in seen:
+            continue
+        seen.add(sym)
+        en = str(row.get("shortName") or row.get("longName") or "")
+        items.append(
+            {
+                "symbol": f"yf:{sym}",
+                "code": sym,
+                "name": translate_name(sym, en),
+                "nameEn": en,
+                "market": f"yf:{market}",
+                "marketLabel": label,
+                "exchange": str(row.get("exchange") or _ex or "YF"),
+                "category": "yfinance",
+                "assetType": "yfinance",
+                "source": "yfinance-live",
+                "price": row.get("regularMarketPrice"),
+                "change": row.get("regularMarketChange"),
+                "changePercent": row.get("regularMarketChangePercent"),
+            }
+        )
+    return items or None
+
+
+def _yf_items_cached(market: str) -> tuple[list[dict[str, Any]], bool]:
+    """返回 (items, live)。优先缓存；过期则尝试 live，失败用本地中文目录。"""
+    market = (market or "").upper().strip()
+    now = time.time()
+    with _YF_LIST_LOCK:
+        hit = _YF_LIST_CACHE.get(market)
+        if hit and now - float(hit.get("ts") or 0) < _YF_LIST_TTL:
+            return list(hit["items"]), bool(hit.get("live"))
+
+    live = _yf_live_items(market)
+    if live:
+        # 合并本地目录里有、实时没有的标的，保证列表完整
+        catalog = catalog_items(market)
+        have = {x["code"] for x in live}
+        for c in catalog:
+            if c["code"] not in have:
+                live.append(c)
+        with _YF_LIST_LOCK:
+            _YF_LIST_CACHE[market] = {"ts": now, "items": live, "live": True}
+        return live, True
+
+    fallback = catalog_items(market)
+    with _YF_LIST_LOCK:
+        _YF_LIST_CACHE[market] = {"ts": now, "items": fallback, "live": False}
+    return fallback, False
+
+
+def _yf_period_map(period: str) -> tuple[str, str]:
+    """前端 period → (yahoo interval, yahoo range)。"""
+    if period in ("1m", "5m", "15m", "1h"):
+        interval = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "60m"}[period]
+        hist_range = "5d" if period == "1m" else "60d"
+    elif period == "1w":
+        interval = "1wk"
+        hist_range = "5y"
+    else:
+        interval = "1d"
+        hist_range = "2y"
+    return interval, hist_range
+
+
+def _yf_chart_api_bars(symbol: str, period: str = "1d") -> list[dict[str, Any]]:
+    """直连 Yahoo chart API（绕过 yfinance 客户端限流）。"""
+    interval, hist_range = _yf_period_map(period)
+    qs = urllib.parse.urlencode(
+        {
+            "interval": interval,
+            "range": hist_range,
+            "includePrePost": "false",
+            "events": "div,splits",
+        }
+    )
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(symbol, safe='')}?{qs}"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+    result = (((payload or {}).get("chart") or {}).get("result") or [None])[0]
+    if not result:
+        return []
+    ts_list = result.get("timestamp") or []
+    quote = (((result.get("indicators") or {}).get("quote") or [None])[0]) or {}
+    opens = quote.get("open") or []
+    highs = quote.get("high") or []
+    lows = quote.get("low") or []
+    closes = quote.get("close") or []
+    volumes = quote.get("volume") or []
+    bars: list[dict[str, Any]] = []
+    for i, ts in enumerate(ts_list):
+        try:
+            c = closes[i]
+            if c is None:
+                continue
+            bars.append(
+                {
+                    "timestamp": int(ts) * 1000,
+                    "open": float(opens[i] if opens[i] is not None else c),
+                    "high": float(highs[i] if highs[i] is not None else c),
+                    "low": float(lows[i] if lows[i] is not None else c),
+                    "close": float(c),
+                    "volume": float(volumes[i] or 0) if i < len(volumes) else 0.0,
+                }
+            )
+        except Exception:
+            continue
+    if len(bars) > 500:
+        bars = bars[-500:]
+    return bars
+
+
+def _yf_history_bars(symbol: str, period: str = "1d") -> list[dict[str, Any]]:
+    """优先 Yahoo chart API；失败再回退 yfinance。"""
+    try:
+        bars = _yf_chart_api_bars(symbol, period=period)
+        if bars:
+            return bars
+    except Exception:
+        pass
+
+    import yfinance as yf
+
+    interval, hist_range = _yf_period_map(period)
+    last_err: Exception | None = None
+    df = None
+    for attempt in range(3):
+        try:
+            t = yf.Ticker(symbol)
+            df = t.history(period=hist_range, interval=interval, auto_adjust=True)
+            last_err = None
+            break
+        except Exception as e:
+            last_err = e
+            msg = str(e).lower()
+            if "rate" in msg or "too many" in msg or "429" in msg:
+                time.sleep(1.2 * (attempt + 1))
+                continue
+            raise
+    if last_err is not None:
+        raise last_err
+    if df is None or getattr(df, "empty", True):
+        return []
+
+    bars: list[dict[str, Any]] = []
+    for idx, row in df.iterrows():
+        try:
+            ts = int(idx.timestamp() * 1000)
+        except Exception:
+            continue
+        try:
+            bars.append(
+                {
+                    "timestamp": ts,
+                    "open": float(row["Open"]),
+                    "high": float(row["High"]),
+                    "low": float(row["Low"]),
+                    "close": float(row["Close"]),
+                    "volume": float(row.get("Volume") or 0),
+                }
+            )
+        except Exception:
+            continue
+    if len(bars) > 500:
+        bars = bars[-500:]
+    return bars
+
+
+def _yf_kline_cached(symbol: str, period: str) -> list[dict[str, Any]]:
+    key = f"{symbol}|{period}"
+    now = time.time()
+    with _YF_KLINE_LOCK:
+        hit = _YF_KLINE_CACHE.get(key)
+        if hit and now - float(hit.get("ts") or 0) < _YF_KLINE_TTL:
+            return list(hit["bars"])
+    bars = _yf_history_bars(symbol, period=period)
+    with _YF_KLINE_LOCK:
+        _YF_KLINE_CACHE[key] = {"ts": now, "bars": bars}
+    return bars
 
 
 @app.get("/")
@@ -98,7 +324,7 @@ def symbol_list(
         "np": "1",
         "fltt": "2",
         "invt": "2",
-        "fid": "f6",  # 成交额/量，热门股靠前
+        "fid": "f6",
         "fs": fs,
         "fields": "f12,f13,f14",
     }
@@ -139,6 +365,76 @@ def symbol_list(
             "size": size,
             "total": total,
             "items": items,
+        }
+    )
+
+
+@app.get("/api/yf/markets")
+def yf_markets() -> JSONResponse:
+    return JSONResponse({"ok": True, "markets": YF_MARKETS})
+
+
+@app.get("/api/yf/symbols")
+def yf_symbols(
+    market: str = Query("COMMODITIES", description="US|GB|ASIA|EUROPE|RATES|COMMODITIES|CURRENCIES|CRYPTOCURRENCIES"),
+    q: str = Query("", description="代码/中英文名过滤"),
+) -> JSONResponse:
+    market = (market or "COMMODITIES").upper().strip()
+    valid = {m["code"] for m in YF_MARKETS}
+    if market not in valid:
+        return JSONResponse(
+            {"ok": False, "error": f"unsupported yf market: {market}", "valid": sorted(valid)},
+            status_code=400,
+        )
+    items, live = _yf_items_cached(market)
+    qn = q.strip().lower()
+    if qn:
+        items = [
+            x
+            for x in items
+            if qn in str(x.get("code", "")).lower()
+            or qn in str(x.get("name", "")).lower()
+            or qn in str(x.get("nameEn", "")).lower()
+        ]
+    return JSONResponse(
+        {
+            "ok": True,
+            "market": market,
+            "marketLabel": market_label(market),
+            "live": live,
+            "total": len(items),
+            "items": items,
+        }
+    )
+
+
+@app.get("/api/yf/kline")
+def yf_kline(
+    symbol: str = Query(..., description="Yahoo 代码，如 GC=F / BTC-USD / ^GSPC"),
+    period: str = Query("1d", description="1m|5m|15m|1h|1d|1w"),
+) -> JSONResponse:
+    symbol = (symbol or "").strip()
+    if symbol.lower().startswith("yf:"):
+        symbol = symbol[3:]
+    if not symbol:
+        return JSONResponse({"ok": False, "error": "empty symbol"}, status_code=400)
+    try:
+        bars = _yf_kline_cached(symbol, period=period)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+    if not bars:
+        return JSONResponse(
+            {"ok": False, "error": f"yfinance 无 K 线: {symbol}"},
+            status_code=404,
+        )
+    return JSONResponse(
+        {
+            "ok": True,
+            "symbol": symbol,
+            "name": translate_name(symbol),
+            "period": period,
+            "bars": bars,
+            "count": len(bars),
         }
     )
 

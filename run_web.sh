@@ -24,8 +24,13 @@ else
   echo "未找到虚拟环境，使用系统 Python 启动（需已安装 fastapi uvicorn）"
 fi
 
-python - <<'PY' >/dev/null 2>&1 || pip install -q fastapi uvicorn
+python - <<'PY' >/dev/null 2>&1 || pip install -q fastapi uvicorn yfinance
 import fastapi, uvicorn
+try:
+    import yfinance  # noqa: F401
+except ImportError:
+    import subprocess, sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "yfinance"])
 PY
 
 export PYTHONPATH="${ROOT}/web:${PYTHONPATH:-}"
