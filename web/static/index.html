@@ -20,6 +20,8 @@
       --btn-hover: #c5ced8;
       --btn-active-bg: #e8f1ff;
       --status-bg: rgba(255, 255, 255, 0.92);
+      --modal-bg: #ffffff;
+      --modal-mask: rgba(15, 23, 42, 0.35);
       --up: #e53935;
       --down: #00897b;
       --accent: #2f6fed;
@@ -40,6 +42,8 @@
       --btn-hover: #3a4a5c;
       --btn-active-bg: #1a2a40;
       --status-bg: rgba(15, 20, 25, 0.85);
+      --modal-bg: #1b2330;
+      --modal-mask: rgba(0, 0, 0, 0.55);
       --up: #ef5350;
       --down: #26a69a;
       --accent: #3d8bfd;
@@ -82,16 +86,8 @@
       gap: 8px;
       line-height: 1.2;
     }
-    .stock-name {
-      font-size: 18px;
-      font-weight: 650;
-      letter-spacing: 0.02em;
-    }
-    .stock-code {
-      font-family: var(--mono);
-      font-size: 13px;
-      color: var(--muted);
-    }
+    .stock-name { font-size: 18px; font-weight: 650; letter-spacing: 0.02em; }
+    .stock-code { font-family: var(--mono); font-size: 13px; color: var(--muted); }
     .stock-quote {
       font-family: var(--mono);
       display: flex;
@@ -110,8 +106,8 @@
       flex: 1;
     }
 
-    input[type="text"] {
-      width: 140px;
+    input[type="text"],
+    input[type="number"] {
       padding: 8px 10px;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -120,6 +116,7 @@
       font-family: var(--mono);
       font-size: 14px;
     }
+    #symbol { width: 140px; }
 
     button {
       border: 1px solid var(--line);
@@ -165,7 +162,89 @@
       border-radius: 6px;
       border: 1px solid var(--line);
       pointer-events: none;
+      z-index: 20;
     }
+
+    /* Modal */
+    .modal-mask {
+      position: fixed;
+      inset: 0;
+      background: var(--modal-mask);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-mask.show { display: flex; }
+    .modal {
+      width: min(420px, calc(100vw - 32px));
+      max-height: min(70vh, 560px);
+      background: var(--modal-bg);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-wide { width: min(480px, calc(100vw - 32px)); }
+    .modal-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 650;
+      font-size: 16px;
+    }
+    .modal-hd .x {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 8px;
+    }
+    .modal-bd {
+      padding: 12px 16px 16px;
+      overflow: auto;
+    }
+    .modal-ft {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .ma-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 10px 0;
+    }
+    .ma-row label { color: var(--muted); min-width: 48px; }
+    .ma-row input { width: 160px; text-align: right; }
+
+    .ind-section { margin-bottom: 14px; }
+    .ind-section h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .ind-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 4px;
+      cursor: pointer;
+      border-radius: 6px;
+      user-select: none;
+    }
+    .ind-item:hover { background: var(--btn-active-bg); }
+    .ind-item input { width: 16px; height: 16px; accent-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -192,6 +271,7 @@
           <button data-period="1d" class="active">日线</button>
           <button data-period="1w">周线</button>
         </div>
+        <button type="button" id="btnIndicator">指标</button>
         <div class="themes" id="themes" title="颜色主题">
           <button type="button" data-theme="light" class="active">亮色</button>
           <button type="button" data-theme="dark">暗色</button>
@@ -201,6 +281,31 @@
     <div id="chart"></div>
   </div>
   <div class="status" id="status">初始化…</div>
+
+  <!-- MA 自定义弹框 -->
+  <div class="modal-mask" id="maModal">
+    <div class="modal">
+      <div class="modal-hd">
+        <span>MA</span>
+        <button type="button" class="x" data-close="maModal">×</button>
+      </div>
+      <div class="modal-bd" id="maModalBody"></div>
+      <div class="modal-ft">
+        <button type="button" class="primary" id="maConfirm">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 指标选择弹框 -->
+  <div class="modal-mask" id="indModal">
+    <div class="modal modal-wide">
+      <div class="modal-hd">
+        <span>指标</span>
+        <button type="button" class="x" data-close="indModal">×</button>
+      </div>
+      <div class="modal-bd" id="indModalBody"></div>
+    </div>
+  </div>
 
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
@@ -216,29 +321,125 @@
       "1d": { type: "day", span: 1 },
       "1w": { type: "week", span: 1 },
     };
+    const MINUTE_PERIOD = { "1m": "1", "5m": "5", "15m": "15", "1h": "60" };
+    const HISTORY_PERIOD = { "1d": "daily", "1w": "weekly" };
 
-    const MINUTE_PERIOD = {
-      "1m": "1",
-      "5m": "5",
-      "15m": "15",
-      "1h": "60",
-    };
+    const MAIN_INDS = [
+      { name: "MA", label: "MA(移动平均线)" },
+      { name: "EMA", label: "EMA(指数平滑移动平均线)" },
+      { name: "SMA", label: "SMA" },
+      { name: "BOLL", label: "BOLL(布林线)" },
+      { name: "SAR", label: "SAR(停损点转向指标)" },
+      { name: "BBI", label: "BBI(多空指数)" },
+    ];
+    const SUB_INDS = [
+      { name: "MA", label: "MA(移动平均线)" },
+      { name: "EMA", label: "EMA(指数平滑移动平均线)" },
+      { name: "VOL", label: "VOL(成交量)" },
+      { name: "MACD", label: "MACD" },
+      { name: "BOLL", label: "BOLL(布林线)" },
+      { name: "KDJ", label: "KDJ" },
+      { name: "RSI", label: "RSI" },
+      { name: "BIAS", label: "BIAS" },
+      { name: "CCI", label: "CCI" },
+      { name: "DMI", label: "DMI" },
+      { name: "WR", label: "WR" },
+      { name: "OBV", label: "OBV" },
+      { name: "SAR", label: "SAR" },
+      { name: "BBI", label: "BBI" },
+    ];
 
-    const HISTORY_PERIOD = {
-      "1d": "daily",
-      "1w": "weekly",
-    };
-
+    // 默认均线 MA5 / MA20 / MA120（参考需求）
+    const DEFAULT_MA = [5, 20, 120];
     const THEME_KEY = "kline-theme";
+    const MA_KEY = "kline-ma-params";
+
     let currentPeriod = "1d";
     let currentTheme = localStorage.getItem(THEME_KEY) || "light";
     if (currentTheme !== "light" && currentTheme !== "dark") currentTheme = "light";
+    let maParams = loadMaParams();
     let chart = null;
     let pollTimer = null;
     let currentSymbol = "600036";
+    let mainIndicators = ["MA"];
+    let subIndicators = {}; // name -> paneId
+    let settingTarget = null; // { name, paneId }
+
+    function loadMaParams() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(MA_KEY) || "null");
+        if (Array.isArray(raw) && raw.some((n) => Number(n) > 0)) {
+          return raw.map((n) => (n === "" || n == null ? "" : Number(n)));
+        }
+      } catch (_) {}
+      return [...DEFAULT_MA, "", ""];
+    }
+
+    function activeMaParams(params = maParams) {
+      return params.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    }
 
     function setStatus(text) {
       document.getElementById("status").textContent = text;
+    }
+
+    function featureColor() {
+      return currentTheme === "dark" ? "#929AA5" : "#76808F";
+    }
+
+    // 可见 / 隐藏 / 设置 / 关闭 — 参考 KLineChart Pro tooltip features
+    function buildFeatures(visible) {
+      const color = featureColor();
+      const base = {
+        position: "middle",
+        marginLeft: 6,
+        marginTop: 4,
+        marginRight: 0,
+        marginBottom: 0,
+        paddingLeft: 0,
+        paddingTop: 0,
+        paddingRight: 0,
+        paddingBottom: 0,
+        size: 14,
+        color,
+        activeColor: color,
+        backgroundColor: "transparent",
+        activeBackgroundColor: "rgba(47, 111, 237, 0.15)",
+        borderRadius: 2,
+        type: "icon_font",
+      };
+      return [
+        {
+          ...base,
+          id: visible ? "invisible" : "visible",
+          content: { family: "sans-serif", code: visible ? "⊘" : "◉" },
+        },
+        {
+          ...base,
+          id: "setting",
+          content: { family: "sans-serif", code: "⚙" },
+        },
+        {
+          ...base,
+          id: "close",
+          content: { family: "sans-serif", code: "✕" },
+        },
+      ];
+    }
+
+    function tooltipSource({ indicator }) {
+      return { features: buildFeatures(!!indicator.visible) };
+    }
+
+    function chartStyles() {
+      return {
+        candle: {
+          tooltip: {
+            // 图上不显示股票代码标题
+            title: { show: false },
+          },
+        },
+      };
     }
 
     function applyPageTheme(theme) {
@@ -252,12 +453,26 @@
       currentTheme = theme;
       localStorage.setItem(THEME_KEY, theme);
       applyPageTheme(theme);
-      if (chart) chart.setStyles(theme);
+      if (!chart) return;
+      chart.setStyles(theme);
+      chart.setStyles(chartStyles());
+      // 刷新 feature 颜色
+      refreshAllIndicatorFeatures();
+    }
+
+    function refreshAllIndicatorFeatures() {
+      if (!chart) return;
+      const list = chart.getIndicators() || [];
+      list.forEach((ind) => {
+        chart.overrideIndicator({
+          id: ind.id,
+          createTooltipDataSource: tooltipSource,
+        });
+      });
     }
 
     function resolveMarket(input) {
-      const info = normalizeSymbol(input);
-      return info.market; // CN | HK | US
+      return normalizeSymbol(input).market;
     }
 
     function toBars(rows) {
@@ -291,7 +506,7 @@
       if (market === "US") list = await sdk.quotes.us([symbol]);
       else if (market === "HK") list = await sdk.quotes.hk([symbol]);
       else list = await sdk.quotes.cnSimple([symbol]);
-      if (!list || !list.length) throw new Error("行情为空");
+      if (!list?.length) throw new Error("行情为空");
       return { market, quote: list[0] };
     }
 
@@ -310,10 +525,7 @@
         else if (market === "HK") rows = await sdk.kline.hk(symbol, { period: p, adjust: "qfq" });
         else rows = await sdk.kline.cn(symbol, { period: p, adjust: "qfq" });
       }
-      // 日/周线数据很长时，图表只取最近一段更流畅
-      if (!isMinute && Array.isArray(rows) && rows.length > 500) {
-        rows = rows.slice(-500);
-      }
+      if (!isMinute && Array.isArray(rows) && rows.length > 500) rows = rows.slice(-500);
       return { market, bars: toBars(rows) };
     }
 
@@ -332,8 +544,37 @@
       document.title = `${q.name || code} ${Number(q.price).toFixed(2)} · K线`;
     }
 
+    function createInd(name, isStack, paneId) {
+      const params = activeMaParams();
+      const opts = {
+        name,
+        createTooltipDataSource: tooltipSource,
+      };
+      if (paneId) opts.paneId = paneId;
+      // 主图 MA / 副图 VOL / 副图 MA：统一均线周期
+      if (name === "MA" || name === "VOL" || name === "EMA") {
+        opts.calcParams = [...params];
+      }
+      return chart.createIndicator(opts, isStack);
+    }
+
+    function syncMaToAllPanels() {
+      if (!chart) return;
+      const params = activeMaParams();
+      const list = chart.getIndicators() || [];
+      list.forEach((ind) => {
+        if (ind.name === "MA" || ind.name === "VOL" || ind.name === "EMA") {
+          chart.overrideIndicator({
+            id: ind.id,
+            calcParams: [...params],
+          });
+        }
+      });
+    }
+
     function ensureChart(market) {
-      const tz = market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
+      const tz =
+        market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
       if (chart) {
         chart.setTimezone(tz);
         return chart;
@@ -343,10 +584,150 @@
         timezone: tz,
         styles: currentTheme,
       });
-      chart.createIndicator("MA", true);
-      chart.createIndicator("VOL");
-      chart.createIndicator("MACD");
+      chart.setStyles(chartStyles());
+
+      // 默认主图 MA + 副图 VOL / MACD
+      mainIndicators = ["MA"];
+      subIndicators = {};
+      createInd("MA", true, "candle_pane");
+      const volPane = createInd("VOL", false);
+      if (volPane) subIndicators.VOL = volPane;
+      const macdPane = createInd("MACD", false);
+      if (macdPane) subIndicators.MACD = macdPane;
+
+      chart.subscribeAction("onIndicatorTooltipFeatureClick", (data) => {
+        const featureId = data?.feature?.id;
+        const ind = data?.indicator;
+        const paneId = data?.paneId;
+        if (!featureId || !ind) return;
+        if (featureId === "visible") {
+          chart.overrideIndicator({ id: ind.id, visible: true, createTooltipDataSource: tooltipSource });
+        } else if (featureId === "invisible") {
+          chart.overrideIndicator({ id: ind.id, visible: false, createTooltipDataSource: tooltipSource });
+        } else if (featureId === "setting") {
+          if (["MA", "VOL", "EMA"].includes(ind.name)) {
+            openMaSetting(ind.name, paneId, ind.calcParams || activeMaParams());
+          } else {
+            setStatus(`${ind.name} 暂不支持参数自定义（可自定义 MA / VOL / EMA 均线）`);
+          }
+        } else if (featureId === "close") {
+          closeIndicator(ind.name, paneId);
+        }
+      });
+
       return chart;
+    }
+
+    function closeIndicator(name, paneId) {
+      if (!chart) return;
+      if (paneId === "candle_pane") {
+        chart.removeIndicator({ paneId: "candle_pane", name });
+        mainIndicators = mainIndicators.filter((n) => n !== name);
+      } else {
+        chart.removeIndicator({ paneId, name });
+        delete subIndicators[name];
+      }
+    }
+
+    function openMaSetting(name, paneId, calcParams) {
+      // 仅对 MA / VOL / EMA 打开均线自定义（与图2一致）；其它指标暂复用均线编辑
+      settingTarget = { name, paneId };
+      const vals = Array.isArray(calcParams) ? [...calcParams] : activeMaParams();
+      while (vals.length < 5) vals.push("");
+      const body = document.getElementById("maModalBody");
+      body.innerHTML = "";
+      for (let i = 0; i < 5; i++) {
+        const row = document.createElement("div");
+        row.className = "ma-row";
+        row.innerHTML = `
+          <label>MA${i + 1}</label>
+          <input type="number" min="1" step="1" data-idx="${i}" value="${vals[i] ?? ""}" />
+        `;
+        body.appendChild(row);
+      }
+      document.getElementById("maModal").classList.add("show");
+    }
+
+    function confirmMaSetting() {
+      const inputs = [...document.querySelectorAll("#maModalBody input")];
+      const next = inputs.map((el) => {
+        const v = el.value.trim();
+        if (v === "") return "";
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? Math.floor(n) : "";
+      });
+      maParams = next;
+      localStorage.setItem(MA_KEY, JSON.stringify(maParams));
+      // 同步所有相关面板均线
+      syncMaToAllPanels();
+      document.getElementById("maModal").classList.remove("show");
+      settingTarget = null;
+    }
+
+    function openIndicatorModal() {
+      const body = document.getElementById("indModalBody");
+      body.innerHTML = "";
+
+      const mainSec = document.createElement("div");
+      mainSec.className = "ind-section";
+      mainSec.innerHTML = "<h4>主图指标</h4>";
+      MAIN_INDS.forEach((item) => {
+        const checked = mainIndicators.includes(item.name);
+        const row = document.createElement("label");
+        row.className = "ind-item";
+        row.innerHTML = `<input type="checkbox" data-kind="main" data-name="${item.name}" ${checked ? "checked" : ""}/><span>${item.label}</span>`;
+        mainSec.appendChild(row);
+      });
+      body.appendChild(mainSec);
+
+      const subSec = document.createElement("div");
+      subSec.className = "ind-section";
+      subSec.innerHTML = "<h4>副图指标</h4>";
+      SUB_INDS.forEach((item) => {
+        const checked = item.name in subIndicators;
+        const row = document.createElement("label");
+        row.className = "ind-item";
+        row.innerHTML = `<input type="checkbox" data-kind="sub" data-name="${item.name}" ${checked ? "checked" : ""}/><span>${item.label}</span>`;
+        subSec.appendChild(row);
+      });
+      body.appendChild(subSec);
+
+      body.querySelectorAll("input[type=checkbox]").forEach((input) => {
+        input.addEventListener("change", () => {
+          const name = input.dataset.name;
+          const kind = input.dataset.kind;
+          if (kind === "main") toggleMain(name, input.checked);
+          else toggleSub(name, input.checked);
+        });
+      });
+
+      document.getElementById("indModal").classList.add("show");
+    }
+
+    function toggleMain(name, added) {
+      if (!chart) return;
+      if (added) {
+        if (!mainIndicators.includes(name)) {
+          createInd(name, true, "candle_pane");
+          mainIndicators.push(name);
+        }
+      } else {
+        chart.removeIndicator({ paneId: "candle_pane", name });
+        mainIndicators = mainIndicators.filter((n) => n !== name);
+      }
+    }
+
+    function toggleSub(name, added) {
+      if (!chart) return;
+      if (added) {
+        if (!(name in subIndicators)) {
+          const paneId = createInd(name, false);
+          if (paneId) subIndicators[name] = paneId;
+        }
+      } else if (subIndicators[name]) {
+        chart.removeIndicator({ paneId: subIndicators[name], name });
+        delete subIndicators[name];
+      }
     }
 
     function bindDataLoader(symbol) {
@@ -355,6 +736,7 @@
         market = resolveMarket(symbol);
       } catch (_) {}
       const c = ensureChart(market);
+      // ticker 仍用于内部，但图上标题已关闭，不显示代码
       c.setSymbol({ ticker: symbol, pricePrecision: 2, volumePrecision: 0 });
       c.setPeriod(PERIOD_MAP[currentPeriod]);
       c.setDataLoader({
@@ -405,6 +787,7 @@
       pollTimer = setInterval(() => refreshQuote(currentSymbol), 15000);
     }
 
+    // events
     document.getElementById("btnLoad").addEventListener("click", load);
     document.getElementById("symbol").addEventListener("keydown", (e) => {
       if (e.key === "Enter") load();
@@ -420,6 +803,18 @@
       const btn = e.target.closest("button[data-theme]");
       if (!btn) return;
       setTheme(btn.dataset.theme);
+    });
+    document.getElementById("btnIndicator").addEventListener("click", openIndicatorModal);
+    document.getElementById("maConfirm").addEventListener("click", confirmMaSetting);
+    document.querySelectorAll("[data-close]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.getElementById(btn.dataset.close).classList.remove("show");
+      });
+    });
+    document.querySelectorAll(".modal-mask").forEach((mask) => {
+      mask.addEventListener("click", (e) => {
+        if (e.target === mask) mask.classList.remove("show");
+      });
     });
 
     applyPageTheme(currentTheme);
