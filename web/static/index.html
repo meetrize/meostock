@@ -1508,14 +1508,29 @@
     }
 
     async function fetchYfChartBars(yfSymbol, period) {
+      // CNH=X / USDCNH=X 在 Yahoo 上通常只有实时点（1 根），自动改走在岸 USDCNY=X
+      let sym = yfSymbol;
+      if (/^(CNH|USDCNH)=X$/i.test(sym)) sym = "USDCNY=X";
       const res = await fetch(
-        `/api/yf/kline?symbol=${encodeURIComponent(yfSymbol)}&period=${encodeURIComponent(period || "1d")}`
+        `/api/yf/kline?symbol=${encodeURIComponent(sym)}&period=${encodeURIComponent(period || "1d")}`
       );
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "yfinance K线失败");
-      const bars = data.bars || [];
+      let bars = data.bars || [];
+      // 仍只有极少 K 线时，人民币相关再回退一次
+      if (bars.length < 5 && /CNY|CNH/i.test(String(yfSymbol))) {
+        const fb = await fetch(
+          `/api/yf/kline?symbol=${encodeURIComponent("USDCNY=X")}&period=${encodeURIComponent(period || "1d")}`
+        );
+        const fd = await fb.json();
+        if (fd.ok && (fd.bars || []).length > bars.length) {
+          bars = fd.bars;
+          sym = "USDCNY=X";
+          data.name = fd.name || "美元/人民币";
+        }
+      }
       if (!bars.length) throw new Error(`yfinance 无 K 线: ${yfSymbol}`);
-      return { bars, name: data.name || yfSymbol, symbol: yfSymbol };
+      return { bars, name: data.name || sym, symbol: sym };
     }
 
     function toBars(rows) {

@@ -101,9 +101,9 @@ YF_NAME_ZH: dict[str, str] = {
     "EURCAD=X": "欧元/加元",
     "EURCHF=X": "欧元/瑞郎",
     "EURSEK=X": "欧元/瑞典克朗",
+    # 注：Yahoo 对 CNH=X / USDCNH=X 几乎只有实时点、无日 K 历史，列表不展示
     "USDCNY=X": "美元/人民币",
     "CNY=X": "美元/人民币",
-    "CNH=X": "美元/离岸人民币",
     "HKD=X": "美元/港币",
     "SGD=X": "美元/新加坡元",
     "INR=X": "美元/印度卢比",
@@ -229,7 +229,6 @@ YF_CATALOG: dict[str, list[dict[str, str]]] = {
     "CURRENCIES": [
         {"symbol": "USDCNY=X", "exchange": "CCY"},
         {"symbol": "CNY=X", "exchange": "CCY"},
-        {"symbol": "CNH=X", "exchange": "CCY"},
         {"symbol": "EURUSD=X", "exchange": "CCY"},
         {"symbol": "JPY=X", "exchange": "CCY"},
         {"symbol": "GBPUSD=X", "exchange": "CCY"},

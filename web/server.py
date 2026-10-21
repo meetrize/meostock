@@ -138,11 +138,13 @@ def _yf_live_items(market: str) -> list[dict[str, Any]] | None:
     return items or None
 
 
-def _yf_items_cached(market: str) -> tuple[list[dict[str, Any]], bool]:
+def _yf_items_cached(market: str, *, force: bool = False) -> tuple[list[dict[str, Any]], bool]:
     """返回 (items, live)。优先缓存；过期则尝试 live，失败用本地中文目录。"""
     market = (market or "").upper().strip()
     now = time.time()
     with _YF_LIST_LOCK:
+        if force:
+            _YF_LIST_CACHE.pop(market, None)
         hit = _YF_LIST_CACHE.get(market)
         if hit and now - float(hit.get("ts") or 0) < _YF_LIST_TTL:
             return list(hit["items"]), bool(hit.get("live"))
@@ -290,10 +292,12 @@ def _yf_history_bars(symbol: str, period: str = "1d") -> list[dict[str, Any]]:
     return bars
 
 
-def _yf_kline_cached(symbol: str, period: str) -> list[dict[str, Any]]:
+def _yf_kline_cached(symbol: str, period: str, *, force: bool = False) -> list[dict[str, Any]]:
     key = f"{symbol}|{period}"
     now = time.time()
     with _YF_KLINE_LOCK:
+        if force:
+            _YF_KLINE_CACHE.pop(key, None)
         hit = _YF_KLINE_CACHE.get(key)
         if hit and now - float(hit.get("ts") or 0) < _YF_KLINE_TTL:
             return list(hit["bars"])
@@ -482,6 +486,7 @@ def yf_markets() -> JSONResponse:
 def yf_symbols(
     market: str = Query("COMMODITIES", description="US|GB|ASIA|EUROPE|RATES|COMMODITIES|CURRENCIES|CRYPTOCURRENCIES"),
     q: str = Query("", description="代码/中英文名过滤"),
+    refresh: int = Query(0, description="1=跳过列表缓存"),
 ) -> JSONResponse:
     market = (market or "COMMODITIES").upper().strip()
     valid = {m["code"] for m in YF_MARKETS}
@@ -490,7 +495,7 @@ def yf_symbols(
             {"ok": False, "error": f"unsupported yf market: {market}", "valid": sorted(valid)},
             status_code=400,
         )
-    items, live = _yf_items_cached(market)
+    items, live = _yf_items_cached(market, force=bool(refresh))
     qn = q.strip().lower()
     if qn:
         items = [
@@ -512,10 +517,10 @@ def yf_symbols(
     )
 
 
-def _yf_quote_from_bars(symbol: str) -> dict[str, Any] | None:
+def _yf_quote_from_bars(symbol: str, *, force: bool = False) -> dict[str, Any] | None:
     """用日 K 最近两根推算列表行情字段（现价/涨跌/量/开高低/昨收）。"""
     try:
-        bars = _yf_kline_cached(symbol, period="1d")
+        bars = _yf_kline_cached(symbol, period="1d", force=force)
     except Exception:
         return None
     if not bars:
@@ -570,6 +575,7 @@ def _yf_quote_from_bars(symbol: str) -> dict[str, Any] | None:
 @app.get("/api/yf/quotes")
 def yf_quotes(
     symbols: str = Query(..., description="逗号分隔 Yahoo 代码，如 BTC-USD,GC=F,^GSPC"),
+    refresh: int = Query(0, description="1=跳过日 K 缓存"),
 ) -> JSONResponse:
     """批量补齐 yfinance 列表行情（基于日 K，带缓存）。"""
     parts = [p.strip() for p in (symbols or "").split(",") if p.strip()]
@@ -584,9 +590,14 @@ def yf_quotes(
         return JSONResponse({"ok": True, "quotes": []})
     # 限制单次数量，避免打爆 Yahoo
     cleaned = cleaned[:60]
+    force = bool(refresh)
+
+    def _one(sym: str) -> dict[str, Any] | None:
+        return _yf_quote_from_bars(sym, force=force)
+
     quotes: list[dict[str, Any]] = []
     with ThreadPoolExecutor(max_workers=6) as pool:
-        futs = {pool.submit(_yf_quote_from_bars, sym): sym for sym in cleaned}
+        futs = {pool.submit(_one, sym): sym for sym in cleaned}
         for fut in as_completed(futs):
             row = fut.result()
             if row:
