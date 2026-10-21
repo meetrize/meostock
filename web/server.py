@@ -8,6 +8,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -509,6 +510,91 @@ def yf_symbols(
             "items": items,
         }
     )
+
+
+def _yf_quote_from_bars(symbol: str) -> dict[str, Any] | None:
+    """用日 K 最近两根推算列表行情字段（现价/涨跌/量/开高低/昨收）。"""
+    try:
+        bars = _yf_kline_cached(symbol, period="1d")
+    except Exception:
+        return None
+    if not bars:
+        return None
+    last = bars[-1]
+    prev = bars[-2] if len(bars) > 1 else None
+    price = float(last.get("close") or 0)
+    prev_close = float(prev["close"]) if prev and prev.get("close") is not None else None
+    change = (price - prev_close) if prev_close is not None else None
+    change_pct = (change / prev_close * 100.0) if change is not None and prev_close else None
+    open_ = last.get("open")
+    high = last.get("high")
+    low = last.get("low")
+    volume = last.get("volume")
+    amount = None
+    try:
+        if volume is not None and price:
+            # Yahoo 成交额单位不一，这里用 现价×量 作近似（万为单位不强制）
+            amount = float(volume) * float(price) / 10000.0
+    except Exception:
+        amount = None
+    amp = None
+    try:
+        if prev_close and high is not None and low is not None:
+            amp = (float(high) - float(low)) / float(prev_close) * 100.0
+    except Exception:
+        amp = None
+    return {
+        "symbol": symbol,
+        "code": symbol,
+        "name": translate_name(symbol),
+        "price": price,
+        "change": change,
+        "changePercent": change_pct,
+        "open": float(open_) if open_ is not None else None,
+        "prevClose": prev_close,
+        "high": float(high) if high is not None else None,
+        "low": float(low) if low is not None else None,
+        "volume": float(volume) if volume is not None else None,
+        "amount": amount,
+        "amplitude": amp,
+        # 指数/期货/外汇通常无统一 PE/PB/市值
+        "pe": None,
+        "pb": None,
+        "totalMarketCap": None,
+        "circulatingMarketCap": None,
+        "turnoverRate": None,
+        "volumeRatio": None,
+    }
+
+
+@app.get("/api/yf/quotes")
+def yf_quotes(
+    symbols: str = Query(..., description="逗号分隔 Yahoo 代码，如 BTC-USD,GC=F,^GSPC"),
+) -> JSONResponse:
+    """批量补齐 yfinance 列表行情（基于日 K，带缓存）。"""
+    parts = [p.strip() for p in (symbols or "").split(",") if p.strip()]
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for p in parts:
+        s = p[3:] if p.lower().startswith("yf:") else p
+        if s and s not in seen:
+            seen.add(s)
+            cleaned.append(s)
+    if not cleaned:
+        return JSONResponse({"ok": True, "quotes": []})
+    # 限制单次数量，避免打爆 Yahoo
+    cleaned = cleaned[:60]
+    quotes: list[dict[str, Any]] = []
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        futs = {pool.submit(_yf_quote_from_bars, sym): sym for sym in cleaned}
+        for fut in as_completed(futs):
+            row = fut.result()
+            if row:
+                quotes.append(row)
+    # 保持请求顺序
+    by_code = {q["code"]: q for q in quotes}
+    ordered = [by_code[c] for c in cleaned if c in by_code]
+    return JSONResponse({"ok": True, "quotes": ordered, "total": len(ordered)})
 
 
 @app.get("/api/yf/kline")
