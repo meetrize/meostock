@@ -355,6 +355,59 @@ def dashboard_spa(full_path: str) -> Response:
     return FileResponse(DASHBOARD_DIR / "index.html")
 
 
+def _to_eastmoney_secid(code: str) -> str | None:
+    raw = (code or "").strip().lower()
+    if not raw:
+        return None
+    market = ""
+    symbol = raw
+    if raw.startswith(("sh", "sz", "bj")):
+        market = raw[:2]
+        symbol = raw[2:]
+    symbol = "".join(ch for ch in symbol if ch.isdigit())
+    if not symbol:
+        return None
+    if market == "sh" or symbol.startswith(("6", "9")):
+        return f"1.{symbol}"
+    return f"0.{symbol}"
+
+
+@app.get("/api/stock-industries")
+def stock_industries(
+    codes: str = Query(..., description="逗号分隔股票代码，如 300296,600036"),
+) -> JSONResponse:
+    """批量查询所属行业（东财 f100）。"""
+    parts = [p.strip() for p in (codes or "").split(",") if p.strip()]
+    secids = []
+    seen: set[str] = set()
+    for p in parts:
+        sid = _to_eastmoney_secid(p)
+        if sid and sid not in seen:
+            seen.add(sid)
+            secids.append(sid)
+    if not secids:
+        return JSONResponse({"ok": True, "industries": {}})
+
+    params = {
+        "fltt": "2",
+        "fields": "f12,f100",
+        "secids": ",".join(secids),
+    }
+    url = f"https://push2.eastmoney.com/api/qt/ulist.np/get?{urllib.parse.urlencode(params)}"
+    try:
+        data = _http_get_json(url)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+    industries: dict[str, str] = {}
+    for row in (((data or {}).get("data") or {}).get("diff")) or []:
+        code = str(row.get("f12") or "").strip()
+        industry = str(row.get("f100") or "").strip()
+        if code and industry:
+            industries[code] = industry
+    return JSONResponse({"ok": True, "industries": industries})
+
+
 @app.get("/api/symbols")
 def symbol_list(
     market: str = Query("cn", description="cn|hk|us|fund|index"),

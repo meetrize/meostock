@@ -1,0 +1,5 @@
+# 本仓库 Git 提交信息
+当 Cursor 自动生成 Git commit message（Source Control 闪烁按钮）时：
+- 必须使用简体中文撰写标题与正文
+- 专有名词、包名、路径可保留英文（如 stock-sdk、FastAPI）
+- 简洁说明改动目的，避免逐行复述 diff
