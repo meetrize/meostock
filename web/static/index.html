@@ -60,8 +60,9 @@
 
     .app {
       height: 100%;
-      display: grid;
-      grid-template-rows: auto 1fr;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     /* 窄工具栏（参考 preview.klinecharts.com） */
@@ -75,6 +76,7 @@
       background: var(--panel);
       overflow-x: auto;
       white-space: nowrap;
+      flex-shrink: 0;
     }
     .tb-quote {
       display: flex;
@@ -191,9 +193,10 @@
     .down { color: var(--down); }
 
     #chart {
+      flex: 1 1 0;
       width: 100%;
-      height: 100%;
-      min-height: 480px;
+      min-height: 0;
+      height: 0; /* flex 子项撑满剩余高度的可靠写法 */
       background: var(--panel);
     }
 
@@ -348,6 +351,179 @@
     }
     .ind-item:hover { background: var(--btn-active-bg); }
     .ind-item input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+    /* 比较商品 chips */
+    .overlay-chips {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+      padding: 4px 10px 6px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+    .overlay-chips.show { display: flex; }
+    .overlay-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 24px;
+      padding: 0 8px 0 6px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--text);
+      background: var(--input-bg);
+    }
+    .overlay-chip .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .overlay-chip .x {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0 2px;
+    }
+    .overlay-chip .x:hover { color: var(--text); }
+
+    /* 比较商品弹窗（参考 TradingView） */
+    .modal-compare { width: min(560px, calc(100vw - 24px)); max-height: min(78vh, 640px); }
+    .cmp-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 0 12px;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--input-bg);
+    }
+    .cmp-search:focus-within { border-color: var(--accent); }
+    .cmp-search svg { width: 18px; height: 18px; fill: var(--muted); flex-shrink: 0; }
+    .cmp-search input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      min-width: 0;
+    }
+    .cmp-search .clear {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0 2px;
+      display: none;
+    }
+    .cmp-search .clear.show { display: block; }
+    .cmp-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .cmp-filters button {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 14px;
+      height: 28px;
+      padding: 0 12px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .cmp-filters button:hover { color: var(--text); }
+    .cmp-filters button.active {
+      background: var(--text);
+      border-color: var(--text);
+      color: var(--panel);
+    }
+    [data-theme="dark"] .cmp-filters button.active {
+      background: #e8eaed;
+      border-color: #e8eaed;
+      color: #1a1d24;
+    }
+    .cmp-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: min(48vh, 420px);
+      overflow: auto;
+    }
+    .cmp-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .cmp-item:hover, .cmp-item.active { background: var(--btn-active-bg); }
+    .cmp-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--line);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 650;
+      flex-shrink: 0;
+    }
+    .cmp-meta { flex: 1; min-width: 0; }
+    .cmp-code {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--accent);
+    }
+    .cmp-name {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .cmp-right {
+      text-align: right;
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .cmp-empty, .cmp-loading {
+      padding: 28px 12px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .cmp-more {
+      display: block;
+      width: 100%;
+      margin-top: 8px;
+      border: 1px dashed var(--line);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 8px;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .cmp-more:hover { color: var(--text); border-color: var(--btn-hover); }
   </style>
 </head>
 <body>
@@ -368,6 +544,10 @@
         <button type="button" data-period="1w">1W</button>
       </div>
       <div class="tb-tools">
+        <button type="button" class="tb-tool" id="btnCompare" title="比较商品">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          <span class="label">比较</span>
+        </button>
         <button type="button" class="tb-tool" id="btnIndicator" title="指标">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16v2H4v-2zm2.5-3.5 3-3 2.5 2.5L18 8l1.5 1.5-7.5 7.5-2.5-2.5-2 2z"/></svg>
           <span class="label">指标</span>
@@ -382,6 +562,7 @@
         </button>
       </div>
     </header>
+    <div class="overlay-chips" id="overlayChips"></div>
     <div id="chart"></div>
   </div>
   <div class="status" id="status">初始化…</div>
@@ -408,6 +589,33 @@
         <button type="button" class="x" data-close="indModal">×</button>
       </div>
       <div class="modal-bd" id="indModalBody"></div>
+    </div>
+  </div>
+
+  <!-- 比较商品（参考 TradingView） -->
+  <div class="modal-mask" id="compareModal">
+    <div class="modal modal-compare">
+      <div class="modal-hd">
+        <span>比较商品</span>
+        <button type="button" class="x" data-close="compareModal">×</button>
+      </div>
+      <div class="modal-bd">
+        <div class="cmp-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          <input id="cmpQuery" type="text" placeholder="搜索代码或名称" autocomplete="off" />
+          <button type="button" class="clear" id="cmpClear" title="清除">×</button>
+        </div>
+        <div class="cmp-filters" id="cmpFilters">
+          <button type="button" data-filter="all">全部</button>
+          <button type="button" data-filter="cn" class="active">A股</button>
+          <button type="button" data-filter="hk">港股</button>
+          <button type="button" data-filter="us">美股</button>
+          <button type="button" data-filter="fund">基金</button>
+          <button type="button" data-filter="index">指数</button>
+        </div>
+        <ul class="cmp-list" id="cmpList"></ul>
+        <button type="button" class="cmp-more" id="cmpMore" style="display:none">加载更多</button>
+      </div>
     </div>
   </div>
 
@@ -474,8 +682,62 @@
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
 
-    const { init } = klinecharts;
+    const { init, registerIndicator } = klinecharts;
     const sdk = new StockSDK();
+
+    // 叠加比较线（半透明，与主图蜡烛区分）
+    const OVERLAY_COLORS = [
+      "rgba(41, 98, 255, 0.85)",
+      "rgba(255, 152, 0, 0.85)",
+      "rgba(156, 39, 176, 0.85)",
+      "rgba(0, 188, 212, 0.85)",
+      "rgba(255, 87, 34, 0.85)",
+      "rgba(63, 81, 181, 0.85)",
+    ];
+    let overlayColorIdx = 0;
+    let compareOverlays = []; // { key, symbol, name, color, indicatorId }
+    let compareFilter = "cn";
+    let comparePage = 1;
+    let compareHasMore = false;
+    let compareSearchTimer = null;
+    let compareLoading = false;
+    let overlayIndicatorReady = false;
+    let axisTypeBeforeCompare = null; // 叠加时切到百分比轴，清空后恢复
+
+    function dayKey(ts) {
+      const d = new Date(Number(ts));
+      if (!Number.isFinite(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function ensureOverlayIndicator() {
+      if (overlayIndicatorReady) return;
+      registerIndicator({
+        name: "OVERLAY_CMP",
+        shortName: "CMP",
+        series: "price",
+        precision: 2,
+        // 与主图同轴画线；calc 必须返回与 dataList 等长的数组
+        figures: [{ key: "v", title: "CMP: ", type: "line" }],
+        calc: (dataList, indicator) => {
+          // 注意：klinecharts override 会 clone extendData，不能用 Map（会被克隆成空对象）
+          const pack = indicator.extendData || {};
+          const byTs = pack.byTs || {};
+          const byDay = pack.byDay || {};
+          return dataList.map((bar) => {
+            const ts = bar.timestamp;
+            let v = byTs[ts];
+            if (v == null) v = byTs[String(ts)];
+            if (v == null) v = byDay[dayKey(ts)];
+            return v != null && Number.isFinite(Number(v)) ? { v: Number(v) } : {};
+          });
+        },
+      });
+      overlayIndicatorReady = true;
+    }
 
     const PERIOD_MAP = {
       "1m": { type: "minute", span: 1 },
@@ -827,6 +1089,372 @@
       return { market, bars: toBars(rows) };
     }
 
+    function hitToSymbol(hit) {
+      if (hit.symbol) return hit.symbol;
+      const code = String(hit.code || "").trim();
+      if (!code) return "";
+      // search 返回 sh600036 / hk00700 / usAAPL
+      if (/^(sh|sz|bj|hk|us)/i.test(code)) return code;
+      const m = String(hit.market || "").toLowerCase();
+      if (m === "sh" || m === "sz" || m === "bj") return `${m}${code}`;
+      if (m === "hk") return code.padStart(5, "0");
+      if (m === "us") return code.toUpperCase();
+      return code;
+    }
+
+    function marketLabelOf(hit) {
+      if (hit.marketLabel) return hit.marketLabel;
+      if (hit.exchange) return hit.exchange;
+      const m = String(hit.market || "").toLowerCase();
+      if (m === "cn" || m === "sh" || m === "sz" || m === "bj") return "A股";
+      if (m === "hk") return "港股";
+      if (m === "us") return "美股";
+      if (m === "fund") return "基金";
+      if (m === "index") return "指数";
+      return (hit.category || m || "--").toUpperCase();
+    }
+
+    function filterSearchHits(hits, filter) {
+      const list = hits || [];
+      if (filter === "all") return list;
+      return list.filter((h) => {
+        const m = String(h.market || "").toLowerCase();
+        const cat = String(h.category || "").toLowerCase();
+        const code = String(h.code || "").toLowerCase();
+        if (filter === "cn") {
+          return m === "sh" || m === "sz" || m === "bj" || code.startsWith("sh") || code.startsWith("sz") || code.startsWith("bj");
+        }
+        if (filter === "hk") return m === "hk" || code.startsWith("hk");
+        if (filter === "us") return m === "us" || code.startsWith("us");
+        if (filter === "fund") return cat === "fund" || /lof|etf|fj/i.test(String(h.type || ""));
+        if (filter === "index") return cat === "index";
+        return true;
+      });
+    }
+
+    function renderCompareList(items, { append = false } = {}) {
+      const ul = document.getElementById("cmpList");
+      if (!append) ul.innerHTML = "";
+      if (!items.length && !append) {
+        ul.innerHTML = `<li class="cmp-empty">无匹配结果</li>`;
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      items.forEach((hit) => {
+        const symbol = hitToSymbol(hit);
+        const code = hit.code || symbol;
+        const name = hit.name || "--";
+        const li = document.createElement("li");
+        li.className = "cmp-item";
+        li.dataset.symbol = symbol;
+        li.dataset.name = name;
+        const avatar = (name || code).slice(0, 1);
+        li.innerHTML = `
+          <span class="cmp-avatar">${avatar}</span>
+          <span class="cmp-meta">
+            <div class="cmp-code">${code.replace(/^(sh|sz|bj|hk|us)/i, "")}</div>
+            <div class="cmp-name">${name}</div>
+          </span>
+          <span class="cmp-right">
+            <div>${marketLabelOf(hit)}</div>
+            <div>${hit.exchange || hit.category || ""}</div>
+          </span>
+        `;
+        frag.appendChild(li);
+      });
+      ul.appendChild(frag);
+    }
+
+    async function loadCompareBrowse({ append = false } = {}) {
+      if (compareLoading) return;
+      const filter = compareFilter === "all" ? "cn" : compareFilter;
+      if (!append) {
+        comparePage = 1;
+        document.getElementById("cmpList").innerHTML = `<li class="cmp-loading">加载中…</li>`;
+      }
+      compareLoading = true;
+      try {
+        const url = `/api/symbols?market=${encodeURIComponent(filter)}&page=${comparePage}&size=60`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "列表失败");
+        renderCompareList(data.items || [], { append });
+        const loaded = comparePage * (data.size || 60);
+        compareHasMore = loaded < (data.total || 0);
+        document.getElementById("cmpMore").style.display = compareHasMore ? "block" : "none";
+      } catch (e) {
+        if (!append) {
+          document.getElementById("cmpList").innerHTML =
+            `<li class="cmp-empty">列表加载失败：${e.message || e}<br/>可直接搜索代码</li>`;
+        }
+        document.getElementById("cmpMore").style.display = "none";
+      } finally {
+        compareLoading = false;
+      }
+    }
+
+    async function loadCompareSearch(keyword) {
+      const q = (keyword || "").trim();
+      if (!q) {
+        await loadCompareBrowse({ append: false });
+        return;
+      }
+      document.getElementById("cmpMore").style.display = "none";
+      document.getElementById("cmpList").innerHTML = `<li class="cmp-loading">搜索中…</li>`;
+      try {
+        const hits = await sdk.search(q);
+        const filtered = filterSearchHits(hits, compareFilter);
+        renderCompareList(
+          filtered.map((h) => ({
+            ...h,
+            symbol: hitToSymbol(h),
+            exchange: marketLabelOf(h),
+          }))
+        );
+      } catch (e) {
+        document.getElementById("cmpList").innerHTML =
+          `<li class="cmp-empty">搜索失败：${e.message || e}</li>`;
+      }
+    }
+
+    function openCompareModal() {
+      document.getElementById("compareModal").classList.add("show");
+      const input = document.getElementById("cmpQuery");
+      input.value = "";
+      document.getElementById("cmpClear").classList.remove("show");
+      // 默认展示 A 股列表
+      if (compareFilter === "all") {
+        compareFilter = "cn";
+        document.querySelectorAll("#cmpFilters button").forEach((b) => {
+          b.classList.toggle("active", b.dataset.filter === "cn");
+        });
+      }
+      loadCompareBrowse({ append: false });
+      setTimeout(() => input.focus(), 50);
+    }
+
+    function renderOverlayChips() {
+      const box = document.getElementById("overlayChips");
+      if (!compareOverlays.length) {
+        box.classList.remove("show");
+        box.innerHTML = "";
+      } else {
+        box.classList.add("show");
+        box.innerHTML = compareOverlays
+          .map(
+            (o) => `
+        <span class="overlay-chip" data-key="${o.key}">
+          <span class="dot" style="background:${o.color}"></span>
+          <span>${o.name || o.symbol}</span>
+          <button type="button" class="x" data-remove="${o.key}" title="移除">×</button>
+        </span>`
+          )
+          .join("");
+      }
+      // chips 显隐会改变图表容器高度
+      if (chart) {
+        requestAnimationFrame(() => {
+          try {
+            chart.resize();
+          } catch (_) {}
+        });
+      }
+    }
+
+    function lookupClose(byTs, byDay, ts) {
+      let v = byTs[ts];
+      if (v == null) v = byTs[String(ts)];
+      if (v == null) v = byDay[dayKey(ts)];
+      return v;
+    }
+
+    function buildOverlayData(primaryBars, secondaryBars) {
+      // 用普通对象（勿用 Map：库内部 clone 会丢 Map 内容）
+      // 将副图按「重叠首根」缩放到主图价格，便于同轴；叠加时还会切百分比轴
+      const byTsRaw = Object.create(null);
+      const byDayRaw = Object.create(null);
+      for (const b of secondaryBars) {
+        const ts = b.timestamp;
+        byTsRaw[ts] = b.close;
+        byTsRaw[String(ts)] = b.close;
+        const dk = dayKey(ts);
+        if (dk && byDayRaw[dk] == null) byDayRaw[dk] = b.close;
+      }
+      let basePri = null;
+      let baseSec = null;
+      for (const b of primaryBars) {
+        const sec = lookupClose(byTsRaw, byDayRaw, b.timestamp);
+        if (sec != null && sec !== 0) {
+          basePri = b.close;
+          baseSec = sec;
+          break;
+        }
+      }
+      const ratio = basePri && baseSec ? basePri / baseSec : 1;
+      const byTs = Object.create(null);
+      const byDay = Object.create(null);
+      for (const k of Object.keys(byTsRaw)) byTs[k] = byTsRaw[k] * ratio;
+      for (const k of Object.keys(byDayRaw)) byDay[k] = byDayRaw[k] * ratio;
+      return { byTs, byDay };
+    }
+
+    function enableCompareAxis() {
+      if (!chart || axisTypeBeforeCompare != null) return;
+      axisTypeBeforeCompare = chartSettings.axisType || "normal";
+      try {
+        chart.overrideYAxis({ paneId: "candle_pane", type: "percentage" });
+      } catch (_) {}
+    }
+
+    function restoreCompareAxis() {
+      if (!chart || axisTypeBeforeCompare == null) return;
+      const t = axisTypeBeforeCompare;
+      axisTypeBeforeCompare = null;
+      try {
+        chart.overrideYAxis({
+          paneId: "candle_pane",
+          type: chartSettings.axisType || t || "normal",
+        });
+      } catch (_) {}
+    }
+
+    async function addCompareOverlay(item) {
+      const symbol = hitToSymbol(item);
+      if (!symbol) return;
+      let norm;
+      try {
+        norm = normalizeSymbol(symbol);
+      } catch (e) {
+        setStatus(`无法叠加：${e.message || e}`);
+        return;
+      }
+      const key = `${norm.market}:${norm.code}`;
+      if (compareOverlays.some((o) => o.key === key)) {
+        setStatus(`${item.name || norm.code} 已在比较中`);
+        document.getElementById("compareModal").classList.remove("show");
+        return;
+      }
+      if (currentSymbol && normalizeSymbol(currentSymbol).code === norm.code &&
+          resolveMarket(currentSymbol) === norm.market) {
+        setStatus("不能与当前标的相同");
+        return;
+      }
+      if (!chart) {
+        setStatus("请先加载主图");
+        return;
+      }
+      ensureOverlayIndicator();
+      setStatus(`叠加 ${item.name || norm.code} …`);
+      try {
+        const primary = chart.getDataList?.() || [];
+        const { bars } = await fetchKline(symbol, currentPeriod);
+        if (!bars.length) throw new Error("无 K 线数据");
+        const overlayData = buildOverlayData(primary, bars);
+        const matched = primary.filter((b) => {
+          return (
+            overlayData.byTs[b.timestamp] != null ||
+            overlayData.byTs[String(b.timestamp)] != null ||
+            overlayData.byDay[dayKey(b.timestamp)] != null
+          );
+        }).length;
+        if (!matched) throw new Error("时间轴无法对齐，请换同市场标的或日线周期试试");
+        const color = OVERLAY_COLORS[overlayColorIdx % OVERLAY_COLORS.length];
+        overlayColorIdx += 1;
+        const short = (item.name || norm.code).slice(0, 8);
+        const indicatorId = `OVERLAY_CMP_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
+        const createdId = chart.createIndicator(
+          {
+            id: indicatorId,
+            name: "OVERLAY_CMP",
+            shortName: short,
+            paneId: "candle_pane",
+            extendData: overlayData,
+            styles: {
+              lines: [{ color, size: 2, style: "solid" }],
+            },
+            createTooltipDataSource: () => ({
+              features: [
+                {
+                  id: "close",
+                  position: "middle",
+                  marginLeft: 6,
+                  marginTop: 0,
+                  marginRight: 0,
+                  marginBottom: 0,
+                  paddingLeft: 0,
+                  paddingTop: 0,
+                  paddingRight: 0,
+                  paddingBottom: 0,
+                  size: 14,
+                  color: featureColor(),
+                  activeColor: featureColor(),
+                  backgroundColor: "transparent",
+                  activeBackgroundColor: "rgba(47, 111, 237, 0.15)",
+                  borderRadius: 2,
+                  type: "icon_font",
+                  content: { family: "sans-serif", code: "✕" },
+                },
+              ],
+            }),
+          },
+          true
+        );
+        if (!createdId) throw new Error("createIndicator 失败（可能重复或未注册）");
+        // 强制再写一次 extendData，确保 calc 用到完整数据
+        chart.overrideIndicator({
+          id: indicatorId,
+          extendData: overlayData,
+          styles: { lines: [{ color, size: 2, style: "solid" }] },
+        });
+        compareOverlays.push({
+          key,
+          symbol,
+          name: item.name || norm.code,
+          color,
+          indicatorId,
+          paneId: "candle_pane",
+        });
+        enableCompareAxis();
+        renderOverlayChips();
+        document.getElementById("compareModal").classList.remove("show");
+        setStatus(`已叠加 ${item.name || norm.code}（${matched} 点对齐，百分比坐标）`);
+      } catch (e) {
+        setStatus(`叠加失败: ${e.message || e}`);
+      }
+    }
+
+    function removeCompareOverlay(key) {
+      const idx = compareOverlays.findIndex((o) => o.key === key);
+      if (idx < 0 || !chart) return;
+      const [o] = compareOverlays.splice(idx, 1);
+      if (o.indicatorId) {
+        chart.removeIndicator({ id: o.indicatorId });
+      } else {
+        chart.removeIndicator({ paneId: "candle_pane", name: "OVERLAY_CMP" });
+      }
+      if (!compareOverlays.length) restoreCompareAxis();
+      renderOverlayChips();
+    }
+
+    async function refreshCompareOverlays() {
+      if (!chart || !compareOverlays.length) return;
+      ensureOverlayIndicator();
+      const primary = chart.getDataList?.() || [];
+      for (const o of compareOverlays) {
+        try {
+          const { bars } = await fetchKline(o.symbol, currentPeriod);
+          const overlayData = buildOverlayData(primary, bars);
+          if (o.indicatorId) {
+            chart.overrideIndicator({
+              id: o.indicatorId,
+              extendData: overlayData,
+              styles: { lines: [{ color: o.color, size: 2, style: "solid" }] },
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
     function renderQuote(symbol, q) {
       const change = Number(q.change ?? (q.price - (q.prevClose ?? q.price)));
       const pct = Number(q.changePercent ?? 0);
@@ -889,7 +1517,13 @@
           },
         },
       });
+      window.__chart = chart;
       applyChartSettings();
+      requestAnimationFrame(() => {
+        try {
+          chart.resize();
+        } catch (_) {}
+      });
 
       // 默认主图 MA + 副图 VOL / MACD
       mainIndicators = ["MA"];
@@ -916,7 +1550,13 @@
             setStatus(`${ind.name} 暂不支持参数自定义（可自定义 MA / VOL / EMA 均线）`);
           }
         } else if (featureId === "close") {
-          closeIndicator(ind.name, paneId);
+          if (ind.name === "OVERLAY_CMP") {
+            const ov = compareOverlays.find((o) => o.indicatorId === ind.id);
+            if (ov) removeCompareOverlay(ov.key);
+            else chart.removeIndicator({ id: ind.id });
+          } else {
+            closeIndicator(ind.name, paneId);
+          }
         }
       });
 
@@ -1056,6 +1696,13 @@
             ensureChart(data.market);
             callback(data.bars, false);
             setStatus(`${symbol} · ${currentPeriod} · ${data.bars.length} 根K线 · 数据源 stock-sdk`);
+            // 主图刷新后同步叠加比较线，并校正高度
+            queueMicrotask(() => {
+              refreshCompareOverlays();
+              try {
+                chart.resize();
+              } catch (_) {}
+            });
           } catch (e) {
             setStatus(`加载失败: ${e.message || e}`);
             callback([], false);
@@ -1150,9 +1797,52 @@
       applyPeriodUI(btn.dataset.period);
       load({ pushUrl: true });
     });
+    document.getElementById("btnCompare").addEventListener("click", openCompareModal);
     document.getElementById("btnIndicator").addEventListener("click", openIndicatorModal);
     document.getElementById("btnSetting").addEventListener("click", openSettingModal);
     document.getElementById("btnTheme").addEventListener("click", toggleTheme);
+
+    document.getElementById("cmpFilters").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-filter]");
+      if (!btn) return;
+      compareFilter = btn.dataset.filter;
+      document.querySelectorAll("#cmpFilters button").forEach((b) => {
+        b.classList.toggle("active", b === btn);
+      });
+      const q = document.getElementById("cmpQuery").value.trim();
+      if (q) loadCompareSearch(q);
+      else loadCompareBrowse({ append: false });
+    });
+    document.getElementById("cmpQuery").addEventListener("input", (e) => {
+      const v = e.target.value;
+      document.getElementById("cmpClear").classList.toggle("show", !!v.trim());
+      clearTimeout(compareSearchTimer);
+      compareSearchTimer = setTimeout(() => loadCompareSearch(v), 280);
+    });
+    document.getElementById("cmpClear").addEventListener("click", () => {
+      document.getElementById("cmpQuery").value = "";
+      document.getElementById("cmpClear").classList.remove("show");
+      loadCompareBrowse({ append: false });
+    });
+    document.getElementById("cmpList").addEventListener("click", (e) => {
+      const row = e.target.closest(".cmp-item");
+      if (!row || !row.dataset.symbol) return;
+      addCompareOverlay({
+        symbol: row.dataset.symbol,
+        name: row.dataset.name,
+        code: row.dataset.symbol,
+      });
+    });
+    document.getElementById("cmpMore").addEventListener("click", () => {
+      if (!compareHasMore || compareLoading) return;
+      comparePage += 1;
+      loadCompareBrowse({ append: true });
+    });
+    document.getElementById("overlayChips").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-remove]");
+      if (!btn) return;
+      removeCompareOverlay(btn.dataset.remove);
+    });
     document.getElementById("settingReset").addEventListener("click", resetChartSettings);
     document.getElementById("settingModal").addEventListener("change", (e) => {
       if (e.target.closest(".setting-grid")) readSettingForm();
@@ -1173,6 +1863,14 @@
       if (period) applyPeriodUI(period);
       if (symbol) document.getElementById("symbol").value = symbol;
       load({ skipUrlSync: true });
+    });
+
+    window.addEventListener("resize", () => {
+      if (chart) {
+        try {
+          chart.resize();
+        } catch (_) {}
+      }
     });
 
     applyPageTheme(currentTheme);
