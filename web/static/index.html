@@ -261,7 +261,7 @@
         </div>
       </div>
       <div class="controls">
-        <input id="symbol" type="text" value="600036" maxlength="16" placeholder="600036 / AAPL" />
+        <input id="symbol" type="text" value="600036" maxlength="32" placeholder="600036 / 00700 / AAPL" />
         <button class="primary" id="btnLoad">查询</button>
         <div class="periods" id="periods">
           <button data-period="1m">1分</button>
@@ -768,10 +768,46 @@
       }
     }
 
-    async function load() {
+    function readUrlParams() {
+      const q = new URLSearchParams(location.search);
+      // 兼容 symbol / code / s / ticker
+      const symbol = (
+        q.get("symbol") ||
+        q.get("code") ||
+        q.get("s") ||
+        q.get("ticker") ||
+        ""
+      ).trim();
+      const period = (q.get("period") || "").trim();
+      return { symbol, period };
+    }
+
+    function syncUrl(symbol, period, replace = true) {
+      const url = new URL(location.href);
+      url.searchParams.set("symbol", symbol);
+      if (period) url.searchParams.set("period", period);
+      else url.searchParams.delete("period");
+      // 清理旧别名参数，保持 URL 干净
+      ["code", "s", "ticker"].forEach((k) => url.searchParams.delete(k));
+      const next = `${url.pathname}?${url.searchParams.toString()}${url.hash || ""}`;
+      if (replace) history.replaceState({ symbol, period }, "", next);
+      else history.pushState({ symbol, period }, "", next);
+    }
+
+    function applyPeriodUI(period) {
+      if (!PERIOD_MAP[period]) return false;
+      currentPeriod = period;
+      document.querySelectorAll("#periods button").forEach((b) => {
+        b.classList.toggle("active", b.dataset.period === period);
+      });
+      return true;
+    }
+
+    async function load(options = {}) {
+      const { pushUrl = false, skipUrlSync = false } = options;
       const symbol = (document.getElementById("symbol").value || "").trim();
       if (!symbol) {
-        setStatus("请输入代码，如 600036 / 00700 / AAPL");
+        setStatus("请输入代码，如 600036 / 00700 / AAPL / 105.AAPL");
         return;
       }
       try {
@@ -781,23 +817,33 @@
         return;
       }
       currentSymbol = symbol;
+      if (!skipUrlSync) syncUrl(symbol, currentPeriod, !pushUrl);
       bindDataLoader(symbol);
       await refreshQuote(symbol);
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(() => refreshQuote(currentSymbol), 15000);
     }
 
+    function bootstrapFromUrl() {
+      const { symbol, period } = readUrlParams();
+      if (period) applyPeriodUI(period);
+      if (symbol) {
+        document.getElementById("symbol").value = symbol;
+        document.getElementById("stockCode").textContent = symbol;
+      }
+      load({ skipUrlSync: false });
+    }
+
     // events
-    document.getElementById("btnLoad").addEventListener("click", load);
+    document.getElementById("btnLoad").addEventListener("click", () => load({ pushUrl: true }));
     document.getElementById("symbol").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") load();
+      if (e.key === "Enter") load({ pushUrl: true });
     });
     document.getElementById("periods").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-period]");
       if (!btn) return;
-      currentPeriod = btn.dataset.period;
-      document.querySelectorAll("#periods button").forEach((b) => b.classList.toggle("active", b === btn));
-      load();
+      applyPeriodUI(btn.dataset.period);
+      load({ pushUrl: true });
     });
     document.getElementById("themes").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-theme]");
@@ -816,9 +862,15 @@
         if (e.target === mask) mask.classList.remove("show");
       });
     });
+    window.addEventListener("popstate", () => {
+      const { symbol, period } = readUrlParams();
+      if (period) applyPeriodUI(period);
+      if (symbol) document.getElementById("symbol").value = symbol;
+      load({ skipUrlSync: true });
+    });
 
     applyPageTheme(currentTheme);
-    load();
+    bootstrapFromUrl();
   </script>
 </body>
 </html>
