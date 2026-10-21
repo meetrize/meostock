@@ -621,6 +621,11 @@
 
     function chartStyles() {
       const s = chartSettings;
+      // A股习惯：红涨绿跌
+      const up = "#F92855";
+      const down = "#2DC08E";
+      const upA = "rgba(249, 40, 85, 0.7)";
+      const downA = "rgba(45, 192, 142, 0.7)";
       return {
         grid: {
           show: !!s.grid,
@@ -629,10 +634,26 @@
         },
         candle: {
           type: s.candleType || "candle_solid",
+          bar: {
+            upColor: up,
+            downColor: down,
+            noChangeColor: "#888888",
+            upBorderColor: up,
+            downBorderColor: down,
+            noChangeBorderColor: "#888888",
+            upWickColor: up,
+            downWickColor: down,
+            noChangeWickColor: "#888888",
+          },
           priceMark: {
             high: { show: !!s.highPrice },
             low: { show: !!s.lowPrice },
-            last: { show: !!s.lastPrice },
+            last: {
+              show: !!s.lastPrice,
+              upColor: up,
+              downColor: down,
+              noChangeColor: "#888888",
+            },
           },
           tooltip: {
             // 图上不显示股票代码标题
@@ -644,6 +665,18 @@
             show: !!s.indLast,
             text: { show: !!s.indLast },
           },
+          ohlc: {
+            upColor: upA,
+            downColor: downA,
+            noChangeColor: "#888888",
+          },
+          bars: [
+            {
+              upColor: upA,
+              downColor: downA,
+              noChangeColor: "#888888",
+            },
+          ],
         },
       };
     }
