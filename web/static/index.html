@@ -64,49 +64,111 @@
       grid-template-rows: auto 1fr;
     }
 
-    header {
+    /* 窄工具栏（参考 preview.klinecharts.com） */
+    .toolbar {
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px 20px;
       align-items: center;
-      padding: 14px 18px;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 10px;
       border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, var(--header-top) 0%, var(--header-bottom) 100%);
+      background: var(--panel);
+      overflow-x: auto;
+      white-space: nowrap;
     }
-
-    .stock-head {
+    .tb-quote {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 160px;
-    }
-    .stock-title {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      line-height: 1.2;
-    }
-    .stock-name { font-size: 18px; font-weight: 650; letter-spacing: 0.02em; }
-    .stock-code { font-family: var(--mono); font-size: 13px; color: var(--muted); }
-    .stock-quote {
-      font-family: var(--mono);
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      line-height: 1.2;
-    }
-    .stock-quote .price { font-size: 20px; font-weight: 600; }
-    .stock-quote .change { font-size: 13px; }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
       align-items: center;
-      flex: 1;
+      gap: 8px;
+      flex-shrink: 0;
+      font-family: var(--mono);
+      padding-right: 8px;
+      border-right: 1px solid var(--line);
+      margin-right: 2px;
+    }
+    .tb-name {
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 650;
+      max-width: 96px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #symbol {
+      width: 78px;
+      height: 26px;
+      padding: 0 6px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    #symbol:hover, #symbol:focus {
+      border-color: var(--line);
+      background: var(--input-bg);
+      color: var(--text);
+      outline: none;
+    }
+    .tb-price { font-size: 15px; font-weight: 650; }
+    .tb-change { font-size: 12px; }
+
+    .tb-periods {
+      display: inline-flex;
+      align-items: stretch;
+      flex-shrink: 0;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .tb-periods button {
+      border: none;
+      border-right: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 0 10px;
+      height: 28px;
+      font-size: 12px;
+      font-family: var(--mono);
+      cursor: pointer;
+    }
+    .tb-periods button:last-child { border-right: none; }
+    .tb-periods button:hover { color: var(--text); background: var(--btn-active-bg); }
+    .tb-periods button.active {
+      color: var(--accent);
+      background: var(--btn-active-bg);
+      font-weight: 650;
     }
 
-    input[type="text"],
+    .tb-tools {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .tb-tool {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 28px;
+      padding: 0 8px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .tb-tool:hover { color: var(--text); background: var(--btn-active-bg); }
+    .tb-tool svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+    .tb-tool .label { display: none; }
+    @media (min-width: 720px) {
+      .tb-tool .label { display: inline; }
+    }
+
     input[type="number"] {
       padding: 8px 10px;
       border: 1px solid var(--line);
@@ -116,31 +178,15 @@
       font-family: var(--mono);
       font-size: 14px;
     }
-    #symbol { width: 140px; }
-
-    button {
-      border: 1px solid var(--line);
-      background: var(--btn-bg);
-      color: var(--text);
+    button.primary {
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
       border-radius: 6px;
       padding: 8px 12px;
       cursor: pointer;
       font-size: 13px;
     }
-    button:hover { border-color: var(--btn-hover); }
-    button.active {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: var(--btn-active-bg);
-    }
-    button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
-
-    .periods, .themes { display: flex; gap: 4px; flex-wrap: wrap; }
-    .themes { margin-left: 4px; }
     .up { color: var(--up); }
     .down { color: var(--down); }
 
@@ -188,6 +234,7 @@
       overflow: hidden;
     }
     .modal-wide { width: min(480px, calc(100vw - 32px)); }
+    .modal-settings { width: min(540px, calc(100vw - 32px)); }
     .modal-hd {
       display: flex;
       align-items: center;
@@ -204,6 +251,7 @@
       font-size: 18px;
       line-height: 1;
       padding: 4px 8px;
+      cursor: pointer;
     }
     .modal-bd {
       padding: 12px 16px 16px;
@@ -215,6 +263,61 @@
       gap: 8px;
       padding: 12px 16px;
       border-top: 1px solid var(--line);
+    }
+    .setting-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 32px;
+      padding: 8px 4px;
+    }
+    .setting-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 32px;
+      font-size: 13px;
+    }
+    .setting-item select {
+      min-width: 112px;
+      height: 28px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 12px;
+    }
+    .switch {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .switch .slider {
+      position: absolute;
+      inset: 0;
+      background: #c5cad3;
+      border-radius: 22px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .switch .slider::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 2px;
+      top: 2px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider::before { transform: translateX(18px); }
+    @media (max-width: 560px) {
+      .setting-grid { grid-template-columns: 1fr; }
     }
 
     .ma-row {
@@ -249,33 +352,34 @@
 </head>
 <body>
   <div class="app">
-    <header>
-      <div class="stock-head" id="stockHead">
-        <div class="stock-title">
-          <span class="stock-name" id="stockName">--</span>
-          <span class="stock-code" id="stockCode">600036</span>
-        </div>
-        <div class="stock-quote" id="stockQuote">
-          <span class="price">--</span>
-          <span class="change">等待数据</span>
-        </div>
+    <header class="toolbar">
+      <div class="tb-quote">
+        <span class="tb-name" id="stockName" title="股票名称">--</span>
+        <input id="symbol" type="text" value="600036" maxlength="32" placeholder="代码" title="输入代码后回车查询" />
+        <span class="tb-price" id="tbPrice">--</span>
+        <span class="tb-change" id="tbChange">--</span>
       </div>
-      <div class="controls">
-        <input id="symbol" type="text" value="600036" maxlength="32" placeholder="600036 / 00700 / AAPL" />
-        <button class="primary" id="btnLoad">查询</button>
-        <div class="periods" id="periods">
-          <button data-period="1m">1分</button>
-          <button data-period="5m">5分</button>
-          <button data-period="15m">15分</button>
-          <button data-period="1h">60分</button>
-          <button data-period="1d" class="active">日线</button>
-          <button data-period="1w">周线</button>
-        </div>
-        <button type="button" id="btnIndicator">指标</button>
-        <div class="themes" id="themes" title="颜色主题">
-          <button type="button" data-theme="light" class="active">亮色</button>
-          <button type="button" data-theme="dark">暗色</button>
-        </div>
+      <div class="tb-periods" id="periods" title="分时 / 周期">
+        <button type="button" data-period="1m">1m</button>
+        <button type="button" data-period="5m">5m</button>
+        <button type="button" data-period="15m">15m</button>
+        <button type="button" data-period="1h">1H</button>
+        <button type="button" data-period="1d" class="active">1D</button>
+        <button type="button" data-period="1w">1W</button>
+      </div>
+      <div class="tb-tools">
+        <button type="button" class="tb-tool" id="btnIndicator" title="指标">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16v2H4v-2zm2.5-3.5 3-3 2.5 2.5L18 8l1.5 1.5-7.5 7.5-2.5-2.5-2 2z"/></svg>
+          <span class="label">指标</span>
+        </button>
+        <button type="button" class="tb-tool" id="btnSetting" title="设置">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96a7.03 7.03 0 0 0-1.63-.94l-.36-2.54A.49.49 0 0 0 13.9 2h-3.8a.49.49 0 0 0-.49.42l-.36 2.54c-.59.22-1.14.53-1.63.94l-2.39-.96a.49.49 0 0 0-.59.22L2.72 8.48a.49.49 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.3.59.22l2.39-.96c.49.41 1.04.72 1.63.94l.36 2.54c.05.24.25.42.49.42h3.8c.24 0 .44-.18.49-.42l.36-2.54c.59-.22 1.14-.53 1.63-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7.5z"/></svg>
+          <span class="label">设置</span>
+        </button>
+        <button type="button" class="tb-tool" id="btnTheme" title="配色">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c.55 0 1-.45 1-1 0-.26-.1-.51-.28-.7a.99.99 0 0 1-.72-.98c0-.55.45-1 1-1H16a5 5 0 0 0 0-10h-.17C14.72 4.08 13.43 3 12 3zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>
+          <span class="label">配色</span>
+        </button>
       </div>
     </header>
     <div id="chart"></div>
@@ -304,6 +408,66 @@
         <button type="button" class="x" data-close="indModal">×</button>
       </div>
       <div class="modal-bd" id="indModalBody"></div>
+    </div>
+  </div>
+
+  <!-- 图表设置（参考 preview.klinecharts.com） -->
+  <div class="modal-mask" id="settingModal">
+    <div class="modal modal-settings">
+      <div class="modal-hd">
+        <span>设置</span>
+        <button type="button" class="x" data-close="settingModal">×</button>
+      </div>
+      <div class="modal-bd">
+        <div class="setting-grid">
+          <div class="setting-item">
+            <span>蜡烛图类型</span>
+            <select id="setCandleType">
+              <option value="candle_solid">全实心</option>
+              <option value="candle_stroke">全空心</option>
+              <option value="candle_up_stroke">涨空心</option>
+              <option value="candle_down_stroke">跌空心</option>
+              <option value="ohlc">OHLC</option>
+              <option value="area">面积图</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <span>最新价显示</span>
+            <label class="switch"><input type="checkbox" id="setLastPrice" /><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <span>最高价显示</span>
+            <label class="switch"><input type="checkbox" id="setHighPrice" /><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <span>最低价显示</span>
+            <label class="switch"><input type="checkbox" id="setLowPrice" /><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <span>指标最新值显示</span>
+            <label class="switch"><input type="checkbox" id="setIndLast" /><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <span>价格轴类型</span>
+            <select id="setAxisType">
+              <option value="normal">线性轴</option>
+              <option value="percentage">百分比轴</option>
+              <option value="log">对数轴</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <span>倒置坐标</span>
+            <label class="switch"><input type="checkbox" id="setAxisReverse" /><span class="slider"></span></label>
+          </div>
+          <div class="setting-item">
+            <span>网格线显示</span>
+            <label class="switch"><input type="checkbox" id="setGrid" /><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button type="button" class="primary" id="settingReset">恢复默认</button>
+      </div>
     </div>
   </div>
 
@@ -353,11 +517,23 @@
     const DEFAULT_MA = [5, 20, 120];
     const THEME_KEY = "kline-theme";
     const MA_KEY = "kline-ma-params";
+    const SETTING_KEY = "kline-chart-settings";
+    const DEFAULT_SETTINGS = {
+      candleType: "candle_solid",
+      lastPrice: true,
+      highPrice: true,
+      lowPrice: true,
+      indLast: false,
+      axisType: "normal",
+      axisReverse: false,
+      grid: true,
+    };
 
     let currentPeriod = "1d";
     let currentTheme = localStorage.getItem(THEME_KEY) || "light";
     if (currentTheme !== "light" && currentTheme !== "dark") currentTheme = "light";
     let maParams = loadMaParams();
+    let chartSettings = loadChartSettings();
     let chart = null;
     let pollTimer = null;
     let currentSymbol = "600036";
@@ -373,6 +549,18 @@
         }
       } catch (_) {}
       return [...DEFAULT_MA, "", ""];
+    }
+
+    function loadChartSettings() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(SETTING_KEY) || "null");
+        if (raw && typeof raw === "object") return { ...DEFAULT_SETTINGS, ...raw };
+      } catch (_) {}
+      return { ...DEFAULT_SETTINGS };
+    }
+
+    function saveChartSettings() {
+      localStorage.setItem(SETTING_KEY, JSON.stringify(chartSettings));
     }
 
     function activeMaParams(params = maParams) {
@@ -432,21 +620,94 @@
     }
 
     function chartStyles() {
+      const s = chartSettings;
       return {
+        grid: {
+          show: !!s.grid,
+          horizontal: { show: !!s.grid },
+          vertical: { show: !!s.grid },
+        },
         candle: {
+          type: s.candleType || "candle_solid",
+          priceMark: {
+            high: { show: !!s.highPrice },
+            low: { show: !!s.lowPrice },
+            last: { show: !!s.lastPrice },
+          },
           tooltip: {
             // 图上不显示股票代码标题
             title: { show: false },
           },
         },
+        indicator: {
+          lastValueMark: {
+            show: !!s.indLast,
+            text: { show: !!s.indLast },
+          },
+        },
       };
+    }
+
+    function applyYAxisOptions() {
+      if (!chart || typeof chart.overrideYAxis !== "function") return;
+      try {
+        chart.overrideYAxis({
+          paneId: "candle_pane",
+          type: chartSettings.axisType || "normal",
+          reverse: !!chartSettings.axisReverse,
+        });
+      } catch (_) {}
+    }
+
+    function applyChartSettings() {
+      if (!chart) return;
+      chart.setStyles(chartStyles());
+      applyYAxisOptions();
+    }
+
+    function syncSettingForm() {
+      const s = chartSettings;
+      document.getElementById("setCandleType").value = s.candleType;
+      document.getElementById("setLastPrice").checked = !!s.lastPrice;
+      document.getElementById("setHighPrice").checked = !!s.highPrice;
+      document.getElementById("setLowPrice").checked = !!s.lowPrice;
+      document.getElementById("setIndLast").checked = !!s.indLast;
+      document.getElementById("setAxisType").value = s.axisType;
+      document.getElementById("setAxisReverse").checked = !!s.axisReverse;
+      document.getElementById("setGrid").checked = !!s.grid;
+    }
+
+    function readSettingForm() {
+      chartSettings = {
+        candleType: document.getElementById("setCandleType").value,
+        lastPrice: document.getElementById("setLastPrice").checked,
+        highPrice: document.getElementById("setHighPrice").checked,
+        lowPrice: document.getElementById("setLowPrice").checked,
+        indLast: document.getElementById("setIndLast").checked,
+        axisType: document.getElementById("setAxisType").value,
+        axisReverse: document.getElementById("setAxisReverse").checked,
+        grid: document.getElementById("setGrid").checked,
+      };
+      saveChartSettings();
+      applyChartSettings();
+    }
+
+    function openSettingModal() {
+      syncSettingForm();
+      document.getElementById("settingModal").classList.add("show");
+    }
+
+    function resetChartSettings() {
+      chartSettings = { ...DEFAULT_SETTINGS };
+      saveChartSettings();
+      syncSettingForm();
+      applyChartSettings();
     }
 
     function applyPageTheme(theme) {
       document.documentElement.setAttribute("data-theme", theme);
-      document.querySelectorAll("#themes button").forEach((b) => {
-        b.classList.toggle("active", b.dataset.theme === theme);
-      });
+      const btn = document.getElementById("btnTheme");
+      if (btn) btn.title = theme === "dark" ? "配色（当前：暗色）" : "配色（当前：亮色）";
     }
 
     function setTheme(theme) {
@@ -455,9 +716,13 @@
       applyPageTheme(theme);
       if (!chart) return;
       chart.setStyles(theme);
-      chart.setStyles(chartStyles());
+      applyChartSettings();
       // 刷新 feature 颜色
       refreshAllIndicatorFeatures();
+    }
+
+    function toggleTheme() {
+      setTheme(currentTheme === "dark" ? "light" : "dark");
     }
 
     function refreshAllIndicatorFeatures() {
@@ -536,11 +801,12 @@
       const sign = change >= 0 ? "+" : "";
       const code = q.code || symbol;
       document.getElementById("stockName").textContent = q.name || "--";
-      document.getElementById("stockCode").textContent = code;
-      document.getElementById("stockQuote").innerHTML = `
-        <span class="price ${cls}">${Number(q.price).toFixed(2)}</span>
-        <span class="change ${cls}">${sign}${change.toFixed(2)} (${sign}${pct.toFixed(2)}%)</span>
-      `;
+      const priceEl = document.getElementById("tbPrice");
+      const changeEl = document.getElementById("tbChange");
+      priceEl.className = `tb-price ${cls}`;
+      changeEl.className = `tb-change ${cls}`;
+      priceEl.textContent = Number(q.price).toFixed(2);
+      changeEl.textContent = `${sign}${change.toFixed(2)} (${sign}${pct.toFixed(2)}%)`;
       document.title = `${q.name || code} ${Number(q.price).toFixed(2)} · K线`;
     }
 
@@ -583,8 +849,14 @@
         locale: "zh-CN",
         timezone: tz,
         styles: currentTheme,
+        layout: {
+          yAxis: {
+            type: chartSettings.axisType || "normal",
+            reverse: !!chartSettings.axisReverse,
+          },
+        },
       });
-      chart.setStyles(chartStyles());
+      applyChartSettings();
 
       // 默认主图 MA + 副图 VOL / MACD
       mainIndicators = ["MA"];
@@ -827,17 +1099,17 @@
     function bootstrapFromUrl() {
       const { symbol, period } = readUrlParams();
       if (period) applyPeriodUI(period);
-      if (symbol) {
-        document.getElementById("symbol").value = symbol;
-        document.getElementById("stockCode").textContent = symbol;
-      }
+      if (symbol) document.getElementById("symbol").value = symbol;
       load({ skipUrlSync: false });
     }
 
     // events
-    document.getElementById("btnLoad").addEventListener("click", () => load({ pushUrl: true }));
     document.getElementById("symbol").addEventListener("keydown", (e) => {
       if (e.key === "Enter") load({ pushUrl: true });
+    });
+    document.getElementById("symbol").addEventListener("blur", () => {
+      const v = (document.getElementById("symbol").value || "").trim();
+      if (v && v !== currentSymbol) load({ pushUrl: true });
     });
     document.getElementById("periods").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-period]");
@@ -845,12 +1117,13 @@
       applyPeriodUI(btn.dataset.period);
       load({ pushUrl: true });
     });
-    document.getElementById("themes").addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-theme]");
-      if (!btn) return;
-      setTheme(btn.dataset.theme);
-    });
     document.getElementById("btnIndicator").addEventListener("click", openIndicatorModal);
+    document.getElementById("btnSetting").addEventListener("click", openSettingModal);
+    document.getElementById("btnTheme").addEventListener("click", toggleTheme);
+    document.getElementById("settingReset").addEventListener("click", resetChartSettings);
+    document.getElementById("settingModal").addEventListener("change", (e) => {
+      if (e.target.closest(".setting-grid")) readSettingForm();
+    });
     document.getElementById("maConfirm").addEventListener("click", confirmMaSetting);
     document.querySelectorAll("[data-close]").forEach((btn) => {
       btn.addEventListener("click", () => {
