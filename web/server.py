@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from yf_catalog import (
@@ -23,8 +23,10 @@ from yf_catalog import (
 )
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+# stock-dashboard 构建产物（VITE_BASE_URL=/dashboard/）
+DASHBOARD_DIR = STATIC_DIR / "dashboard"
 
-app = FastAPI(title="stock-sdk K-Line Demo", version="0.4.0")
+app = FastAPI(title="stock-sdk K-Line Demo", version="0.5.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
@@ -303,6 +305,54 @@ def _yf_kline_cached(symbol: str, period: str) -> list[dict[str, Any]]:
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+def _dashboard_file(rel: str) -> Path | None:
+    """安全解析 dashboard 下的文件路径；不存在则返回 None。"""
+    if not DASHBOARD_DIR.is_dir():
+        return None
+    target = (DASHBOARD_DIR / rel).resolve()
+    try:
+        target.relative_to(DASHBOARD_DIR.resolve())
+    except ValueError:
+        return None
+    return target if target.is_file() else None
+
+
+@app.get("/dashboard", response_model=None)
+def dashboard_redirect() -> RedirectResponse:
+    return RedirectResponse(url="/dashboard/", status_code=307)
+
+
+@app.get("/dashboard/", response_model=None)
+def dashboard_index() -> Response:
+    index_html = DASHBOARD_DIR / "index.html"
+    if not index_html.is_file():
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "stock-dashboard 未构建。请运行: ./scripts/build_dashboard.sh",
+            },
+            status_code=404,
+        )
+    return FileResponse(index_html)
+
+
+@app.get("/dashboard/{full_path:path}", response_model=None)
+def dashboard_spa(full_path: str) -> Response:
+    """SPA：优先静态资源，其余回退 index.html（深链 /dashboard/s/600036 等）。"""
+    if not DASHBOARD_DIR.is_dir():
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "stock-dashboard 未构建。请运行: ./scripts/build_dashboard.sh",
+            },
+            status_code=404,
+        )
+    hit = _dashboard_file(full_path)
+    if hit is not None:
+        return FileResponse(hit)
+    return FileResponse(DASHBOARD_DIR / "index.html")
 
 
 @app.get("/api/symbols")

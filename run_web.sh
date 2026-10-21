@@ -13,6 +13,12 @@ if [[ ! -f web/static/stock-sdk.mjs ]]; then
     --outfile=web/static/stock-sdk.mjs
 fi
 
+# stock-dashboard（另一页面：/dashboard/）
+if [[ ! -f web/static/dashboard/index.html ]]; then
+  echo "缺少 stock-dashboard 构建产物，正在构建…"
+  "${ROOT}/scripts/build_dashboard.sh"
+fi
+
 # 静态服务可用任意带 uvicorn 的环境；优先 .venv310，其次 .venv
 if [[ -d .venv310 ]]; then
   # shellcheck disable=SC1091
@@ -35,5 +41,7 @@ PY
 
 export PYTHONPATH="${ROOT}/web:${PYTHONPATH:-}"
 cd "${ROOT}/web"
-echo "启动 Web K 线演示（stock-sdk）: http://127.0.0.1:8765"
+echo "启动 Web 演示（stock-sdk）:"
+echo "  K 线:     http://127.0.0.1:8765/"
+echo "  看板:     http://127.0.0.1:8765/dashboard/"
 exec python -m uvicorn server:app --host 127.0.0.1 --port 8765

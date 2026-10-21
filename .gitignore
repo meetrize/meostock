@@ -3,3 +3,5 @@ node_modules/
 *.tgz
 .venv310/
 .venv/
+vendor/stock-dashboard/node_modules/
+vendor/stock-dashboard/dist/

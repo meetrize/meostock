@@ -97,26 +97,38 @@ df = manager.get_daily(
 print(df.tail())
 ```
 
-## Web K 线演示
+## Web 演示
 
-基于 **[stock-sdk](https://github.com/chengzuopeng/stock-sdk)**（浏览器直连）+ [KLineChart](https://github.com/klinecharts/KLineChart) 的 K 线图演示。
+同一 FastAPI 服务托管两个前端页面，行情均来自 **[stock-sdk](https://github.com/chengzuopeng/stock-sdk)**：
 
-前端在浏览器内调用 `sdk.quotes.*` / `sdk.kline.*`，本地服务只托管静态页面（无需 Python 行情后端）。
+| 地址 | 说明 |
+|------|------|
+| http://127.0.0.1:8765/ | K 线演示（[KLineChart](https://github.com/klinecharts/KLineChart)） |
+| http://127.0.0.1:8765/dashboard/ | [stock-dashboard](https://github.com/chengzuopeng/stock-dashboard) 看板（自选 / 热力图 / 板块 / 选股等） |
 
 ```bash
 ./run_web.sh
-# 浏览器打开 http://127.0.0.1:8765
+# 首次若无看板构建产物，会自动执行 scripts/build_dashboard.sh
+```
+
+手动重建看板：
+
+```bash
+./scripts/build_dashboard.sh
 ```
 
 | 路径 | 说明 |
 |------|------|
-| `web/server.py` | 静态文件服务（FastAPI） |
+| `web/server.py` | 静态文件服务（FastAPI）+ `/dashboard` SPA |
 | `web/static/index.html` | K 线页（MA / VOL / MACD，亮/暗主题） |
+| `web/static/dashboard/` | stock-dashboard 构建产物 |
+| `vendor/stock-dashboard/` | 看板源码（上游克隆） |
 | `web/static/stock-sdk.mjs` | stock-sdk 浏览器打包 |
 | `web/static/klinecharts.min.js` | KLineChart UMD |
 | `run_web.sh` | 启动演示 |
+| `scripts/build_dashboard.sh` | 构建看板到 `web/static/dashboard/` |
 
-支持：A 股 `600036`、港股 `00700`、美股 `AAPL` / `105.AAPL`；周期 1/5/15/60 分、日线、周线。
+K 线页支持：A 股 `600036`、港股 `00700`、美股 `AAPL` / `105.AAPL`；周期 1/5/15/60 分、日线、周线。
 
 ### URL 直达查询
 
@@ -154,5 +166,6 @@ print(df.tail())
 ## 参考链接
 
 - [stock-sdk](https://github.com/chengzuopeng/stock-sdk) · [文档](https://stock-sdk.linkdiary.cn) · [NPM](https://www.npmjs.com/package/stock-sdk)
+- [stock-dashboard](https://github.com/chengzuopeng/stock-dashboard) · [在线体验](https://chengzuopeng.github.io/stock-dashboard/)
 - [mootdx · PyPI](https://pypi.org/project/mootdx/) · [mootdx2 · PyPI](https://pypi.org/project/mootdx2/)
 - [KLineChart](https://github.com/klinecharts/KLineChart) · [文档](https://www.klinecharts.com)

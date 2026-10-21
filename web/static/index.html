@@ -163,7 +163,9 @@
       color: var(--muted);
       cursor: pointer;
       font-size: 12px;
+      text-decoration: none;
     }
+    a.tb-tool { box-sizing: border-box; }
     .tb-tool:hover { color: var(--text); background: var(--btn-active-bg); }
     .tb-tool svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
     .tb-tool .label { display: none; }
@@ -623,6 +625,10 @@
         <button type="button" data-period="1w">1W</button>
       </div>
       <div class="tb-tools">
+        <a class="tb-tool" href="/dashboard/" target="_blank" rel="noopener" title="打开股票看板（stock-dashboard）">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+          <span class="label">看板</span>
+        </a>
         <button type="button" class="tb-tool" id="btnCompare" title="比较商品">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           <span class="label">比较</span>
