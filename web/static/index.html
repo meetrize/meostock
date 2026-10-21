@@ -790,8 +790,136 @@
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
 
-    const { init, registerIndicator } = klinecharts;
+    const { init, registerIndicator, registerOverlay } = klinecharts;
     const sdk = new StockSDK();
+
+    // 可点击中文标签（样式见 https://klinecharts.com/guide/styles#overlay）
+    // 内置 simpleAnnotation 文字 ignoreEvent=true，无法点击，故自定义
+    const CN_LABEL_OVERLAY = "cnClickLabel";
+    const CN_LABEL_LINK = "https://klinecharts.com/guide/overlay";
+    let cnLabelOverlayReady = false;
+    let cnLabelOverlayId = null;
+
+    function ensureCnLabelOverlay() {
+      if (cnLabelOverlayReady) return;
+      registerOverlay({
+        name: CN_LABEL_OVERLAY,
+        totalStep: 2,
+        needDefaultPointFigure: false,
+        createPointFigures: ({ overlay, coordinates }) => {
+          if (!coordinates?.length) return [];
+          const ext = overlay.extendData || {};
+          const text = String(ext.text || "中文测试");
+          const startX = coordinates[0].x;
+          const startY = coordinates[0].y - 6;
+          const lineEndY = startY - 48;
+          const labelY = lineEndY - 6;
+          return [
+            {
+              type: "line",
+              attrs: {
+                coordinates: [
+                  { x: startX, y: startY },
+                  { x: startX, y: lineEndY },
+                ],
+              },
+              styles: { style: "dashed", color: "#1677FF", size: 1, dashedValue: [4, 3] },
+              ignoreEvent: true,
+            },
+            {
+              type: "polygon",
+              attrs: {
+                coordinates: [
+                  { x: startX, y: lineEndY },
+                  { x: startX - 4, y: labelY },
+                  { x: startX + 4, y: labelY },
+                ],
+              },
+              styles: { style: "fill", color: "#1677FF" },
+              ignoreEvent: true,
+            },
+            {
+              type: "text",
+              attrs: {
+                x: startX,
+                y: labelY,
+                text,
+                align: "center",
+                baseline: "bottom",
+              },
+              styles: {
+                style: "fill",
+                color: "#FFFFFF",
+                size: 13,
+                family: "PingFang SC, Microsoft YaHei, sans-serif",
+                weight: "600",
+                paddingLeft: 8,
+                paddingRight: 8,
+                paddingTop: 4,
+                paddingBottom: 4,
+                borderRadius: 4,
+                backgroundColor: "#1677FF",
+                borderSize: 0,
+              },
+            },
+          ];
+        },
+      });
+      cnLabelOverlayReady = true;
+    }
+
+    function placeCnTestLabel(bars) {
+      if (!chart || !bars?.length) return;
+      ensureCnLabelOverlay();
+      // 锚定近期一根较高的 K 线，标签更醒目
+      const slice = bars.slice(-40);
+      let best = slice[Math.floor(slice.length / 2)] || bars[bars.length - 1];
+      for (const b of slice) {
+        if (Number(b.high) > Number(best.high)) best = b;
+      }
+      const point = {
+        timestamp: Number(best.timestamp),
+        value: Number(best.high),
+      };
+      try {
+        if (cnLabelOverlayId) {
+          chart.removeOverlay({ id: cnLabelOverlayId });
+          cnLabelOverlayId = null;
+        }
+      } catch (_) {}
+      const id = chart.createOverlay({
+        name: CN_LABEL_OVERLAY,
+        id: "cn_test_label",
+        paneId: "candle_pane",
+        lock: true,
+        points: [point],
+        extendData: { text: "中文测试", url: CN_LABEL_LINK },
+        styles: {
+          text: {
+            color: "#FFFFFF",
+            backgroundColor: "#1677FF",
+            size: 13,
+            borderRadius: 4,
+            paddingLeft: 8,
+            paddingRight: 8,
+            paddingTop: 4,
+            paddingBottom: 4,
+          },
+        },
+        onClick: (event) => {
+          const url = event?.overlay?.extendData?.url || CN_LABEL_LINK;
+          window.open(url, "_blank", "noopener,noreferrer");
+          setStatus("已打开链接：" + url);
+          return true;
+        },
+        onRightClick: (event) => {
+          // 阻止右键默认删除
+          event?.preventDefault?.();
+          return true;
+        },
+      });
+      cnLabelOverlayId = id || "cn_test_label";
+    }
 
     // 叠加比较线（半透明，与主图蜡烛区分）
     const OVERLAY_COLORS = [
@@ -2237,9 +2365,10 @@
             ensureChart(data.market);
             callback(data.bars, false);
             setStatus(`${symbol} · ${currentPeriod} · ${data.bars.length} 根K线 · 数据源 stock-sdk`);
-            // 主图刷新后同步叠加比较线，并校正高度
+            // 主图刷新后同步叠加比较线、中文测试标签，并校正高度
             queueMicrotask(() => {
               refreshCompareOverlays();
+              placeCnTestLabel(data.bars);
               try {
                 chart.resize();
               } catch (_) {}
