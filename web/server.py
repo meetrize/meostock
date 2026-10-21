@@ -694,15 +694,76 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
         return JSONResponse({"ok": False, "error": str(e), "url": upstream}, status_code=502)
 
     base = f"{XNGE_ORIGIN}/{path}" if path else f"{XNGE_ORIGIN}/"
+    # 浅色模式下 .fupan-tit .tab 仍用深灰底(#353A40) + --WhiteBlack(#000)，对比度差；强制白字。
+    # 宽表支持横向滚动，便于嵌入看板 iframe。
+    patch_css = (
+        "<style id=\"mootdx-xnge-patch\">"
+        ".fupan-tit .tab{color:#fff!important;}"
+        "#tags a{color:#fff!important;}"
+        "html,body{overflow-x:auto!important;}"
+        "</style>"
+    )
+    # 覆盖 tdx.js 的 openCode：代码/名称点击 → 本应用 K 线。
+    # 上游多为 600178.SH / 000001.SZ，展示层已去掉市场后缀，需兼容裸 6 位码。
+    patch_js = """<script id="mootdx-xnge-kline">
+(function () {
+  function toKlineSymbol(code) {
+    var s = String(code == null ? "" : code).trim();
+    if (!s) return "";
+    s = s.replace(/\\.(?:SH|SZ|BJ|SS)$/i, "");
+    s = s.replace(/^(?:SH|SZ|BJ|SS)/i, "");
+    var m = s.match(/(\\d{6})/);
+    return m ? m[1] : s;
+  }
+  function klineOrigin() {
+    try {
+      if (window.top && window.top.location && window.top.location.origin) {
+        return window.top.location.origin;
+      }
+    } catch (e) {}
+    return window.location.origin;
+  }
+  function openKline(code) {
+    var sym = toKlineSymbol(code);
+    if (!sym) return;
+    var url = klineOrigin() + "/?symbol=" + encodeURIComponent(sym) + "&period=1d";
+    try {
+      window.top.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }
+  function install() {
+    window.openCode = function (code) { openKline(code); };
+  }
+  install();
+  document.addEventListener("DOMContentLoaded", install);
+  window.addEventListener("load", function () {
+    install();
+    setTimeout(install, 0);
+    setTimeout(install, 300);
+  });
+})();
+</script>"""
+    head_bits: list[str] = []
     if "<base " not in html.lower():
         # 让 //ace.xnge.cn 与相对路径按原站解析
-        injected = f'<head>\n<base href="{base}" />'
-        if "<head>" in html:
-            html = html.replace("<head>", injected, 1)
-        elif "<Head>" in html:
-            html = html.replace("<Head>", injected, 1)
-        else:
-            html = injected + "\n" + html
+        head_bits.append(f'<base href="{base}" />')
+    head_bits.append(patch_css)
+    injected = "<head>\n" + "\n".join(head_bits)
+    if "<head>" in html:
+        html = html.replace("<head>", injected, 1)
+    elif "<Head>" in html:
+        html = html.replace("<Head>", injected, 1)
+    else:
+        html = injected + "\n" + html
+    # 放在 </body> 前，确保覆盖 tdx.js 里的 openCode
+    if "</body>" in html:
+        html = html.replace("</body>", patch_js + "\n</body>", 1)
+    elif "</Body>" in html:
+        html = html.replace("</Body>", patch_js + "\n</Body>", 1)
+    else:
+        html = html + patch_js
     return Response(
         content=html,
         media_type="text/html; charset=utf-8",
