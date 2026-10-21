@@ -1442,11 +1442,11 @@
       const hadPrefix = /^yf:/i.test(s);
       if (hadPrefix) s = s.slice(3);
       if (!s) return null;
-      // 显式 yf: 前缀一律视为 Yahoo；否则识别常见形态 GC=F / BTC-USD / ^GSPC / EURUSD=X
+      // 显式 yf: 前缀一律视为 Yahoo；否则识别常见形态（勿把美股 BRK-B 误判为 Yahoo）
       if (
         hadPrefix ||
         /[=^]/.test(s) ||
-        /-\w+$/i.test(s) ||
+        /^[A-Z0-9]{2,12}-USD$/i.test(s) ||
         /^\^[A-Z0-9.]+$/i.test(s) ||
         /\.(SS|SZ|HK|L|T|TO|AX|DE|PA|MI|KS|KQ)$/i.test(s)
       ) {
@@ -1473,6 +1473,49 @@
       } catch (_) {
         return false;
       }
+    }
+
+    /**
+     * 把输入规范成 stock-sdk K 线/行情请求代码。
+     * 港股 → 00700；美股 → AAPL（去掉 .OQ 等交易所后缀）；A 股保留原输入（含 sh/sz）。
+     */
+    function toSdkApiSymbol(input, market) {
+      const raw = String(input || "").trim();
+      let m = market;
+      let code = raw;
+      try {
+        const n = normalizeSymbol(raw);
+        m = m || n.market;
+        code = n.code || raw;
+      } catch (_) {}
+      if (m === "HK") {
+        const digits = String(code).replace(/^hk/i, "").replace(/\D/g, "") || code;
+        return digits.length <= 5 ? digits.padStart(5, "0") : digits;
+      }
+      if (m === "US") {
+        let t = String(code).replace(/^us/i, "").toUpperCase();
+        t = t.replace(/\.(OQ|N|A|O|P|OB|PK|OTC)$/i, "");
+        return t;
+      }
+      return raw;
+    }
+
+    /** 港股 → Yahoo 代码：00700 → 0700.HK（东财 push2his 常断连，改走 Yahoo） */
+    function toYahooHkSymbol(hkCode) {
+      const digits = String(hkCode || "").replace(/\D/g, "");
+      const bare = digits.replace(/^0+/, "") || "0";
+      return `${bare.padStart(4, "0")}.HK`;
+    }
+
+    async function fetchYfChartBars(yfSymbol, period) {
+      const res = await fetch(
+        `/api/yf/kline?symbol=${encodeURIComponent(yfSymbol)}&period=${encodeURIComponent(period || "1d")}`
+      );
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "yfinance K线失败");
+      const bars = data.bars || [];
+      if (!bars.length) throw new Error(`yfinance 无 K 线: ${yfSymbol}`);
+      return { bars, name: data.name || yfSymbol, symbol: yfSymbol };
     }
 
     function toBars(rows) {
@@ -1543,11 +1586,12 @@
         };
       }
       const market = resolveMarket(symbol);
+      const apiSym = toSdkApiSymbol(symbol, market);
       let list;
-      if (market === "US") list = await sdk.quotes.us([symbol]);
-      else if (market === "HK") list = await sdk.quotes.hk([symbol]);
+      if (market === "US") list = await sdk.quotes.us([apiSym]);
+      else if (market === "HK") list = await sdk.quotes.hk([apiSym]);
       else if (market === "YF") throw new Error("yfinance 行情为空");
-      else list = await sdk.quotes.cnSimple([symbol]);
+      else list = await sdk.quotes.cnSimple([apiSym]);
       if (!list?.length) throw new Error("行情为空");
       return { market, quote: list[0] };
     }
@@ -1578,21 +1622,61 @@
         return { market: "FUT", bars: toBars(rows), futures: fut };
       }
       const market = resolveMarket(symbol);
+      const apiSym = toSdkApiSymbol(symbol, market);
       const isMinute = period in MINUTE_PERIOD;
+
+      // 港股/美股：stock-sdk 走东财 push2his，本机常「connection lost」；优先 Yahoo
+      // 文档：https://stock-sdk.linkdiary.cn/api/kline （HK/US 无腾讯备用源）
+      if (market === "HK" || market === "US") {
+        const yfSym = market === "HK" ? toYahooHkSymbol(apiSym) : apiSym;
+        try {
+          const yf = await fetchYfChartBars(yfSym, period || "1d");
+          return {
+            market,
+            bars: yf.bars,
+            yf: { symbol: yf.symbol, name: yf.name },
+            source: "yfinance",
+          };
+        } catch (yfErr) {
+          // Yahoo 失败再试东财（少数网络下可用）
+          try {
+            let rows;
+            if (isMinute) {
+              const p = MINUTE_PERIOD[period];
+              rows =
+                market === "US"
+                  ? await sdk.kline.usMinute(apiSym, { period: p })
+                  : await sdk.kline.hkMinute(apiSym, { period: p });
+            } else {
+              const p = HISTORY_PERIOD[period] || "daily";
+              rows =
+                market === "US"
+                  ? await sdk.kline.us(apiSym, { period: p, adjust: "qfq" })
+                  : await sdk.kline.hk(apiSym, { period: p, adjust: "qfq" });
+            }
+            if (!Array.isArray(rows) || !rows.length) throw new Error("东财 K 线为空");
+            if (!isMinute && rows.length > 500) rows = rows.slice(-500);
+            return { market, bars: toBars(rows), source: "eastmoney" };
+          } catch (emErr) {
+            throw new Error(
+              `${market === "HK" ? "港股" : "美股"} K 线不可用：东财 push2his 断连，Yahoo(${yfSym}) 亦失败（${
+                yfErr.message || yfErr
+              }）`
+            );
+          }
+        }
+      }
+
       let rows;
       if (isMinute) {
         const p = MINUTE_PERIOD[period];
-        if (market === "US") rows = await sdk.kline.usMinute(symbol, { period: p });
-        else if (market === "HK") rows = await sdk.kline.hkMinute(symbol, { period: p });
-        else rows = await sdk.kline.cnMinute(symbol, { period: p });
+        rows = await sdk.kline.cnMinute(apiSym, { period: p });
       } else {
         const p = HISTORY_PERIOD[period] || "daily";
-        if (market === "US") rows = await sdk.kline.us(symbol, { period: p, adjust: "qfq" });
-        else if (market === "HK") rows = await sdk.kline.hk(symbol, { period: p, adjust: "qfq" });
-        else rows = await sdk.kline.cn(symbol, { period: p, adjust: "qfq" });
+        rows = await sdk.kline.cn(apiSym, { period: p, adjust: "qfq" });
       }
       if (!isMinute && Array.isArray(rows) && rows.length > 500) rows = rows.slice(-500);
-      return { market, bars: toBars(rows) };
+      return { market, bars: toBars(rows), source: "stock-sdk" };
     }
 
     function hitToSymbol(hit) {
@@ -1611,15 +1695,37 @@
         const fut = resolveFutures(hit.symbol || hit.code);
         return fut ? `fut:${fut.symbol}` : hit.symbol || hit.code;
       }
-      if (hit.symbol) return hit.symbol;
+      if (hit.symbol) {
+        const sym = String(hit.symbol).trim();
+        // 已带市场前缀则直接用；美股去掉 .OQ 等后缀再加 us
+        if (/^(sh|sz|bj|hk|us|yf:|fut:)/i.test(sym)) {
+          if (/^us/i.test(sym)) {
+            const t = sym.replace(/^us/i, "").replace(/\.(OQ|N|A|O|P|OB|PK|OTC)$/i, "");
+            return `us${t.toUpperCase()}`;
+          }
+          return sym;
+        }
+      }
       const code = String(hit.code || "").trim();
       if (!code) return "";
       // search 返回 sh600036 / hk00700 / usAAPL
-      if (/^(sh|sz|bj|hk|us)/i.test(code)) return code;
+      if (/^(sh|sz|bj|hk|us)/i.test(code)) {
+        if (/^us/i.test(code)) {
+          const t = code.replace(/^us/i, "").replace(/\.(OQ|N|A|O|P|OB|PK|OTC)$/i, "");
+          return `us${t.toUpperCase()}`;
+        }
+        return code;
+      }
       const m = String(hit.market || "").toLowerCase();
       if (m === "sh" || m === "sz" || m === "bj") return `${m}${code}`;
-      if (m === "hk") return code.padStart(5, "0");
-      if (m === "us") return code.toUpperCase();
+      if (m === "hk" || m === "HK") {
+        const digits = code.replace(/\D/g, "") || code;
+        return `hk${digits.length <= 5 ? digits.padStart(5, "0") : digits}`;
+      }
+      if (m === "us" || m === "US") {
+        const t = code.replace(/\.(OQ|N|A|O|P|OB|PK|OTC)$/i, "").toUpperCase();
+        return `us${t}`;
+      }
       return code;
     }
 
@@ -2416,7 +2522,11 @@
             const data = await fetchKline(symbol, currentPeriod);
             ensureChart(data.market);
             callback(data.bars, false);
-            setStatus(`${symbol} · ${currentPeriod} · ${data.bars.length} 根K线 · 数据源 stock-sdk`);
+            const src =
+              data.source === "yfinance"
+                ? `yfinance${data.yf?.symbol ? `(${data.yf.symbol})` : ""}`
+                : data.source || "stock-sdk";
+            setStatus(`${symbol} · ${currentPeriod} · ${data.bars.length} 根K线 · 数据源 ${src}`);
             // 主图刷新后同步叠加比较线、中文测试标签，并校正高度
             queueMicrotask(() => {
               refreshCompareOverlays();
