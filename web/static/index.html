@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>K线演示 · stock-sdk + KLineChart</title>
+  <script src="/static/klinecharts.min.js"></script>
+  <style>
+    :root,
+    html[data-theme="light"] {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --header-top: #ffffff;
+      --header-bottom: #f7f9fb;
+      --line: #d8dee6;
+      --text: #1a2332;
+      --muted: #6b7785;
+      --input-bg: #ffffff;
+      --btn-bg: #ffffff;
+      --btn-hover: #c5ced8;
+      --btn-active-bg: #e8f1ff;
+      --status-bg: rgba(255, 255, 255, 0.92);
+      --up: #e53935;
+      --down: #00897b;
+      --accent: #2f6fed;
+      --font: "IBM Plex Sans", "PingFang SC", "Helvetica Neue", sans-serif;
+      --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #0f1419;
+      --panel: #171d25;
+      --header-top: #1a222c;
+      --header-bottom: #171d25;
+      --line: #2a3441;
+      --text: #e7ecf3;
+      --muted: #8b98a8;
+      --input-bg: #0c1015;
+      --btn-bg: #121820;
+      --btn-hover: #3a4a5c;
+      --btn-active-bg: #1a2a40;
+      --status-bg: rgba(15, 20, 25, 0.85);
+      --up: #ef5350;
+      --down: #26a69a;
+      --accent: #3d8bfd;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+    }
+
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, var(--header-top) 0%, var(--header-bottom) 100%);
+    }
+
+    .stock-head {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 160px;
+    }
+    .stock-title {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      line-height: 1.2;
+    }
+    .stock-name {
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+    }
+    .stock-code {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .stock-quote {
+      font-family: var(--mono);
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      line-height: 1.2;
+    }
+    .stock-quote .price { font-size: 20px; font-weight: 600; }
+    .stock-quote .change { font-size: 13px; }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      flex: 1;
+    }
+
+    input[type="text"] {
+      width: 140px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--input-bg);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 14px;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--btn-bg);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button:hover { border-color: var(--btn-hover); }
+    button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--btn-active-bg);
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .periods, .themes { display: flex; gap: 4px; flex-wrap: wrap; }
+    .themes { margin-left: 4px; }
+    .up { color: var(--up); }
+    .down { color: var(--down); }
+
+    #chart {
+      width: 100%;
+      height: 100%;
+      min-height: 480px;
+      background: var(--panel);
+    }
+
+    .status {
+      position: fixed;
+      left: 18px;
+      bottom: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--status-bg);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="stock-head" id="stockHead">
+        <div class="stock-title">
+          <span class="stock-name" id="stockName">--</span>
+          <span class="stock-code" id="stockCode">600036</span>
+        </div>
+        <div class="stock-quote" id="stockQuote">
+          <span class="price">--</span>
+          <span class="change">等待数据</span>
+        </div>
+      </div>
+      <div class="controls">
+        <input id="symbol" type="text" value="600036" maxlength="16" placeholder="600036 / AAPL" />
+        <button class="primary" id="btnLoad">查询</button>
+        <div class="periods" id="periods">
+          <button data-period="1m">1分</button>
+          <button data-period="5m">5分</button>
+          <button data-period="15m">15分</button>
+          <button data-period="1h">60分</button>
+          <button data-period="1d" class="active">日线</button>
+          <button data-period="1w">周线</button>
+        </div>
+        <div class="themes" id="themes" title="颜色主题">
+          <button type="button" data-theme="light" class="active">亮色</button>
+          <button type="button" data-theme="dark">暗色</button>
+        </div>
+      </div>
+    </header>
+    <div id="chart"></div>
+  </div>
+  <div class="status" id="status">初始化…</div>
+
+  <script type="module">
+    import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
+
+    const { init } = klinecharts;
+    const sdk = new StockSDK();
+
+    const PERIOD_MAP = {
+      "1m": { type: "minute", span: 1 },
+      "5m": { type: "minute", span: 5 },
+      "15m": { type: "minute", span: 15 },
+      "1h": { type: "minute", span: 60 },
+      "1d": { type: "day", span: 1 },
+      "1w": { type: "week", span: 1 },
+    };
+
+    const MINUTE_PERIOD = {
+      "1m": "1",
+      "5m": "5",
+      "15m": "15",
+      "1h": "60",
+    };
+
+    const HISTORY_PERIOD = {
+      "1d": "daily",
+      "1w": "weekly",
+    };
+
+    const THEME_KEY = "kline-theme";
+    let currentPeriod = "1d";
+    let currentTheme = localStorage.getItem(THEME_KEY) || "light";
+    if (currentTheme !== "light" && currentTheme !== "dark") currentTheme = "light";
+    let chart = null;
+    let pollTimer = null;
+    let currentSymbol = "600036";
+
+    function setStatus(text) {
+      document.getElementById("status").textContent = text;
+    }
+
+    function applyPageTheme(theme) {
+      document.documentElement.setAttribute("data-theme", theme);
+      document.querySelectorAll("#themes button").forEach((b) => {
+        b.classList.toggle("active", b.dataset.theme === theme);
+      });
+    }
+
+    function setTheme(theme) {
+      currentTheme = theme;
+      localStorage.setItem(THEME_KEY, theme);
+      applyPageTheme(theme);
+      if (chart) chart.setStyles(theme);
+    }
+
+    function resolveMarket(input) {
+      const info = normalizeSymbol(input);
+      return info.market; // CN | HK | US
+    }
+
+    function toBars(rows) {
+      return (rows || [])
+        .map((b) => {
+          let ts = b.timestamp;
+          if (ts == null) {
+            const raw = b.time || b.date;
+            if (!raw) return null;
+            const parsed = Date.parse(String(raw).replace(/-/g, "/"));
+            if (!Number.isFinite(parsed)) return null;
+            ts = parsed;
+          }
+          return {
+            timestamp: Number(ts),
+            open: Number(b.open),
+            high: Number(b.high),
+            low: Number(b.low),
+            close: Number(b.close),
+            volume: Number(b.volume ?? 0),
+            turnover: Number(b.amount ?? 0),
+          };
+        })
+        .filter((b) => b && Number.isFinite(b.timestamp) && Number.isFinite(b.close))
+        .sort((a, b) => a.timestamp - b.timestamp);
+    }
+
+    async function fetchQuote(symbol) {
+      const market = resolveMarket(symbol);
+      let list;
+      if (market === "US") list = await sdk.quotes.us([symbol]);
+      else if (market === "HK") list = await sdk.quotes.hk([symbol]);
+      else list = await sdk.quotes.cnSimple([symbol]);
+      if (!list || !list.length) throw new Error("行情为空");
+      return { market, quote: list[0] };
+    }
+
+    async function fetchKline(symbol, period) {
+      const market = resolveMarket(symbol);
+      const isMinute = period in MINUTE_PERIOD;
+      let rows;
+      if (isMinute) {
+        const p = MINUTE_PERIOD[period];
+        if (market === "US") rows = await sdk.kline.usMinute(symbol, { period: p });
+        else if (market === "HK") rows = await sdk.kline.hkMinute(symbol, { period: p });
+        else rows = await sdk.kline.cnMinute(symbol, { period: p });
+      } else {
+        const p = HISTORY_PERIOD[period] || "daily";
+        if (market === "US") rows = await sdk.kline.us(symbol, { period: p, adjust: "qfq" });
+        else if (market === "HK") rows = await sdk.kline.hk(symbol, { period: p, adjust: "qfq" });
+        else rows = await sdk.kline.cn(symbol, { period: p, adjust: "qfq" });
+      }
+      // 日/周线数据很长时，图表只取最近一段更流畅
+      if (!isMinute && Array.isArray(rows) && rows.length > 500) {
+        rows = rows.slice(-500);
+      }
+      return { market, bars: toBars(rows) };
+    }
+
+    function renderQuote(symbol, q) {
+      const change = Number(q.change ?? (q.price - (q.prevClose ?? q.price)));
+      const pct = Number(q.changePercent ?? 0);
+      const cls = change >= 0 ? "up" : "down";
+      const sign = change >= 0 ? "+" : "";
+      const code = q.code || symbol;
+      document.getElementById("stockName").textContent = q.name || "--";
+      document.getElementById("stockCode").textContent = code;
+      document.getElementById("stockQuote").innerHTML = `
+        <span class="price ${cls}">${Number(q.price).toFixed(2)}</span>
+        <span class="change ${cls}">${sign}${change.toFixed(2)} (${sign}${pct.toFixed(2)}%)</span>
+      `;
+      document.title = `${q.name || code} ${Number(q.price).toFixed(2)} · K线`;
+    }
+
+    function ensureChart(market) {
+      const tz = market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
+      if (chart) {
+        chart.setTimezone(tz);
+        return chart;
+      }
+      chart = init("chart", {
+        locale: "zh-CN",
+        timezone: tz,
+        styles: currentTheme,
+      });
+      chart.createIndicator("MA", true);
+      chart.createIndicator("VOL");
+      chart.createIndicator("MACD");
+      return chart;
+    }
+
+    function bindDataLoader(symbol) {
+      let market = "CN";
+      try {
+        market = resolveMarket(symbol);
+      } catch (_) {}
+      const c = ensureChart(market);
+      c.setSymbol({ ticker: symbol, pricePrecision: 2, volumePrecision: 0 });
+      c.setPeriod(PERIOD_MAP[currentPeriod]);
+      c.setDataLoader({
+        async getBars({ type, callback }) {
+          if (type !== "init") {
+            callback([], false);
+            return;
+          }
+          try {
+            setStatus(`加载 ${symbol} ${currentPeriod} …`);
+            const data = await fetchKline(symbol, currentPeriod);
+            ensureChart(data.market);
+            callback(data.bars, false);
+            setStatus(`${symbol} · ${currentPeriod} · ${data.bars.length} 根K线 · 数据源 stock-sdk`);
+          } catch (e) {
+            setStatus(`加载失败: ${e.message || e}`);
+            callback([], false);
+          }
+        },
+      });
+    }
+
+    async function refreshQuote(symbol) {
+      try {
+        const { quote } = await fetchQuote(symbol);
+        renderQuote(symbol, quote);
+      } catch (e) {
+        setStatus(`行情: ${e.message || e}`);
+      }
+    }
+
+    async function load() {
+      const symbol = (document.getElementById("symbol").value || "").trim();
+      if (!symbol) {
+        setStatus("请输入代码，如 600036 / 00700 / AAPL");
+        return;
+      }
+      try {
+        normalizeSymbol(symbol);
+      } catch (e) {
+        setStatus(`无效代码: ${e.message || e}`);
+        return;
+      }
+      currentSymbol = symbol;
+      bindDataLoader(symbol);
+      await refreshQuote(symbol);
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(() => refreshQuote(currentSymbol), 15000);
+    }
+
+    document.getElementById("btnLoad").addEventListener("click", load);
+    document.getElementById("symbol").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") load();
+    });
+    document.getElementById("periods").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-period]");
+      if (!btn) return;
+      currentPeriod = btn.dataset.period;
+      document.querySelectorAll("#periods button").forEach((b) => b.classList.toggle("active", b === btn));
+      load();
+    });
+    document.getElementById("themes").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-theme]");
+      if (!btn) return;
+      setTheme(btn.dataset.theme);
+    });
+
+    applyPageTheme(currentTheme);
+    load();
+  </script>
+</body>
+</html>

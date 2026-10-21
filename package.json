@@ -1,0 +1,17 @@
+{
+  "name": "mootdx",
+  "version": "1.0.0",
+  "description": "本项目用于验证、对比通达信相关行情数据源，当前接入 **两个 PyPI 数据源**。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "stock-sdk": "^2.4.6"
+  }
+}
