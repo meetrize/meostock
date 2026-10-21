@@ -44,4 +44,6 @@ cd "${ROOT}/web"
 echo "启动 Web 演示（stock-sdk）:"
 echo "  K 线:     http://127.0.0.1:8765/"
 echo "  看板:     http://127.0.0.1:8765/dashboard/"
+echo "  涨停复盘: http://127.0.0.1:8765/fupan"
+echo "  插件中转: http://127.0.0.1:8765/xnge/"
 exec python -m uvicorn server:app --host 127.0.0.1 --port 8765

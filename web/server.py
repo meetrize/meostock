@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -636,6 +636,145 @@ def yf_kline(
             "bars": bars,
             "count": len(bars),
         }
+    )
+
+
+# ---------- 犀利 / xnge 通达信插件中转 ----------
+# 原站 t.xnge.cn 校验 UA 含 TdxW；##tdxbkcolor## 为通达信背景色占位符。
+TDX_UA = (
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 TdxW"
+)
+XUANGUBAO_POOL = "https://flash-api.xuangubao.cn/api/pool/detail"
+XNGE_ORIGIN = "http://t.xnge.cn"
+
+
+def _http_get_text(url: str, *, headers: dict[str, str] | None = None, timeout: float = 15.0) -> str:
+    req = urllib.request.Request(url, headers=headers or {}, method="GET")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def _normalize_xnge_bg(raw: str | None) -> str:
+    """通达信 ##tdxbkcolor## → 可用的 6 位 hex。"""
+    bg = (raw or "000000").strip()
+    if not bg or bg.startswith("##") or "tdxbkcolor" in bg.lower():
+        return "000000"
+    bg = bg.lstrip("#")
+    if bg == "000000":
+        # 原站脚本对纯黑有特殊处理，改为 000001
+        return "000001"
+    return bg
+
+
+def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
+    """用 TdxW UA 拉取 t.xnge.cn 任意路径 HTML。"""
+    path = (path or "").lstrip("/")
+    # 目录页补尾斜杠，避免相对资源错位
+    if path and not path.endswith("/") and "." not in path.rsplit("/", 1)[-1]:
+        path = path + "/"
+    params = dict(query)
+    params["bg"] = _normalize_xnge_bg(params.get("bg"))
+    if "hidenav" not in params:
+        params["hidenav"] = "1"
+    qs = urllib.parse.urlencode(params, doseq=True)
+    upstream = f"{XNGE_ORIGIN}/{path}"
+    if qs:
+        upstream = f"{upstream}?{qs}"
+    try:
+        html = _http_get_text(
+            upstream,
+            headers={
+                "User-Agent": TDX_UA,
+                "Accept": "text/html,application/xhtml+xml",
+                "Referer": "http://www.tdx.com.cn/",
+            },
+        )
+    except (urllib.error.URLError, TimeoutError) as e:
+        return JSONResponse({"ok": False, "error": str(e), "url": upstream}, status_code=502)
+
+    base = f"{XNGE_ORIGIN}/{path}" if path else f"{XNGE_ORIGIN}/"
+    if "<base " not in html.lower():
+        # 让 //ace.xnge.cn 与相对路径按原站解析
+        injected = f'<head>\n<base href="{base}" />'
+        if "<head>" in html:
+            html = html.replace("<head>", injected, 1)
+        elif "<Head>" in html:
+            html = html.replace("<Head>", injected, 1)
+        else:
+            html = injected + "\n" + html
+    return Response(
+        content=html,
+        media_type="text/html; charset=utf-8",
+        headers={"X-Xnge-Upstream": upstream},
+    )
+
+
+@app.get("/fupan", response_model=None)
+def fupan_demo() -> FileResponse:
+    """本地涨停复盘 Demo（不依赖通达信内置浏览器）。"""
+    return FileResponse(STATIC_DIR / "fupan.html")
+
+
+@app.get("/xnge", response_model=None)
+@app.get("/xnge/", response_model=None)
+def xnge_hub() -> FileResponse:
+    """犀利插件通用中转入口（强势股 / 连板 / 复盘等）。"""
+    return FileResponse(STATIC_DIR / "xnge.html")
+
+
+@app.get("/xnge/{path:path}", response_model=None)
+def xnge_proxy(path: str, request: Request) -> Response:
+    """
+    通用中转：/xnge/qsg/?hidenav=1&bg=000000
+    对应原站 http://t.xnge.cn/qsg/?hidenav=1&bg=##tdxbkcolor##
+    """
+    query = {k: v for k, v in request.query_params.multi_items()}
+    return _proxy_xnge_html(path, query)
+
+
+@app.get("/api/zt/limit-up")
+def zt_limit_up() -> JSONResponse:
+    """代理选股宝涨停池（与犀利 fupan.js 同源）。"""
+    url = f"{XUANGUBAO_POOL}?{urllib.parse.urlencode({'pool_name': 'limit_up'})}"
+    try:
+        raw = _http_get_text(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; mootdx-fupan/0.1)",
+                "Accept": "application/json",
+                "Referer": "https://xuangubao.cn/",
+            },
+        )
+        payload = json.loads(raw)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+    items = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        return JSONResponse(
+            {"ok": False, "error": "unexpected upstream payload", "upstream": payload},
+            status_code=502,
+        )
+    return JSONResponse(
+        {
+            "ok": True,
+            "source": "xuangubao",
+            "total": len(items),
+            "items": items,
+        }
+    )
+
+
+@app.get("/api/zt/xnge-proxy", response_model=None)
+def zt_xnge_proxy(
+    bg: str = Query("000000", description="背景色，对应通达信 ##tdxbkcolor##"),
+    hidenav: int = Query(1),
+) -> RedirectResponse:
+    """兼容旧地址 → 通用中转 /xnge/fupan/。"""
+    bg = _normalize_xnge_bg(bg)
+    return RedirectResponse(
+        url=f"/xnge/fupan/?hidenav={hidenav}&bg={urllib.parse.quote(bg)}",
+        status_code=307,
     )
 
 

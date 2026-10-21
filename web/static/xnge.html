@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>犀利插件中转 · xnge</title>
+  <style>
+    :root {
+      --bg: #0b1220; --panel: #121a2b; --line: rgba(255,255,255,.08);
+      --text: #e8eef7; --muted: #8b9bb4; --accent: #5aa8ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--text);
+      font-family: "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(1000px 500px at 10% -20%, #1a2744, var(--bg));
+    }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 28px 16px 48px; }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    .sub { color: var(--muted); font-size: 13px; line-height: 1.7; margin-bottom: 18px; }
+    code { background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 4px; color: #c9d7ff; }
+    .card {
+      border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,.04), transparent 36%), var(--panel);
+    }
+    .row {
+      display: flex; gap: 12px; align-items: center; justify-content: space-between;
+      padding: 12px 14px; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit;
+    }
+    .row:last-child { border-bottom: none; }
+    .row:hover { background: rgba(90,168,255,.08); }
+    .row b { font-size: 14px; }
+    .row span { color: var(--muted); font-size: 12px; }
+    .row .go { color: var(--accent); font-size: 13px; white-space: nowrap; }
+    .box {
+      margin-top: 16px; padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--line); background: rgba(255,255,255,.03);
+      color: var(--muted); font-size: 12px; line-height: 1.7;
+    }
+    .form { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    input {
+      flex: 1; min-width: 220px; height: 34px; padding: 0 10px;
+      border-radius: 8px; border: 1px solid var(--line);
+      background: rgba(255,255,255,.04); color: var(--text);
+    }
+    button {
+      height: 34px; padding: 0 14px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--line); background: rgba(90,168,255,.15); color: var(--accent);
+    }
+    a.nav { color: var(--accent); margin-right: 12px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div style="margin-bottom:12px">
+      <a class="nav" href="/">K 线</a>
+      <a class="nav" href="/fupan">本地涨停 Demo</a>
+      <a class="nav" href="/dashboard/">看板</a>
+    </div>
+    <h1>犀利插件通用中转</h1>
+    <div class="sub">
+      通达信版面里的网址（如 <code>http://t.xnge.cn/qsg/?bg=##tdxbkcolor##&amp;hidenav=1</code>）
+      在系统浏览器会因缺少 UA 标识 <code>TdxW</code> 被拒。
+      本中转自动补上通达信 UA，并把 <code>##tdxbkcolor##</code> 换成真实背景色。
+    </div>
+
+    <div class="card" id="list"></div>
+
+    <div class="form">
+      <input id="path" placeholder="自定义路径，如 qsg/ 或 jieli/?hidenav=1" />
+      <button type="button" id="go">打开</button>
+    </div>
+
+    <div class="box">
+      <b>通用地址格式</b><br />
+      <code>http://127.0.0.1:8765/xnge/&lt;原站路径&gt;?hidenav=1&amp;bg=000000</code><br />
+      对应原站 <code>http://t.xnge.cn/&lt;路径&gt;?bg=##tdxbkcolor##&amp;hidenav=1</code>。
+      也可把完整原站 URL 贴进上方输入框，会自动提取路径。<br /><br />
+      <b>常用插件对照</b><br />
+      强势股 · <code>/xnge/qsg/</code> ← <code>t.xnge.cn/qsg/</code><br />
+      连板天梯 · <code>/xnge/jieli/</code> ← <code>t.xnge.cn/jieli/</code><br />
+      人气股 · <code>/xnge/rank/</code> ← <code>t.xnge.cn/rank/</code><br />
+      涨停复盘 · <code>/xnge/fupan/</code> ← <code>t.xnge.cn/fupan/</code><br />
+      另有本地 Demo（不经原站）：<code>/fupan</code>
+    </div>
+  </div>
+  <script>
+    const LINKS = [
+      { path: 'qsg/', name: '强势股', desc: '原站 qsg · 强势股列表' },
+      { path: 'jieli/', name: '连板天梯', desc: '原站 jieli · 连板 / 接力' },
+      { path: 'rank/', name: '人气股', desc: '原站 rank · 人气热度排名' },
+      { path: 'fupan/', name: '涨停复盘', desc: '原站 fupan · 连板 + 题材' },
+      { path: 'dt/', name: '跌停股', desc: '原站 dt · 跌停列表' },
+      { path: 'xlb/', name: '犀利宝', desc: '原站 xlb · 短线宝' },
+      { path: 'map/', name: '思维导图', desc: '原站 map · 涨停导图' },
+      { path: 'sgj/', name: '时光机', desc: '原站 sgj · 历史快照' },
+      { path: 'super/', name: '超级全盘', desc: '原站 super · 全盘数据' },
+    ];
+    const qs = 'hidenav=1&bg=000000';
+    document.getElementById('list').innerHTML = LINKS.map((x) => {
+      const href = '/xnge/' + x.path + '?' + qs;
+      return `<a class="row" href="${href}" target="_blank" rel="noopener">
+        <div><b>${x.name}</b><br /><span>/xnge/${x.path}</span> · ${x.desc}</div>
+        <div class="go">打开 →</div>
+      </a>`;
+    }).join('');
+
+    function toProxyUrl(raw) {
+      let s = (raw || '').trim();
+      if (!s) return '';
+      if (s.startsWith('/xnge/')) return s;
+      try {
+        if (/^https?:\/\//i.test(s)) {
+          const u = new URL(s);
+          if (!/xnge\.cn$/i.test(u.hostname) && !/\.xnge\.cn$/i.test(u.hostname)) {
+            alert('仅支持 t.xnge.cn 域名');
+            return '';
+          }
+          let path = u.pathname.replace(/^\/+/, '');
+          if (path && !path.endsWith('/') && !path.includes('.')) path += '/';
+          const p = new URLSearchParams(u.search);
+          if (!p.get('bg') || String(p.get('bg')).includes('##')) p.set('bg', '000000');
+          if (!p.get('hidenav')) p.set('hidenav', '1');
+          return '/xnge/' + path + '?' + p.toString();
+        }
+      } catch (_) {}
+      let path = s.replace(/^\/+/, '');
+      if (!path.includes('?') && path && !path.endsWith('/') && !path.includes('.')) path += '/';
+      if (!path.includes('?')) path += '?' + qs;
+      return '/xnge/' + path;
+    }
+    document.getElementById('go').onclick = () => {
+      const href = toProxyUrl(document.getElementById('path').value);
+      if (href) window.open(href, '_blank', 'noopener');
+    };
+  </script>
+</body>
+</html>
