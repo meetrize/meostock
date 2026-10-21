@@ -689,7 +689,7 @@
       <div class="modal-bd">
         <div class="cmp-search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-          <input id="cmpQuery" type="text" placeholder="搜索代码或名称" autocomplete="off" />
+          <input id="cmpQuery" type="text" placeholder="代码/名称，期货如 AUM、au0、黄金" autocomplete="off" />
           <button type="button" class="clear" id="cmpClear" title="清除">×</button>
         </div>
         <div class="cmp-filters" id="cmpFilters">
@@ -697,6 +697,7 @@
           <button type="button" data-filter="cn" class="active">A股</button>
           <button type="button" data-filter="hk">港股</button>
           <button type="button" data-filter="us">美股</button>
+          <button type="button" data-filter="futures">期货</button>
           <button type="button" data-filter="fund">基金</button>
           <button type="button" data-filter="index">指数</button>
         </div>
@@ -1126,7 +1127,163 @@
       });
     }
 
+    // 国内期货主连（stock-sdk: 品种+M；au0 等东方财富别名做 aliases）
+    // 文档: https://stock-sdk.linkdiary.cn/api/futures
+    const FUTURES_CATALOG = [
+      { symbol: "AUM", name: "沪金主连", exchange: "SHFE", aliases: ["au0", "aum", "au"] },
+      { symbol: "AGM", name: "沪银主连", exchange: "SHFE", aliases: ["ag0", "agm", "ag"] },
+      { symbol: "CUM", name: "沪铜主连", exchange: "SHFE", aliases: ["cu0", "cum", "cu"] },
+      { symbol: "ALM", name: "沪铝主连", exchange: "SHFE", aliases: ["al0", "alm", "al"] },
+      { symbol: "ZNM", name: "沪锌主连", exchange: "SHFE", aliases: ["zn0", "znm", "zn"] },
+      { symbol: "NIM", name: "沪镍主连", exchange: "SHFE", aliases: ["ni0", "nim", "ni"] },
+      { symbol: "SNM", name: "沪锡主连", exchange: "SHFE", aliases: ["sn0", "snm", "sn"] },
+      { symbol: "PBM", name: "沪铅主连", exchange: "SHFE", aliases: ["pb0", "pbm", "pb"] },
+      { symbol: "AOM", name: "氧化铝主连", exchange: "SHFE", aliases: ["ao0", "aom", "ao"] },
+      { symbol: "RBM", name: "螺纹钢主连", exchange: "SHFE", aliases: ["rb0", "rbm", "rb"] },
+      { symbol: "HCM", name: "热卷主连", exchange: "SHFE", aliases: ["hc0", "hcm", "hc"] },
+      { symbol: "WRM", name: "线材主连", exchange: "SHFE", aliases: ["wr0", "wrm", "wr"] },
+      { symbol: "BUM", name: "沥青主连", exchange: "SHFE", aliases: ["bu0", "bum", "bu"] },
+      { symbol: "RUM", name: "橡胶主连", exchange: "SHFE", aliases: ["ru0", "rum", "ru"] },
+      { symbol: "FUM", name: "燃油主连", exchange: "SHFE", aliases: ["fu0", "fum", "fu"] },
+      { symbol: "SSM", name: "不锈钢主连", exchange: "SHFE", aliases: ["ss0", "ss"] },
+      { symbol: "SPM", name: "纸浆主连", exchange: "SHFE", aliases: ["sp0", "spm", "sp"] },
+      { symbol: "BRM", name: "丁二烯胶主连", exchange: "SHFE", aliases: ["br0", "brm", "br"] },
+      { symbol: "SCM", name: "原油主连", exchange: "INE", aliases: ["sc0", "scm", "sc"] },
+      { symbol: "NRM", name: "20号胶主连", exchange: "INE", aliases: ["nr0", "nrm", "nr"] },
+      { symbol: "LUM", name: "低硫燃料油主连", exchange: "INE", aliases: ["lu0", "lum", "lu"] },
+      { symbol: "BCM", name: "国际铜主连", exchange: "INE", aliases: ["bc0", "bcm", "bc"] },
+      { symbol: "JM", name: "焦炭主连", exchange: "DCE", aliases: ["j0", "j"] },
+      { symbol: "JMM", name: "焦煤主连", exchange: "DCE", aliases: ["jm0", "jm", "jmm"] },
+      { symbol: "MM", name: "豆粕主连", exchange: "DCE", aliases: ["m0", "mm", "m"] },
+      { symbol: "YM", name: "豆油主连", exchange: "DCE", aliases: ["y0", "ym", "y"] },
+      { symbol: "PM", name: "棕榈油主连", exchange: "DCE", aliases: ["p0", "pm", "p"] },
+      { symbol: "CM", name: "玉米主连", exchange: "DCE", aliases: ["c0", "cm", "c"] },
+      { symbol: "AM", name: "豆一主连", exchange: "DCE", aliases: ["a0", "am", "a"] },
+      { symbol: "EGM", name: "乙二醇主连", exchange: "DCE", aliases: ["eg0", "egm", "eg"] },
+      { symbol: "LHM", name: "生猪主连", exchange: "DCE", aliases: ["lh0", "lhm", "lh"] },
+      { symbol: "PGM", name: "液化气主连", exchange: "DCE", aliases: ["pg0", "pgm", "pg"] },
+      { symbol: "VM", name: "PVC主连", exchange: "DCE", aliases: ["v0", "vm", "v"] },
+      { symbol: "LM", name: "塑料主连", exchange: "DCE", aliases: ["l0", "lm", "l"] },
+      { symbol: "PPM", name: "聚丙烯主连", exchange: "DCE", aliases: ["pp0", "ppm", "pp"] },
+      { symbol: "CSM", name: "淀粉主连", exchange: "DCE", aliases: ["cs0", "csm", "cs"] },
+      { symbol: "EBM", name: "苯乙烯主连", exchange: "DCE", aliases: ["eb0", "ebm", "eb"] },
+      { symbol: "JDM", name: "鸡蛋主连", exchange: "DCE", aliases: ["jd0", "jdm", "jd"] },
+      { symbol: "CFM", name: "棉花主连", exchange: "CZCE", aliases: ["cf0", "cfm", "cf"] },
+      { symbol: "SRM", name: "白糖主连", exchange: "CZCE", aliases: ["sr0", "srm", "sr"] },
+      { symbol: "TAM", name: "PTA主连", exchange: "CZCE", aliases: ["ta0", "tam", "ta"] },
+      { symbol: "MAM", name: "甲醇主连", exchange: "CZCE", aliases: ["ma0", "mam", "ma"] },
+      { symbol: "FGM", name: "玻璃主连", exchange: "CZCE", aliases: ["fg0", "fgm", "fg"] },
+      { symbol: "RMM", name: "菜粕主连", exchange: "CZCE", aliases: ["rm0", "rmm", "rm"] },
+      { symbol: "OIM", name: "菜油主连", exchange: "CZCE", aliases: ["oi0", "oim", "oi"] },
+      { symbol: "SAM", name: "纯碱主连", exchange: "CZCE", aliases: ["sa0", "sam", "sa"] },
+      { symbol: "APM", name: "苹果主连", exchange: "CZCE", aliases: ["ap0", "apm", "ap"] },
+      { symbol: "SFM", name: "硅铁主连", exchange: "CZCE", aliases: ["sf0", "sfm", "sf"] },
+      { symbol: "URM", name: "尿素主连", exchange: "CZCE", aliases: ["ur0", "urm", "ur"] },
+      { symbol: "PKM", name: "花生主连", exchange: "CZCE", aliases: ["pk0", "pkm", "pk"] },
+      { symbol: "PXM", name: "对二甲苯主连", exchange: "CZCE", aliases: ["px0", "pxm", "px"] },
+      { symbol: "SHM", name: "烧碱主连", exchange: "CZCE", aliases: ["sh0", "shm", "sh"] },
+      { symbol: "IFM", name: "沪深300股指主连", exchange: "CFFEX", aliases: ["if0", "ifm", "if"] },
+      { symbol: "IHM", name: "上证50股指主连", exchange: "CFFEX", aliases: ["ih0", "ihm", "ih"] },
+      { symbol: "ICM", name: "中证500股指主连", exchange: "CFFEX", aliases: ["ic0", "icm", "ic"] },
+      { symbol: "IMM", name: "中证1000股指主连", exchange: "CFFEX", aliases: ["im0", "imm"] },
+      { symbol: "TFM", name: "5年期国债主连", exchange: "CFFEX", aliases: ["tf0", "tfm", "tf"] },
+      { symbol: "TM", name: "10年期国债主连", exchange: "CFFEX", aliases: ["t0", "tm"] },
+      { symbol: "SIM", name: "工业硅主连", exchange: "GFEX", aliases: ["si0", "sim", "si"] },
+      { symbol: "LCM", name: "碳酸锂主连", exchange: "GFEX", aliases: ["lc0", "lcm", "lc"] },
+      { symbol: "PSM", name: "多晶硅主连", exchange: "GFEX", aliases: ["ps0", "psm", "ps"] },
+      { symbol: "PTM", name: "铂主连", exchange: "GFEX", aliases: ["pt0", "ptm", "pt"] },
+      { symbol: "PDM", name: "钯主连", exchange: "GFEX", aliases: ["pd0", "pdm", "pd"] },
+    ];
+
+    function futuresHit(item) {
+      return {
+        symbol: `fut:${item.symbol}`,
+        code: item.symbol,
+        name: item.name,
+        market: "futures",
+        marketLabel: "期货",
+        exchange: item.exchange,
+        category: "futures",
+        assetType: "futures",
+      };
+    }
+
+    function resolveFutures(input) {
+      let s = String(input || "").trim();
+      if (!s) return null;
+      if (/^fut:/i.test(s)) s = s.slice(4);
+      const lower = s.toLowerCase();
+      const upper = s.toUpperCase();
+      // 目录精确匹配（含 au0 → AUM）
+      const hit = FUTURES_CATALOG.find(
+        (f) =>
+          f.symbol.toUpperCase() === upper ||
+          f.aliases.some((a) => a.toLowerCase() === lower)
+      );
+      if (hit) return hit;
+      // 具体合约：rb2605 / IF2604（文档格式）
+      const cm = s.match(/^([a-zA-Z]{1,2})(\d{3,4})$/);
+      if (cm) {
+        const variety = cm[1];
+        const month = cm[2];
+        const isCffex = /^(IF|IC|IH|IM|TS|TF|T|TL)$/i.test(variety);
+        const code = isCffex ? variety.toUpperCase() + month : variety.toLowerCase() + month;
+        return { symbol: code, name: code, exchange: "CN", aliases: [] };
+      }
+      // 宽松：未知主连 XXXM，仍尝试请求
+      if (/^[a-zA-Z]{1,3}M$/i.test(s)) {
+        return { symbol: upper, name: upper, exchange: "CN", aliases: [] };
+      }
+      return null;
+    }
+
+    const FUTURES_NAME_ALIASES = {
+      黄金: ["金", "au", "aum", "au0"],
+      白银: ["银", "ag", "agm", "ag0"],
+      原油: ["sc", "scm", "sc0", "油"],
+      螺纹: ["rb", "rbm", "rb0", "螺"],
+      股指: ["if", "ih", "ic", "im", "沪深", "上证", "中证"],
+      国债: ["tf", "t", "债"],
+      铜: ["cu", "cum", "cu0"],
+      铝: ["al", "alm"],
+      锌: ["zn", "znm"],
+      镍: ["ni", "nim"],
+      橡胶: ["ru", "rum"],
+      铁矿: ["i", "矿"],
+      焦煤: ["jm", "jmm"],
+      焦炭: ["j", "jm"],
+      豆粕: ["m", "mm", "粕"],
+      甲醇: ["ma", "mam"],
+      棉花: ["cf", "cfm", "棉"],
+      白糖: ["sr", "srm", "糖"],
+    };
+
+    function searchFuturesCatalog(keyword) {
+      const raw = String(keyword || "").trim();
+      if (!raw) return FUTURES_CATALOG.map(futuresHit);
+      const q = raw.toLowerCase();
+      const tokens = new Set([q, raw]);
+      for (const [k, vals] of Object.entries(FUTURES_NAME_ALIASES)) {
+        if (raw.includes(k) || q.includes(k)) vals.forEach((v) => tokens.add(v.toLowerCase()));
+        // 反查：输入 au / 金 也能扩到相关中文
+        if (vals.some((v) => v.toLowerCase() === q || raw.includes(v))) tokens.add(k);
+      }
+      const tokenList = [...tokens];
+      return FUTURES_CATALOG.filter((f) => {
+        const blob = `${f.symbol} ${f.name} ${f.aliases.join(" ")} ${f.exchange}`.toLowerCase();
+        return tokenList.some(
+          (t) =>
+            t &&
+            (blob.includes(t) ||
+              f.name.includes(t) ||
+              f.symbol.toLowerCase().includes(t) ||
+              f.aliases.some((a) => a.toLowerCase().includes(t)))
+        );
+      }).map(futuresHit);
+    }
+
     function resolveMarket(input) {
+      if (resolveFutures(input)) return "FUT";
       return normalizeSymbol(input).market;
     }
 
@@ -1156,6 +1313,24 @@
     }
 
     async function fetchQuote(symbol) {
+      const fut = resolveFutures(symbol);
+      if (fut) {
+        // 期货无独立 quotes，用最近日 K 收盘近似
+        const rows = await sdk.futures.kline(fut.symbol, { period: "daily" });
+        const last = Array.isArray(rows) && rows.length ? rows[rows.length - 1] : null;
+        if (!last) throw new Error("期货行情为空");
+        return {
+          market: "FUT",
+          quote: {
+            code: fut.symbol,
+            name: last.name || fut.name,
+            price: Number(last.close),
+            change: Number(last.change ?? 0),
+            changePercent: Number(last.changePercent ?? 0),
+            prevClose: Number(last.close) - Number(last.change ?? 0),
+          },
+        };
+      }
       const market = resolveMarket(symbol);
       let list;
       if (market === "US") list = await sdk.quotes.us([symbol]);
@@ -1166,6 +1341,19 @@
     }
 
     async function fetchKline(symbol, period) {
+      const fut = resolveFutures(symbol);
+      if (fut) {
+        // 期货 SDK 仅日/周/月；分钟周期回退日线
+        // https://stock-sdk.linkdiary.cn/api/futures
+        const periodMap = { "1d": "daily", "1w": "weekly" };
+        const fp = periodMap[period] || "daily";
+        let rows = await sdk.futures.kline(fut.symbol, { period: fp });
+        if (!Array.isArray(rows) || !rows.length) {
+          throw new Error(`期货 ${fut.symbol} K线为空（主连如 AUM/au0，股指如 IFM）`);
+        }
+        if (rows.length > 500) rows = rows.slice(-500);
+        return { market: "FUT", bars: toBars(rows), futures: fut };
+      }
       const market = resolveMarket(symbol);
       const isMinute = period in MINUTE_PERIOD;
       let rows;
@@ -1185,6 +1373,10 @@
     }
 
     function hitToSymbol(hit) {
+      if (hit.assetType === "futures" || hit.market === "futures" || hit.category === "futures") {
+        const fut = resolveFutures(hit.symbol || hit.code);
+        return fut ? `fut:${fut.symbol}` : hit.symbol || hit.code;
+      }
       if (hit.symbol) return hit.symbol;
       const code = String(hit.code || "").trim();
       if (!code) return "";
@@ -1199,19 +1391,31 @@
 
     function marketLabelOf(hit) {
       if (hit.marketLabel) return hit.marketLabel;
-      if (hit.exchange) return hit.exchange;
+      if (hit.category === "futures" || hit.market === "futures") return "期货";
+      if (hit.exchange && ["SHFE", "DCE", "CZCE", "INE", "CFFEX", "GFEX"].includes(hit.exchange)) {
+        return "期货";
+      }
       const m = String(hit.market || "").toLowerCase();
       if (m === "cn" || m === "sh" || m === "sz" || m === "bj") return "A股";
       if (m === "hk") return "港股";
       if (m === "us") return "美股";
       if (m === "fund") return "基金";
       if (m === "index") return "指数";
+      if (m === "fut" || m === "futures") return "期货";
       return (hit.category || m || "--").toUpperCase();
     }
 
     function filterSearchHits(hits, filter) {
       const list = hits || [];
       if (filter === "all") return list;
+      if (filter === "futures") {
+        return list.filter(
+          (h) =>
+            h.category === "futures" ||
+            h.market === "futures" ||
+            h.assetType === "futures"
+        );
+      }
       return list.filter((h) => {
         const m = String(h.market || "").toLowerCase();
         const cat = String(h.category || "").toLowerCase();
@@ -1269,6 +1473,16 @@
       }
       compareLoading = true;
       try {
+        if (filter === "futures") {
+          const all = searchFuturesCatalog("");
+          const size = 60;
+          const start = (comparePage - 1) * size;
+          const pageItems = all.slice(start, start + size);
+          renderCompareList(pageItems, { append });
+          compareHasMore = start + size < all.length;
+          document.getElementById("cmpMore").style.display = compareHasMore ? "block" : "none";
+          return;
+        }
         const url = `/api/symbols?market=${encodeURIComponent(filter)}&page=${comparePage}&size=60`;
         const res = await fetch(url);
         const data = await res.json();
@@ -1297,15 +1511,44 @@
       document.getElementById("cmpMore").style.display = "none";
       document.getElementById("cmpList").innerHTML = `<li class="cmp-loading">搜索中…</li>`;
       try {
-        const hits = await sdk.search(q);
-        const filtered = filterSearchHits(hits, compareFilter);
-        renderCompareList(
-          filtered.map((h) => ({
-            ...h,
-            symbol: hitToSymbol(h),
-            exchange: marketLabelOf(h),
-          }))
-        );
+        const futHits = searchFuturesCatalog(q);
+        // 仅期货筛选，或关键词像期货代码时优先展示期货
+        if (compareFilter === "futures") {
+          // 目录未命中时，若可解析则仍展示一条可点项
+          if (!futHits.length) {
+            const parsed = resolveFutures(q);
+            if (parsed) {
+              renderCompareList([futuresHit(parsed)]);
+              return;
+            }
+          }
+          renderCompareList(futHits);
+          return;
+        }
+
+        let stockHits = [];
+        try {
+          stockHits = filterSearchHits(await sdk.search(q), compareFilter);
+        } catch (_) {
+          stockHits = [];
+        }
+        const mapped = stockHits.map((h) => ({
+          ...h,
+          symbol: hitToSymbol(h),
+          exchange: marketLabelOf(h),
+        }));
+        // 「全部」时把期货结果插到前面
+        const merged =
+          compareFilter === "all" ? [...futHits, ...mapped] : mapped;
+        // 无股票结果但能解析为期货时补一条
+        if (!merged.length) {
+          const parsed = resolveFutures(q);
+          if (parsed) {
+            renderCompareList([futuresHit(parsed)]);
+            return;
+          }
+        }
+        renderCompareList(merged);
       } catch (e) {
         document.getElementById("cmpList").innerHTML =
           `<li class="cmp-empty">搜索失败：${e.message || e}</li>`;
@@ -1496,23 +1739,38 @@
     async function addCompareOverlay(item) {
       const symbol = hitToSymbol(item);
       if (!symbol) return;
-      let norm;
-      try {
-        norm = normalizeSymbol(symbol);
-      } catch (e) {
-        setStatus(`无法叠加：${e.message || e}`);
-        return;
+      const fut = resolveFutures(symbol) || resolveFutures(item.code) || resolveFutures(item.symbol);
+      let key;
+      let displayCode;
+      let displayName = item.name || "";
+      if (fut) {
+        key = `FUT:${fut.symbol}`;
+        displayCode = fut.symbol;
+        displayName = displayName || fut.name || fut.symbol;
+      } else {
+        let norm;
+        try {
+          norm = normalizeSymbol(symbol);
+        } catch (e) {
+          setStatus(`无法叠加：${e.message || e}`);
+          return;
+        }
+        key = `${norm.market}:${norm.code}`;
+        displayCode = norm.code;
+        displayName = displayName || norm.code;
+        if (
+          currentSymbol &&
+          normalizeSymbol(currentSymbol).code === norm.code &&
+          resolveMarket(currentSymbol) === norm.market
+        ) {
+          setStatus("不能与当前标的相同");
+          return;
+        }
       }
-      const key = `${norm.market}:${norm.code}`;
       if (compareOverlays.some((o) => o.key === key)) {
-        setStatus(`${item.name || norm.code} 已在比较中`);
+        setStatus(`${displayName || displayCode} 已在比较中`);
         document.getElementById("compareModal").classList.remove("show");
         openAdjust(key);
-        return;
-      }
-      if (currentSymbol && normalizeSymbol(currentSymbol).code === norm.code &&
-          resolveMarket(currentSymbol) === norm.market) {
-        setStatus("不能与当前标的相同");
         return;
       }
       if (!chart) {
@@ -1520,22 +1778,23 @@
         return;
       }
       ensureOverlayIndicator();
-      setStatus(`叠加 ${item.name || norm.code} …`);
+      setStatus(`叠加 ${displayName || displayCode} …`);
       try {
         const primary = chart.getDataList?.() || [];
-        const { bars } = await fetchKline(symbol, currentPeriod);
+        const fetchSym = fut ? `fut:${fut.symbol}` : symbol;
+        const { bars } = await fetchKline(fetchSym, currentPeriod);
         if (!bars.length) throw new Error("无 K 线数据");
         const raw = buildRawSeries(bars);
         const fit = computeFitTransform(primary, raw);
         if (fit.matched < 2) throw new Error("时间轴无法对齐，请换同市场标的或日线周期试试");
         const color = OVERLAY_COLORS[overlayColorIdx % OVERLAY_COLORS.length];
         overlayColorIdx += 1;
-        const short = (item.name || norm.code).slice(0, 8);
+        const short = (displayName || displayCode).slice(0, 8);
         const indicatorId = `OVERLAY_CMP_${key.replace(/[^a-zA-Z0-9]/g, "_")}`;
         const draft = {
           key,
-          symbol,
-          name: item.name || norm.code,
+          symbol: fetchSym,
+          name: displayName || displayCode,
           color,
           indicatorId,
           paneId: "candle_pane",
@@ -1587,7 +1846,9 @@
         activeAdjustKey = key;
         renderOverlayChips();
         document.getElementById("compareModal").classList.remove("show");
-        setStatus(`已叠加 ${item.name || norm.code}（形态适配主图，可拖动偏移/幅度）`);
+        setStatus(
+          `已叠加 ${displayName || displayCode}${fut ? "（期货）" : ""}（形态适配主图，可调节偏移/幅度）`
+        );
       } catch (e) {
         setStatus(`叠加失败: ${e.message || e}`);
       }
