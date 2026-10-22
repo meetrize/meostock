@@ -696,11 +696,13 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
     base = f"{XNGE_ORIGIN}/{path}" if path else f"{XNGE_ORIGIN}/"
     # 浅色模式下 .fupan-tit .tab 仍用深灰底(#353A40) + --WhiteBlack(#000)，对比度差；强制白字。
     # 宽表支持横向滚动，便于嵌入看板 iframe。
+    # 隐藏「使用说明」及以下页脚广告/免责声明
     patch_css = (
         "<style id=\"mootdx-xnge-patch\">"
         ".fupan-tit .tab{color:#fff!important;}"
         "#tags a{color:#fff!important;}"
         "html,body{overflow-x:auto!important;}"
+        ".help,footer{display:none!important;}"
         "</style>"
     )
     # 覆盖 tdx.js 的 openCode：代码/名称点击 → 本应用 K 线。
