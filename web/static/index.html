@@ -77,6 +77,8 @@
       overflow-x: auto;
       white-space: nowrap;
       flex-shrink: 0;
+      position: relative;
+      z-index: 200; /* 盖过下方 K 线 canvas，避免扩展下拉被挡住 */
     }
     .tb-quote {
       display: flex;
@@ -171,6 +173,130 @@
     .tb-tool .label { display: none; }
     @media (min-width: 720px) {
       .tb-tool .label { display: inline; }
+    }
+    .tb-tool-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+    .tb-tool-wrap.open > .tb-tool { color: var(--text); background: var(--btn-active-bg); }
+    .tb-dropdown {
+      display: none;
+      position: fixed; /* 相对视口定位，不被 toolbar overflow / 图表层叠裁切 */
+      top: 0;
+      left: 0;
+      min-width: 168px;
+      max-width: min(280px, calc(100vw - 24px));
+      padding: 6px 0;
+      background: var(--modal-bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+      z-index: 2000;
+    }
+    .tb-tool-wrap.open .tb-dropdown { display: block; }
+    .tb-dropdown-item {
+      display: block;
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      padding: 8px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tb-dropdown-item:hover { background: var(--btn-active-bg); }
+    .tb-dropdown-item.muted { color: var(--muted); font-size: 12px; cursor: default; }
+    .tb-dropdown-item.muted:hover { background: transparent; }
+    .tb-dropdown-sep {
+      height: 1px;
+      margin: 4px 0;
+      background: var(--line);
+    }
+    .ext-hint {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .ext-hint code {
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: var(--btn-active-bg);
+      color: var(--text);
+    }
+    .ext-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ext-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--input-bg);
+    }
+    .ext-row-fields {
+      display: grid;
+      grid-template-columns: 100px 1fr;
+      gap: 8px;
+    }
+    @media (max-width: 560px) {
+      .ext-row-fields { grid-template-columns: 1fr; }
+    }
+    .ext-row input {
+      width: 100%;
+      height: 30px;
+      padding: 0 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .ext-row input.url { font-family: var(--mono); font-size: 12px; }
+    .ext-row-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+    .ext-row-actions button,
+    .ext-toolbar button {
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--btn-bg);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .ext-row-actions button:hover,
+    .ext-toolbar button:hover { background: var(--btn-active-bg); }
+    .ext-row-actions button.danger { color: var(--up); }
+    .ext-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .ext-empty {
+      padding: 16px 8px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
     }
 
     input[type="number"] {
@@ -629,6 +755,13 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
           <span class="label">看板</span>
         </a>
+        <div class="tb-tool-wrap" id="extMenuWrap">
+          <button type="button" class="tb-tool" id="btnExt" title="扩展链接" aria-haspopup="menu" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+            <span class="label">扩展</span>
+          </button>
+          <div class="tb-dropdown" id="extDropdown" role="menu"></div>
+        </div>
         <button type="button" class="tb-tool" id="btnCompare" title="比较商品">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
           <span class="label">比较</span>
@@ -789,6 +922,34 @@
       </div>
       <div class="modal-ft">
         <button type="button" class="primary" id="settingReset">恢复默认</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 扩展菜单设置 -->
+  <div class="modal-mask" id="extModal">
+    <div class="modal modal-settings">
+      <div class="modal-hd">
+        <span>扩展菜单设置</span>
+        <button type="button" class="x" data-close="extModal">×</button>
+      </div>
+      <div class="modal-bd">
+        <p class="ext-hint">
+          链接变量：<code>xxxxxx</code> 证券代码，
+          <code>XXXXXX</code> 大写代码，
+          <code>!!</code> 市场（sz/sh/bj），
+          <code>!!!!</code> 市场大写（SZ/SH/BJ），
+          <code>##STOCKNAME##</code> 证券名称。<br />
+          示例：雪球 <code>https://www.xueqiu.com/S/!!!!XXXXXX</code>
+        </p>
+        <ul class="ext-list" id="extMenuList"></ul>
+        <div class="ext-toolbar">
+          <button type="button" id="extAddItem">＋ 添加菜单</button>
+          <button type="button" id="extResetItems">恢复默认</button>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button type="button" class="primary" id="extSaveItems">保存</button>
       </div>
     </div>
   </div>
@@ -1030,6 +1191,7 @@
     const THEME_KEY = "kline-theme";
     const MA_KEY = "kline-ma-params";
     const SETTING_KEY = "kline-chart-settings";
+    const EXT_MENU_KEY = "kline-ext-menu";
     const DEFAULT_SETTINGS = {
       candleType: "candle_solid",
       lastPrice: true,
@@ -1040,15 +1202,25 @@
       axisReverse: false,
       grid: true,
     };
+    const DEFAULT_EXT_MENU = [
+      { name: "雪球", url: "https://www.xueqiu.com/S/!!!!XXXXXX" },
+      { name: "东方财富", url: "https://quote.eastmoney.com/!!xxxxxx.html" },
+      { name: "同花顺", url: "https://basic.10jqka.com.cn/xxxxxx/" },
+      { name: "富途牛牛", url: "https://www.futunn.com/stock/xxxxxx-!!!!" },
+      { name: "韭研公社", url: "https://www.jiuyangongshe.com/search/f6237887bc944dc9a2070f2f7be9c2e5?type=1&k=##STOCKNAME##" },
+    ];
 
     let currentPeriod = "1d";
     let currentTheme = localStorage.getItem(THEME_KEY) || "light";
     if (currentTheme !== "light" && currentTheme !== "dark") currentTheme = "light";
     let maParams = loadMaParams();
     let chartSettings = loadChartSettings();
+    let extMenuItems = loadExtMenuItems();
+    let extDraftItems = [];
     let chart = null;
     let pollTimer = null;
     let currentSymbol = "600036";
+    let currentName = "";
     let mainIndicators = ["MA"];
     let subIndicators = {}; // name -> paneId
     let settingTarget = null; // { name, paneId }
@@ -1073,6 +1245,216 @@
 
     function saveChartSettings() {
       localStorage.setItem(SETTING_KEY, JSON.stringify(chartSettings));
+    }
+
+    function normalizeExtMenuItems(list) {
+      if (!Array.isArray(list)) return [];
+      return list
+        .map((it) => ({
+          name: String(it?.name || "").trim(),
+          url: String(it?.url || "").trim(),
+        }))
+        .filter((it) => it.name && it.url);
+    }
+
+    function loadExtMenuItems() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(EXT_MENU_KEY) || "null");
+        const items = normalizeExtMenuItems(raw);
+        if (items.length) {
+          // 补齐新增的默认项（按名称），不覆盖用户已有配置
+          const names = new Set(items.map((it) => it.name));
+          let changed = false;
+          DEFAULT_EXT_MENU.forEach((def) => {
+            if (!names.has(def.name)) {
+              items.push({ ...def });
+              changed = true;
+            }
+          });
+          if (changed) {
+            localStorage.setItem(EXT_MENU_KEY, JSON.stringify(items));
+          }
+          return items;
+        }
+      } catch (_) {}
+      return DEFAULT_EXT_MENU.map((it) => ({ ...it }));
+    }
+
+    function saveExtMenuItems(items) {
+      extMenuItems = normalizeExtMenuItems(items);
+      localStorage.setItem(EXT_MENU_KEY, JSON.stringify(extMenuItems));
+      return extMenuItems;
+    }
+
+    /** 解析 A 股市场前缀：sz / sh / bj */
+    function resolveCnMarketPrefix(symbol) {
+      const raw = String(symbol || "").trim();
+      if (!raw) return "";
+      const lower = raw.toLowerCase();
+      if (lower.startsWith("sh") || lower.startsWith("sz") || lower.startsWith("bj")) {
+        return lower.slice(0, 2);
+      }
+      try {
+        const n = normalizeSymbol(raw);
+        const m = String(n.market || "").toLowerCase();
+        if (m === "sh" || m === "sz" || m === "bj") return m;
+        if (m === "sse") return "sh";
+        if (m === "szse") return "sz";
+        if (m === "bse") return "bj";
+        const code = String(n.code || "").replace(/\D/g, "");
+        if (code) {
+          if (code.startsWith("6") || code.startsWith("9")) return "sh";
+          if (code.startsWith("0") || code.startsWith("3")) return "sz";
+          if (code.startsWith("4") || code.startsWith("8")) return "bj";
+        }
+      } catch (_) {}
+      const digits = raw.replace(/\D/g, "");
+      if (digits.startsWith("6") || digits.startsWith("9")) return "sh";
+      if (digits.startsWith("0") || digits.startsWith("3")) return "sz";
+      if (digits.startsWith("4") || digits.startsWith("8")) return "bj";
+      return "";
+    }
+
+    /** 去掉市场前缀后的证券代码 */
+    function resolveBareCode(symbol) {
+      const raw = String(symbol || "").trim();
+      if (!raw) return "";
+      if (/^(sh|sz|bj)/i.test(raw)) return raw.slice(2);
+      try {
+        const n = normalizeSymbol(raw);
+        if (n.code) return String(n.code);
+      } catch (_) {}
+      return raw;
+    }
+
+    function resolveExtUrl(template, symbol = currentSymbol, name = currentName) {
+      const code = resolveBareCode(symbol);
+      const market = resolveCnMarketPrefix(symbol);
+      const stockName = name && name !== "--" ? name : code;
+      let url = String(template || "");
+      url = url.split("##STOCKNAME##").join(encodeURIComponent(stockName));
+      // !!!! 必须先于 !!
+      url = url.split("!!!!").join(market.toUpperCase());
+      url = url.split("!!").join(market);
+      url = url.split("XXXXXX").join(code.toUpperCase());
+      url = url.split("xxxxxx").join(code);
+      return url;
+    }
+
+    function positionExtDropdown() {
+      const btn = document.getElementById("btnExt");
+      const menu = document.getElementById("extDropdown");
+      if (!btn || !menu) return;
+      const rect = btn.getBoundingClientRect();
+      const gap = 4;
+      // 先按按钮右对齐估算，打开后再用实际宽度微调，避免贴边被裁
+      menu.style.top = `${Math.round(rect.bottom + gap)}px`;
+      menu.style.left = `${Math.round(rect.left)}px`;
+      menu.style.right = "auto";
+      const mw = menu.offsetWidth || 168;
+      let left = Math.round(rect.right - mw);
+      left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+      menu.style.left = `${left}px`;
+    }
+
+    function closeExtDropdown() {
+      const wrap = document.getElementById("extMenuWrap");
+      const btn = document.getElementById("btnExt");
+      if (wrap) wrap.classList.remove("open");
+      if (btn) btn.setAttribute("aria-expanded", "false");
+    }
+
+    function toggleExtDropdown() {
+      const wrap = document.getElementById("extMenuWrap");
+      if (!wrap) return;
+      const open = !wrap.classList.contains("open");
+      if (open) {
+        renderExtDropdown();
+        wrap.classList.add("open");
+        document.getElementById("btnExt").setAttribute("aria-expanded", "true");
+        positionExtDropdown();
+      } else {
+        closeExtDropdown();
+      }
+    }
+
+    function renderExtDropdown() {
+      const box = document.getElementById("extDropdown");
+      if (!box) return;
+      const items = extMenuItems;
+      let html = "";
+      if (!items.length) {
+        html += `<button type="button" class="tb-dropdown-item muted" disabled>暂无菜单，请先设置</button>`;
+      } else {
+        items.forEach((it, idx) => {
+          const label = escapeHtml(it.name);
+          html += `<button type="button" class="tb-dropdown-item" role="menuitem" data-ext-open="${idx}">${label}</button>`;
+        });
+      }
+      html += `<div class="tb-dropdown-sep"></div>`;
+      html += `<button type="button" class="tb-dropdown-item" role="menuitem" id="extMenuSettings">设置…</button>`;
+      box.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function openExtLink(index) {
+      const item = extMenuItems[index];
+      if (!item) return;
+      const url = resolveExtUrl(item.url);
+      if (!url) {
+        setStatus("扩展链接为空");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+      closeExtDropdown();
+    }
+
+    function openExtSettingsModal() {
+      closeExtDropdown();
+      extDraftItems = extMenuItems.map((it) => ({ ...it }));
+      if (!extDraftItems.length) extDraftItems = [{ name: "", url: "" }];
+      renderExtSettingsList();
+      document.getElementById("extModal").classList.add("show");
+    }
+
+    function renderExtSettingsList() {
+      const list = document.getElementById("extMenuList");
+      if (!list) return;
+      if (!extDraftItems.length) {
+        list.innerHTML = `<li class="ext-empty">暂无菜单项，点击下方「添加菜单」</li>`;
+        return;
+      }
+      list.innerHTML = extDraftItems
+        .map(
+          (it, idx) => `
+        <li class="ext-row" data-ext-idx="${idx}">
+          <div class="ext-row-fields">
+            <input type="text" data-ext-field="name" placeholder="菜单名称" value="${escapeHtml(it.name)}" maxlength="40" />
+            <input type="text" class="url" data-ext-field="url" placeholder="链接地址（可含变量）" value="${escapeHtml(it.url)}" />
+          </div>
+          <div class="ext-row-actions">
+            <button type="button" data-ext-up title="上移">↑</button>
+            <button type="button" data-ext-down title="下移">↓</button>
+            <button type="button" class="danger" data-ext-del>删除</button>
+          </div>
+        </li>`
+        )
+        .join("");
+    }
+
+    function syncExtDraftFromDom() {
+      const rows = document.querySelectorAll("#extMenuList .ext-row");
+      extDraftItems = Array.from(rows).map((row) => ({
+        name: (row.querySelector('[data-ext-field="name"]')?.value || "").trim(),
+        url: (row.querySelector('[data-ext-field="url"]')?.value || "").trim(),
+      }));
     }
 
     function activeMaParams(params = maParams) {
@@ -2308,6 +2690,7 @@
       const cls = change >= 0 ? "up" : "down";
       const sign = change >= 0 ? "+" : "";
       const code = q.code || symbol;
+      currentName = q.name || "";
       document.getElementById("stockName").textContent = q.name || "--";
       const priceEl = document.getElementById("tbPrice");
       const changeEl = document.getElementById("tbChange");
@@ -2653,6 +3036,90 @@
     document.getElementById("btnIndicator").addEventListener("click", openIndicatorModal);
     document.getElementById("btnSetting").addEventListener("click", openSettingModal);
     document.getElementById("btnTheme").addEventListener("click", toggleTheme);
+    document.getElementById("btnExt").addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleExtDropdown();
+    });
+    document.getElementById("extDropdown").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const openBtn = e.target.closest("[data-ext-open]");
+      if (openBtn) {
+        openExtLink(Number(openBtn.dataset.extOpen));
+        return;
+      }
+      if (e.target.closest("#extMenuSettings")) {
+        openExtSettingsModal();
+      }
+    });
+    document.addEventListener("click", (e) => {
+      const wrap = document.getElementById("extMenuWrap");
+      if (wrap && wrap.classList.contains("open") && !wrap.contains(e.target)) {
+        closeExtDropdown();
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeExtDropdown();
+    });
+    window.addEventListener("resize", () => {
+      const wrap = document.getElementById("extMenuWrap");
+      if (wrap && wrap.classList.contains("open")) positionExtDropdown();
+    });
+    window.addEventListener(
+      "scroll",
+      () => {
+        const wrap = document.getElementById("extMenuWrap");
+        if (wrap && wrap.classList.contains("open")) positionExtDropdown();
+      },
+      true
+    );
+    document.getElementById("extAddItem").addEventListener("click", () => {
+      syncExtDraftFromDom();
+      extDraftItems.push({ name: "", url: "" });
+      renderExtSettingsList();
+    });
+    document.getElementById("extResetItems").addEventListener("click", () => {
+      extDraftItems = DEFAULT_EXT_MENU.map((it) => ({ ...it }));
+      renderExtSettingsList();
+    });
+    document.getElementById("extSaveItems").addEventListener("click", () => {
+      syncExtDraftFromDom();
+      const cleaned = normalizeExtMenuItems(extDraftItems);
+      if (!cleaned.length && extDraftItems.some((it) => it.name || it.url)) {
+        setStatus("请填写完整的菜单名称和链接");
+        return;
+      }
+      saveExtMenuItems(cleaned);
+      document.getElementById("extModal").classList.remove("show");
+      setStatus(cleaned.length ? `已保存 ${cleaned.length} 个扩展菜单` : "已清空扩展菜单");
+    });
+    document.getElementById("extMenuList").addEventListener("click", (e) => {
+      const row = e.target.closest(".ext-row");
+      if (!row) return;
+      const idx = Number(row.dataset.extIdx);
+      if (e.target.closest("[data-ext-del]")) {
+        syncExtDraftFromDom();
+        extDraftItems.splice(idx, 1);
+        renderExtSettingsList();
+        return;
+      }
+      if (e.target.closest("[data-ext-up]")) {
+        syncExtDraftFromDom();
+        if (idx <= 0) return;
+        const tmp = extDraftItems[idx - 1];
+        extDraftItems[idx - 1] = extDraftItems[idx];
+        extDraftItems[idx] = tmp;
+        renderExtSettingsList();
+        return;
+      }
+      if (e.target.closest("[data-ext-down]")) {
+        syncExtDraftFromDom();
+        if (idx >= extDraftItems.length - 1) return;
+        const tmp = extDraftItems[idx + 1];
+        extDraftItems[idx + 1] = extDraftItems[idx];
+        extDraftItems[idx] = tmp;
+        renderExtSettingsList();
+      }
+    });
 
     document.getElementById("cmpFilters").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-filter]");
