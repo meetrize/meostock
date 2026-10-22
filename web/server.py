@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import re
 import threading
@@ -68,18 +69,63 @@ _YF_KLINE_LOCK = threading.Lock()
 _YF_KLINE_TTL = 300  # 秒
 
 
-def _http_get_json(url: str, timeout: float = 12.0) -> dict[str, Any]:
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (compatible; mootdx-kline/0.4)",
-            "Referer": "https://quote.eastmoney.com/",
-        },
-        method="GET",
-    )
+_BROWSER_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+)
+
+# 新浪行情节点（东财 push2 不可达时的 A 股/ETF 兜底）
+SINA_HQ_NODE = {
+    "cn": "hs_a",
+    "fund": "etf_hq_fund",
+}
+SINA_HQ_DATA = (
+    "https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/"
+    "Market_Center.getHQNodeData"
+)
+SINA_HQ_COUNT = (
+    "https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/"
+    "Market_Center.getHQNodeStockCount"
+)
+
+
+def _http_get_text(
+    url: str,
+    *,
+    timeout: float = 15.0,
+    referer: str = "https://quote.eastmoney.com/",
+    headers: dict[str, str] | None = None,
+) -> str:
+    """统一 HTTP GET 文本。可传完整 headers，或只用 referer + 默认浏览器 UA。"""
+    req_headers = {
+        "User-Agent": _BROWSER_UA,
+        "Referer": referer,
+        "Accept": "application/json,text/plain,*/*",
+    }
+    if headers:
+        req_headers.update(headers)
+    req = urllib.request.Request(url, headers=req_headers, method="GET")
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read().decode("utf-8", errors="replace")
-    return json.loads(raw)
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def _http_get_json(url: str, timeout: float = 12.0) -> dict[str, Any]:
+    raw = _http_get_text(url, timeout=timeout)
+    data = json.loads(raw)
+    if not isinstance(data, dict):
+        raise json.JSONDecodeError("expected object", raw, 0)
+    return data
+
+
+def _http_errors() -> tuple[type[BaseException], ...]:
+    return (
+        urllib.error.URLError,
+        TimeoutError,
+        json.JSONDecodeError,
+        OSError,
+        http.client.HTTPException,
+        ValueError,
+    )
 
 
 def _to_symbol(code: str, mkt: int, market: str) -> str:
@@ -88,11 +134,109 @@ def _to_symbol(code: str, mkt: int, market: str) -> str:
         return code.upper()
     if market == "hk":
         return code.zfill(5) if code.isdigit() else code
+    if code.startswith(("sh", "sz", "bj")):
+        return code
+    # 北交所常见代码段
+    if code.isdigit() and (code.startswith(("8", "4")) or code.startswith("92")):
+        return f"bj{code}"
     if mkt == 1:
         return f"sh{code}"
     if mkt == 0:
         return f"sz{code}"
     return code
+
+
+def _normalize_diff(diff: Any) -> list[dict[str, Any]]:
+    """东财 diff 有时是 list，有时是 {\"0\": {...}}。"""
+    if isinstance(diff, list):
+        return [row for row in diff if isinstance(row, dict)]
+    if isinstance(diff, dict):
+        rows = list(diff.values())
+        return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
+def _sina_symbol_list(
+    market: str,
+    page: int,
+    size: int,
+    q: str,
+) -> dict[str, Any]:
+    """新浪行情列表兜底（主要用于 A 股）。"""
+    node = SINA_HQ_NODE.get(market)
+    if not node:
+        raise ValueError(f"no sina fallback for market: {market}")
+
+    params = {
+        "page": str(page),
+        "num": str(size),
+        "sort": "changepercent",
+        "asc": "0",
+        "node": node,
+        "symbol": "",
+        "_s_r_a": "page",
+    }
+    referer = "https://finance.sina.com.cn/"
+    raw = _http_get_text(
+        f"{SINA_HQ_DATA}?{urllib.parse.urlencode(params)}",
+        referer=referer,
+    )
+    rows = json.loads(raw) if raw.strip() else []
+    if not isinstance(rows, list):
+        rows = []
+
+    total = 0
+    try:
+        count_raw = _http_get_text(
+            f"{SINA_HQ_COUNT}?{urllib.parse.urlencode({'node': node})}",
+            referer=referer,
+        ).strip().strip('"')
+        total = int(count_raw or 0)
+    except _http_errors():
+        total = len(rows)
+
+    qn = q.strip().lower()
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        code = str(row.get("code") or "").strip()
+        name = str(row.get("name") or "").strip()
+        sym = str(row.get("symbol") or "").strip().lower()
+        if qn and qn not in code.lower() and qn not in name.lower() and qn not in sym:
+            continue
+        if not sym:
+            # 无前缀时按代码猜测市场
+            if code.startswith(("6", "5", "9")):
+                sym = f"sh{code}"
+            elif code.startswith(("0", "1", "2", "3")):
+                sym = f"sz{code}"
+            elif code.startswith(("4", "8", "92")):
+                sym = f"bj{code}"
+            else:
+                sym = code
+        exchange = "SSE" if sym.startswith("sh") else "SZSE" if sym.startswith("sz") else "BSE"
+        items.append(
+            {
+                "symbol": sym,
+                "code": code or re.sub(r"^(sh|sz|bj)", "", sym),
+                "name": name,
+                "market": market,
+                "marketLabel": MARKET_LABEL.get(market, market.upper()),
+                "exchange": exchange,
+                "category": "stock" if market == "cn" else market,
+            }
+        )
+
+    return {
+        "ok": True,
+        "market": market,
+        "page": page,
+        "size": size,
+        "total": total or len(items),
+        "items": items,
+        "source": "sina",
+    }
 
 
 def _yf_live_items(market: str) -> list[dict[str, Any]] | None:
@@ -402,11 +546,11 @@ def stock_industries(
     url = f"https://push2.eastmoney.com/api/qt/ulist.np/get?{urllib.parse.urlencode(params)}"
     try:
         data = _http_get_json(url)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+    except _http_errors() as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
 
     industries: dict[str, str] = {}
-    for row in (((data or {}).get("data") or {}).get("diff")) or []:
+    for row in _normalize_diff((((data or {}).get("data") or {}).get("diff"))):
         code = str(row.get("f12") or "").strip()
         industry = str(row.get("f100") or "").strip()
         if code and industry:
@@ -438,43 +582,68 @@ def symbol_list(
         "fields": "f12,f13,f14",
     }
     url = f"{EM_CLIST}?{urllib.parse.urlencode(params)}"
+    em_error: str | None = None
     try:
         data = _http_get_json(url)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+        diff = _normalize_diff((((data or {}).get("data") or {}).get("diff")))
+        total = int((((data or {}).get("data") or {}).get("total")) or 0)
+        qn = q.strip().lower()
+        items: list[dict[str, Any]] = []
+        for row in diff:
+            code = str(row.get("f12") or "")
+            name = str(row.get("f14") or "")
+            try:
+                mkt = int(row.get("f13") or 0)
+            except (TypeError, ValueError):
+                mkt = 0
+            if qn and qn not in code.lower() and qn not in name.lower():
+                continue
+            symbol = _to_symbol(code, mkt, market)
+            items.append(
+                {
+                    "symbol": symbol,
+                    "code": code,
+                    "name": name,
+                    "market": market,
+                    "marketLabel": MARKET_LABEL.get(market, market.upper()),
+                    "exchange": EXCHANGE_BY_MKT.get(mkt, MARKET_LABEL.get(market, "")),
+                    "category": "stock" if market in ("cn", "hk", "us") else market,
+                }
+            )
 
-    diff = (((data or {}).get("data") or {}).get("diff")) or []
-    total = int((((data or {}).get("data") or {}).get("total")) or 0)
-    qn = q.strip().lower()
-    items: list[dict[str, Any]] = []
-    for row in diff:
-        code = str(row.get("f12") or "")
-        name = str(row.get("f14") or "")
-        mkt = int(row.get("f13") or 0)
-        if qn and qn not in code.lower() and qn not in name.lower():
-            continue
-        symbol = _to_symbol(code, mkt, market)
-        items.append(
+        return JSONResponse(
             {
-                "symbol": symbol,
-                "code": code,
-                "name": name,
+                "ok": True,
                 "market": market,
-                "marketLabel": MARKET_LABEL.get(market, market.upper()),
-                "exchange": EXCHANGE_BY_MKT.get(mkt, MARKET_LABEL.get(market, "")),
-                "category": "stock" if market in ("cn", "hk", "us") else market,
+                "page": page,
+                "size": size,
+                "total": total,
+                "items": items,
+                "source": "eastmoney",
             }
         )
+    except _http_errors() as e:
+        em_error = str(e) or type(e).__name__
+
+    # 东财 push2 常被断开：A 股 / ETF 走新浪兜底，避免 500
+    if market in SINA_HQ_NODE:
+        try:
+            payload = _sina_symbol_list(market, page, size, q)
+            if em_error:
+                payload["fallbackFrom"] = f"eastmoney: {em_error}"
+            return JSONResponse(payload)
+        except _http_errors() as e:
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": f"eastmoney: {em_error}; sina: {e}",
+                },
+                status_code=502,
+            )
 
     return JSONResponse(
-        {
-            "ok": True,
-            "market": market,
-            "page": page,
-            "size": size,
-            "total": total,
-            "items": items,
-        }
+        {"ok": False, "error": em_error or "symbol list failed"},
+        status_code=502,
     )
 
 
@@ -648,12 +817,6 @@ TDX_UA = (
 )
 XUANGUBAO_POOL = "https://flash-api.xuangubao.cn/api/pool/detail"
 XNGE_ORIGIN = "http://t.xnge.cn"
-
-
-def _http_get_text(url: str, *, headers: dict[str, str] | None = None, timeout: float = 15.0) -> str:
-    req = urllib.request.Request(url, headers=headers or {}, method="GET")
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8", errors="replace")
 
 
 def _normalize_xnge_bg(raw: str | None) -> str:

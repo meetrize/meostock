@@ -1857,8 +1857,13 @@
         }
         const url = `/api/symbols?market=${encodeURIComponent(filter)}&page=${comparePage}&size=60`;
         const res = await fetch(url);
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.error || "列表失败");
+        let data;
+        try {
+          data = await res.json();
+        } catch (_) {
+          throw new Error(res.ok ? "响应不是 JSON" : `服务错误 HTTP ${res.status}`);
+        }
+        if (!data.ok) throw new Error(data.error || `列表失败 HTTP ${res.status}`);
         renderCompareList(data.items || [], { append });
         const loaded = comparePage * (data.size || 60);
         compareHasMore = loaded < (data.total || 0);
