@@ -1369,6 +1369,10 @@
         url: "https://static.k.sohu.com/static/finance/pc/qstock/v0.0.12/canvas.html?biz_code=cn_xxxxxx",
         embed: true,
       },
+      {
+        name: "通达信",
+        url: "https://wenda.tdx.com.cn/site/wenda_pc/stock_index.html?message=xxxxxx",
+      },
     ];
 
     let currentPeriod = "1d";
@@ -2283,40 +2287,56 @@
     }
 
     /**
-     * cnMinute period=1 会返回近约 5 个交易日；分时图只留「今天」。
-     * 若今天无数据（周末/节假日），退回数据里最近一个交易日。
+     * 分时多日策略：
+     * 1) 网络：一次 cnMinute(period=1) 拿近约 5 个交易日，按日拆分
+     * 2) 数据：全部写入图（约 5×242 根，体量很小）；forward 必须为 false
+     *    —— klinecharts 在 from===0 且 forward=true 时会自动连环拉历史，
+     *    首屏若只塞 1 日再 forward=true，会立刻把 5 日全展开
+     * 3) 视口：barSpace 按「一日宽度」适配，并滚到最近一日开盘，首屏只看见今天
+     * 4) 向左拖即可看到昨天及更早；切股票 / 退出分时清空缓存
      */
-    function filterFsBarsToToday(bars) {
-      const list = Array.isArray(bars) ? bars.filter((b) => b && Number.isFinite(b.timestamp)) : [];
-      if (!list.length) return list;
-      const { start, end } = shanghaiDayRangeUtc(Date.now());
-      const today = list.filter((b) => b.timestamp >= start && b.timestamp <= end);
-      if (today.length) return today.sort((a, b) => a.timestamp - b.timestamp);
-      let latestTs = list[0].timestamp;
-      list.forEach((b) => {
-        if (b.timestamp > latestTs) latestTs = b.timestamp;
+    const FS_DAY_SLOTS = 242; // 09:30–11:30 + 13:00–15:00
+    let fsCache = null; // { symbol, days: ymd[], byDay: Map }
+
+    function resetFsCache() {
+      fsCache = null;
+    }
+
+    function groupBarsByShanghaiDay(bars) {
+      const map = new Map();
+      (bars || []).forEach((b) => {
+        if (!b || !Number.isFinite(b.timestamp)) return;
+        const { ymd } = shanghaiDayRangeUtc(b.timestamp);
+        if (!map.has(ymd)) map.set(ymd, []);
+        map.get(ymd).push(b);
       });
-      const day = shanghaiDayRangeUtc(latestTs);
-      return list
-        .filter((b) => b.timestamp >= day.start && b.timestamp <= day.end)
-        .sort((a, b) => a.timestamp - b.timestamp);
+      const days = [...map.keys()].sort(); // 升序：旧 → 新
+      days.forEach((ymd) => {
+        map.set(
+          ymd,
+          map.get(ymd).sort((a, b) => a.timestamp - b.timestamp)
+        );
+      });
+      return { days, byDay: map };
     }
 
     /**
-     * 把分时数据补齐到 9:30–15:00：
-     * - 已有点：写入对应分钟
-     * - 已开盘但缺分钟：用前值补齐
-     * - 未走到的未来分钟：close=NaN，占位拉满横轴到 15:00（不画线）
+     * 单日分时补齐到 9:30–15:00。
+     * 历史完整日：缺分钟前值补齐；今天未走到的分钟用 NaN 占位。
      */
-    function padCnFsBars(bars) {
-      const list = filterFsBarsToToday(bars);
-      if (!list.length) return list;
-      // 用当日最后一根（或唯一交易日）对齐 9:30–15:00 槽位
-      const slots = buildCnFsSlotTimestamps(list[list.length - 1].timestamp);
+    function padFsDayBars(dayBars) {
+      const list = Array.isArray(dayBars)
+        ? dayBars.filter((b) => b && Number.isFinite(b.timestamp))
+        : [];
+      if (!list.length) return [];
+      const slots = buildCnFsSlotTimestamps(list[0].timestamp);
       const byMin = new Map();
       list.forEach((b) => {
         byMin.set(floorShanghaiMinuteUtc(b.timestamp), b);
       });
+      const todayYmd = shanghaiDayRangeUtc(Date.now()).ymd;
+      const dayYmd = shanghaiDayRangeUtc(list[0].timestamp).ymd;
+      const isToday = dayYmd === todayYmd;
       const now = Date.now();
       let last = null;
       const out = [];
@@ -2327,7 +2347,7 @@
           out.push(last);
           continue;
         }
-        if (ts > now) {
+        if (isToday && ts > now) {
           out.push({
             timestamp: ts,
             open: NaN,
@@ -2348,7 +2368,6 @@
             turnover: 0,
           });
         } else {
-          // 开盘前占位，保证横轴从 9:30 起
           out.push({
             timestamp: ts,
             open: NaN,
@@ -2363,23 +2382,42 @@
       return out;
     }
 
-    function fitFsViewport(barCount) {
-      if (!chart || !barCount) return;
+    /** 兼容：只取今天（或最近交易日）并补齐 —— 给非 DataLoader 调用方用 */
+    function padCnFsBars(bars) {
+      const { days, byDay } = groupBarsByShanghaiDay(bars);
+      if (!days.length) return [];
+      const todayYmd = shanghaiDayRangeUtc(Date.now()).ymd;
+      const ymd = byDay.has(todayYmd) ? todayYmd : days[days.length - 1];
+      return padFsDayBars(byDay.get(ymd));
+    }
+
+    /**
+     * 首屏按「一日宽度」适配，并滚到最新一根（最近交易日 15:00）。
+     * 注意：scrollToDataIndex(i) 是把 i 对齐到视口【右缘】，不能用来滚到今日开盘，
+     * 否则右缘落在 09:30，画面会变成「昨天」为主。
+     */
+    function fitFsViewportOneDay() {
+      if (!chart) return;
       try {
-        if (typeof chart.setMaxOffsetRightDistance === "function") {
-          chart.setMaxOffsetRightDistance(0);
-        }
-        if (typeof chart.setOffsetRightDistance === "function") {
-          chart.setOffsetRightDistance(0);
-        }
         const el = document.getElementById("chart");
         const w = el?.clientWidth || 800;
-        const space = Math.max(1.2, Math.min(8, (w - 48) / barCount));
+        const space = Math.max(1.5, Math.min(6, (w - 48) / FS_DAY_SLOTS));
         chart.setBarSpace(space);
-        if (typeof chart.scrollToDataIndex === "function") {
-          chart.scrollToDataIndex(0);
+        // 最新一根贴右；一日宽度下左缘自然落在该日 09:30
+        if (typeof chart.scrollToRealTime === "function") {
+          chart.scrollToRealTime();
+        } else if (typeof chart.setOffsetRightDistance === "function") {
+          chart.setOffsetRightDistance(0);
         }
       } catch (_) {}
+    }
+
+    function fsStatusText(symbol) {
+      if (!fsCache) return `${symbol} · 分时`;
+      const total = fsCache.days.length;
+      const latest = fsCache.days[total - 1];
+      if (total <= 1) return `${symbol} · 分时 · ${latest}`;
+      return `${symbol} · 分时 · ${latest}（向左拖可看近 ${total} 日）`;
     }
 
     async function fetchQuote(symbol) {
@@ -2515,17 +2553,8 @@
         // https://stock-sdk.linkdiary.cn/api/kline
         const p = MINUTE_PERIOD[period];
         if (period === "fs") {
-          // period=1 实际会带回近 5 日分时；用 start/end 收窄到上海「今天」
-          const { ymd } = shanghaiDayRangeUtc(Date.now());
-          rows = await sdk.kline.cnMinute(apiSym, {
-            period: "1",
-            startDate: `${ymd} 09:30`,
-            endDate: `${ymd} 15:00`,
-          });
-          // 周末/节假日今天无点：退回近 5 日，再由 padCnFsBars 取最近交易日
-          if (!Array.isArray(rows) || !rows.length) {
-            rows = await sdk.kline.cnMinute(apiSym, { period: "1" });
-          }
+          // 一次拉近约 5 个交易日；首屏视口只露最近一日，历史靠向左拖
+          rows = await sdk.kline.cnMinute(apiSym, { period: "1" });
         } else {
           rows = await sdk.kline.cnMinute(apiSym, { period: p });
         }
@@ -2534,9 +2563,7 @@
         rows = await sdk.kline.cn(apiSym, { period: p, adjust: "qfq" });
       }
       if (!isMinute && Array.isArray(rows) && rows.length > 500) rows = rows.slice(-500);
-      let bars = toBars(rows);
-      // A 股分时：只保留今天 + 横轴固定 9:30–15:00（跳过午休）
-      if (period === "fs") bars = padCnFsBars(bars);
+      const bars = toBars(rows);
       return { market, bars, source: "stock-sdk" };
     }
 
@@ -3557,41 +3584,85 @@
       // ticker 仍用于内部，但图上标题已关闭，不显示代码
       c.setSymbol({ ticker: symbol, pricePrecision: 2, volumePrecision: 0 });
       c.setPeriod(PERIOD_MAP[currentPeriod]);
+      if (currentPeriod !== "fs") resetFsCache();
       c.setDataLoader({
         async getBars({ type, callback }) {
+          // —— 分时：数据一次入图，视口只露出最近一日 ——
+          if (currentPeriod === "fs") {
+            try {
+              if (type === "init") {
+                setStatus(`加载 ${symbol} 分时 …`);
+                const data = await fetchKline(symbol, "fs");
+                ensureChart(data.market);
+                applyChartSettings();
+                const raw = data.bars || [];
+                const { days, byDay } = groupBarsByShanghaiDay(raw);
+                if (!days.length) {
+                  resetFsCache();
+                  callback([], false);
+                  setStatus(`${symbol} · 分时无数据`);
+                  return;
+                }
+                fsCache = { symbol, days, byDay };
+                // 旧→新拼齐全日槽；forward 必须 false，否则 from===0 会连环展开
+                const allBars = days.flatMap((ymd) =>
+                  padFsDayBars(byDay.get(ymd) || [])
+                );
+                // 先按一日宽度设 barSpace，再入图，避免首帧把 5 日挤进视口
+                try {
+                  const el = document.getElementById("chart");
+                  const w = el?.clientWidth || 800;
+                  chart.setBarSpace(
+                    Math.max(1.5, Math.min(6, (w - 48) / FS_DAY_SLOTS))
+                  );
+                } catch (_) {}
+                callback(allBars, { forward: false, backward: false });
+                setStatus(fsStatusText(symbol));
+                queueMicrotask(() => {
+                  refreshCompareOverlays();
+                  placeCnTestLabel(
+                    padFsDayBars(byDay.get(days[days.length - 1]) || [])
+                  );
+                  try {
+                    chart.resize();
+                  } catch (_) {}
+                  fitFsViewportOneDay();
+                });
+                return;
+              }
+              // forward / backward / update：分时不追加（历史已全部在图内）
+              callback([], { forward: false, backward: false });
+              return;
+            } catch (e) {
+              setStatus(`加载失败: ${e.message || e}`);
+              callback([], false);
+              return;
+            }
+          }
+
+          // —— 普通 K 线 ——
           if (type !== "init") {
             callback([], false);
             return;
           }
           try {
-            const periodLabel = currentPeriod === "fs" ? "分时" : currentPeriod;
-            setStatus(`加载 ${symbol} ${periodLabel} …`);
+            setStatus(`加载 ${symbol} ${currentPeriod} …`);
             const data = await fetchKline(symbol, currentPeriod);
             ensureChart(data.market);
             applyChartSettings();
-            let bars = data.bars || [];
-            // 非 CN 源的分时也尽量补齐到当日 9:30–15:00（A 股时段）
-            if (currentPeriod === "fs" && bars.length && data.source !== "stock-sdk") {
-              bars = padCnFsBars(bars);
-            }
+            const bars = data.bars || [];
             callback(bars, false);
             const src =
               data.source === "yfinance"
                 ? `yfinance${data.yf?.symbol ? `(${data.yf.symbol})` : ""}`
                 : data.source || "stock-sdk";
-            setStatus(
-              `${symbol} · ${periodLabel} · ${bars.length} ${
-                currentPeriod === "fs" ? "个点" : "根K线"
-              } · 数据源 ${src}`
-            );
-            // 主图刷新后同步叠加比较线、中文测试标签，并校正高度
+            setStatus(`${symbol} · ${currentPeriod} · ${bars.length} 根K线 · 数据源 ${src}`);
             queueMicrotask(() => {
               refreshCompareOverlays();
               placeCnTestLabel(bars);
               try {
                 chart.resize();
               } catch (_) {}
-              if (currentPeriod === "fs") fitFsViewport(bars.length);
             });
           } catch (e) {
             setStatus(`加载失败: ${e.message || e}`);
@@ -3638,6 +3709,7 @@
 
     function applyPeriodUI(period) {
       if (!PERIOD_MAP[period]) return false;
+      if (period !== "fs") resetFsCache();
       currentPeriod = period;
       document.querySelectorAll("#periods button").forEach((b) => {
         b.classList.toggle("active", b.dataset.period === period);
