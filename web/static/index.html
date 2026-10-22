@@ -2225,6 +2225,163 @@
         .sort((a, b) => a.timestamp - b.timestamp);
     }
 
+    /** 取 Asia/Shanghai 的年月日时分 */
+    function shanghaiParts(ts) {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(new Date(ts));
+      const get = (t) => parts.find((p) => p.type === t)?.value || "0";
+      return {
+        y: Number(get("year")),
+        mo: Number(get("month")),
+        d: Number(get("day")),
+        h: Number(get("hour") === "24" ? "0" : get("hour")),
+        mi: Number(get("minute")),
+      };
+    }
+
+    function shanghaiLocalToUtcMs(y, mo, d, h, mi) {
+      const pad = (n) => String(n).padStart(2, "0");
+      return Date.parse(`${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}:00+08:00`);
+    }
+
+    function floorShanghaiMinuteUtc(ts) {
+      const p = shanghaiParts(ts);
+      return shanghaiLocalToUtcMs(p.y, p.mo, p.d, p.h, p.mi);
+    }
+
+    /**
+     * A 股交易分钟轴：09:30–11:30、13:00–15:00（共 242 个点，不含午休）。
+     * 用于分时图固定从开盘画到收盘。
+     */
+    function buildCnFsSlotTimestamps(dayTs) {
+      const p = shanghaiParts(dayTs);
+      const slots = [];
+      for (let t = 9 * 60 + 30; t <= 11 * 60 + 30; t += 1) {
+        slots.push(shanghaiLocalToUtcMs(p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
+      }
+      for (let t = 13 * 60; t <= 15 * 60; t += 1) {
+        slots.push(shanghaiLocalToUtcMs(p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
+      }
+      return slots;
+    }
+
+    /** 取上海时区「今天」0:00–23:59 的 UTC 毫秒范围 */
+    function shanghaiDayRangeUtc(ts = Date.now()) {
+      const p = shanghaiParts(ts);
+      return {
+        ymd: `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`,
+        start: shanghaiLocalToUtcMs(p.y, p.mo, p.d, 0, 0),
+        end: shanghaiLocalToUtcMs(p.y, p.mo, p.d, 23, 59),
+      };
+    }
+
+    /**
+     * cnMinute period=1 会返回近约 5 个交易日；分时图只留「今天」。
+     * 若今天无数据（周末/节假日），退回数据里最近一个交易日。
+     */
+    function filterFsBarsToToday(bars) {
+      const list = Array.isArray(bars) ? bars.filter((b) => b && Number.isFinite(b.timestamp)) : [];
+      if (!list.length) return list;
+      const { start, end } = shanghaiDayRangeUtc(Date.now());
+      const today = list.filter((b) => b.timestamp >= start && b.timestamp <= end);
+      if (today.length) return today.sort((a, b) => a.timestamp - b.timestamp);
+      let latestTs = list[0].timestamp;
+      list.forEach((b) => {
+        if (b.timestamp > latestTs) latestTs = b.timestamp;
+      });
+      const day = shanghaiDayRangeUtc(latestTs);
+      return list
+        .filter((b) => b.timestamp >= day.start && b.timestamp <= day.end)
+        .sort((a, b) => a.timestamp - b.timestamp);
+    }
+
+    /**
+     * 把分时数据补齐到 9:30–15:00：
+     * - 已有点：写入对应分钟
+     * - 已开盘但缺分钟：用前值补齐
+     * - 未走到的未来分钟：close=NaN，占位拉满横轴到 15:00（不画线）
+     */
+    function padCnFsBars(bars) {
+      const list = filterFsBarsToToday(bars);
+      if (!list.length) return list;
+      // 用当日最后一根（或唯一交易日）对齐 9:30–15:00 槽位
+      const slots = buildCnFsSlotTimestamps(list[list.length - 1].timestamp);
+      const byMin = new Map();
+      list.forEach((b) => {
+        byMin.set(floorShanghaiMinuteUtc(b.timestamp), b);
+      });
+      const now = Date.now();
+      let last = null;
+      const out = [];
+      for (const ts of slots) {
+        const hit = byMin.get(ts);
+        if (hit) {
+          last = { ...hit, timestamp: ts };
+          out.push(last);
+          continue;
+        }
+        if (ts > now) {
+          out.push({
+            timestamp: ts,
+            open: NaN,
+            high: NaN,
+            low: NaN,
+            close: NaN,
+            volume: 0,
+            turnover: 0,
+          });
+        } else if (last && Number.isFinite(last.close)) {
+          out.push({
+            timestamp: ts,
+            open: last.close,
+            high: last.close,
+            low: last.close,
+            close: last.close,
+            volume: 0,
+            turnover: 0,
+          });
+        } else {
+          // 开盘前占位，保证横轴从 9:30 起
+          out.push({
+            timestamp: ts,
+            open: NaN,
+            high: NaN,
+            low: NaN,
+            close: NaN,
+            volume: 0,
+            turnover: 0,
+          });
+        }
+      }
+      return out;
+    }
+
+    function fitFsViewport(barCount) {
+      if (!chart || !barCount) return;
+      try {
+        if (typeof chart.setMaxOffsetRightDistance === "function") {
+          chart.setMaxOffsetRightDistance(0);
+        }
+        if (typeof chart.setOffsetRightDistance === "function") {
+          chart.setOffsetRightDistance(0);
+        }
+        const el = document.getElementById("chart");
+        const w = el?.clientWidth || 800;
+        const space = Math.max(1.2, Math.min(8, (w - 48) / barCount));
+        chart.setBarSpace(space);
+        if (typeof chart.scrollToDataIndex === "function") {
+          chart.scrollToDataIndex(0);
+        }
+      } catch (_) {}
+    }
+
     async function fetchQuote(symbol) {
       const fut = resolveFutures(symbol);
       if (fut) {
@@ -2357,16 +2514,30 @@
         // 分时 / 1m：sdk.kline.cnMinute，period 默认 '1' 为当日分时
         // https://stock-sdk.linkdiary.cn/api/kline
         const p = MINUTE_PERIOD[period];
-        rows =
-          period === "fs"
-            ? await sdk.kline.cnMinute(apiSym)
-            : await sdk.kline.cnMinute(apiSym, { period: p });
+        if (period === "fs") {
+          // period=1 实际会带回近 5 日分时；用 start/end 收窄到上海「今天」
+          const { ymd } = shanghaiDayRangeUtc(Date.now());
+          rows = await sdk.kline.cnMinute(apiSym, {
+            period: "1",
+            startDate: `${ymd} 09:30`,
+            endDate: `${ymd} 15:00`,
+          });
+          // 周末/节假日今天无点：退回近 5 日，再由 padCnFsBars 取最近交易日
+          if (!Array.isArray(rows) || !rows.length) {
+            rows = await sdk.kline.cnMinute(apiSym, { period: "1" });
+          }
+        } else {
+          rows = await sdk.kline.cnMinute(apiSym, { period: p });
+        }
       } else {
         const p = HISTORY_PERIOD[period] || "daily";
         rows = await sdk.kline.cn(apiSym, { period: p, adjust: "qfq" });
       }
       if (!isMinute && Array.isArray(rows) && rows.length > 500) rows = rows.slice(-500);
-      return { market, bars: toBars(rows), source: "stock-sdk" };
+      let bars = toBars(rows);
+      // A 股分时：只保留今天 + 横轴固定 9:30–15:00（跳过午休）
+      if (period === "fs") bars = padCnFsBars(bars);
+      return { market, bars, source: "stock-sdk" };
     }
 
     function hitToSymbol(hit) {
@@ -3114,6 +3285,11 @@
         return;
       }
       const { k, dataIndex } = resolved;
+      // 分时未来占位点（close=NaN）不弹提示
+      if (!Number.isFinite(Number(k.close))) {
+        hideCandleTip();
+        return;
+      }
 
       const dateStr = formatCandleTipDate(k.timestamp ?? crosshair?.timestamp);
       const volWan = Number.isFinite(Number(k.volume))
@@ -3393,23 +3569,29 @@
             const data = await fetchKline(symbol, currentPeriod);
             ensureChart(data.market);
             applyChartSettings();
-            callback(data.bars, false);
+            let bars = data.bars || [];
+            // 非 CN 源的分时也尽量补齐到当日 9:30–15:00（A 股时段）
+            if (currentPeriod === "fs" && bars.length && data.source !== "stock-sdk") {
+              bars = padCnFsBars(bars);
+            }
+            callback(bars, false);
             const src =
               data.source === "yfinance"
                 ? `yfinance${data.yf?.symbol ? `(${data.yf.symbol})` : ""}`
                 : data.source || "stock-sdk";
             setStatus(
-              `${symbol} · ${periodLabel} · ${data.bars.length} ${
+              `${symbol} · ${periodLabel} · ${bars.length} ${
                 currentPeriod === "fs" ? "个点" : "根K线"
               } · 数据源 ${src}`
             );
             // 主图刷新后同步叠加比较线、中文测试标签，并校正高度
             queueMicrotask(() => {
               refreshCompareOverlays();
-              placeCnTestLabel(data.bars);
+              placeCnTestLabel(bars);
               try {
                 chart.resize();
               } catch (_) {}
+              if (currentPeriod === "fs") fitFsViewport(bars.length);
             });
           } catch (e) {
             setStatus(`加载失败: ${e.message || e}`);
