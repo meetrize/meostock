@@ -413,12 +413,53 @@
     .up { color: var(--up); }
     .down { color: var(--down); }
 
-    #chart {
+    .chart-wrap {
+      position: relative;
       flex: 1 1 0;
       width: 100%;
       min-height: 0;
       height: 0; /* flex 子项撑满剩余高度的可靠写法 */
       background: var(--panel);
+    }
+    #chart {
+      width: 100%;
+      height: 100%;
+      background: var(--panel);
+    }
+    .candle-tip {
+      position: absolute;
+      z-index: 40;
+      pointer-events: none;
+      min-width: 168px;
+      max-width: min(280px, calc(100% - 16px));
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(244, 244, 245, 0.96);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+      color: #18181b;
+      font-size: 12px;
+      line-height: 1.55;
+      display: none;
+    }
+    .candle-tip.show { display: block; }
+    html[data-theme="dark"] .candle-tip {
+      background: rgba(39, 39, 42, 0.96);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: #fafafa;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+    .candle-tip .tip-date {
+      font-weight: 650;
+      margin-bottom: 6px;
+    }
+    .candle-tip .tip-sec {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    html[data-theme="dark"] .candle-tip .tip-sec {
+      border-top-color: rgba(255, 255, 255, 0.12);
     }
 
     .status {
@@ -892,7 +933,10 @@
         <span class="overlay-hint">忽略绝对价格 · 只比走势形态</span>
       </div>
     </div>
-    <div id="chart"></div>
+    <div class="chart-wrap" id="chartWrap">
+      <div id="chart"></div>
+      <div class="candle-tip" id="candleTip" aria-hidden="true"></div>
+    </div>
   </div>
   <div class="status" id="status">初始化…</div>
 
@@ -1758,11 +1802,18 @@
             },
           },
           tooltip: {
-            // 图上不显示股票代码标题
+            // 内置文字提示关掉，改用自定义浮动层 #candleTip
+            showRule: "none",
             title: { show: false },
           },
         },
         indicator: {
+          tooltip: {
+            // 保留指标栏上的可见/设置/关闭图标，隐藏数值文字（改由浮动层展示）
+            showRule: "always",
+            showType: "standard",
+            text: { show: false },
+          },
           lastValueMark: {
             show: !!s.indLast,
             text: { show: !!s.indLast },
@@ -2937,6 +2988,170 @@
       });
     }
 
+    function tipNum(v, digits = 2) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toFixed(digits) : "--";
+    }
+
+    function formatCandleTipDate(timestamp) {
+      const ts = Number(timestamp);
+      if (!Number.isFinite(ts)) return "--";
+      const d = new Date(ts);
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(d);
+      const get = (t) => parts.find((p) => p.type === t)?.value || "";
+      const date = `${get("year")}-${get("month")}-${get("day")}`;
+      if (["1m", "5m", "15m", "1h"].includes(currentPeriod)) {
+        return `${date} ${get("hour")}:${get("minute")}`;
+      }
+      return date;
+    }
+
+    function findIndicator(name) {
+      if (!chart) return null;
+      const list = chart.getIndicators() || [];
+      return list.find((ind) => ind.name === name) || null;
+    }
+
+    function hideCandleTip() {
+      const tip = document.getElementById("candleTip");
+      if (!tip) return;
+      tip.classList.remove("show");
+      tip.setAttribute("aria-hidden", "true");
+    }
+
+    /**
+     * klinecharts 的 onCrosshairChange 回调参数只有 {x,y,paneId}，
+     * 不含 kLineData；需用坐标反查 dataIndex，再从 getDataList 取 K 线。
+     */
+    function resolveCrosshairBar(raw) {
+      if (!chart) return null;
+      const list = chart.getDataList?.() || [];
+      if (!list.length) return null;
+
+      if (raw?.kLineData && Number.isFinite(Number(raw.dataIndex))) {
+        return {
+          k: raw.kLineData,
+          dataIndex: Number(raw.dataIndex),
+          x: raw.x,
+          y: raw.y,
+        };
+      }
+
+      let dataIndex = Number.isFinite(Number(raw?.dataIndex))
+        ? Number(raw.dataIndex)
+        : null;
+      if (dataIndex == null && Number.isFinite(Number(raw?.x))) {
+        try {
+          const pt = chart.convertFromPixel([{ x: Number(raw.x) }], {
+            paneId: raw.paneId || "candle_pane",
+          });
+          const info = Array.isArray(pt) ? pt[0] : pt;
+          if (info && Number.isFinite(Number(info.dataIndex))) {
+            dataIndex = Number(info.dataIndex);
+          }
+        } catch (_) {}
+      }
+      if (dataIndex == null || dataIndex < 0 || dataIndex >= list.length) return null;
+      return {
+        k: list[dataIndex],
+        dataIndex,
+        x: raw?.x,
+        y: raw?.y,
+      };
+    }
+
+    /** 十字光标悬停时的 OHLC / 均线 / MACD 浮动层（参考 dashboard StockDetail tooltip） */
+    function updateCandleTip(crosshair) {
+      const tip = document.getElementById("candleTip");
+      const wrap = document.getElementById("chartWrap");
+      if (!tip || !wrap || !chart) return;
+
+      const resolved = resolveCrosshairBar(crosshair);
+      if (!resolved?.k) {
+        hideCandleTip();
+        return;
+      }
+      const { k, dataIndex } = resolved;
+
+      const dateStr = formatCandleTipDate(k.timestamp ?? crosshair?.timestamp);
+      const volWan = Number.isFinite(Number(k.volume))
+        ? (Number(k.volume) / 10000).toFixed(2)
+        : "--";
+
+      let maHtml = "";
+      const maInd = findIndicator("MA");
+      if (maInd?.result) {
+        const row = maInd.result[dataIndex] || {};
+        const params = (maInd.calcParams || activeMaParams()).filter(
+          (n) => Number.isFinite(Number(n)) && Number(n) > 0
+        );
+        const lines = params.map((p, i) => {
+          const key = `ma${i + 1}`;
+          return `MA${p}: ${tipNum(row[key])}`;
+        });
+        if (lines.length) {
+          maHtml = `<div class="tip-sec">${lines.join("<br/>")}</div>`;
+        }
+      }
+
+      let oscHtml = "";
+      const macdInd = findIndicator("MACD");
+      if (macdInd?.result) {
+        const row = macdInd.result[dataIndex] || {};
+        oscHtml = `<div class="tip-sec">DIF: ${tipNum(row.dif)} / DEA: ${tipNum(row.dea)} / MACD: ${tipNum(row.macd)}</div>`;
+      } else {
+        const kdjInd = findIndicator("KDJ");
+        if (kdjInd?.result) {
+          const row = kdjInd.result[dataIndex] || {};
+          oscHtml = `<div class="tip-sec">K: ${tipNum(row.k)} / D: ${tipNum(row.d)} / J: ${tipNum(row.j)}</div>`;
+        } else {
+          const rsiInd = findIndicator("RSI");
+          if (rsiInd?.result) {
+            const row = rsiInd.result[dataIndex] || {};
+            const params = rsiInd.calcParams || [6, 12, 24];
+            const lines = params.map(
+              (p, i) => `RSI${p}: ${tipNum(row[`rsi${i + 1}`] ?? row.rsi)}`
+            );
+            oscHtml = `<div class="tip-sec">${lines.join("<br/>")}</div>`;
+          }
+        }
+      }
+
+      tip.innerHTML = `
+        <div class="tip-date">${dateStr}</div>
+        <div>开: ${tipNum(k.open)} 收: ${tipNum(k.close)}</div>
+        <div>高: ${tipNum(k.high)} 低: ${tipNum(k.low)}</div>
+        <div>量: ${volWan}万手</div>
+        ${maHtml}
+        ${oscHtml}
+      `;
+      tip.classList.add("show");
+      tip.setAttribute("aria-hidden", "false");
+
+      // 跟随十字光标，避开右/下边界
+      const wr = wrap.getBoundingClientRect();
+      const tw = tip.offsetWidth || 180;
+      const th = tip.offsetHeight || 120;
+      let x = Number(resolved.x);
+      let y = Number(resolved.y);
+      if (!Number.isFinite(x)) x = 12;
+      if (!Number.isFinite(y)) y = 12;
+      let left = x + 16;
+      let top = y + 16;
+      if (left + tw > wr.width - 8) left = Math.max(8, x - tw - 16);
+      if (top + th > wr.height - 8) top = Math.max(8, wr.height - th - 8);
+      tip.style.left = `${Math.round(Math.max(8, left))}px`;
+      tip.style.top = `${Math.round(Math.max(8, top))}px`;
+    }
+
     function ensureChart(market) {
       const tz =
         market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
@@ -2971,6 +3186,16 @@
       if (volPane) subIndicators.VOL = volPane;
       const macdPane = createInd("MACD", false);
       if (macdPane) subIndicators.MACD = macdPane;
+
+      chart.subscribeAction("onCrosshairChange", (data) => {
+        // data 通常仅有坐标；无 paneId 时视为离开图区
+        if (!data || !data.paneId) {
+          hideCandleTip();
+          return;
+        }
+        updateCandleTip(data);
+      });
+      document.getElementById("chartWrap")?.addEventListener("mouseleave", hideCandleTip);
 
       chart.subscribeAction("onIndicatorTooltipFeatureClick", (data) => {
         const featureId = data?.feature?.id;
@@ -3210,6 +3435,7 @@
         return;
       }
       currentSymbol = symbol;
+      hideCandleTip();
       if (!skipUrlSync) syncUrl(symbol, currentPeriod, !pushUrl);
       bindDataLoader(symbol);
       await refreshQuote(symbol);
