@@ -298,6 +298,99 @@
       color: var(--muted);
       font-size: 13px;
     }
+    .ext-row-opts {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .ext-embed-opt {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .ext-embed-opt input { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; }
+
+    /* 扩展链接内嵌浮层（可拖拽 / 边角缩放） */
+    .ext-embed {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: min(520px, calc(100vw - 32px));
+      height: min(440px, calc(100vh - 72px));
+      min-width: 280px;
+      min-height: 200px;
+      max-width: calc(100vw - 16px);
+      max-height: calc(100vh - 16px);
+      display: none;
+      flex-direction: column;
+      background: var(--modal-bg);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.24);
+      z-index: 2100;
+      overflow: hidden;
+      resize: both;
+    }
+    .ext-embed.show { display: flex; }
+    .ext-embed-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--line);
+      cursor: move;
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 13px;
+      font-weight: 650;
+    }
+    .ext-embed-hd .title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .ext-embed-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .ext-embed-actions a,
+    .ext-embed-actions button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 16px;
+      line-height: 1;
+    }
+    .ext-embed-actions a:hover,
+    .ext-embed-actions button:hover {
+      color: var(--text);
+      background: var(--btn-active-bg);
+    }
+    .ext-embed iframe {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
+      border: 0;
+      background: #fff;
+    }
 
     input[type="number"] {
       padding: 8px 10px;
@@ -940,7 +1033,8 @@
           <code>!!</code> 市场（sz/sh/bj），
           <code>!!!!</code> 市场大写（SZ/SH/BJ），
           <code>##STOCKNAME##</code> 证券名称。<br />
-          示例：雪球 <code>https://www.xueqiu.com/S/!!!!XXXXXX</code>
+          勾选「弹框内打开」后，在本页浮层中展示（可拖标题栏移动、拖边角缩放）；未勾选则新窗口打开。
+          若目标站禁止 iframe，浮层可能空白，可用右上角 ↗ 新窗口打开。
         </p>
         <ul class="ext-list" id="extMenuList"></ul>
         <div class="ext-toolbar">
@@ -952,6 +1046,18 @@
         <button type="button" class="primary" id="extSaveItems">保存</button>
       </div>
     </div>
+  </div>
+
+  <!-- 扩展链接内嵌浮层 -->
+  <div class="ext-embed" id="extEmbed" aria-hidden="true">
+    <div class="ext-embed-hd" id="extEmbedHd">
+      <span class="title" id="extEmbedTitle">扩展</span>
+      <div class="ext-embed-actions">
+        <a id="extEmbedOpen" href="#" target="_blank" rel="noopener noreferrer" title="新窗口打开">↗</a>
+        <button type="button" id="extEmbedClose" title="关闭">×</button>
+      </div>
+    </div>
+    <iframe id="extEmbedFrame" title="扩展页面" referrerpolicy="no-referrer-when-downgrade"></iframe>
   </div>
 
   <script type="module">
@@ -1208,6 +1314,11 @@
       { name: "同花顺", url: "https://basic.10jqka.com.cn/xxxxxx/" },
       { name: "富途牛牛", url: "https://www.futunn.com/stock/xxxxxx-!!!!" },
       { name: "韭研公社", url: "https://www.jiuyangongshe.com/search/f6237887bc944dc9a2070f2f7be9c2e5?type=1&k=##STOCKNAME##" },
+      {
+        name: "搜狐分时",
+        url: "https://static.k.sohu.com/static/finance/pc/qstock/v0.0.12/canvas.html?biz_code=cn_xxxxxx",
+        embed: true,
+      },
     ];
 
     let currentPeriod = "1d";
@@ -1253,6 +1364,7 @@
         .map((it) => ({
           name: String(it?.name || "").trim(),
           url: String(it?.url || "").trim(),
+          embed: !!it?.embed,
         }))
         .filter((it) => it.name && it.url);
     }
@@ -1268,6 +1380,14 @@
           DEFAULT_EXT_MENU.forEach((def) => {
             if (!names.has(def.name)) {
               items.push({ ...def });
+              changed = true;
+            }
+          });
+          // 若曾写入本站搜狐代理地址，恢复为直链
+          items.forEach((it) => {
+            if (it.name === "搜狐分时" && /\/api\/sohu-canvas\b/i.test(it.url)) {
+              it.url =
+                "https://static.k.sohu.com/static/finance/pc/qstock/v0.0.12/canvas.html?biz_code=cn_xxxxxx";
               changed = true;
             }
           });
@@ -1412,14 +1532,89 @@
         setStatus("扩展链接为空");
         return;
       }
-      window.open(url, "_blank", "noopener,noreferrer");
       closeExtDropdown();
+      if (item.embed) openExtEmbed(item.name, url);
+      else window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    function openExtEmbed(title, url) {
+      const panel = document.getElementById("extEmbed");
+      const frame = document.getElementById("extEmbedFrame");
+      const titleEl = document.getElementById("extEmbedTitle");
+      const openLink = document.getElementById("extEmbedOpen");
+      if (!panel || !frame) return;
+      titleEl.textContent = title || "扩展";
+      openLink.href = url;
+      frame.src = "about:blank";
+      requestAnimationFrame(() => {
+        frame.src = url;
+      });
+      panel.classList.add("show");
+      panel.setAttribute("aria-hidden", "false");
+    }
+
+    function closeExtEmbed() {
+      const panel = document.getElementById("extEmbed");
+      const frame = document.getElementById("extEmbedFrame");
+      if (panel) {
+        panel.classList.remove("show");
+        panel.setAttribute("aria-hidden", "true");
+      }
+      if (frame) frame.src = "about:blank";
+    }
+
+    function bindExtEmbedDrag() {
+      const panel = document.getElementById("extEmbed");
+      const hd = document.getElementById("extEmbedHd");
+      if (!panel || !hd || hd.dataset.dragBound) return;
+      hd.dataset.dragBound = "1";
+      let dragging = false;
+      let startX = 0;
+      let startY = 0;
+      let originLeft = 0;
+      let originTop = 0;
+
+      hd.addEventListener("pointerdown", (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest("a, button")) return;
+        const rect = panel.getBoundingClientRect();
+        // 转为 left/top 定位，便于拖拽（原先可能是 right/bottom）
+        panel.style.left = `${rect.left}px`;
+        panel.style.top = `${rect.top}px`;
+        panel.style.right = "auto";
+        panel.style.bottom = "auto";
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        originLeft = rect.left;
+        originTop = rect.top;
+        hd.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      hd.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const w = panel.offsetWidth;
+        const h = panel.offsetHeight;
+        let left = originLeft + dx;
+        let top = originTop + dy;
+        left = Math.max(0, Math.min(left, window.innerWidth - Math.min(w, 80)));
+        top = Math.max(0, Math.min(top, window.innerHeight - 40));
+        panel.style.left = `${Math.round(left)}px`;
+        panel.style.top = `${Math.round(top)}px`;
+      });
+      const endDrag = () => {
+        dragging = false;
+      };
+      hd.addEventListener("pointerup", endDrag);
+      hd.addEventListener("pointercancel", endDrag);
     }
 
     function openExtSettingsModal() {
       closeExtDropdown();
       extDraftItems = extMenuItems.map((it) => ({ ...it }));
-      if (!extDraftItems.length) extDraftItems = [{ name: "", url: "" }];
+      if (!extDraftItems.length) extDraftItems = [{ name: "", url: "", embed: false }];
       renderExtSettingsList();
       document.getElementById("extModal").classList.add("show");
     }
@@ -1439,10 +1634,16 @@
             <input type="text" data-ext-field="name" placeholder="菜单名称" value="${escapeHtml(it.name)}" maxlength="40" />
             <input type="text" class="url" data-ext-field="url" placeholder="链接地址（可含变量）" value="${escapeHtml(it.url)}" />
           </div>
-          <div class="ext-row-actions">
-            <button type="button" data-ext-up title="上移">↑</button>
-            <button type="button" data-ext-down title="下移">↓</button>
-            <button type="button" class="danger" data-ext-del>删除</button>
+          <div class="ext-row-opts">
+            <label class="ext-embed-opt" title="勾选后在本页浮层打开，可拖拽缩放">
+              <input type="checkbox" data-ext-field="embed" ${it.embed ? "checked" : ""} />
+              弹框内打开
+            </label>
+            <div class="ext-row-actions">
+              <button type="button" data-ext-up title="上移">↑</button>
+              <button type="button" data-ext-down title="下移">↓</button>
+              <button type="button" class="danger" data-ext-del>删除</button>
+            </div>
           </div>
         </li>`
         )
@@ -1454,6 +1655,7 @@
       extDraftItems = Array.from(rows).map((row) => ({
         name: (row.querySelector('[data-ext-field="name"]')?.value || "").trim(),
         url: (row.querySelector('[data-ext-field="url"]')?.value || "").trim(),
+        embed: !!row.querySelector('[data-ext-field="embed"]')?.checked,
       }));
     }
 
@@ -3074,9 +3276,11 @@
     );
     document.getElementById("extAddItem").addEventListener("click", () => {
       syncExtDraftFromDom();
-      extDraftItems.push({ name: "", url: "" });
+      extDraftItems.push({ name: "", url: "", embed: false });
       renderExtSettingsList();
     });
+    document.getElementById("extEmbedClose").addEventListener("click", closeExtEmbed);
+    bindExtEmbedDrag();
     document.getElementById("extResetItems").addEventListener("click", () => {
       extDraftItems = DEFAULT_EXT_MENU.map((it) => ({ ...it }));
       renderExtSettingsList();
