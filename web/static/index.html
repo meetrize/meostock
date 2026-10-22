@@ -1311,7 +1311,8 @@
     const DEFAULT_EXT_MENU = [
       { name: "雪球", url: "https://www.xueqiu.com/S/!!!!XXXXXX" },
       { name: "东方财富", url: "https://quote.eastmoney.com/!!xxxxxx.html" },
-      { name: "同花顺", url: "https://basic.10jqka.com.cn/xxxxxx/" },
+      { name: "同花顺", url: "http://stockpage.10jqka.com.cn/xxxxxx/" },
+      { name: "财联社", url: "https://www.cls.cn/stock?code=!!xxxxxx" },
       { name: "富途牛牛", url: "https://www.futunn.com/stock/xxxxxx-!!!!" },
       { name: "韭研公社", url: "https://www.jiuyangongshe.com/search/f6237887bc944dc9a2070f2f7be9c2e5?type=1&k=##STOCKNAME##" },
       {
@@ -1383,11 +1384,16 @@
               changed = true;
             }
           });
-          // 若曾写入本站搜狐代理地址，恢复为直链
           items.forEach((it) => {
+            // 若曾写入本站搜狐代理地址，恢复为直链
             if (it.name === "搜狐分时" && /\/api\/sohu-canvas\b/i.test(it.url)) {
               it.url =
                 "https://static.k.sohu.com/static/finance/pc/qstock/v0.0.12/canvas.html?biz_code=cn_xxxxxx";
+              changed = true;
+            }
+            // 同花顺：旧 basic 页改为 stockpage 个股页
+            if (it.name === "同花顺" && /basic\.10jqka\.com\.cn/i.test(it.url)) {
+              it.url = "http://stockpage.10jqka.com.cn/xxxxxx/";
               changed = true;
             }
           });
