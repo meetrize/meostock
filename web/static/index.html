@@ -877,6 +877,7 @@
         <span class="tb-change" id="tbChange">--</span>
       </div>
       <div class="tb-periods" id="periods" title="分时 / 周期">
+        <button type="button" data-period="fs" title="当日分时">分时</button>
         <button type="button" data-period="1m">1m</button>
         <button type="button" data-period="5m">5m</button>
         <button type="button" data-period="15m">15m</button>
@@ -1301,6 +1302,8 @@
     }
 
     const PERIOD_MAP = {
+      // 分时：当日分钟走势，样式用 area（见 applyChartSettings）
+      fs: { type: "minute", span: 1 },
       "1m": { type: "minute", span: 1 },
       "5m": { type: "minute", span: 5 },
       "15m": { type: "minute", span: 15 },
@@ -1308,7 +1311,9 @@
       "1d": { type: "day", span: 1 },
       "1w": { type: "week", span: 1 },
     };
-    const MINUTE_PERIOD = { "1m": "1", "5m": "5", "15m": "15", "1h": "60" };
+    // fs / 1m 均走 cnMinute period=1（当日分时）；fs 额外切面积图
+    // 文档：https://stock-sdk.linkdiary.cn/api/kline
+    const MINUTE_PERIOD = { fs: "1", "1m": "1", "5m": "5", "15m": "15", "1h": "60" };
     const HISTORY_PERIOD = { "1d": "daily", "1w": "weekly" };
 
     const MAIN_INDS = [
@@ -1779,7 +1784,8 @@
           vertical: { show: !!s.grid },
         },
         candle: {
-          type: s.candleType || "candle_solid",
+          // 分时强制面积图；其它周期用设置里的蜡烛类型
+          type: currentPeriod === "fs" ? "area" : s.candleType || "candle_solid",
           bar: {
             upColor: up,
             downColor: down,
@@ -1791,9 +1797,20 @@
             downWickColor: down,
             noChangeWickColor: "#888888",
           },
+          area: {
+            lineSize: 1.5,
+            lineColor: "#2F6FED",
+            smooth: false,
+            value: "close",
+            backgroundColor: [
+              { offset: 0, color: "rgba(47, 111, 237, 0.28)" },
+              { offset: 1, color: "rgba(47, 111, 237, 0.02)" },
+            ],
+            point: { show: false },
+          },
           priceMark: {
-            high: { show: !!s.highPrice },
-            low: { show: !!s.lowPrice },
+            high: { show: currentPeriod === "fs" ? false : !!s.highPrice },
+            low: { show: currentPeriod === "fs" ? false : !!s.lowPrice },
             last: {
               show: !!s.lastPrice,
               upColor: up,
@@ -2185,15 +2202,24 @@
             if (!Number.isFinite(parsed)) return null;
             ts = parsed;
           }
-          return {
+          // 当日分时可能只有 price / avgPrice（见 stock-sdk cnMinute period=1）
+          const close = Number(b.close ?? b.price ?? b.avgPrice);
+          if (!Number.isFinite(close)) return null;
+          const open = Number(b.open ?? close);
+          const high = Number(b.high ?? Math.max(open, close));
+          const low = Number(b.low ?? Math.min(open, close));
+          const bar = {
             timestamp: Number(ts),
-            open: Number(b.open),
-            high: Number(b.high),
-            low: Number(b.low),
-            close: Number(b.close),
+            open,
+            high,
+            low,
+            close,
             volume: Number(b.volume ?? 0),
             turnover: Number(b.amount ?? 0),
           };
+          const avg = Number(b.avgPrice);
+          if (Number.isFinite(avg)) bar.avgPrice = avg;
+          return bar;
         })
         .filter((b) => b && Number.isFinite(b.timestamp) && Number.isFinite(b.close))
         .sort((a, b) => a.timestamp - b.timestamp);
@@ -2257,8 +2283,10 @@
       const rawSym = String(symbol || "").trim();
       if (/^yf:/i.test(rawSym)) {
         const code = rawSym.slice(3);
+        // 分时对 yfinance 近似用 1m
+        const yfPeriod = period === "fs" ? "1m" : period || "1d";
         const res = await fetch(
-          `/api/yf/kline?symbol=${encodeURIComponent(code)}&period=${encodeURIComponent(period || "1d")}`
+          `/api/yf/kline?symbol=${encodeURIComponent(code)}&period=${encodeURIComponent(yfPeriod)}`
         );
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || "yfinance K线失败");
@@ -2285,8 +2313,9 @@
       // 文档：https://stock-sdk.linkdiary.cn/api/kline （HK/US 无腾讯备用源）
       if (market === "HK" || market === "US") {
         const yfSym = market === "HK" ? toYahooHkSymbol(apiSym) : apiSym;
+        const yfPeriod = period === "fs" ? "1m" : period || "1d";
         try {
-          const yf = await fetchYfChartBars(yfSym, period || "1d");
+          const yf = await fetchYfChartBars(yfSym, yfPeriod);
           return {
             market,
             bars: yf.bars,
@@ -2325,8 +2354,13 @@
 
       let rows;
       if (isMinute) {
+        // 分时 / 1m：sdk.kline.cnMinute，period 默认 '1' 为当日分时
+        // https://stock-sdk.linkdiary.cn/api/kline
         const p = MINUTE_PERIOD[period];
-        rows = await sdk.kline.cnMinute(apiSym, { period: p });
+        rows =
+          period === "fs"
+            ? await sdk.kline.cnMinute(apiSym)
+            : await sdk.kline.cnMinute(apiSym, { period: p });
       } else {
         const p = HISTORY_PERIOD[period] || "daily";
         rows = await sdk.kline.cn(apiSym, { period: p, adjust: "qfq" });
@@ -3008,7 +3042,7 @@
       }).formatToParts(d);
       const get = (t) => parts.find((p) => p.type === t)?.value || "";
       const date = `${get("year")}-${get("month")}-${get("day")}`;
-      if (["1m", "5m", "15m", "1h"].includes(currentPeriod)) {
+      if (["fs", "1m", "5m", "15m", "1h"].includes(currentPeriod)) {
         return `${date} ${get("hour")}:${get("minute")}`;
       }
       return date;
@@ -3354,15 +3388,21 @@
             return;
           }
           try {
-            setStatus(`加载 ${symbol} ${currentPeriod} …`);
+            const periodLabel = currentPeriod === "fs" ? "分时" : currentPeriod;
+            setStatus(`加载 ${symbol} ${periodLabel} …`);
             const data = await fetchKline(symbol, currentPeriod);
             ensureChart(data.market);
+            applyChartSettings();
             callback(data.bars, false);
             const src =
               data.source === "yfinance"
                 ? `yfinance${data.yf?.symbol ? `(${data.yf.symbol})` : ""}`
                 : data.source || "stock-sdk";
-            setStatus(`${symbol} · ${currentPeriod} · ${data.bars.length} 根K线 · 数据源 ${src}`);
+            setStatus(
+              `${symbol} · ${periodLabel} · ${data.bars.length} ${
+                currentPeriod === "fs" ? "个点" : "根K线"
+              } · 数据源 ${src}`
+            );
             // 主图刷新后同步叠加比较线、中文测试标签，并校正高度
             queueMicrotask(() => {
               refreshCompareOverlays();
@@ -3420,6 +3460,8 @@
       document.querySelectorAll("#periods button").forEach((b) => {
         b.classList.toggle("active", b.dataset.period === period);
       });
+      // 分时 ↔ 其它周期时切换面积图 / 蜡烛图
+      if (chart) applyChartSettings();
       return true;
     }
 
