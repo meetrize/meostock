@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
 import urllib.error
@@ -693,6 +694,14 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
     except (urllib.error.URLError, TimeoutError) as e:
         return JSONResponse({"ok": False, "error": str(e), "url": upstream}, status_code=502)
 
+    # 去掉原站「每 N 秒整页 Refresh 跳转」（如 <meta http-equiv="Refresh" content="60; url=/fupan/" />）
+    html = re.sub(
+        r'<meta\b[^>]*http-equiv\s*=\s*[\'"]?refresh[\'"]?[^>]*>',
+        '',
+        html,
+        flags=re.IGNORECASE,
+    )
+
     base = f"{XNGE_ORIGIN}/{path}" if path else f"{XNGE_ORIGIN}/"
     # 浅色模式下 .fupan-tit .tab 仍用深灰底(#353A40) + --WhiteBlack(#000)，对比度差；强制白字。
     # 宽表支持横向滚动，便于嵌入看板 iframe。
@@ -738,10 +747,22 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
   function install() {
     window.openCode = function (code) { openKline(code); };
   }
+  function killMetaRefresh() {
+    try {
+      document.querySelectorAll('meta[http-equiv="Refresh"],meta[http-equiv="refresh"]').forEach(function (el) {
+        el.parentNode && el.parentNode.removeChild(el);
+      });
+    } catch (e) {}
+  }
   install();
-  document.addEventListener("DOMContentLoaded", install);
+  killMetaRefresh();
+  document.addEventListener("DOMContentLoaded", function () {
+    install();
+    killMetaRefresh();
+  });
   window.addEventListener("load", function () {
     install();
+    killMetaRefresh();
     setTimeout(install, 0);
     setTimeout(install, 300);
   });
