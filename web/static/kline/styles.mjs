@@ -87,8 +87,18 @@ export function buildChartStyles({ settings, period, multipanelChrome = false } 
       horizontal: { show: !!s.grid },
       vertical: { show: !!s.grid },
     },
+    // size:0 才能把轴占位清掉，K 线水平铺满（仅 show:false 时 last/十字线价签仍占宽）
     yAxis: {
       show: !hideY,
+      size: hideY ? 0 : "auto",
+      axisLine: { show: !hideY },
+      tickLine: { show: !hideY },
+      tickText: { show: !hideY },
+    },
+    crosshair: {
+      horizontal: {
+        text: { show: !hideY },
+      },
     },
     candle: {
       type: period === "fs" ? "area" : s.candleType || "candle_solid",
@@ -122,6 +132,8 @@ export function buildChartStyles({ settings, period, multipanelChrome = false } 
           upColor: up,
           downColor: down,
           noChangeColor: "#888888",
+          // 隐 Y 轴时关掉右侧最新价文字，避免仍占轴宽
+          text: { show: !!s.lastPrice && !hideY },
         },
       },
       tooltip: {
@@ -146,8 +158,8 @@ export function buildChartStyles({ settings, period, multipanelChrome = false } 
         text: { show: false },
       },
       lastValueMark: {
-        show: !!s.indLast,
-        text: { show: !!s.indLast },
+        show: !!s.indLast && !hideY,
+        text: { show: !!s.indLast && !hideY },
       },
       ohlc: {
         upColor: upA,
@@ -168,12 +180,35 @@ export function buildChartStyles({ settings, period, multipanelChrome = false } 
 export function applyYAxisOptions(chart, settings) {
   if (!chart || typeof chart.overrideYAxis !== "function") return;
   const s = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+  const show = !s.hideYAxis;
+  const type = s.axisType || "normal";
+  const reverse = !!s.axisReverse;
   try {
-    chart.overrideYAxis({
-      paneId: "candle_pane",
-      type: s.axisType || "normal",
-      reverse: !!s.axisReverse,
-      show: !s.hideYAxis,
+    // 主图 + 所有副图 Y 轴一并显隐
+    let axes = [];
+    try {
+      axes = chart.getYAxes?.({}) || [];
+    } catch (_) {
+      axes = [];
+    }
+    if (!axes.length) {
+      chart.overrideYAxis({
+        paneId: "candle_pane",
+        type,
+        reverse,
+        show,
+      });
+      return;
+    }
+    axes.forEach((ya) => {
+      const opt = { paneId: ya.paneId, id: ya.id, show };
+      if (ya.paneId === "candle_pane") {
+        opt.type = type;
+        opt.reverse = reverse;
+      }
+      try {
+        chart.overrideYAxis(opt);
+      } catch (_) {}
     });
   } catch (_) {}
 }

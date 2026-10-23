@@ -129,7 +129,17 @@ function ensureSettingsModal() {
   settingsMask.querySelector('[data-act="apply"]').addEventListener("click", () => {
     if (!settingsTarget) return;
     const next = readSettingsForm(settingsMask);
+    const prevHide = !!settingsTarget.settings?.hideYAxis;
     settingsTarget.setSettings(next);
+    if (prevHide !== !!next.hideYAxis) {
+      settingsTarget.yAxisLocked = true;
+      try {
+        settingsTarget.chart?.resize?.();
+      } catch (_) {}
+      try {
+        settingsTarget.onYAxisChange?.(settingsTarget);
+      } catch (_) {}
+    }
     updateChrome(settingsTarget);
     closeSettingsModal();
   });
@@ -138,7 +148,17 @@ function ensureSettingsModal() {
     const next = readSettingsForm(settingsMask);
     saveChartSettings(next);
     if (settingsTarget) {
+      const prevHide = !!settingsTarget.settings?.hideYAxis;
       settingsTarget.setSettings(next);
+      if (prevHide !== !!next.hideYAxis) {
+        settingsTarget.yAxisLocked = true;
+        try {
+          settingsTarget.chart?.resize?.();
+        } catch (_) {}
+        try {
+          settingsTarget.onYAxisChange?.(settingsTarget);
+        } catch (_) {}
+      }
       updateChrome(settingsTarget);
     }
     closeSettingsModal();
@@ -313,6 +333,11 @@ function renderMenu(panel, menu) {
       `<button type="button" class="mp-menu-btn mp-menu-btn-block" data-act="unlock-vol">量能解锁 · 跟随全体</button>`
     );
   }
+  if (panel.yAxisLocked) {
+    lockHints.push(
+      `<button type="button" class="mp-menu-btn mp-menu-btn-block" data-act="unlock-y">Y轴解锁 · 跟随全体</button>`
+    );
+  }
 
   const graphHint =
     panel.period === "fs" ? "分时面积" : panel.chartTypeLocked ? "单独" : "";
@@ -326,7 +351,9 @@ function renderMenu(panel, menu) {
         <select class="mp-menu-select mp-menu-select-compact" data-act="candle" ${
           panel.period === "fs" ? "disabled" : ""
         }>${candleOpts}</select>
-        <label class="mp-menu-check" title="隐藏右侧坐标轴">
+        <label class="mp-menu-check" title="隐藏右侧 Y 轴（铺满主图）${
+          panel.yAxisLocked ? " · 已单独设置" : ""
+        }">
           <input type="checkbox" data-act="hide-y" ${s.hideYAxis ? "checked" : ""} />
           Y
         </label>
@@ -385,10 +412,17 @@ function renderMenu(panel, menu) {
     panel.clearVolumeLock();
     closeOpenMenu();
   });
+  menu.querySelector('[data-act="unlock-y"]')?.addEventListener("click", () => {
+    panel.clearYAxisLock();
+    closeOpenMenu();
+  });
 
   menu.querySelector('[data-act="hide-y"]')?.addEventListener("change", (e) => {
-    panel.setHideYAxis(e.target.checked);
+    panel.setHideYAxis(!!e.target.checked, { lock: true });
     updateChrome(panel);
+    try {
+      panel.onYAxisChange?.(panel);
+    } catch (_) {}
   });
 
   menu.querySelector('[data-act="vol"]')?.addEventListener("change", (e) => {

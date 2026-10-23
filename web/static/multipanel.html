@@ -581,6 +581,10 @@
         <input type="checkbox" id="hideVol" />
         隐藏量能
       </label>
+      <label class="mp-bar-check" title="全体隐藏 Y 轴与价签，主图水平铺满（已单独设置的面板不跟随）">
+        <input type="checkbox" id="hideYAxis" />
+        隐藏Y轴
+      </label>
       <label class="mp-bar-check" title="跨面板按时间戳同步十字线">
         <input type="checkbox" id="syncCrosshair" />
         同步十字线
@@ -669,6 +673,8 @@
     let syncCrosshairOn = false;
     /** 全体隐藏量能（未 volumeLocked 的面板跟随） */
     let hideVolGlobal = false;
+    /** 全体隐藏 Y 轴（未 yAxisLocked 的面板跟随） */
+    let hideYAxisGlobal = false;
     /** 最近一次会话里的面板快照，用于重建时恢复 withVolume 等 */
     let savedPanelStates = [];
 
@@ -679,6 +685,7 @@
     const appEl = document.querySelector(".app");
     const syncCrosshairEl = document.getElementById("syncCrosshair");
     const hideVolEl = document.getElementById("hideVol");
+    const hideYAxisEl = document.getElementById("hideYAxis");
 
     function livePanels() {
       return slotPanels.filter(Boolean);
@@ -787,6 +794,7 @@
             symbol: syms[i] || "",
             period: currentPeriod,
             withVolume: !hideVolGlobal,
+            hideYAxis: hideYAxisGlobal,
           };
         }
         const st = p.getState();
@@ -798,6 +806,8 @@
           chartTypeLocked: st.chartTypeLocked,
           withVolume: st.withVolume,
           volumeLocked: st.volumeLocked,
+          yAxisLocked: st.yAxisLocked,
+          hideYAxis: st.hideYAxis,
         };
       });
       savedPanelStates = panels;
@@ -807,6 +817,7 @@
         symbols: syms.slice(),
         syncCrosshair: syncCrosshairOn,
         hideVol: hideVolGlobal,
+        hideYAxis: hideYAxisGlobal,
         hideGlobalBar: appEl.classList.contains("bar-hidden"),
         panels,
       });
@@ -876,6 +887,12 @@
         const saved = savedPanelStates[i] || {};
         const withVolume =
           typeof saved.withVolume === "boolean" ? saved.withVolume : !hideVolGlobal;
+        const hideYAxis =
+          typeof saved.hideYAxis === "boolean"
+            ? saved.hideYAxis
+            : typeof saved.settings?.hideYAxis === "boolean"
+              ? saved.settings.hideYAxis
+              : hideYAxisGlobal;
         const panel = new ChartPanel({
           container: cell,
           data,
@@ -884,15 +901,18 @@
           symbol,
           period:
             saved.period && isValidPeriod(saved.period) ? saved.period : period,
-          settings: saved.settings,
+          settings: { ...(saved.settings || {}), hideYAxis },
           withVolume,
+          hideYAxis,
           periodLocked: !!saved.periodLocked,
           chartTypeLocked: !!saved.chartTypeLocked,
           volumeLocked: !!saved.volumeLocked,
+          yAxisLocked: !!saved.yAxisLocked,
           onStatus: (msg) => setStatus(msg),
           onCrosshair: handleCrosshair,
         });
         panel.onVolumeChange = () => persistSession();
+        panel.onYAxisChange = () => persistSession();
         slotPanels[i] = panel;
       }
 
@@ -958,7 +978,6 @@
             ? "全体隐藏量能"
             : "全体显示量能"
       );
-      // 布局重建时用最新快照
       savedPanelStates = slotPanels.map((p, i) => {
         if (!p) return savedPanelStates[i] || { withVolume: showVol };
         const st = p.getState();
@@ -966,6 +985,40 @@
           ...(savedPanelStates[i] || {}),
           withVolume: st.withVolume,
           volumeLocked: st.volumeLocked,
+        };
+      });
+      persistSession();
+    });
+
+    hideYAxisEl.addEventListener("change", () => {
+      hideYAxisGlobal = !!hideYAxisEl.checked;
+      let skipped = 0;
+      let applied = 0;
+      livePanels().forEach((p) => {
+        if (p.yAxisLocked) {
+          skipped += 1;
+          return;
+        }
+        p.applyGlobalHideYAxis(hideYAxisGlobal);
+        applied += 1;
+      });
+      setStatus(
+        skipped
+          ? `${hideYAxisGlobal ? "全体隐藏Y轴" : "全体显示Y轴"}（应用 ${applied}，锁定跳过 ${skipped}）`
+          : hideYAxisGlobal
+            ? "全体隐藏Y轴 · 主图铺满"
+            : "全体显示Y轴"
+      );
+      savedPanelStates = slotPanels.map((p, i) => {
+        if (!p) {
+          return savedPanelStates[i] || { hideYAxis: hideYAxisGlobal };
+        }
+        const st = p.getState();
+        return {
+          ...(savedPanelStates[i] || {}),
+          hideYAxis: st.hideYAxis,
+          yAxisLocked: st.yAxisLocked,
+          settings: st.settings,
         };
       });
       persistSession();
@@ -1058,6 +1111,8 @@
     syncCrosshairEl.checked = syncCrosshairOn;
     hideVolGlobal = !!session?.hideVol;
     hideVolEl.checked = hideVolGlobal;
+    hideYAxisGlobal = !!session?.hideYAxis;
+    hideYAxisEl.checked = hideYAxisGlobal;
     savedPanelStates = Array.isArray(session?.panels) ? session.panels.slice() : [];
     if (session?.hideGlobalBar) setBarHidden(true);
 

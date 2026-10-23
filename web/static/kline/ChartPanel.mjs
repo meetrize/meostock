@@ -112,6 +112,11 @@ export class ChartPanel {
     this.chartTypeLocked = !!opts.chartTypeLocked;
     /** 单格改过量能显隐后，全体「隐藏量能」跳过本格 */
     this.volumeLocked = !!opts.volumeLocked;
+    /** 单格改过 Y 轴显隐后，全体「隐藏Y轴」跳过本格 */
+    this.yAxisLocked = !!opts.yAxisLocked;
+    if (typeof opts.hideYAxis === "boolean") {
+      this.settings = { ...this.settings, hideYAxis: opts.hideYAxis };
+    }
 
     this.chart = null;
     this._host = null;
@@ -226,6 +231,10 @@ export class ChartPanel {
     if (!id) return null;
     const paneId = this._paneIdOfSub(name) || id;
     this.subIndicators[name] = paneId;
+    // 新副图自带 Y 轴：若当前隐轴，立刻盖上
+    if (this.settings?.hideYAxis) {
+      applyYAxisOptions(this.chart, this.settings);
+    }
     return paneId;
   }
 
@@ -647,8 +656,30 @@ export class ChartPanel {
     return this;
   }
 
-  setHideYAxis(hide) {
-    return this.setSettings({ hideYAxis: !!hide });
+  /**
+   * @param {boolean} hide
+   * @param {{ lock?: boolean }} [opts]
+   */
+  setHideYAxis(hide, opts = {}) {
+    if (opts.lock) this.yAxisLocked = true;
+    this.setSettings({ hideYAxis: !!hide });
+    // 样式变更后强制重测宽度，确保铺满 / 恢复轴宽
+    try {
+      this.chart?.resize?.();
+    } catch (_) {}
+    return this;
+  }
+
+  /** 全体隐藏/显示 Y 轴（已 yAxisLocked 的面板跳过） */
+  applyGlobalHideYAxis(hide) {
+    if (this.yAxisLocked) return this;
+    return this.setHideYAxis(hide, { lock: false });
+  }
+
+  clearYAxisLock() {
+    this.yAxisLocked = false;
+    this._refreshChrome();
+    return this;
   }
 
   /**
@@ -708,6 +739,8 @@ export class ChartPanel {
       chartTypeLocked: this.chartTypeLocked,
       withVolume: !!this.withVolume,
       volumeLocked: !!this.volumeLocked,
+      yAxisLocked: !!this.yAxisLocked,
+      hideYAxis: !!this.settings?.hideYAxis,
     };
   }
 
