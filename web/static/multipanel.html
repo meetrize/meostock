@@ -80,6 +80,27 @@
     .mp-bar .title { font-weight: 600; margin-right: 4px; }
     .mp-bar .spacer { flex: 1; }
     .mp-bar .muted { color: var(--muted); font-size: 12px; }
+    .mp-pager {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 4px;
+    }
+    .mp-pager button {
+      min-width: 28px;
+      padding: 4px 8px !important;
+      font-size: 14px !important;
+      line-height: 1;
+    }
+    .mp-pager button:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    .mp-pager #pageLabel {
+      min-width: 3.2em;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
     .mp-bar a,
     .mp-bar button {
       appearance: none;
@@ -94,7 +115,7 @@
       text-decoration: none;
     }
     .mp-bar a:hover,
-    .mp-bar button:hover {
+    .mp-bar button:hover:not(:disabled) {
       background: var(--btn-active-bg);
       border-color: var(--accent);
     }
@@ -593,6 +614,11 @@
         <input type="checkbox" id="syncCrosshair" />
         同步十字线
       </label>
+      <span class="mp-pager" id="mpPager" title="标的翻页（↓下一页 · ↑上一页）">
+        <button type="button" id="btnPagePrev" title="上一页 (↑)">‹</button>
+        <span class="muted" id="pageLabel">1/1</span>
+        <button type="button" id="btnPageNext" title="下一页 (↓)">›</button>
+      </span>
       <span class="muted" id="mpHint">—</span>
       <span class="spacer"></span>
       <button type="button" id="btnHideBar" title="隐藏顶栏以腾出空间">隐藏顶栏</button>
@@ -670,11 +696,19 @@
 
     /** @type {(ChartPanel|null)[]} 与格子下标对齐 */
     let slotPanels = [];
+    /** 完整标的列表（可跨多页）；当前页切片填入格子 */
     /** @type {string[]} */
+    let allSymbols = [];
+    /** @type {string[]} 当前页展示用（兼容旧逻辑里的 symbols） */
     let symbols = [];
+    /** 0-based 页码 */
+    let pageIndex = 0;
     let currentLayout = resolveLayout("2x2");
     let currentPeriod = "1d";
     let syncCrosshairOn = false;
+    const pageLabelEl = document.getElementById("pageLabel");
+    const btnPagePrev = document.getElementById("btnPagePrev");
+    const btnPageNext = document.getElementById("btnPageNext");
     /** 全体隐藏量能（未 volumeLocked 的面板跟随） */
     let hideVolGlobal = false;
     /** 全体隐藏 Y 轴（未 yAxisLocked 的面板跟随） */
@@ -779,26 +813,85 @@
         .filter(Boolean);
       let period = params.get("period") || "";
       let layoutId = params.get("layout") || "";
-      return { qSymbols, period, layoutId };
+      // page 支持 1-based（URL）或 0-based 容错
+      const rawPage = Number(params.get("page") || "0");
+      let page = 0;
+      if (Number.isFinite(rawPage) && rawPage >= 1) page = Math.floor(rawPage) - 1;
+      else if (Number.isFinite(rawPage) && rawPage >= 0) page = Math.floor(rawPage);
+      return { qSymbols, period, layoutId, page };
+    }
+
+    function pageSize() {
+      return Math.max(1, currentLayout?.slots || 4);
+    }
+
+    function totalPages() {
+      const n = Math.max(allSymbols.length, 1);
+      return Math.max(1, Math.ceil(n / pageSize()));
+    }
+
+    function clampPage(p) {
+      return Math.max(0, Math.min(totalPages() - 1, p | 0));
+    }
+
+    /** 当前页切片（不足一页用空串补齐格子，不拿默认股填） */
+    function pageSlice(page = pageIndex) {
+      const size = pageSize();
+      const start = page * size;
+      const slice = allSymbols.slice(start, start + size);
+      while (slice.length < size) slice.push("");
+      return slice;
+    }
+
+    function updatePagerUI() {
+      const pages = totalPages();
+      pageIndex = clampPage(pageIndex);
+      if (pageLabelEl) pageLabelEl.textContent = `${pageIndex + 1}/${pages}`;
+      if (btnPagePrev) btnPagePrev.disabled = pageIndex <= 0;
+      if (btnPageNext) btnPageNext.disabled = pageIndex >= pages - 1;
+      const filled = allSymbols.filter(Boolean).length;
+      if (hintEl && currentLayout) {
+        const n = livePanels().length;
+        hintEl.textContent = `${currentLayout.label} · ${currentPeriod} · ${n}/${pageSize()} 图 · 共 ${filled} 只`;
+      }
+    }
+
+    /** 把当前页格子里的代码写回 allSymbols */
+    function syncPageIntoAllSymbols() {
+      const size = pageSize();
+      const start = pageIndex * size;
+      for (let i = 0; i < size; i++) {
+        const sym = slotPanels[i]?.symbol || symbols[i] || "";
+        const idx = start + i;
+        while (allSymbols.length <= idx) allSymbols.push("");
+        allSymbols[idx] = sym;
+      }
+      // 去掉尾部空串，但至少保留一页长度占位避免页码抖动
+      while (allSymbols.length > size && !allSymbols[allSymbols.length - 1]) {
+        allSymbols.pop();
+      }
+      if (!allSymbols.length) allSymbols = [""];
     }
 
     function syncUrl() {
       const url = new URL(location.href);
       url.searchParams.set("layout", currentLayout.id);
       url.searchParams.set("period", currentPeriod);
-      const filled = symbols.filter(Boolean);
+      if (pageIndex > 0) url.searchParams.set("page", String(pageIndex + 1));
+      else url.searchParams.delete("page");
+      const filled = allSymbols.filter(Boolean);
       if (filled.length) url.searchParams.set("symbols", filled.join(","));
       else url.searchParams.delete("symbols");
       history.replaceState(null, "", url);
     }
 
     function persistSession() {
-      const syms = collectSymbolsFromPanels();
-      symbols = syms;
+      syncPageIntoAllSymbols();
+      symbols = pageSlice();
       const panels = slotPanels.map((p, i) => {
         if (!p) {
           return {
-            symbol: syms[i] || "",
+            symbol: symbols[i] || "",
             period: currentPeriod,
             withVolume: !hideVolGlobal,
             withMa: !hideMaGlobal,
@@ -824,7 +917,8 @@
       saveSession({
         layoutId: currentLayout.id,
         period: currentPeriod,
-        symbols: syms.slice(),
+        symbols: allSymbols.slice(),
+        pageIndex,
         syncCrosshair: syncCrosshairOn,
         hideVol: hideVolGlobal,
         hideYAxis: hideYAxisGlobal,
@@ -834,30 +928,41 @@
       });
     }
 
-    function padSymbols(list, slots) {
-      const out = [...(list || [])];
-      while (out.length < slots) {
-        const fallback = DEFAULT_SYMBOLS[out.length % DEFAULT_SYMBOLS.length] || "";
-        out.push(out.length < DEFAULT_SYMBOLS.length ? fallback : "");
+    function goPage(nextPage, { rebuild = true } = {}) {
+      syncPageIntoAllSymbols();
+      const target = clampPage(nextPage);
+      if (target === pageIndex && rebuild) {
+        updatePagerUI();
+        return;
       }
-      return out.slice(0, slots);
-    }
-
-    function collectSymbolsFromPanels() {
-      const out = [];
-      for (let i = 0; i < currentLayout.slots; i++) {
-        const p = slotPanels[i];
-        out.push(p?.symbol || symbols[i] || "");
+      pageIndex = target;
+      // 翻页后格子对应新标的，不沿用上一页的单格锁定态
+      savedPanelStates = [];
+      if (rebuild) {
+        buildGrid(currentLayout, currentPeriod, pageSlice());
+        loadAll();
       }
-      return out;
+      updatePagerUI();
+      syncUrl();
+      persistSession();
+      setStatus(`第 ${pageIndex + 1}/${totalPages()} 页`);
     }
 
     function buildGrid(layout, period, nextSymbols) {
-      const prevSymbols = collectSymbolsFromPanels();
-      const merged = padSymbols(
-        nextSymbols?.length ? nextSymbols : prevSymbols.length ? prevSymbols : symbols,
-        layout.slots
-      );
+      // nextSymbols 若传入完整列表则视为刷新 allSymbols；否则视为当前页切片
+      if (Array.isArray(nextSymbols) && nextSymbols.length > layout.slots) {
+        allSymbols = nextSymbols.map((s) => String(s || "").trim()).filter(Boolean);
+        if (!allSymbols.length) allSymbols = DEFAULT_SYMBOLS.slice();
+        pageIndex = clampPage(pageIndex);
+      } else if (Array.isArray(nextSymbols) && nextSymbols.length && !allSymbols.length) {
+        allSymbols = nextSymbols.map((s) => String(s || "").trim()).filter(Boolean);
+      }
+
+      currentLayout = layout;
+      currentPeriod = period;
+      pageIndex = clampPage(pageIndex);
+      const merged = pageSlice();
+      symbols = merged;
 
       livePanels().forEach((p) => {
         try {
@@ -867,9 +972,6 @@
       slotPanels = Array(layout.slots).fill(null);
       gridEl.innerHTML = "";
       applyLayoutToGrid(gridEl, layout);
-      currentLayout = layout;
-      currentPeriod = period;
-      symbols = merged;
 
       for (let i = 0; i < layout.slots; i++) {
         const symbol = merged[i] || "";
@@ -886,8 +988,10 @@
           cell.addEventListener("click", () => {
             const code = prompt("输入股票代码", "");
             if (!code?.trim()) return;
-            symbols[i] = code.trim();
-            buildGrid(currentLayout, currentPeriod, symbols);
+            const abs = pageIndex * pageSize() + i;
+            while (allSymbols.length <= abs) allSymbols.push("");
+            allSymbols[abs] = code.trim();
+            buildGrid(currentLayout, currentPeriod, pageSlice());
             loadAll();
             persistSession();
             syncUrl();
@@ -932,8 +1036,7 @@
         slotPanels[i] = panel;
       }
 
-      const n = livePanels().length;
-      hintEl.textContent = `${layout.label} · ${period} · ${n}/${layout.slots} 图`;
+      updatePagerUI();
       refreshLayoutSelect(layout.id);
     }
 
@@ -941,14 +1044,27 @@
       const list = livePanels();
       setStatus(`加载 ${list.length} 个面板…`);
       await Promise.all(list.map((p) => p.load()));
-      setStatus(`已加载 ${list.length} 面板 · 布局 ${currentLayout.label}`);
+      setStatus(
+        `已加载 ${list.length} 面板 · ${currentLayout.label} · 第 ${pageIndex + 1}/${totalPages()} 页`
+      );
       persistSession();
+      updatePagerUI();
     }
 
     function applyLayoutId(layoutId) {
+      syncPageIntoAllSymbols();
       const layout = resolveLayout(layoutId, loadCustomLayouts());
-      const nextSyms = padSymbols(collectSymbolsFromPanels(), layout.slots);
-      buildGrid(layout, currentPeriod, nextSyms);
+      // 换布局后尽量留在「能看到当前起始标的」的页
+      const anchor = allSymbols[pageIndex * pageSize()] || allSymbols[0] || "";
+      currentLayout = layout;
+      if (anchor) {
+        const idx = allSymbols.indexOf(anchor);
+        pageIndex = idx >= 0 ? Math.floor(idx / pageSize()) : 0;
+      } else {
+        pageIndex = 0;
+      }
+      savedPanelStates = [];
+      buildGrid(layout, currentPeriod, pageSlice());
       loadAll();
       syncUrl();
       persistSession();
@@ -960,6 +1076,28 @@
     });
 
     document.getElementById("btnReload").addEventListener("click", () => loadAll());
+
+    btnPagePrev?.addEventListener("click", () => goPage(pageIndex - 1));
+    btnPageNext?.addEventListener("click", () => goPage(pageIndex + 1));
+
+    document.addEventListener("keydown", (e) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+      const tag = String(e.target?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || e.target?.isContentEditable) {
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "PageDown") {
+        if (pageIndex < totalPages() - 1) {
+          e.preventDefault();
+          goPage(pageIndex + 1);
+        }
+      } else if (e.key === "ArrowUp" || e.key === "PageUp") {
+        if (pageIndex > 0) {
+          e.preventDefault();
+          goPage(pageIndex - 1);
+        }
+      }
+    });
 
     document.getElementById("btnHideBar").addEventListener("click", () => {
       setBarHidden(true);
@@ -1139,7 +1277,7 @@
     });
 
     // —— 启动：URL > session > 默认 ——
-    const { qSymbols, period: qPeriod, layoutId: qLayout } = parseQuery();
+    const { qSymbols, period: qPeriod, layoutId: qLayout, page: qPage } = parseQuery();
     const session = loadSession();
     currentPeriod =
       (qPeriod && isValidPeriod(qPeriod) && qPeriod) ||
@@ -1149,11 +1287,16 @@
 
     const layoutId = qLayout || session?.layoutId || "2x2";
     currentLayout = resolveLayout(layoutId, loadCustomLayouts());
-    symbols = qSymbols.length
-      ? qSymbols
+    allSymbols = qSymbols.length
+      ? qSymbols.slice()
       : Array.isArray(session?.symbols) && session.symbols.length
-        ? session.symbols
+        ? session.symbols.slice()
         : DEFAULT_SYMBOLS.slice();
+    pageIndex = qSymbols.length
+      ? clampPage(qPage || 0)
+      : clampPage(
+          Number.isFinite(Number(session?.pageIndex)) ? Number(session.pageIndex) : qPage || 0
+        );
 
     syncCrosshairOn = !!session?.syncCrosshair;
     syncCrosshairEl.checked = syncCrosshairOn;
@@ -1167,7 +1310,7 @@
     if (session?.hideGlobalBar) setBarHidden(true);
 
     refreshLayoutSelect(currentLayout.id);
-    buildGrid(currentLayout, currentPeriod, symbols);
+    buildGrid(currentLayout, currentPeriod, pageSlice());
     syncUrl();
     loadAll();
   </script>
