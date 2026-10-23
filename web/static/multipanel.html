@@ -150,7 +150,7 @@
       z-index: 1;
     }
 
-    /* —— 紧凑浮层 —— */
+    /* —— 叠在图上的浮层（名称/代码/行情），MA 通过 candle.tooltip.offsetTop 下移 —— */
     .mp-chrome {
       position: absolute;
       inset: 0;
@@ -159,7 +159,7 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      padding: 6px 8px;
+      padding: 4px 8px;
     }
     .mp-id {
       max-width: calc(100% - 44px);
@@ -188,6 +188,7 @@
       font-size: 11px;
       font-family: var(--mono);
       color: var(--muted);
+      line-height: 1.2;
     }
     .mp-quote.up { color: var(--up); }
     .mp-quote.down { color: var(--down); }

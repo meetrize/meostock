@@ -163,7 +163,12 @@ export class ChartPanel {
   _applyStyles() {
     if (!this.chart) return;
     this.chart.setStyles(
-      buildChartStyles({ settings: this.settings, period: this.period })
+      buildChartStyles({
+        settings: this.settings,
+        period: this.period,
+        // 名称/代码浮在图上：MA 行从 candle.tooltip.offsetTop 起画，需让出浮层高度
+        multipanelChrome: true,
+      })
     );
     applyYAxisOptions(this.chart, this.settings);
   }

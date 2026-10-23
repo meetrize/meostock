@@ -61,17 +61,26 @@ export function activeMaParams(maParams) {
 }
 
 /**
+ * 多面板：名称/代码/行情叠在图左上角时，为 MA 行让出的高度。
+ * KLineChart 在 candle+indicator 均为 standard 时，指标行起点用的是
+ * candle.tooltip.offsetTop（candle 不显示时仍占这个 y），不是 indicator 的。
+ */
+const MULTIPANEL_CHROME_TOOLTIP_TOP = 42;
+
+/**
  * @param {object} opts
  * @param {object} opts.settings
  * @param {string} opts.period
+ * @param {boolean} [opts.multipanelChrome]  图上浮层标题，下移 MA
  */
-export function buildChartStyles({ settings, period }) {
+export function buildChartStyles({ settings, period, multipanelChrome = false } = {}) {
   const s = { ...DEFAULT_SETTINGS, ...(settings || {}) };
   const up = "#F92855";
   const down = "#2DC08E";
   const upA = "rgba(249, 40, 85, 0.7)";
   const downA = "rgba(45, 192, 142, 0.7)";
   const hideY = !!s.hideYAxis;
+  const tipTop = multipanelChrome ? MULTIPANEL_CHROME_TOOLTIP_TOP : 6;
   return {
     grid: {
       show: !!s.grid,
@@ -117,13 +126,23 @@ export function buildChartStyles({ settings, period }) {
       },
       tooltip: {
         showRule: "none",
+        showType: "standard",
         title: { show: false },
+        offsetLeft: 4,
+        // 决定主图 MA 行垂直起点（见上方注释）
+        offsetTop: tipTop,
+        offsetRight: 4,
+        offsetBottom: 6,
       },
     },
     indicator: {
       tooltip: {
         showRule: "always",
         showType: "standard",
+        offsetLeft: 4,
+        offsetTop: tipTop,
+        offsetRight: 4,
+        offsetBottom: 6,
         text: { show: false },
       },
       lastValueMark: {
