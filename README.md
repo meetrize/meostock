@@ -165,6 +165,9 @@ K 线页（`/`，如 `?symbol=usNVDA&period=1d`）走同一库的 **L3 `kline_ba
 | `web/cache/` | 行情本地缓存（SQLite + Sync Worker） |
 | `data/quote_cache.db` | 缓存库（gitignore） |
 | `web/static/index.html` | K 线页（MA / VOL / MACD，亮/暗主题） |
+| `web/static/multipanel.html` | 多面板 K 线（`/multipanel`；行情/自选可入口） |
+| `web/static/kline/` | 多面板共用模块（ChartPanel / data / layout） |
+| `docs/multi-panel-charts.md` | 多面板设计方案 |
 | `web/static/xnge.html` | 犀利插件中转目录 |
 | `web/static/fupan.html` | 本地涨停复盘 Demo |
 | `web/static/dashboard/` | stock-dashboard 构建产物 |
@@ -187,6 +190,7 @@ K 线页支持：A 股 `600036`、港股 `00700`、美股 `AAPL` / `105.AAPL`；
 | `http://127.0.0.1:8765/?symbol=600036` | A 股 |
 | `http://127.0.0.1:8765/?symbol=sh600519` | A 股（带交易所前缀） |
 | `http://127.0.0.1:8765/?symbol=00700` | 港股 |
+| `http://127.0.0.1:8765/multipanel?layout=2x2&symbols=600036,000001&period=1d` | 多面板浏览 |
 | `http://127.0.0.1:8765/?symbol=hk00700` | 港股 |
 | `http://127.0.0.1:8765/?symbol=AAPL` | 美股 |
 | `http://127.0.0.1:8765/?symbol=105.AAPL` | 美股（东财 secid 写法） |

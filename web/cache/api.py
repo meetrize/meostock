@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import threading
 import time
 from typing import Any
 
@@ -14,6 +16,7 @@ from cache import kline_models, models
 from cache.providers.kline_fetch import fetch_kline_bars, normalize_period, normalize_symbol
 from cache.sync_worker import enqueue, is_syncing, sync_now
 from cache.ttl import (
+    cn_daily_bars_missing_today,
     is_stale,
     kline_is_stale,
     kline_ttl_seconds,
@@ -23,8 +26,54 @@ from cache.ttl import (
 )
 
 router = APIRouter(prefix="/api/cache", tags=["quote-cache"])
+_log = logging.getLogger("quote-cache")
 
 _ENABLED = os.environ.get("QUOTE_CACHE_ENABLED", "1").strip() not in ("0", "false", "False")
+
+# K 线后台刷新去重（market, symbol, period）
+_kline_bg_lock = threading.Lock()
+_kline_bg_inflight: set[tuple[str, str, str]] = set()
+
+
+def _refresh_kline_background(norm: dict[str, str], period_n: str) -> None:
+    """有旧缓存时的后台拉网落库（不阻塞 HTTP）。"""
+    market = norm["market"]
+    sym = norm["symbol"]
+    key = (market, sym, period_n)
+    try:
+        fresh, fetch_name, fetch_source = fetch_kline_bars(norm, period_n)
+        if fresh:
+            kline_models.replace_kline_bars(
+                market,
+                sym,
+                period_n,
+                fresh,
+                source=fetch_source,
+                name=fetch_name,
+            )
+    except Exception as e:
+        _log.warning("kline bg refresh failed %s/%s %s: %s", market, sym, period_n, e)
+    finally:
+        with _kline_bg_lock:
+            _kline_bg_inflight.discard(key)
+
+
+def _schedule_kline_bg(norm: dict[str, str], period_n: str) -> bool:
+    market = norm["market"]
+    sym = norm["symbol"]
+    key = (market, sym, period_n)
+    with _kline_bg_lock:
+        if key in _kline_bg_inflight:
+            return False
+        _kline_bg_inflight.add(key)
+    th = threading.Thread(
+        target=_refresh_kline_background,
+        args=(norm, period_n),
+        name=f"kline-bg-{market}-{sym}-{period_n}",
+        daemon=True,
+    )
+    th.start()
+    return True
 
 
 class ModeBody(BaseModel):
@@ -306,10 +355,17 @@ def cache_upsert(body: UpsertBody) -> JSONResponse:
 def cache_kline(
     symbol: str = Query(..., description="如 usNVDA / sh600036 / yf:BTC-USD / fut:AUM"),
     period: str = Query("1d", description="1m|5m|15m|1h|1d|1w|fs"),
-    force: int = Query(0, description="1=强制重拉"),
+    force: int = Query(0, description="1=强制重拉（阻塞等待）"),
+    local_first: int = Query(
+        0,
+        description="1=有缓存立即返回，过期时后台刷新（多面板加速）",
+    ),
     mode: str | None = Query(None),
 ) -> JSONResponse:
-    """K 线本地缓存：先读盘，过期或 force 再拉源并落库。"""
+    """K 线本地缓存：先读盘，过期或 force 再拉源并落库。
+
+    ``local_first=1``：只要盘上有 bars 就立刻返回，需要联网时后台刷新（对齐列表 snapshot 的 stale-while-revalidate）。
+    """
     if not _ENABLED:
         return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
 
@@ -336,6 +392,14 @@ def cache_kline(
     as_of = float(meta["as_of"]) if meta and meta.get("as_of") else None
     age = (now - as_of) if as_of is not None else None
     stale = kline_is_stale(age, active_mode, period_n, market)
+    # A 股交易日白天：缓存日 K 若尚无今日棒，视为过期（新浪历史常缺未收盘日）
+    if (
+        not stale
+        and market == "cn"
+        and period_n == "1d"
+        and cn_daily_bars_missing_today(bars)
+    ):
+        stale = True
     allow_net = quote_source != "local"
     if not allow_net:
         need_net = False
@@ -347,6 +411,43 @@ def cache_kline(
     from_cache = bool(bars)
     source = (meta or {}).get("source")
     name = (meta or {}).get("name") or sym
+    refreshing = False
+
+    # —— 多面板加速：有缓存则先返回，联网刷新放到后台 ——
+    if local_first and bars and not force:
+        if need_net and allow_net:
+            refreshing = _schedule_kline_bg(norm, period_n)
+            stale = True
+        out_bars = [
+            {
+                "timestamp": b["timestamp"],
+                "open": b["open"],
+                "high": b["high"],
+                "low": b["low"],
+                "close": b["close"],
+                "volume": b.get("volume") or 0,
+            }
+            for b in bars
+        ]
+        return JSONResponse(
+            {
+                "ok": True,
+                "market": market.upper() if market in ("cn", "hk", "us") else market,
+                "symbol": norm.get("display") or sym,
+                "code": sym,
+                "name": name,
+                "period": period_n,
+                "bars": out_bars,
+                "count": len(out_bars),
+                "source": source,
+                "from_cache": True,
+                "stale": bool(stale),
+                "refreshing": refreshing,
+                "mode": active_mode,
+                "ttl_sec": kline_ttl_seconds(active_mode, period_n, market),
+                "as_of": as_of,
+            }
+        )
 
     if need_net:
         try:
@@ -409,6 +510,7 @@ def cache_kline(
             "source": source,
             "from_cache": from_cache,
             "stale": bool(stale),
+            "refreshing": False,
             "mode": active_mode,
             "ttl_sec": kline_ttl_seconds(active_mode, period_n, market),
             "as_of": as_of,

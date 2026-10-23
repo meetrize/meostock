@@ -483,6 +483,13 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+@app.get("/multipanel", response_model=None)
+@app.get("/multipanel/", response_model=None)
+def multipanel() -> FileResponse:
+    """多面板 K 线浏览（KLineChart；设计见 docs/multi-panel-charts.md）。"""
+    return FileResponse(STATIC_DIR / "multipanel.html")
+
+
 # 带哈希的静态资源：缺失时绝不能回退成 index.html，否则浏览器会报
 # “Importing a module script failed”（把 HTML 当 JS 模块加载）。
 _DASHBOARD_ASSET_SUFFIXES = {

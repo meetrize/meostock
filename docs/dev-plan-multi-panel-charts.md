@@ -40,51 +40,53 @@ http://127.0.0.1:8765/multipanel?layout=2x2&symbols=600036,000001&period=1d
 
 ### P0 — 骨架与数据抽出
 
-- [ ] `web/static/kline/period.mjs`：从 `index.html` 抽出 `PERIOD_MAP` / 分钟与日周映射  
-- [ ] `web/static/kline/data.mjs`：抽出 `fetchKline`（含 cache 优先）/ `toBars` / 必要 quote  
-- [ ] `web/server.py`：挂载 `GET /multipanel` → `multipanel.html`（与 `/` 同级静态）  
-- [ ] `multipanel.html` 空壳 + CSS 变量（跟单图主题色）
+- [x] `web/static/kline/period.mjs`：从 `index.html` 抽出 `PERIOD_MAP` / 分钟与日周映射  
+- [x] `web/static/kline/data.mjs`：抽出 `fetchKline`（含 cache 优先）/ `toBars` / 必要 quote  
+- [x] `web/static/kline/futures-catalog.mjs`：期货主连目录（data 依赖）  
+- [x] `web/server.py`：挂载 `GET /multipanel` → `multipanel.html`（与 `/` 同级静态）  
+- [x] `multipanel.html` 空壳 + CSS 变量（跟单图主题色）；URL `symbols` 冒烟拉数
 
 ### P1 — ChartPanel 单实例
 
-- [ ] `ChartPanel.mjs`：`init` / `dispose` / `setSymbol` / `setPeriod` / `load` / `resize`  
-- [ ] DataLoader 绑定不依赖全局 `chart`  
-- [ ] 固定 2×2 DOM 网格验证四实例共存  
-- [ ] `ResizeObserver` 每格 `resize()`  
-- [ ] 并发拉数限流（建议 max 4）
+- [x] `ChartPanel.mjs`：`init` / `dispose` / `setSymbol` / `setPeriod` / `load` / `resize`  
+- [x] `styles.mjs` / `fs.mjs` / `pool.mjs` 辅助模块  
+- [x] DataLoader 绑定不依赖全局 `chart`  
+- [x] 固定 2×2 DOM 网格验证四实例共存  
+- [x] `ResizeObserver` 每格 `resize()`  
+- [x] 并发拉数限流（建议 max 4）
 
 ### P2 — 紧凑 Chrome + 设置菜单
 
-- [ ] 格内浮层：名称、代码（+ 可选价/幅）  
-- [ ] 唯一 ⚙ → popover 菜单  
-- [ ] 菜单：周期切换、图形类型、隐藏右侧 Y 轴、打开设置弹层  
-- [ ] 设置项对齐：`candleType` / 价标 / `axisType` / `axisReverse` / `grid`  
-- [ ] 分时强制 `area`（与单图一致）  
-- [ ] 「在单图页打开」链接
+- [x] 格内浮层：名称、代码（+ 可选价/幅）  
+- [x] 唯一 ⚙ → popover 菜单（`chrome.mjs`，fixed 防裁切）  
+- [x] 菜单：周期切换、图形类型、隐藏右侧 Y 轴、打开设置弹层  
+- [x] 设置项对齐：`candleType` / 价标 / `axisType` / `axisReverse` / `grid`  
+- [x] 分时强制 `area`（与单图一致）  
+- [x] 「在单图页打开」链接
 
 ### P3 — 布局系统
 
-- [ ] 预设：`1x1` `1x2` `2x1` `2x2` `2x3` `3x3` `1+2` `2+1`  
-- [ ] 自定义 rows×cols（上限 4×4）+ 命名保存  
-- [ ] 换布局时 dispose 多余面板、补建空格  
-- [ ] Session 读写 `kline-multipanel-session`
+- [x] 预设：`1x1` `1x2` `2x1` `2x2` `2x3` `3x3` `1+2` `2+1`  
+- [x] 自定义 rows×cols（上限 4×4）+ 命名保存  
+- [x] 换布局时 dispose 多余面板、补建空格  
+- [x] Session 读写 `kline-multipanel-session`（`store.mjs` / `layout.mjs`）
 
 ### P4 — 全体控制 + 看板入口
 
-- [ ] 全局顶栏：布局、全体图形、全体周期（尊重 lock）、退出  
-- [ ] `chartTypeLocked` / `periodLocked`  
-- [ ] `QuotesMarket`「多面板」按钮（勾选优先）  
-- [ ] `Watchlist`「多面板」按钮  
-- [ ] `scripts/build_dashboard.sh` 更新产物  
-- [ ] README 增加多面板入口说明一行
+- [x] 全局顶栏：布局、全体图形、全体周期（尊重 lock）、退出  
+- [x] `chartTypeLocked` / `periodLocked`（⚙ 菜单可「跟随全体」）  
+- [x] `QuotesMarket`「多面板」按钮（当前页标的）  
+- [x] `Watchlist`「多面板」按钮（勾选优先，否则当前分组）  
+- [x] `scripts/build_dashboard.sh` 更新产物  
+- [x] README 增加多面板入口说明
 
 ### P5 — 指标与打磨（可并行）
 
-- [ ] 面板级指标弹框（主/副，默认 MA+VOL 或仅主图）  
-- [ ] MA 参数（可先共用 `kline-ma-params`）  
-- [ ] Active 面板高亮；空格点击填入代码  
-- [ ] （可选）十字线同步  
-- [ ] 隐藏全局顶栏开关
+- [x] 面板级指标弹框（主/副，默认 MA+VOL；`indicators.mjs`）  
+- [x] MA 参数（共用 `kline-ma-params`）  
+- [x] Active 面板高亮；空格点击填入代码  
+- [x] 十字线同步（顶栏开关，按 timestamp 对齐）  
+- [x] 隐藏全局顶栏开关
 
 ---
 

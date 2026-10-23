@@ -101,21 +101,69 @@ def normalize_symbol(raw: str) -> dict[str, str]:
 
 
 def _http_json(url: str, *, timeout: float = 20.0) -> dict[str, Any]:
+    import http.client
+
     req = urllib.request.Request(
         url,
         headers={
             "User-Agent": _BROWSER_UA,
             "Referer": "https://quote.eastmoney.com/",
-            "Accept": "application/json,*/*",
+            "Accept": "application/json,text/plain,*/*",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "Connection": "close",
         },
         method="GET",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        raw = resp.read().decode("utf-8", errors="replace")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+    except http.client.RemoteDisconnected as e:
+        raise urllib.error.URLError(str(e)) from e
     data = json.loads(raw)
     if not isinstance(data, dict):
         raise ValueError("expected object")
     return data
+
+
+def _cn_to_yahoo(symbol: str) -> str:
+    """sz300298 → 300298.SZ；sh600036 → 600036.SS；bj/92xxxx → .BJ（勿把 92 当成沪市 9xx）"""
+    s = (symbol or "").lower().strip()
+    code = s[2:] if s.startswith(("sh", "sz", "bj")) else s
+    code = re.sub(r"\D", "", code) or code
+    # 北交所优先：bj 前缀 / 4、8 开头 / 92 开头
+    if s.startswith("bj") or code.startswith(("4", "8")) or code.startswith("92"):
+        return f"{code}.BJ"
+    if s.startswith("sh") or code.startswith(("5", "6", "9")):
+        return f"{code}.SS"
+    return f"{code}.SZ"
+
+
+def _cn_sina_symbol(symbol: str) -> str:
+    """东财/库内 sh|sz|bj 代码 → 新浪 symbol（bj920839 / sh600036）。"""
+    s = (symbol or "").lower().strip()
+    if s.startswith(("sh", "sz", "bj")):
+        return s
+    code = re.sub(r"\D", "", s) or s
+    if code.startswith(("4", "8")) or code.startswith("92"):
+        return f"bj{code}"
+    if code.startswith(("5", "6", "9")):
+        return f"sh{code}"
+    return f"sz{code}"
+
+
+def _sina_scale(period: str) -> int:
+    # 新浪：5/15/30/60 分钟；240 日；1200 周；7200 月
+    m = {
+        "fs": 5,
+        "1m": 5,
+        "5m": 5,
+        "15m": 15,
+        "1h": 60,
+        "1d": 240,
+        "1w": 1200,
+        "1M": 7200,
+    }
+    return m.get(period, 240)
 
 
 def fetch_yf_bars(yf_symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
@@ -162,7 +210,15 @@ def _em_klt(period: str) -> str:
     return m.get(period, "101")
 
 
-def fetch_cn_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
+_EM_KLINE_HOSTS = (
+    "push2his.eastmoney.com",
+    "82.push2his.eastmoney.com",
+    "91.push2his.eastmoney.com",
+    "push2delay.eastmoney.com",
+)
+
+
+def fetch_cn_bars_eastmoney(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
     secid = _cn_secid(symbol)
     klt = _em_klt(period)
     params = {
@@ -174,18 +230,20 @@ def fetch_cn_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
         "end": "20500101",
         "lmt": "500",
     }
-    url = "https://push2his.eastmoney.com/api/qt/stock/kline/get?" + urllib.parse.urlencode(
-        params
-    )
+    qs = urllib.parse.urlencode(params)
     last_err: Exception | None = None
     data: dict[str, Any] | None = None
-    for attempt in range(3):
-        try:
-            data = _http_json(url)
+    for host in _EM_KLINE_HOSTS:
+        url = f"https://{host}/api/qt/stock/kline/get?{qs}"
+        for attempt in range(2):
+            try:
+                data = _http_json(url, timeout=12.0)
+                break
+            except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as e:
+                last_err = e
+                time.sleep(0.25 * (attempt + 1))
+        if data is not None:
             break
-        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as e:
-            last_err = e
-            time.sleep(0.3 * (attempt + 1))
     if data is None:
         raise RuntimeError(f"eastmoney kline failed: {last_err}")
 
@@ -229,6 +287,276 @@ def fetch_cn_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
         except Exception:
             continue
     return bars, name
+
+
+def fetch_cn_bars_sina(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
+    """新浪 CN_MarketData.getKLineData（北交所 bj920839 可用，东财断连时的可靠回退）。"""
+    sina_sym = _cn_sina_symbol(symbol)
+    scale = _sina_scale(period)
+    # 日/周多要一些；分钟适量
+    datalen = 500 if scale >= 240 else 320
+    url = (
+        "https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/"
+        "CN_MarketData.getKLineData?"
+        + urllib.parse.urlencode(
+            {
+                "symbol": sina_sym,
+                "scale": str(scale),
+                "ma": "no",
+                "datalen": str(datalen),
+            }
+        )
+    )
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _BROWSER_UA,
+            "Referer": "https://finance.sina.com.cn/",
+            "Accept": "application/json,*/*",
+            "Connection": "close",
+        },
+        method="GET",
+    )
+    last_err: Exception | None = None
+    raw = ""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=15.0) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            break
+        except Exception as e:
+            last_err = e
+            time.sleep(0.25 * (attempt + 1))
+    else:
+        raise RuntimeError(f"sina kline failed: {last_err}")
+
+    try:
+        rows = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"sina kline bad json: {e}") from e
+    if not isinstance(rows, list) or not rows:
+        return [], sina_sym
+
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    bars: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        day = str(row.get("day") or "").strip()
+        if not day:
+            continue
+        try:
+            if len(day) >= 16:
+                dt = datetime.strptime(day[:16], "%Y-%m-%d %H:%M").replace(
+                    tzinfo=ZoneInfo("Asia/Shanghai")
+                )
+            else:
+                dt = datetime.strptime(day[:10], "%Y-%m-%d").replace(
+                    tzinfo=ZoneInfo("Asia/Shanghai")
+                )
+            bars.append(
+                {
+                    "timestamp": int(dt.timestamp() * 1000),
+                    "open": float(row["open"]),
+                    "high": float(row["high"]),
+                    "low": float(row["low"]),
+                    "close": float(row["close"]),
+                    "volume": float(row.get("volume") or 0),
+                }
+            )
+        except Exception:
+            continue
+    bars.sort(key=lambda b: b["timestamp"])
+    return bars, sina_sym
+
+
+def fetch_cn_spot(symbol: str) -> dict[str, Any] | None:
+    """
+    抓取 A 股实时行情，用于把「今日未收盘 K」补进日线。
+    返回 {name, open, high, low, close, volume, prev_close, date}（上海日历日）。
+    """
+    from datetime import date, datetime
+    from zoneinfo import ZoneInfo
+
+    sina_sym = _cn_sina_symbol(symbol)
+    # 1) 新浪 hq
+    try:
+        url = f"https://hq.sinajs.cn/list={sina_sym}"
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": _BROWSER_UA,
+                "Referer": "https://finance.sina.com.cn/",
+                "Connection": "close",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=8.0) as resp:
+            raw = resp.read().decode("gbk", errors="replace")
+        # var hq_str_sz002535="名,今开,昨收,现价,最高,最低,...,成交量,成交额,..."
+        m = re.search(r'="([^"]*)"', raw)
+        if m and m.group(1):
+            parts = m.group(1).split(",")
+            if len(parts) >= 9:
+                price = float(parts[3])
+                if price > 0:
+                    today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+                    # 字段 30/31 常为日期；缺省用今天
+                    qdate = today
+                    if len(parts) > 30 and re.match(r"\d{4}-\d{2}-\d{2}", parts[30] or ""):
+                        try:
+                            qdate = date.fromisoformat(parts[30])
+                        except Exception:
+                            pass
+                    return {
+                        "name": parts[0],
+                        "open": float(parts[1]) or price,
+                        "prev_close": float(parts[2]) or price,
+                        "close": price,
+                        "high": float(parts[4]) or price,
+                        "low": float(parts[5]) or price,
+                        "volume": float(parts[8] or 0),
+                        "date": qdate,
+                    }
+    except Exception:
+        pass
+
+    # 2) 东财 push2
+    try:
+        secid = _cn_secid(symbol)
+        url = (
+            "https://push2.eastmoney.com/api/qt/stock/get?"
+            + urllib.parse.urlencode(
+                {
+                    "secid": secid,
+                    "fields": "f43,f44,f45,f46,f47,f48,f57,f58,f60",
+                }
+            )
+        )
+        data = _http_json(url, timeout=8.0)
+        body = data.get("data") if isinstance(data.get("data"), dict) else None
+        if body and body.get("f43") not in (None, "-"):
+            # 价格字段多为「元 × 100」整数
+            def _p(v: Any) -> float:
+                n = float(v)
+                return n / 100.0 if abs(n) >= 50 else n
+
+            price = _p(body["f43"])
+            if price > 0:
+                return {
+                    "name": str(body.get("f58") or symbol),
+                    "open": _p(body.get("f46") or price),
+                    "prev_close": _p(body.get("f60") or price),
+                    "close": price,
+                    "high": _p(body.get("f44") or price),
+                    "low": _p(body.get("f45") or price),
+                    "volume": float(body.get("f47") or 0),
+                    "date": datetime.now(ZoneInfo("Asia/Shanghai")).date(),
+                }
+    except Exception:
+        pass
+    return None
+
+
+def merge_cn_today_daily_bar(
+    bars: list[dict[str, Any]], spot: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """用实时行情补/改今日日 K（新浪历史常缺未收盘当日）。"""
+    if not bars or not spot:
+        return bars
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    qdate = spot.get("date")
+    if qdate is None:
+        return bars
+    ts = int(
+        datetime(qdate.year, qdate.month, qdate.day, tzinfo=ZoneInfo("Asia/Shanghai")).timestamp()
+        * 1000
+    )
+    today_bar = {
+        "timestamp": ts,
+        "open": float(spot["open"]),
+        "high": float(spot["high"]),
+        "low": float(spot["low"]),
+        "close": float(spot["close"]),
+        "volume": float(spot.get("volume") or 0),
+    }
+    last_ts = int(bars[-1]["timestamp"])
+    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=ZoneInfo("Asia/Shanghai")).date()
+    if last_day == qdate:
+        # 合并高低：防止盘中回写把盘中极值抹掉
+        prev = bars[-1]
+        bars[-1] = {
+            "timestamp": ts,
+            "open": float(prev.get("open") or today_bar["open"]),
+            "high": max(float(prev.get("high") or 0), today_bar["high"]),
+            "low": min(
+                float(prev["low"]) if prev.get("low") not in (None, 0) else today_bar["low"],
+                today_bar["low"],
+            ),
+            "close": today_bar["close"],
+            "volume": today_bar["volume"] or float(prev.get("volume") or 0),
+        }
+    elif last_day < qdate:
+        bars = list(bars) + [today_bar]
+    return bars
+
+
+def fetch_cn_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str, str]:
+    """A 股：东财 → 新浪（北交所友好）→ Yahoo；日线再补今日实时 K。返回 (bars, name, source)。"""
+    errors: list[str] = []
+    bars: list[dict[str, Any]] = []
+    name = symbol
+    source = "eastmoney"
+
+    try:
+        bars, name = fetch_cn_bars_eastmoney(symbol, period)
+        if bars:
+            source = "eastmoney"
+        else:
+            errors.append("eastmoney empty")
+    except Exception as e:
+        errors.append(f"eastmoney: {e}")
+        bars = []
+
+    if not bars:
+        try:
+            bars, name = fetch_cn_bars_sina(symbol, period)
+            if bars:
+                source = "sina"
+            else:
+                errors.append("sina empty")
+        except Exception as e:
+            errors.append(f"sina: {e}")
+            bars = []
+
+    if not bars:
+        yf_sym = _cn_to_yahoo(symbol)
+        try:
+            bars, name = fetch_yf_bars(yf_sym, period)
+            if bars:
+                source = "yahoo"
+                name = name or symbol
+            else:
+                errors.append(f"yahoo({yf_sym}) empty")
+        except Exception as e:
+            errors.append(f"yahoo({yf_sym}): {e}")
+            bars = []
+
+    if not bars:
+        raise RuntimeError("A股 K 线不可用：" + "；".join(errors))
+
+    # 日线：用实时行情补今日 K（解决报价 3.03 但日 K 停在昨收）
+    if normalize_period(period) == "1d":
+        spot = fetch_cn_spot(symbol)
+        if spot:
+            if spot.get("name"):
+                name = spot["name"]
+            bars = merge_cn_today_daily_bar(bars, spot)
+
+    return bars, name, source
 
 
 def _futures_exchange(symbol: str) -> str:
@@ -318,8 +646,8 @@ def fetch_kline_bars(norm: dict[str, str], period: str) -> tuple[list[dict[str, 
         return bars, name, "yahoo"
 
     if market == "cn":
-        bars, name = fetch_cn_bars(symbol, period)
-        return bars, name, "eastmoney"
+        bars, name, source = fetch_cn_bars(symbol, period)
+        return bars, name, source
 
     if market == "futures":
         bars, name = fetch_futures_bars(symbol, period)

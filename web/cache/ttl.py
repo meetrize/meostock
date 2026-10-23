@@ -207,14 +207,44 @@ _KLINE_MINUTE = {
 }
 
 
+def is_cn_trade_daytime(now: datetime | None = None) -> bool:
+    """A 股交易日白天（含午休）：用于日 K TTL，午休不当成盘后拉长缓存。"""
+    dt = (now or datetime.now(tz=_SH)).astimezone(_SH)
+    if dt.weekday() >= 5 or is_cn_holiday(dt.date()):
+        return False
+    t = dt.time()
+    return _in_window(t, time(9, 15), time(15, 5))
+
+
+def cn_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
+    """日 K 最后一根早于上海今日 → 缺未收盘当日（需补实时）。"""
+    if not bars:
+        return False
+    if not is_cn_trade_daytime(now):
+        return False
+    try:
+        last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
+    except (TypeError, ValueError, AttributeError, IndexError):
+        return False
+    if last_ts <= 0:
+        return False
+    dt = (now or datetime.now(tz=_SH)).astimezone(_SH)
+    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=_SH).date()
+    return last_day < dt.date()
+
+
 def kline_ttl_seconds(mode: str, period: str, market: str = "", now: datetime | None = None) -> float:
     mode = normalize_mode(mode)
     p = (period or "1d").lower()
     if p in ("1d", "1w", "1m_month", "1M", "daily", "weekly"):
-        # 日/周：盘后更长
+        # 日/周：盘后更长；A 股交易日白天（含午休）保持盘中 TTL，便于补今日 K
         base = float(_KLINE_DAILY[mode])
         mkt = market.lower() if market else "cn"
-        if mkt in ("cn", "hk", "us", "futures") and not is_session_open(mkt, now):
+        if mkt == "cn":
+            if is_cn_trade_daytime(now):
+                return base
+            return max(base, float(_TTL_OFF[mode]))
+        if mkt in ("hk", "us", "futures") and not is_session_open(mkt, now):
             return max(base, float(_TTL_OFF[mode]))
         return base
     return float(_KLINE_MINUTE[mode])

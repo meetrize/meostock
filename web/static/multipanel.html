@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>多面板 K 线 · mootdx</title>
+  <script src="/static/klinecharts.min.js"></script>
+  <style>
+    :root,
+    html[data-theme="light"] {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --header-top: #ffffff;
+      --header-bottom: #f7f9fb;
+      --line: #d8dee6;
+      --mp-gutter: #c5ced8;
+      --text: #1a2332;
+      --muted: #6b7785;
+      --input-bg: #ffffff;
+      --btn-bg: #ffffff;
+      --btn-hover: #c5ced8;
+      --btn-active-bg: #e8f1ff;
+      --status-bg: rgba(255, 255, 255, 0.92);
+      --modal-bg: #ffffff;
+      --modal-mask: rgba(15, 23, 42, 0.35);
+      --up: #e53935;
+      --down: #00897b;
+      --accent: #2f6fed;
+      --font: "IBM Plex Sans", "PingFang SC", "Helvetica Neue", sans-serif;
+      --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #0f1419;
+      --panel: #171d25;
+      --header-top: #1a222c;
+      --header-bottom: #171d25;
+      --line: #2a3441;
+      --mp-gutter: #2a3441;
+      --text: #e7ecf3;
+      --muted: #8b98a8;
+      --input-bg: #0c1015;
+      --btn-bg: #121820;
+      --btn-hover: #3a4a5c;
+      --btn-active-bg: #1a2a40;
+      --status-bg: rgba(15, 20, 25, 0.85);
+      --modal-bg: #1b2330;
+      --modal-mask: rgba(0, 0, 0, 0.55);
+      --up: #ef5350;
+      --down: #26a69a;
+      --accent: #3d8bfd;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+    }
+
+    .app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .mp-bar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      background: linear-gradient(180deg, var(--header-top), var(--header-bottom));
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .mp-bar .title { font-weight: 600; margin-right: 4px; }
+    .mp-bar .spacer { flex: 1; }
+    .mp-bar .muted { color: var(--muted); font-size: 12px; }
+    .mp-bar a,
+    .mp-bar button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--btn-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .mp-bar a:hover,
+    .mp-bar button:hover {
+      background: var(--btn-active-bg);
+      border-color: var(--accent);
+    }
+    .mp-bar select {
+      border: 1px solid var(--line);
+      background: var(--input-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 3px 6px;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    .mp-grid {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      gap: 1px;
+      background: var(--mp-gutter);
+    }
+    .mp-bar input[type="number"] {
+      width: 44px;
+      border: 1px solid var(--line);
+      background: var(--input-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 3px 4px;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    .mp-cell {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .mp-cell .chart-host {
+      position: absolute;
+      inset: 0;
+    }
+    .mp-cell.is-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .mp-cell.is-active {
+      outline: 1px solid var(--accent);
+      outline-offset: -1px;
+      z-index: 1;
+    }
+
+    /* —— 紧凑浮层 —— */
+    .mp-chrome {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 6px 8px;
+    }
+    .mp-id {
+      max-width: calc(100% - 44px);
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+    }
+    .mp-id-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .mp-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .mp-code {
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+    .mp-quote {
+      margin-top: 2px;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+    .mp-quote.up { color: var(--up); }
+    .mp-quote.down { color: var(--down); }
+
+    .mp-chrome-actions {
+      position: relative;
+      pointer-events: auto;
+      flex: 0 0 auto;
+    }
+    .mp-gear {
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--status-bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      padding: 0;
+    }
+    .mp-gear:hover {
+      border-color: var(--accent);
+      background: var(--btn-active-bg);
+    }
+
+    .mp-menu {
+      position: absolute;
+      top: 32px;
+      right: 0;
+      width: min(260px, 70vw);
+      max-height: min(70vh, 420px);
+      overflow: auto;
+      background: var(--modal-bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      padding: 8px;
+      z-index: 20;
+    }
+    .mp-menu[hidden] { display: none !important; }
+    .mp-menu-sec { margin-bottom: 8px; }
+    .mp-menu-sec:last-child { margin-bottom: 0; }
+    .mp-menu-label {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .mp-period-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .mp-period-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--btn-bg);
+      color: var(--text);
+      border-radius: 3px;
+      padding: 2px 6px;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .mp-period-btn.active,
+    .mp-period-btn:hover {
+      background: var(--btn-active-bg);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .mp-menu-select,
+    .mp-symbol-input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--input-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 4px 6px;
+      font: inherit;
+      font-size: 12px;
+    }
+    .mp-menu-check {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .mp-menu-btn {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--btn-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      width: 100%;
+    }
+    .mp-menu-btn:hover {
+      background: var(--btn-active-bg);
+      border-color: var(--accent);
+    }
+    .mp-symbol-row {
+      display: flex;
+      gap: 4px;
+    }
+    .mp-symbol-row .mp-symbol-input { flex: 1; min-width: 0; }
+    .mp-symbol-row .mp-menu-btn { width: auto; flex: 0 0 auto; }
+    .mp-menu-link {
+      display: block;
+      font-size: 12px;
+      color: var(--accent);
+      text-decoration: none;
+      padding: 4px 0;
+    }
+    .mp-menu-link:hover { text-decoration: underline; }
+
+    /* —— 设置弹层 —— */
+    .mp-modal-mask {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: var(--modal-mask);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .mp-modal-mask.show { display: flex; }
+    .mp-modal {
+      width: min(420px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: var(--modal-bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+    }
+    .mp-modal-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .mp-modal-x {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .mp-modal-bd { padding: 12px 14px; }
+    .mp-setting-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .mp-setting-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .mp-setting-item select {
+      border: 1px solid var(--line);
+      background: var(--input-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 3px 6px;
+      font: inherit;
+      font-size: 12px;
+      min-width: 120px;
+    }
+    .mp-setting-note {
+      margin: 12px 0 0;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .mp-modal-ft {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 10px 14px;
+      border-top: 1px solid var(--line);
+    }
+    .mp-modal-ft button {
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--btn-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 5px 12px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .mp-modal-ft button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .mp-modal-wide { width: min(520px, 100%); }
+    .mp-ind-section { margin-bottom: 14px; }
+    .mp-ind-section h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .mp-ind-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .mp-bar-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+    .app.bar-hidden .mp-bar { display: none; }
+    .mp-show-bar {
+      display: none;
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 50;
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--status-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .app.bar-hidden .mp-show-bar { display: block; }
+
+    .mp-status {
+      flex: 0 0 auto;
+      padding: 4px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--status-bg);
+      border-top: 1px solid var(--line);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="mp-bar">
+      <span class="title">多面板</span>
+      <label class="muted">
+        布局
+        <select id="layoutSel" title="布局预设"></select>
+      </label>
+      <button type="button" id="btnCustomLayout" title="自定义行列并保存">自定义</button>
+      <label class="muted">
+        周期
+        <select id="globalPeriod" title="全体周期（已单独设置的面板不跟随）">
+          <option value="fs">分时</option>
+          <option value="1m">1m</option>
+          <option value="5m">5m</option>
+          <option value="15m">15m</option>
+          <option value="1h">1H</option>
+          <option value="1d" selected>1D</option>
+          <option value="1w">1W</option>
+        </select>
+      </label>
+      <label class="muted">
+        图形
+        <select id="globalCandle" title="全体图形（已单独设置的面板不跟随）">
+          <option value="candle_solid">全实心</option>
+          <option value="candle_stroke">全空心</option>
+          <option value="candle_up_stroke">涨空心</option>
+          <option value="candle_down_stroke">跌空心</option>
+          <option value="ohlc">OHLC</option>
+          <option value="area">面积图</option>
+        </select>
+      </label>
+      <label class="mp-bar-check" title="跨面板按时间戳同步十字线">
+        <input type="checkbox" id="syncCrosshair" />
+        同步十字线
+      </label>
+      <span class="muted" id="mpHint">—</span>
+      <span class="spacer"></span>
+      <button type="button" id="btnHideBar" title="隐藏顶栏以腾出空间">隐藏顶栏</button>
+      <button type="button" id="btnReload" title="全部重新加载">刷新</button>
+      <button type="button" id="btnTheme" title="切换配色">配色</button>
+      <a href="/" title="单图 K 线">单图</a>
+      <a href="/dashboard/" title="返回看板">退出</a>
+    </header>
+    <button type="button" class="mp-show-bar" id="btnShowBar" title="显示顶栏">显示顶栏</button>
+    <div class="mp-grid" id="mpGrid" aria-label="多面板网格"></div>
+    <div class="mp-status" id="status">初始化…</div>
+  </div>
+
+  <div class="mp-modal-mask" id="customLayoutMask">
+    <div class="mp-modal" role="dialog" aria-label="自定义布局">
+      <div class="mp-modal-hd">
+        <span>自定义布局</span>
+        <button type="button" class="mp-modal-x" id="customLayoutClose">×</button>
+      </div>
+      <div class="mp-modal-bd">
+        <div class="mp-setting-grid">
+          <label class="mp-setting-item">
+            <span>行数 (1–4)</span>
+            <input type="number" id="customRows" min="1" max="4" value="2" />
+          </label>
+          <label class="mp-setting-item">
+            <span>列数 (1–4)</span>
+            <input type="number" id="customCols" min="1" max="4" value="3" />
+          </label>
+          <label class="mp-setting-item">
+            <span>名称</span>
+            <input type="text" id="customName" maxlength="24" placeholder="可选" style="width:140px;border:1px solid var(--line);background:var(--input-bg);color:var(--text);border-radius:4px;padding:3px 6px;font:inherit;font-size:12px" />
+          </label>
+        </div>
+      </div>
+      <div class="mp-modal-ft">
+        <button type="button" id="customLayoutCancel">取消</button>
+        <button type="button" class="primary" id="customLayoutOk">保存并应用</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { isValidPeriod } from "/static/kline/period.mjs";
+    import { getKlineData } from "/static/kline/data.mjs";
+    import { THEME_KEY, CANDLE_TYPES } from "/static/kline/styles.mjs";
+    import { createPool } from "/static/kline/pool.mjs";
+    import { ChartPanel } from "/static/kline/ChartPanel.mjs";
+    import {
+      LAYOUT_PRESETS,
+      resolveLayout,
+      applyLayoutToGrid,
+      cellAreaStyle,
+      loadCustomLayouts,
+      upsertCustomLayout,
+      clampDim,
+    } from "/static/kline/layout.mjs";
+    import { loadSession, saveSession } from "/static/kline/store.mjs";
+
+    const DEFAULT_SYMBOLS = ["600036", "000001", "510300", "sh000001", "300750", "601318"];
+
+    const statusEl = document.getElementById("status");
+    const hintEl = document.getElementById("mpHint");
+    const gridEl = document.getElementById("mpGrid");
+    const periodSel = document.getElementById("globalPeriod");
+    const candleSel = document.getElementById("globalCandle");
+    const layoutSel = document.getElementById("layoutSel");
+    const customMask = document.getElementById("customLayoutMask");
+
+    // 填充图形下拉（与 styles.CANDLE_TYPES 对齐）
+    candleSel.innerHTML = CANDLE_TYPES.map(
+      (t) => `<option value="${t.value}">${t.label}</option>`
+    ).join("");
+    candleSel.value = "candle_solid";
+
+    /** @type {(ChartPanel|null)[]} 与格子下标对齐 */
+    let slotPanels = [];
+    /** @type {string[]} */
+    let symbols = [];
+    let currentLayout = resolveLayout("2x2");
+    let currentPeriod = "1d";
+    let syncCrosshairOn = false;
+
+    // 首屏读缓存可高并发；后台 force 拉网限流，避免把接口打爆
+    const schedule = createPool(8);
+    const scheduleRefresh = createPool(2);
+    const data = getKlineData();
+    const appEl = document.querySelector(".app");
+    const syncCrosshairEl = document.getElementById("syncCrosshair");
+
+    function livePanels() {
+      return slotPanels.filter(Boolean);
+    }
+
+    function handleCrosshair(data, sourcePanel) {
+      if (!syncCrosshairOn) return;
+      const payload = ChartPanel.extractCrosshairPayload(data, sourcePanel.chart);
+      if (!payload) return;
+      livePanels().forEach((p) => {
+        if (p === sourcePanel) return;
+        p.syncCrosshairFrom(payload);
+      });
+    }
+
+    function setBarHidden(hidden) {
+      appEl.classList.toggle("bar-hidden", !!hidden);
+      try {
+        const s = loadSession() || {};
+        s.hideGlobalBar = !!hidden;
+        saveSession(s);
+      } catch (_) {}
+      // 顶栏显隐后重算高度
+      requestAnimationFrame(() => livePanels().forEach((p) => p.resize()));
+    }
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
+
+    function applyTheme(theme) {
+      const t = theme === "dark" ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+      try {
+        localStorage.setItem(THEME_KEY, t);
+      } catch (_) {}
+      livePanels().forEach((p) => p.refreshTheme());
+    }
+
+    (function initTheme() {
+      let t = "light";
+      try {
+        t = localStorage.getItem(THEME_KEY) || "light";
+      } catch (_) {}
+      document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+    })();
+
+    function refreshLayoutSelect(selectedId) {
+      const customs = loadCustomLayouts();
+      layoutSel.innerHTML = "";
+      const g1 = document.createElement("optgroup");
+      g1.label = "预设";
+      LAYOUT_PRESETS.forEach((p) => {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = `${p.label}（${p.slots}）`;
+        g1.appendChild(opt);
+      });
+      layoutSel.appendChild(g1);
+      if (customs.length) {
+        const g2 = document.createElement("optgroup");
+        g2.label = "我的布局";
+        customs.forEach((c) => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = `${c.name}（${c.rows}×${c.cols}）`;
+          g2.appendChild(opt);
+        });
+        layoutSel.appendChild(g2);
+      }
+      const id = selectedId || currentLayout.id;
+      if ([...layoutSel.options].some((o) => o.value === id)) {
+        layoutSel.value = id;
+      } else {
+        layoutSel.value = "2x2";
+      }
+    }
+
+    function parseQuery() {
+      const params = new URLSearchParams(location.search);
+      const qSymbols = String(params.get("symbols") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      let period = params.get("period") || "";
+      let layoutId = params.get("layout") || "";
+      return { qSymbols, period, layoutId };
+    }
+
+    function syncUrl() {
+      const url = new URL(location.href);
+      url.searchParams.set("layout", currentLayout.id);
+      url.searchParams.set("period", currentPeriod);
+      const filled = symbols.filter(Boolean);
+      if (filled.length) url.searchParams.set("symbols", filled.join(","));
+      else url.searchParams.delete("symbols");
+      history.replaceState(null, "", url);
+    }
+
+    function persistSession() {
+      const syms = collectSymbolsFromPanels();
+      symbols = syms;
+      saveSession({
+        layoutId: currentLayout.id,
+        period: currentPeriod,
+        symbols: syms.slice(),
+        syncCrosshair: syncCrosshairOn,
+        hideGlobalBar: appEl.classList.contains("bar-hidden"),
+        panels: slotPanels.map((p, i) => {
+          if (!p) return { symbol: syms[i] || "", period: currentPeriod };
+          const st = p.getState();
+          return {
+            symbol: st.symbol,
+            period: st.period,
+            settings: st.settings,
+            periodLocked: st.periodLocked,
+            chartTypeLocked: st.chartTypeLocked,
+          };
+        }),
+      });
+    }
+
+    function padSymbols(list, slots) {
+      const out = [...(list || [])];
+      while (out.length < slots) {
+        const fallback = DEFAULT_SYMBOLS[out.length % DEFAULT_SYMBOLS.length] || "";
+        out.push(out.length < DEFAULT_SYMBOLS.length ? fallback : "");
+      }
+      return out.slice(0, slots);
+    }
+
+    function collectSymbolsFromPanels() {
+      const out = [];
+      for (let i = 0; i < currentLayout.slots; i++) {
+        const p = slotPanels[i];
+        out.push(p?.symbol || symbols[i] || "");
+      }
+      return out;
+    }
+
+    function buildGrid(layout, period, nextSymbols) {
+      const prevSymbols = collectSymbolsFromPanels();
+      const merged = padSymbols(
+        nextSymbols?.length ? nextSymbols : prevSymbols.length ? prevSymbols : symbols,
+        layout.slots
+      );
+
+      livePanels().forEach((p) => {
+        try {
+          p.dispose();
+        } catch (_) {}
+      });
+      slotPanels = Array(layout.slots).fill(null);
+      gridEl.innerHTML = "";
+      applyLayoutToGrid(gridEl, layout);
+      currentLayout = layout;
+      currentPeriod = period;
+      symbols = merged;
+
+      for (let i = 0; i < layout.slots; i++) {
+        const symbol = merged[i] || "";
+        const cell = document.createElement("div");
+        cell.className = "mp-cell";
+        cell.dataset.slot = String(i);
+        const area = cellAreaStyle(layout, i);
+        if (area.gridArea) cell.style.gridArea = area.gridArea;
+        gridEl.appendChild(cell);
+
+        if (!symbol) {
+          cell.classList.add("is-empty");
+          cell.innerHTML = `<span>空面板 · 点击填代码</span>`;
+          cell.addEventListener("click", () => {
+            const code = prompt("输入股票代码", "");
+            if (!code?.trim()) return;
+            symbols[i] = code.trim();
+            buildGrid(currentLayout, currentPeriod, symbols);
+            loadAll();
+            persistSession();
+            syncUrl();
+          });
+          continue;
+        }
+
+        const panel = new ChartPanel({
+          container: cell,
+          data,
+          schedule,
+          scheduleRefresh,
+          symbol,
+          period,
+          onStatus: (msg) => setStatus(msg),
+          onCrosshair: handleCrosshair,
+        });
+        slotPanels[i] = panel;
+      }
+
+      const n = livePanels().length;
+      hintEl.textContent = `${layout.label} · ${period} · ${n}/${layout.slots} 图`;
+      refreshLayoutSelect(layout.id);
+    }
+
+    async function loadAll() {
+      const list = livePanels();
+      setStatus(`加载 ${list.length} 个面板…`);
+      await Promise.all(list.map((p) => p.load()));
+      setStatus(`已加载 ${list.length} 面板 · 布局 ${currentLayout.label}`);
+      persistSession();
+    }
+
+    function applyLayoutId(layoutId) {
+      const layout = resolveLayout(layoutId, loadCustomLayouts());
+      const nextSyms = padSymbols(collectSymbolsFromPanels(), layout.slots);
+      buildGrid(layout, currentPeriod, nextSyms);
+      loadAll();
+      syncUrl();
+      persistSession();
+    }
+
+    document.getElementById("btnTheme").addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme");
+      applyTheme(cur === "dark" ? "light" : "dark");
+    });
+
+    document.getElementById("btnReload").addEventListener("click", () => loadAll());
+
+    document.getElementById("btnHideBar").addEventListener("click", () => {
+      setBarHidden(true);
+    });
+    document.getElementById("btnShowBar").addEventListener("click", () => {
+      setBarHidden(false);
+    });
+
+    syncCrosshairEl.addEventListener("change", () => {
+      syncCrosshairOn = !!syncCrosshairEl.checked;
+      setStatus(syncCrosshairOn ? "已开启十字线同步" : "已关闭十字线同步");
+      persistSession();
+    });
+
+    periodSel.addEventListener("change", () => {
+      currentPeriod = periodSel.value;
+      let skipped = 0;
+      livePanels().forEach((p) => {
+        if (p.periodLocked) {
+          skipped += 1;
+          return;
+        }
+        p.applyGlobalPeriod(currentPeriod);
+        p.load();
+      });
+      const n = livePanels().length;
+      hintEl.textContent = `${currentLayout.label} · ${currentPeriod} · ${n}/${currentLayout.slots} 图`;
+      setStatus(
+        skipped
+          ? `全体周期 → ${currentPeriod}（${skipped} 格已锁定跳过）`
+          : `全体周期 → ${currentPeriod}`
+      );
+      syncUrl();
+      persistSession();
+    });
+
+    candleSel.addEventListener("change", () => {
+      const type = candleSel.value;
+      let skipped = 0;
+      let applied = 0;
+      livePanels().forEach((p) => {
+        if (p.chartTypeLocked) {
+          skipped += 1;
+          return;
+        }
+        // 分时格仍强制面积，不改 candleType 显示意义不大，但仍写入设置供切回 K 线用
+        p.applyGlobalCandleType(type);
+        applied += 1;
+      });
+      setStatus(
+        skipped
+          ? `全体图形 → ${type}（应用 ${applied}，锁定跳过 ${skipped}）`
+          : `全体图形 → ${type}`
+      );
+      persistSession();
+    });
+
+    layoutSel.addEventListener("change", () => {
+      applyLayoutId(layoutSel.value);
+    });
+
+    document.getElementById("btnCustomLayout").addEventListener("click", () => {
+      customMask.classList.add("show");
+    });
+    const closeCustom = () => customMask.classList.remove("show");
+    document.getElementById("customLayoutClose").addEventListener("click", closeCustom);
+    document.getElementById("customLayoutCancel").addEventListener("click", closeCustom);
+    customMask.addEventListener("click", (e) => {
+      if (e.target === customMask) closeCustom();
+    });
+    document.getElementById("customLayoutOk").addEventListener("click", () => {
+      const rows = clampDim(document.getElementById("customRows").value);
+      const cols = clampDim(document.getElementById("customCols").value);
+      const name = document.getElementById("customName").value;
+      const item = upsertCustomLayout({ name, rows, cols });
+      closeCustom();
+      refreshLayoutSelect(item.id);
+      applyLayoutId(item.id);
+    });
+
+    // —— 启动：URL > session > 默认 ——
+    const { qSymbols, period: qPeriod, layoutId: qLayout } = parseQuery();
+    const session = loadSession();
+    currentPeriod =
+      (qPeriod && isValidPeriod(qPeriod) && qPeriod) ||
+      (session?.period && isValidPeriod(session.period) && session.period) ||
+      "1d";
+    periodSel.value = currentPeriod;
+
+    const layoutId = qLayout || session?.layoutId || "2x2";
+    currentLayout = resolveLayout(layoutId, loadCustomLayouts());
+    symbols = qSymbols.length
+      ? qSymbols
+      : Array.isArray(session?.symbols) && session.symbols.length
+        ? session.symbols
+        : DEFAULT_SYMBOLS.slice();
+
+    syncCrosshairOn = !!session?.syncCrosshair;
+    syncCrosshairEl.checked = syncCrosshairOn;
+    if (session?.hideGlobalBar) setBarHidden(true);
+
+    refreshLayoutSelect(currentLayout.id);
+    buildGrid(currentLayout, currentPeriod, symbols);
+    syncUrl();
+    loadAll();
+  </script>
+</body>
+</html>

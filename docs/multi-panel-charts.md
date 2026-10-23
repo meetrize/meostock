@@ -205,14 +205,19 @@ chart.overrideYAxis({ paneId: "candle_pane", show: !hideYAxis });
 
 ```text
 web/static/
-  multipanel.html              # 壳 + 布局 UI
+  multipanel.html              # 壳 + 布局 UI（P0 已有空壳）
   kline/
-    period.mjs                 # PERIOD_MAP / MINUTE_PERIOD / HISTORY_PERIOD
-    data.mjs                   # fetchKline / toBars / quote（从 index 抽出）
-    styles.mjs                 # chartStyles / theme 色
-    ChartPanel.mjs             # 单实例：init/dispose/load/settings/overlay UI
-    layout.mjs                 # 预设定义、自定义布局 CRUD
-    store.mjs                  # localStorage 会话状态
+    period.mjs                 # PERIOD_MAP / MINUTE_PERIOD / HISTORY_PERIOD  ✅ P0
+    data.mjs                   # fetchKline / toBars / quote（从 index 抽出） ✅ P0
+    futures-catalog.mjs        # 期货主连目录                               ✅ P0
+    styles.mjs                 # chartStyles / theme 色                 ✅ P1
+    fs.mjs                     # 分时补齐（多面板用最近一日）           ✅ P1
+    pool.mjs                   # 并发拉数限流                           ✅ P1
+    chrome.mjs                 # 紧凑浮层 + ⚙ 菜单 + 设置弹层           ✅ P2
+    indicators.mjs             # 主/副指标 + MA 弹层                     ✅ P5
+    ChartPanel.mjs             # 单实例：init/dispose/load/settings     ✅ P1
+    layout.mjs                 # 预设定义、自定义布局 CRUD               ✅ P3
+    store.mjs                  # localStorage 会话状态                   ✅ P3
   klinecharts.min.js
   stock-sdk.mjs
 ```
@@ -333,7 +338,7 @@ getState() → 可序列化快照
 | **M0** | 抽 `period.mjs` + `data.mjs`；`multipanel.html` 固定 2×2 + ChartPanel 最小闭环 |
 | **M1** | 紧凑浮层 + 设置菜单（周期/类型/隐藏轴/设置弹框） |
 | **M2** | 布局预设 + 自定义行列 + session 持久化 |
-| **M3** | 看板行情/自选入口；全体切换；并发限流 |
+| **M3** | 看板行情/自选入口；全体切换；并发限流 ✅ P4 |
 | **M4** | 指标/MA 面板化；可选十字线同步；文档与 README 入口 |
 
 权威执行勾选见 [`dev-plan-multi-panel-charts.md`](./dev-plan-multi-panel-charts.md)。
