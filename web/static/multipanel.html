@@ -585,6 +585,10 @@
         <input type="checkbox" id="hideYAxis" />
         隐藏Y轴
       </label>
+      <label class="mp-bar-check" title="全体隐藏主图 MA 均线（已单独设置的面板不跟随）">
+        <input type="checkbox" id="hideMa" />
+        隐藏均线
+      </label>
       <label class="mp-bar-check" title="跨面板按时间戳同步十字线">
         <input type="checkbox" id="syncCrosshair" />
         同步十字线
@@ -675,6 +679,8 @@
     let hideVolGlobal = false;
     /** 全体隐藏 Y 轴（未 yAxisLocked 的面板跟随） */
     let hideYAxisGlobal = false;
+    /** 全体隐藏主图 MA（未 maLocked 的面板跟随） */
+    let hideMaGlobal = false;
     /** 最近一次会话里的面板快照，用于重建时恢复 withVolume 等 */
     let savedPanelStates = [];
 
@@ -686,6 +692,7 @@
     const syncCrosshairEl = document.getElementById("syncCrosshair");
     const hideVolEl = document.getElementById("hideVol");
     const hideYAxisEl = document.getElementById("hideYAxis");
+    const hideMaEl = document.getElementById("hideMa");
 
     function livePanels() {
       return slotPanels.filter(Boolean);
@@ -794,6 +801,7 @@
             symbol: syms[i] || "",
             period: currentPeriod,
             withVolume: !hideVolGlobal,
+            withMa: !hideMaGlobal,
             hideYAxis: hideYAxisGlobal,
           };
         }
@@ -806,6 +814,8 @@
           chartTypeLocked: st.chartTypeLocked,
           withVolume: st.withVolume,
           volumeLocked: st.volumeLocked,
+          withMa: st.withMa,
+          maLocked: st.maLocked,
           yAxisLocked: st.yAxisLocked,
           hideYAxis: st.hideYAxis,
         };
@@ -818,6 +828,7 @@
         syncCrosshair: syncCrosshairOn,
         hideVol: hideVolGlobal,
         hideYAxis: hideYAxisGlobal,
+        hideMa: hideMaGlobal,
         hideGlobalBar: appEl.classList.contains("bar-hidden"),
         panels,
       });
@@ -887,6 +898,8 @@
         const saved = savedPanelStates[i] || {};
         const withVolume =
           typeof saved.withVolume === "boolean" ? saved.withVolume : !hideVolGlobal;
+        const withMa =
+          typeof saved.withMa === "boolean" ? saved.withMa : !hideMaGlobal;
         const hideYAxis =
           typeof saved.hideYAxis === "boolean"
             ? saved.hideYAxis
@@ -903,16 +916,19 @@
             saved.period && isValidPeriod(saved.period) ? saved.period : period,
           settings: { ...(saved.settings || {}), hideYAxis },
           withVolume,
+          withMa,
           hideYAxis,
           periodLocked: !!saved.periodLocked,
           chartTypeLocked: !!saved.chartTypeLocked,
           volumeLocked: !!saved.volumeLocked,
           yAxisLocked: !!saved.yAxisLocked,
+          maLocked: !!saved.maLocked,
           onStatus: (msg) => setStatus(msg),
           onCrosshair: handleCrosshair,
         });
         panel.onVolumeChange = () => persistSession();
         panel.onYAxisChange = () => persistSession();
+        panel.onMaChange = () => persistSession();
         slotPanels[i] = panel;
       }
 
@@ -1024,6 +1040,38 @@
       persistSession();
     });
 
+    hideMaEl.addEventListener("change", () => {
+      hideMaGlobal = !!hideMaEl.checked;
+      const showMa = !hideMaGlobal;
+      let skipped = 0;
+      let applied = 0;
+      livePanels().forEach((p) => {
+        if (p.maLocked) {
+          skipped += 1;
+          return;
+        }
+        p.applyGlobalMa(showMa);
+        applied += 1;
+      });
+      setStatus(
+        skipped
+          ? `${hideMaGlobal ? "全体隐藏均线" : "全体显示均线"}（应用 ${applied}，锁定跳过 ${skipped}）`
+          : hideMaGlobal
+            ? "全体隐藏均线"
+            : "全体显示均线"
+      );
+      savedPanelStates = slotPanels.map((p, i) => {
+        if (!p) return savedPanelStates[i] || { withMa: showMa };
+        const st = p.getState();
+        return {
+          ...(savedPanelStates[i] || {}),
+          withMa: st.withMa,
+          maLocked: st.maLocked,
+        };
+      });
+      persistSession();
+    });
+
     periodSel.addEventListener("change", () => {
       currentPeriod = periodSel.value;
       let skipped = 0;
@@ -1113,6 +1161,8 @@
     hideVolEl.checked = hideVolGlobal;
     hideYAxisGlobal = !!session?.hideYAxis;
     hideYAxisEl.checked = hideYAxisGlobal;
+    hideMaGlobal = !!session?.hideMa;
+    hideMaEl.checked = hideMaGlobal;
     savedPanelStates = Array.isArray(session?.panels) ? session.panels.slice() : [];
     if (session?.hideGlobalBar) setBarHidden(true);
 

@@ -180,7 +180,12 @@ export function openIndicatorModal(panel) {
       const name = input.dataset.name;
       const kind = input.dataset.kind;
       if (!indTarget) return;
-      if (kind === "main") {
+      if (kind === "main" && name === "MA") {
+        indTarget.setWithMa(input.checked, { lock: true });
+        try {
+          indTarget.onMaChange?.(indTarget);
+        } catch (_) {}
+      } else if (kind === "main") {
         indTarget.toggleMain(name, input.checked);
       } else if (name === "VOL") {
         // 与面板「量」开关一致：单独设置后全体「隐藏量能」不再覆盖

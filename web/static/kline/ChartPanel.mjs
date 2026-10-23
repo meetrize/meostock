@@ -12,6 +12,7 @@ import {
   THEME_KEY,
 } from "./styles.mjs";
 import { FS_DAY_SLOTS, padCnFsBarsLatestDay } from "./fs.mjs";
+import { isIntradayPeriod, resolveSessionOpenTs } from "./session.mjs";
 import { mountChrome, updateChrome, unmountChrome } from "./chrome.mjs";
 
 function readTheme() {
@@ -106,6 +107,8 @@ export class ChartPanel {
     this.settings = { ...DEFAULT_SETTINGS, ...loadChartSettings(), ...(opts.settings || {}) };
     this.maParams = loadMaParams();
     this.withVolume = opts.withVolume !== false;
+    /** 主图 MA 均线，默认开 */
+    this.withMa = opts.withMa !== false;
     /** 单格改过周期后，全体周期切换跳过本格 */
     this.periodLocked = !!opts.periodLocked;
     /** 单格改过图形类型后，全体图形切换跳过本格 */
@@ -114,6 +117,8 @@ export class ChartPanel {
     this.volumeLocked = !!opts.volumeLocked;
     /** 单格改过 Y 轴显隐后，全体「隐藏Y轴」跳过本格 */
     this.yAxisLocked = !!opts.yAxisLocked;
+    /** 单格改过均线显隐后，全体「隐藏均线」跳过本格 */
+    this.maLocked = !!opts.maLocked;
     if (typeof opts.hideYAxis === "boolean") {
       this.settings = { ...this.settings, hideYAxis: opts.hideYAxis };
     }
@@ -260,9 +265,12 @@ export class ChartPanel {
       },
     });
     this._applyStyles();
-    this.mainIndicators = ["MA"];
+    this.mainIndicators = [];
     this.subIndicators = {};
-    this._createInd("MA", true, "candle_pane");
+    if (this.withMa) {
+      this._createInd("MA", true, "candle_pane");
+      this.mainIndicators = ["MA"];
+    }
     if (this.withVolume) {
       this._addSub("VOL");
     }
@@ -288,6 +296,7 @@ export class ChartPanel {
         if (paneId === "candle_pane") {
           this.chart.removeIndicator({ paneId: "candle_pane", name: ind.name });
           this.mainIndicators = this.mainIndicators.filter((n) => n !== ind.name);
+          if (ind.name === "MA") this.withMa = false;
         } else if (paneId) {
           this.chart.removeIndicator({ paneId, name: ind.name });
           delete this.subIndicators[ind.name];
@@ -318,6 +327,41 @@ export class ChartPanel {
       this.chart.removeIndicator({ paneId: "candle_pane", name });
       this.mainIndicators = this.mainIndicators.filter((n) => n !== name);
     }
+    if (name === "MA") this.withMa = !!added;
+  }
+
+  /**
+   * 显示 / 隐藏主图 MA
+   * @param {boolean} on
+   * @param {{ lock?: boolean }} [opts]
+   */
+  setWithMa(on, opts = {}) {
+    this.withMa = !!on;
+    if (opts.lock) this.maLocked = true;
+    if (!this.chart) return this;
+    if (this.withMa) {
+      if (!this.mainIndicators.includes("MA")) {
+        this._createInd("MA", true, "candle_pane");
+        this.mainIndicators.push("MA");
+      }
+    } else if (this.mainIndicators.includes("MA")) {
+      try {
+        this.chart.removeIndicator({ paneId: "candle_pane", name: "MA" });
+      } catch (_) {}
+      this.mainIndicators = this.mainIndicators.filter((n) => n !== "MA");
+    }
+    return this;
+  }
+
+  applyGlobalMa(on) {
+    if (this.maLocked) return this;
+    return this.setWithMa(on, { lock: false });
+  }
+
+  clearMaLock() {
+    this.maLocked = false;
+    this._refreshChrome();
+    return this;
   }
 
   toggleSub(name, added) {
@@ -432,6 +476,11 @@ export class ChartPanel {
 
   _fitFsViewport() {
     if (!this.chart || !this._host) return;
+    // 隐 Y 轴时改走「当日开盘→最新」铺满
+    if (this.settings?.hideYAxis) {
+      this._fitFillViewport();
+      return;
+    }
     try {
       const w = this._host.clientWidth || 400;
       const space = Math.max(1.5, Math.min(6, (w - 48) / FS_DAY_SLOTS));
@@ -442,6 +491,66 @@ export class ChartPanel {
         this.chart.setOffsetRightDistance(0);
       }
     } catch (_) {}
+  }
+
+  /**
+   * 隐 Y 轴后：右缘贴最新有效 K，左缘尽量对齐「当日开盘」；柱宽撑满面板。
+   */
+  _fitFillViewport() {
+    if (!this.chart || !this._host || this._disposed) return;
+    if (!this.settings?.hideYAxis) {
+      if (this.period === "fs") this._fitFsViewport();
+      return;
+    }
+    try {
+      const list = this.chart.getDataList?.() || [];
+      if (!list.length) return;
+      const w = Math.max(80, this._host.clientWidth || 400);
+
+      let startIdx = 0;
+      let endIdx = list.length - 1;
+      // 去掉分时补齐的未来空槽（close 非有限）
+      while (endIdx > 0 && !Number.isFinite(Number(list[endIdx]?.close))) {
+        endIdx -= 1;
+      }
+
+      if (isIntradayPeriod(this.period)) {
+        let market = "CN";
+        try {
+          market = this.data.resolveMarket(this.symbol);
+        } catch (_) {}
+        const openTs = resolveSessionOpenTs(market, this.symbol, list.slice(0, endIdx + 1));
+        if (openTs != null) {
+          const i = list.findIndex(
+            (b, idx) => idx <= endIdx && Number(b.timestamp) >= openTs
+          );
+          if (i >= 0) startIdx = i;
+        }
+      } else {
+        // 日/周：右贴最新，按面板宽度估可见根数（约 4～8px/根）
+        const prefer = Math.max(20, Math.min(list.length, Math.floor(w / 5)));
+        startIdx = Math.max(0, endIdx - prefer + 1);
+      }
+
+      const count = Math.max(1, endIdx - startIdx + 1);
+      const space = Math.max(1, Math.min(48, w / count));
+      this.chart.setBarSpace(space);
+      try {
+        this.chart.setOffsetRightDistance?.(0);
+      } catch (_) {}
+      if (typeof this.chart.scrollToDataIndex === "function") {
+        this.chart.scrollToDataIndex(endIdx);
+      } else if (typeof this.chart.scrollToRealTime === "function") {
+        this.chart.scrollToRealTime();
+      }
+    } catch (_) {}
+  }
+
+  _scheduleFitFill() {
+    if (!this.settings?.hideYAxis) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this._fitFillViewport());
+    });
   }
 
   _prepareBars(rawBars) {
@@ -506,7 +615,8 @@ export class ChartPanel {
             try {
               this.chart.resize();
             } catch (_) {}
-            if (this.period === "fs") this._fitFsViewport();
+            if (this.settings?.hideYAxis) this._fitFillViewport();
+            else if (this.period === "fs") this._fitFsViewport();
           });
         })
         .catch(() => {
@@ -583,7 +693,8 @@ export class ChartPanel {
             try {
               self.chart.resize();
             } catch (_) {}
-            if (self.period === "fs") self._fitFsViewport();
+            if (self.settings?.hideYAxis) self._fitFillViewport();
+            else if (self.period === "fs") self._fitFsViewport();
           });
         } catch (e) {
           self._status(`加载失败 ${symbol}: ${e.message || e}`);
@@ -667,6 +778,10 @@ export class ChartPanel {
     try {
       this.chart?.resize?.();
     } catch (_) {}
+    if (hide) this._scheduleFitFill();
+    else if (this.period === "fs") {
+      queueMicrotask(() => this._fitFsViewport());
+    }
     return this;
   }
 
@@ -726,6 +841,7 @@ export class ChartPanel {
     try {
       this.chart.resize();
     } catch (_) {}
+    if (this.settings?.hideYAxis) this._scheduleFitFill();
   }
 
   getState() {
@@ -739,6 +855,8 @@ export class ChartPanel {
       chartTypeLocked: this.chartTypeLocked,
       withVolume: !!this.withVolume,
       volumeLocked: !!this.volumeLocked,
+      withMa: !!this.withMa,
+      maLocked: !!this.maLocked,
       yAxisLocked: !!this.yAxisLocked,
       hideYAxis: !!this.settings?.hideYAxis,
     };

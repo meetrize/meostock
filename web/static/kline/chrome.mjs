@@ -338,6 +338,11 @@ function renderMenu(panel, menu) {
       `<button type="button" class="mp-menu-btn mp-menu-btn-block" data-act="unlock-y">Y轴解锁 · 跟随全体</button>`
     );
   }
+  if (panel.maLocked) {
+    lockHints.push(
+      `<button type="button" class="mp-menu-btn mp-menu-btn-block" data-act="unlock-ma">均线解锁 · 跟随全体</button>`
+    );
+  }
 
   const graphHint =
     panel.period === "fs" ? "分时面积" : panel.chartTypeLocked ? "单独" : "";
@@ -360,6 +365,10 @@ function renderMenu(panel, menu) {
         <label class="mp-menu-check" title="显示量能 VOL${panel.volumeLocked ? " · 已单独设置" : ""}">
           <input type="checkbox" data-act="vol" ${panel.withVolume ? "checked" : ""} />
           量
+        </label>
+        <label class="mp-menu-check" title="显示均线 MA${panel.maLocked ? " · 已单独设置" : ""}">
+          <input type="checkbox" data-act="ma-line" ${panel.withMa !== false ? "checked" : ""} />
+          均
         </label>
         <button type="button" class="mp-menu-btn" data-act="indicators" title="指标">指标</button>
         <button type="button" class="mp-menu-btn" data-act="ma" title="MA 参数">MA</button>
@@ -416,6 +425,10 @@ function renderMenu(panel, menu) {
     panel.clearYAxisLock();
     closeOpenMenu();
   });
+  menu.querySelector('[data-act="unlock-ma"]')?.addEventListener("click", () => {
+    panel.clearMaLock();
+    closeOpenMenu();
+  });
 
   menu.querySelector('[data-act="hide-y"]')?.addEventListener("change", (e) => {
     panel.setHideYAxis(!!e.target.checked, { lock: true });
@@ -428,9 +441,16 @@ function renderMenu(panel, menu) {
   menu.querySelector('[data-act="vol"]')?.addEventListener("change", (e) => {
     panel.setWithVolume(!!e.target.checked, { lock: true });
     updateChrome(panel);
-    // 通知页面持久化（若挂了回调）
     try {
       panel.onVolumeChange?.(panel);
+    } catch (_) {}
+  });
+
+  menu.querySelector('[data-act="ma-line"]')?.addEventListener("change", (e) => {
+    panel.setWithMa(!!e.target.checked, { lock: true });
+    updateChrome(panel);
+    try {
+      panel.onMaChange?.(panel);
     } catch (_) {}
   });
 
