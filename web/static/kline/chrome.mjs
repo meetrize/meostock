@@ -84,7 +84,7 @@ function ensureSettingsModal() {
       <div class="mp-modal-bd">
         <div class="mp-setting-grid">
           <label class="mp-setting-item">
-            <span>蜡烛图类型</span>
+            <span>蜡烛类型</span>
             <select data-field="candleType">
               ${CANDLE_TYPES.map(
                 (t) => `<option value="${t.value}">${t.label}</option>`
@@ -92,47 +92,28 @@ function ensureSettingsModal() {
             </select>
           </label>
           <label class="mp-setting-item">
-            <span>最新价显示</span>
-            <input type="checkbox" data-field="lastPrice" />
-          </label>
-          <label class="mp-setting-item">
-            <span>最高价显示</span>
-            <input type="checkbox" data-field="highPrice" />
-          </label>
-          <label class="mp-setting-item">
-            <span>最低价显示</span>
-            <input type="checkbox" data-field="lowPrice" />
-          </label>
-          <label class="mp-setting-item">
-            <span>指标最新值</span>
-            <input type="checkbox" data-field="indLast" />
-          </label>
-          <label class="mp-setting-item">
-            <span>价格轴类型</span>
+            <span>价格轴</span>
             <select data-field="axisType">
-              <option value="normal">线性轴</option>
-              <option value="percentage">百分比轴</option>
-              <option value="log">对数轴</option>
+              <option value="normal">线性</option>
+              <option value="percentage">百分比</option>
+              <option value="log">对数</option>
             </select>
           </label>
-          <label class="mp-setting-item">
-            <span>倒置坐标</span>
-            <input type="checkbox" data-field="axisReverse" />
-          </label>
-          <label class="mp-setting-item">
-            <span>网格线显示</span>
-            <input type="checkbox" data-field="grid" />
-          </label>
-          <label class="mp-setting-item">
-            <span>隐藏右侧坐标轴</span>
-            <input type="checkbox" data-field="hideYAxis" />
-          </label>
+          <div class="mp-setting-checks">
+            <label class="mp-setting-check"><input type="checkbox" data-field="lastPrice" /><span>最新价</span></label>
+            <label class="mp-setting-check"><input type="checkbox" data-field="highPrice" /><span>最高价</span></label>
+            <label class="mp-setting-check"><input type="checkbox" data-field="lowPrice" /><span>最低价</span></label>
+            <label class="mp-setting-check"><input type="checkbox" data-field="indLast" /><span>指标值</span></label>
+            <label class="mp-setting-check"><input type="checkbox" data-field="axisReverse" /><span>倒置轴</span></label>
+            <label class="mp-setting-check"><input type="checkbox" data-field="grid" /><span>网格</span></label>
+            <label class="mp-setting-check"><input type="checkbox" data-field="hideYAxis" /><span>隐Y轴</span></label>
+          </div>
         </div>
-        <p class="mp-setting-note">分时周期仍强制面积图。应用仅作用于当前面板；「设为默认」写入本机，供新建面板继承。</p>
+        <p class="mp-setting-note">分时仍为面积图。「应用」仅当前面板；「设为默认」供新建面板继承。</p>
       </div>
       <div class="mp-modal-ft">
-        <button type="button" data-act="reset">恢复默认</button>
-        <button type="button" data-act="save-default">设为默认</button>
+        <button type="button" data-act="reset">默认</button>
+        <button type="button" data-act="save-default">存默认</button>
         <button type="button" class="primary" data-act="apply">应用</button>
       </div>
     </div>
@@ -253,13 +234,7 @@ export function mountChrome(panel) {
     closeOpenMenu();
     if (willOpen) {
       renderMenu(panel, menu);
-      // fixed 定位，避免被 .mp-cell overflow:hidden 裁切
-      const rect = gear.getBoundingClientRect();
-      menu.style.position = "fixed";
-      menu.style.top = `${Math.round(rect.bottom + 4)}px`;
-      menu.style.right = `${Math.round(window.innerWidth - rect.right)}px`;
-      menu.style.left = "auto";
-      menu.hidden = false;
+      placeMenuNearGear(menu, gear);
       openMenuEl = menu;
       gear.setAttribute("aria-expanded", "true");
     } else {
@@ -276,6 +251,34 @@ export function mountChrome(panel) {
 
   updateChrome(panel);
   return root;
+}
+
+/** fixed 定位菜单，贴齿轮并夹在视口内（必要时上翻 / 限高） */
+function placeMenuNearGear(menu, gear) {
+  const pad = 6;
+  const rect = gear.getBoundingClientRect();
+  menu.style.position = "fixed";
+  menu.style.left = "auto";
+  menu.style.right = `${Math.round(Math.max(pad, window.innerWidth - rect.right))}px`;
+  menu.style.top = "0px";
+  menu.style.maxHeight = "";
+  menu.style.visibility = "hidden";
+  menu.hidden = false;
+
+  const mh = menu.offsetHeight || 280;
+  const spaceBelow = window.innerHeight - rect.bottom - pad;
+  const spaceAbove = rect.top - pad;
+  const openUp = spaceBelow < Math.min(mh, 220) && spaceAbove > spaceBelow;
+  const avail = Math.max(120, openUp ? spaceAbove : spaceBelow);
+  menu.style.maxHeight = `${Math.round(Math.min(360, avail))}px`;
+
+  const finalH = Math.min(menu.scrollHeight || mh, avail);
+  if (openUp) {
+    menu.style.top = `${Math.round(Math.max(pad, rect.top - finalH - 4))}px`;
+  } else {
+    menu.style.top = `${Math.round(rect.bottom + 4)}px`;
+  }
+  menu.style.visibility = "";
 }
 
 function renderMenu(panel, menu) {
@@ -297,62 +300,61 @@ function renderMenu(panel, menu) {
   const lockHints = [];
   if (panel.periodLocked) {
     lockHints.push(
-      `<button type="button" class="mp-menu-btn" data-act="unlock-period">周期已锁定 · 跟随全体</button>`
+      `<button type="button" class="mp-menu-btn mp-menu-btn-block" data-act="unlock-period">周期解锁 · 跟随全体</button>`
     );
   }
   if (panel.chartTypeLocked) {
     lockHints.push(
-      `<button type="button" class="mp-menu-btn" data-act="unlock-candle">图形已锁定 · 跟随全体</button>`
+      `<button type="button" class="mp-menu-btn mp-menu-btn-block" data-act="unlock-candle">图形解锁 · 跟随全体</button>`
+    );
+  }
+  if (panel.volumeLocked) {
+    lockHints.push(
+      `<button type="button" class="mp-menu-btn mp-menu-btn-block" data-act="unlock-vol">量能解锁 · 跟随全体</button>`
     );
   }
 
+  const graphHint =
+    panel.period === "fs" ? "分时面积" : panel.chartTypeLocked ? "单独" : "";
+
   menu.innerHTML = `
     <div class="mp-menu-sec">
-      <div class="mp-menu-label">周期${panel.periodLocked ? " · 已单独设置" : ""}</div>
-      <div class="mp-period-row">${periodBtns}</div>
+      <div class="mp-period-row" title="周期${panel.periodLocked ? " · 单独" : ""}">${periodBtns}</div>
     </div>
     <div class="mp-menu-sec">
-      <div class="mp-menu-label">图形类型${
-        panel.period === "fs"
-          ? "（分时强制面积）"
-          : panel.chartTypeLocked
-            ? " · 已单独设置"
-            : ""
-      }</div>
-      <select class="mp-menu-select" data-act="candle" ${
-        panel.period === "fs" ? "disabled" : ""
-      }>${candleOpts}</select>
+      <div class="mp-menu-row" title="${graphHint ? `图形 · ${graphHint}` : "图形 / 指标"}">
+        <select class="mp-menu-select mp-menu-select-compact" data-act="candle" ${
+          panel.period === "fs" ? "disabled" : ""
+        }>${candleOpts}</select>
+        <label class="mp-menu-check" title="隐藏右侧坐标轴">
+          <input type="checkbox" data-act="hide-y" ${s.hideYAxis ? "checked" : ""} />
+          Y
+        </label>
+        <label class="mp-menu-check" title="显示量能 VOL${panel.volumeLocked ? " · 已单独设置" : ""}">
+          <input type="checkbox" data-act="vol" ${panel.withVolume ? "checked" : ""} />
+          量
+        </label>
+        <button type="button" class="mp-menu-btn" data-act="indicators" title="指标">指标</button>
+        <button type="button" class="mp-menu-btn" data-act="ma" title="MA 参数">MA</button>
+        <button type="button" class="mp-menu-btn" data-act="settings" title="图表设置">设</button>
+      </div>
     </div>
     ${
       lockHints.length
-        ? `<div class="mp-menu-sec">${lockHints.join("")}</div>`
+        ? `<div class="mp-menu-sec mp-menu-sec-lock">${lockHints.join("")}</div>`
         : ""
     }
     <div class="mp-menu-sec">
-      <label class="mp-menu-check">
-        <input type="checkbox" data-act="hide-y" ${s.hideYAxis ? "checked" : ""} />
-        隐藏右侧坐标轴
-      </label>
-    </div>
-    <div class="mp-menu-sec">
-      <button type="button" class="mp-menu-btn" data-act="indicators">指标…</button>
-      <button type="button" class="mp-menu-btn" data-act="ma" style="margin-top:4px">MA 参数…</button>
-      <button type="button" class="mp-menu-btn" data-act="settings" style="margin-top:4px">图表设置…</button>
-    </div>
-    <div class="mp-menu-sec">
-      <div class="mp-menu-label">更换标的</div>
-      <div class="mp-symbol-row">
+      <div class="mp-menu-row">
         <input type="text" class="mp-symbol-input" maxlength="32" value="${escapeAttr(
           panel.symbol || ""
         )}" placeholder="代码" />
-        <button type="button" class="mp-menu-btn" data-act="apply-symbol">确定</button>
+        <button type="button" class="mp-menu-btn" data-act="apply-symbol">换</button>
+        <a class="mp-menu-link" data-act="single" href="${singleChartUrl(
+          panel.symbol,
+          panel.period
+        )}" target="_blank" rel="noopener">单图</a>
       </div>
-    </div>
-    <div class="mp-menu-sec">
-      <a class="mp-menu-link" data-act="single" href="${singleChartUrl(
-        panel.symbol,
-        panel.period
-      )}" target="_blank" rel="noopener">在单图页打开</a>
     </div>
   `;
 
@@ -379,10 +381,23 @@ function renderMenu(panel, menu) {
     panel.clearChartTypeLock();
     closeOpenMenu();
   });
+  menu.querySelector('[data-act="unlock-vol"]')?.addEventListener("click", () => {
+    panel.clearVolumeLock();
+    closeOpenMenu();
+  });
 
   menu.querySelector('[data-act="hide-y"]')?.addEventListener("change", (e) => {
     panel.setHideYAxis(e.target.checked);
     updateChrome(panel);
+  });
+
+  menu.querySelector('[data-act="vol"]')?.addEventListener("change", (e) => {
+    panel.setWithVolume(!!e.target.checked, { lock: true });
+    updateChrome(panel);
+    // 通知页面持久化（若挂了回调）
+    try {
+      panel.onVolumeChange?.(panel);
+    } catch (_) {}
   });
 
   menu.querySelector('[data-act="settings"]')?.addEventListener("click", () => {

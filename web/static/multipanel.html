@@ -221,28 +221,52 @@
       position: absolute;
       top: 32px;
       right: 0;
-      width: min(260px, 70vw);
-      max-height: min(70vh, 420px);
+      width: min(300px, 92vw);
+      max-height: min(72vh, 280px);
       overflow: auto;
+      overscroll-behavior: contain;
       background: var(--modal-bg);
       border: 1px solid var(--line);
-      border-radius: 6px;
+      border-radius: 5px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-      padding: 8px;
+      padding: 4px;
       z-index: 20;
+      box-sizing: border-box;
     }
     .mp-menu[hidden] { display: none !important; }
-    .mp-menu-sec { margin-bottom: 8px; }
-    .mp-menu-sec:last-child { margin-bottom: 0; }
-    .mp-menu-label {
-      font-size: 11px;
-      color: var(--muted);
-      margin-bottom: 4px;
+    .mp-menu-sec {
+      margin-bottom: 3px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid var(--line);
     }
-    .mp-period-row {
+    .mp-menu-sec:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .mp-menu-sec-lock {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px;
+      gap: 3px;
+    }
+    .mp-menu-sec-lock .mp-menu-btn {
+      width: auto;
+      flex: 1 1 auto;
+      font-size: 10px;
+      padding: 1px 5px;
+    }
+    .mp-menu-label {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 2px;
+      line-height: 1.2;
+    }
+    /* 周期：强制单行 */
+    .mp-period-row {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 2px;
+      width: 100%;
     }
     .mp-period-btn {
       appearance: none;
@@ -250,10 +274,14 @@
       background: var(--btn-bg);
       color: var(--text);
       border-radius: 3px;
-      padding: 2px 6px;
+      padding: 1px 0;
       font: inherit;
-      font-size: 11px;
+      font-size: 10px;
+      line-height: 1.35;
       cursor: pointer;
+      flex: 1 1 0;
+      min-width: 0;
+      text-align: center;
     }
     .mp-period-btn.active,
     .mp-period-btn:hover {
@@ -261,52 +289,76 @@
       border-color: var(--accent);
       color: var(--accent);
     }
+    /* 通用单行：图形 / 隐轴 / 指标 / MA / 设置；代码 / 换 / 单图 */
+    .mp-menu-row {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 3px;
+      width: 100%;
+    }
     .mp-menu-select,
     .mp-symbol-input {
-      width: 100%;
       border: 1px solid var(--line);
       background: var(--input-bg);
       color: var(--text);
-      border-radius: 4px;
-      padding: 4px 6px;
+      border-radius: 3px;
+      padding: 1px 4px;
       font: inherit;
-      font-size: 12px;
+      font-size: 11px;
+      line-height: 1.35;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .mp-menu-select-compact {
+      flex: 1 1 72px;
+      width: auto;
+      max-width: 110px;
+    }
+    .mp-symbol-input {
+      flex: 1 1 auto;
+      width: auto;
     }
     .mp-menu-check {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-size: 12px;
+      gap: 2px;
+      font-size: 10px;
+      line-height: 1.2;
       cursor: pointer;
+      white-space: nowrap;
+      flex: 0 0 auto;
     }
+    .mp-menu-check input { margin: 0; }
     .mp-menu-btn {
       appearance: none;
       border: 1px solid var(--line);
       background: var(--btn-bg);
       color: var(--text);
-      border-radius: 4px;
-      padding: 4px 8px;
+      border-radius: 3px;
+      padding: 1px 5px;
       font: inherit;
-      font-size: 12px;
+      font-size: 10px;
+      line-height: 1.35;
       cursor: pointer;
-      width: 100%;
+      flex: 0 0 auto;
+      width: auto;
+      white-space: nowrap;
     }
     .mp-menu-btn:hover {
       background: var(--btn-active-bg);
       border-color: var(--accent);
     }
-    .mp-symbol-row {
-      display: flex;
-      gap: 4px;
-    }
-    .mp-symbol-row .mp-symbol-input { flex: 1; min-width: 0; }
-    .mp-symbol-row .mp-menu-btn { width: auto; flex: 0 0 auto; }
+    .mp-menu-btn.mp-menu-btn-block { width: 100%; }
     .mp-menu-link {
-      display: block;
-      font-size: 12px;
+      display: inline-block;
+      font-size: 10px;
       color: var(--accent);
       text-decoration: none;
-      padding: 4px 0;
+      padding: 0 2px;
+      line-height: 1.3;
+      white-space: nowrap;
+      flex: 0 0 auto;
     }
     .mp-menu-link:hover { text-decoration: underline; }
 
@@ -319,70 +371,90 @@
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 16px;
+      padding: 12px;
     }
     .mp-modal-mask.show { display: flex; }
     .mp-modal {
-      width: min(420px, 100%);
-      max-height: 90vh;
+      width: min(360px, 100%);
+      max-height: 88vh;
       overflow: auto;
       background: var(--modal-bg);
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 6px;
       box-shadow: 0 12px 40px rgba(0,0,0,0.25);
     }
     .mp-modal-hd {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 14px;
+      padding: 7px 10px;
       border-bottom: 1px solid var(--line);
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
     }
     .mp-modal-x {
       appearance: none;
       border: none;
       background: transparent;
       color: var(--muted);
-      font-size: 20px;
+      font-size: 18px;
       line-height: 1;
       cursor: pointer;
-      padding: 0 4px;
+      padding: 0 2px;
     }
-    .mp-modal-bd { padding: 12px 14px; }
+    .mp-modal-bd { padding: 8px 10px; }
     .mp-setting-grid {
       display: grid;
-      gap: 10px;
+      gap: 5px;
     }
     .mp-setting-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      font-size: 13px;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 1.25;
+      min-height: 22px;
     }
     .mp-setting-item select {
       border: 1px solid var(--line);
       background: var(--input-bg);
       color: var(--text);
-      border-radius: 4px;
-      padding: 3px 6px;
+      border-radius: 3px;
+      padding: 2px 5px;
       font: inherit;
-      font-size: 12px;
-      min-width: 120px;
-    }
-    .mp-setting-note {
-      margin: 12px 0 0;
       font-size: 11px;
+      min-width: 100px;
+    }
+    .mp-setting-item input[type="checkbox"] { margin: 0; }
+    .mp-setting-checks {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 3px 8px;
+      padding-top: 2px;
+    }
+    .mp-setting-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      line-height: 1.25;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .mp-setting-check input { margin: 0; flex: 0 0 auto; }
+    .mp-setting-note {
+      margin: 8px 0 0;
+      font-size: 10px;
       color: var(--muted);
-      line-height: 1.4;
+      line-height: 1.35;
     }
     .mp-modal-ft {
       display: flex;
       justify-content: flex-end;
-      gap: 8px;
-      padding: 10px 14px;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 7px 10px;
       border-top: 1px solid var(--line);
     }
     .mp-modal-ft button {
@@ -390,10 +462,10 @@
       border: 1px solid var(--line);
       background: var(--btn-bg);
       color: var(--text);
-      border-radius: 4px;
-      padding: 5px 12px;
+      border-radius: 3px;
+      padding: 3px 9px;
       font: inherit;
-      font-size: 12px;
+      font-size: 11px;
       cursor: pointer;
     }
     .mp-modal-ft button.primary {
@@ -401,20 +473,35 @@
       border-color: var(--accent);
       color: #fff;
     }
-    .mp-modal-wide { width: min(520px, 100%); }
-    .mp-ind-section { margin-bottom: 14px; }
+    .mp-modal-wide { width: min(420px, 100%); }
+    .mp-ind-section { margin-bottom: 8px; }
+    .mp-ind-section:last-child { margin-bottom: 0; }
     .mp-ind-section h4 {
-      margin: 0 0 8px;
-      font-size: 13px;
+      margin: 0 0 4px;
+      font-size: 11px;
       font-weight: 600;
+      color: var(--muted);
+    }
+    .mp-ind-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px 6px;
     }
     .mp-ind-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      padding: 4px 0;
-      font-size: 12px;
+      gap: 4px;
+      padding: 1px 0;
+      font-size: 11px;
+      line-height: 1.25;
       cursor: pointer;
+      min-width: 0;
+    }
+    .mp-ind-item input { margin: 0; flex: 0 0 auto; }
+    .mp-ind-item span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .mp-bar-check {
       display: inline-flex;
@@ -488,6 +575,10 @@
           <option value="ohlc">OHLC</option>
           <option value="area">面积图</option>
         </select>
+      </label>
+      <label class="mp-bar-check" title="全体隐藏 VOL 量能（已单独设置的面板不跟随）">
+        <input type="checkbox" id="hideVol" />
+        隐藏量能
       </label>
       <label class="mp-bar-check" title="跨面板按时间戳同步十字线">
         <input type="checkbox" id="syncCrosshair" />
@@ -575,6 +666,10 @@
     let currentLayout = resolveLayout("2x2");
     let currentPeriod = "1d";
     let syncCrosshairOn = false;
+    /** 全体隐藏量能（未 volumeLocked 的面板跟随） */
+    let hideVolGlobal = false;
+    /** 最近一次会话里的面板快照，用于重建时恢复 withVolume 等 */
+    let savedPanelStates = [];
 
     // 首屏读缓存可高并发；后台 force 拉网限流，避免把接口打爆
     const schedule = createPool(8);
@@ -582,6 +677,7 @@
     const data = getKlineData();
     const appEl = document.querySelector(".app");
     const syncCrosshairEl = document.getElementById("syncCrosshair");
+    const hideVolEl = document.getElementById("hideVol");
 
     function livePanels() {
       return slotPanels.filter(Boolean);
@@ -684,23 +780,34 @@
     function persistSession() {
       const syms = collectSymbolsFromPanels();
       symbols = syms;
+      const panels = slotPanels.map((p, i) => {
+        if (!p) {
+          return {
+            symbol: syms[i] || "",
+            period: currentPeriod,
+            withVolume: !hideVolGlobal,
+          };
+        }
+        const st = p.getState();
+        return {
+          symbol: st.symbol,
+          period: st.period,
+          settings: st.settings,
+          periodLocked: st.periodLocked,
+          chartTypeLocked: st.chartTypeLocked,
+          withVolume: st.withVolume,
+          volumeLocked: st.volumeLocked,
+        };
+      });
+      savedPanelStates = panels;
       saveSession({
         layoutId: currentLayout.id,
         period: currentPeriod,
         symbols: syms.slice(),
         syncCrosshair: syncCrosshairOn,
+        hideVol: hideVolGlobal,
         hideGlobalBar: appEl.classList.contains("bar-hidden"),
-        panels: slotPanels.map((p, i) => {
-          if (!p) return { symbol: syms[i] || "", period: currentPeriod };
-          const st = p.getState();
-          return {
-            symbol: st.symbol,
-            period: st.period,
-            settings: st.settings,
-            periodLocked: st.periodLocked,
-            chartTypeLocked: st.chartTypeLocked,
-          };
-        }),
+        panels,
       });
     }
 
@@ -765,16 +872,26 @@
           continue;
         }
 
+        const saved = savedPanelStates[i] || {};
+        const withVolume =
+          typeof saved.withVolume === "boolean" ? saved.withVolume : !hideVolGlobal;
         const panel = new ChartPanel({
           container: cell,
           data,
           schedule,
           scheduleRefresh,
           symbol,
-          period,
+          period:
+            saved.period && isValidPeriod(saved.period) ? saved.period : period,
+          settings: saved.settings,
+          withVolume,
+          periodLocked: !!saved.periodLocked,
+          chartTypeLocked: !!saved.chartTypeLocked,
+          volumeLocked: !!saved.volumeLocked,
           onStatus: (msg) => setStatus(msg),
           onCrosshair: handleCrosshair,
         });
+        panel.onVolumeChange = () => persistSession();
         slotPanels[i] = panel;
       }
 
@@ -817,6 +934,39 @@
     syncCrosshairEl.addEventListener("change", () => {
       syncCrosshairOn = !!syncCrosshairEl.checked;
       setStatus(syncCrosshairOn ? "已开启十字线同步" : "已关闭十字线同步");
+      persistSession();
+    });
+
+    hideVolEl.addEventListener("change", () => {
+      hideVolGlobal = !!hideVolEl.checked;
+      const showVol = !hideVolGlobal;
+      let skipped = 0;
+      let applied = 0;
+      livePanels().forEach((p) => {
+        if (p.volumeLocked) {
+          skipped += 1;
+          return;
+        }
+        p.applyGlobalVolume(showVol);
+        applied += 1;
+      });
+      setStatus(
+        skipped
+          ? `${hideVolGlobal ? "全体隐藏量能" : "全体显示量能"}（应用 ${applied}，锁定跳过 ${skipped}）`
+          : hideVolGlobal
+            ? "全体隐藏量能"
+            : "全体显示量能"
+      );
+      // 布局重建时用最新快照
+      savedPanelStates = slotPanels.map((p, i) => {
+        if (!p) return savedPanelStates[i] || { withVolume: showVol };
+        const st = p.getState();
+        return {
+          ...(savedPanelStates[i] || {}),
+          withVolume: st.withVolume,
+          volumeLocked: st.volumeLocked,
+        };
+      });
       persistSession();
     });
 
@@ -905,6 +1055,9 @@
 
     syncCrosshairOn = !!session?.syncCrosshair;
     syncCrosshairEl.checked = syncCrosshairOn;
+    hideVolGlobal = !!session?.hideVol;
+    hideVolEl.checked = hideVolGlobal;
+    savedPanelStates = Array.isArray(session?.panels) ? session.panels.slice() : [];
     if (session?.hideGlobalBar) setBarHidden(true);
 
     refreshLayoutSelect(currentLayout.id);

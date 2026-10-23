@@ -110,6 +110,8 @@ export class ChartPanel {
     this.periodLocked = !!opts.periodLocked;
     /** 单格改过图形类型后，全体图形切换跳过本格 */
     this.chartTypeLocked = !!opts.chartTypeLocked;
+    /** 单格改过量能显隐后，全体「隐藏量能」跳过本格 */
+    this.volumeLocked = !!opts.volumeLocked;
 
     this.chart = null;
     this._host = null;
@@ -176,7 +178,50 @@ export class ChartPanel {
     if (name === "MA" || name === "VOL" || name === "EMA") {
       opts.calcParams = [...params];
     }
+    // createIndicator 返回的是 indicator id（不是 paneId）
     return this.chart.createIndicator(opts, isStack);
+  }
+
+  /** 按指标名找副图 paneId */
+  _paneIdOfSub(name) {
+    if (!this.chart) return null;
+    const list = this.chart.getIndicators?.() || [];
+    const ind = list.find((x) => x.name === name);
+    return ind?.paneId || null;
+  }
+
+  /** 图上是否已有该副图指标 */
+  _hasSub(name) {
+    if (!this.chart) return false;
+    const list = this.chart.getIndicators?.() || [];
+    return list.some((x) => x.name === name);
+  }
+
+  /**
+   * 移除副图指标（按 name，避免误把 indicatorId 当 paneId）
+   * klinecharts createIndicator 返回 id，remove 应用 { name } 或 { id }
+   */
+  _removeSub(name) {
+    if (!this.chart) return;
+    try {
+      this.chart.removeIndicator({ name });
+    } catch (_) {}
+    delete this.subIndicators[name];
+  }
+
+  /** 创建副图；返回 paneId（写入 subIndicators） */
+  _addSub(name) {
+    if (!this.chart) return null;
+    if (this._hasSub(name)) {
+      const paneId = this._paneIdOfSub(name);
+      if (paneId) this.subIndicators[name] = paneId;
+      return paneId;
+    }
+    const id = this._createInd(name, false);
+    if (!id) return null;
+    const paneId = this._paneIdOfSub(name) || id;
+    this.subIndicators[name] = paneId;
+    return paneId;
   }
 
   _ensureChart(market) {
@@ -205,8 +250,7 @@ export class ChartPanel {
     this.subIndicators = {};
     this._createInd("MA", true, "candle_pane");
     if (this.withVolume) {
-      const volPane = this._createInd("VOL", false);
-      if (volPane) this.subIndicators.VOL = volPane;
+      this._addSub("VOL");
     }
 
     this.chart.subscribeAction("onIndicatorTooltipFeatureClick", (data) => {
@@ -233,6 +277,7 @@ export class ChartPanel {
         } else if (paneId) {
           this.chart.removeIndicator({ paneId, name: ind.name });
           delete this.subIndicators[ind.name];
+          if (ind.name === "VOL") this.withVolume = false;
         }
       }
     });
@@ -263,15 +308,35 @@ export class ChartPanel {
 
   toggleSub(name, added) {
     if (!this.chart) return;
-    if (added) {
-      if (!(name in this.subIndicators)) {
-        const paneId = this._createInd(name, false);
-        if (paneId) this.subIndicators[name] = paneId;
-      }
-    } else if (this.subIndicators[name]) {
-      this.chart.removeIndicator({ paneId: this.subIndicators[name], name });
-      delete this.subIndicators[name];
-    }
+    if (added) this._addSub(name);
+    else this._removeSub(name);
+    if (name === "VOL") this.withVolume = !!added;
+  }
+
+  /**
+   * 显示 / 隐藏 VOL 量能副图
+   * @param {boolean} on
+   * @param {{ lock?: boolean }} [opts] lock=true 表示单格手动设置，全体「隐藏量能」不再覆盖
+   */
+  setWithVolume(on, opts = {}) {
+    this.withVolume = !!on;
+    if (opts.lock) this.volumeLocked = true;
+    if (!this.chart) return this;
+    if (this.withVolume) this._addSub("VOL");
+    else this._removeSub("VOL");
+    return this;
+  }
+
+  /** 全体量能显隐（已 volumeLocked 的面板跳过） */
+  applyGlobalVolume(on) {
+    if (this.volumeLocked) return this;
+    return this.setWithVolume(on, { lock: false });
+  }
+
+  clearVolumeLock() {
+    this.volumeLocked = false;
+    this._refreshChrome();
+    return this;
   }
 
   setMaParams(params) {
@@ -636,6 +701,8 @@ export class ChartPanel {
       settings: { ...this.settings },
       periodLocked: this.periodLocked,
       chartTypeLocked: this.chartTypeLocked,
+      withVolume: !!this.withVolume,
+      volumeLocked: !!this.volumeLocked,
     };
   }
 

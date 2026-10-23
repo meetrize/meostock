@@ -141,30 +141,38 @@ export function openIndicatorModal(panel) {
 
   const mainSec = document.createElement("div");
   mainSec.className = "mp-ind-section";
-  mainSec.innerHTML = "<h4>主图指标</h4>";
+  mainSec.innerHTML = "<h4>主图</h4>";
+  const mainGrid = document.createElement("div");
+  mainGrid.className = "mp-ind-grid";
   MAIN_INDS.forEach((item) => {
     const checked = panel.mainIndicators?.includes(item.name);
     const row = document.createElement("label");
     row.className = "mp-ind-item";
+    row.title = item.label;
     row.innerHTML = `<input type="checkbox" data-kind="main" data-name="${item.name}" ${
       checked ? "checked" : ""
-    }/><span>${item.label}</span>`;
-    mainSec.appendChild(row);
+    }/><span>${item.name}</span>`;
+    mainGrid.appendChild(row);
   });
+  mainSec.appendChild(mainGrid);
   body.appendChild(mainSec);
 
   const subSec = document.createElement("div");
   subSec.className = "mp-ind-section";
-  subSec.innerHTML = "<h4>副图指标</h4>";
+  subSec.innerHTML = "<h4>副图</h4>";
+  const subGrid = document.createElement("div");
+  subGrid.className = "mp-ind-grid";
   SUB_INDS.forEach((item) => {
     const checked = panel.subIndicators && item.name in panel.subIndicators;
     const row = document.createElement("label");
     row.className = "mp-ind-item";
+    row.title = item.label;
     row.innerHTML = `<input type="checkbox" data-kind="sub" data-name="${item.name}" ${
       checked ? "checked" : ""
-    }/><span>${item.label}</span>`;
-    subSec.appendChild(row);
+    }/><span>${item.name}</span>`;
+    subGrid.appendChild(row);
   });
+  subSec.appendChild(subGrid);
   body.appendChild(subSec);
 
   body.querySelectorAll("input[type=checkbox]").forEach((input) => {
@@ -172,8 +180,17 @@ export function openIndicatorModal(panel) {
       const name = input.dataset.name;
       const kind = input.dataset.kind;
       if (!indTarget) return;
-      if (kind === "main") indTarget.toggleMain(name, input.checked);
-      else indTarget.toggleSub(name, input.checked);
+      if (kind === "main") {
+        indTarget.toggleMain(name, input.checked);
+      } else if (name === "VOL") {
+        // 与面板「量」开关一致：单独设置后全体「隐藏量能」不再覆盖
+        indTarget.setWithVolume(input.checked, { lock: true });
+        try {
+          indTarget.onVolumeChange?.(indTarget);
+        } catch (_) {}
+      } else {
+        indTarget.toggleSub(name, input.checked);
+      }
     });
   });
 
