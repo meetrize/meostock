@@ -106,7 +106,7 @@ print(df.tail())
 | http://127.0.0.1:8765/ | K 线演示（[KLineChart](https://github.com/klinecharts/KLineChart)） |
 | http://127.0.0.1:8765/dashboard/ | [stock-dashboard](https://github.com/chengzuopeng/stock-dashboard) 看板（自选 / 热力图 / 板块 / 选股等） |
 | http://127.0.0.1:8765/dapan/ | [a-share-heatmap](https://github.com/wenyuanw/a-share-heatmap) 大盘云图（看板侧栏「大盘云图」新窗口打开） |
-| http://127.0.0.1:8765/quotes | 行情列表（A / 港 / 美 + yfinance） |
+| http://127.0.0.1:8765/dashboard/quotes | 行情列表（A / 港 / 美 + yfinance，本地 SQLite 缓存） |
 | http://127.0.0.1:8765/fupan | 本地涨停复盘 Demo（选股宝接口，不经通达信） |
 | http://127.0.0.1:8765/xnge/ | 犀利插件通用中转入口 |
 
@@ -144,9 +144,26 @@ print(df.tail())
 
 `./run_web.sh` 会同时拉起 FastAPI（:8765）与大盘云图 Next.js（:8766），并由 FastAPI 将 `/dapan/` 反代到上游。
 
+### 行情本地缓存
+
+看板「行情」页（`/dashboard/quotes`）的全市场列表由本机 **SQLite** 加速（`data/quote_cache.db`），服务端经东财 `clist` 批拉后落库。
+
+K 线页（`/`，如 `?symbol=usNVDA&period=1d`）走同一库的 **L3 `kline_bar`**：`GET /api/cache/kline` 先读盘，过期再拉 Yahoo/东财；`index.html` 优先该 API，失败回退原 sdk / `/api/yf/kline`。
+
+| 模式（设置页可切换） | 行为 |
+|----------------------|------|
+| `speed` | 优先读盘，少打公网 |
+| `balanced`（默认） | 先出缓存，盘中约 45s 后台同步 |
+| `realtime` | 更勤强制同步 |
+
+相关 API：`GET /api/cache/snapshot`（可 `codes=`）、`GET /api/cache/kline`、`GET /api/cache/status`、`POST /api/cache/mode|source|sync|clear|gc`。  
+设计见 `docs/local-quote-cache.md`；二期 `docs/dev-plan-local-kline-cache.md`；三期 `docs/dev-plan-local-quote-cache-phase3.md`。
+
 | 路径 | 说明 |
 |------|------|
-| `web/server.py` | FastAPI：静态页 + `/dashboard` SPA + `/dapan` 反代 + `/xnge/{path}` 中转 |
+| `web/server.py` | FastAPI：静态页 + `/dashboard` SPA + `/dapan` 反代 + `/xnge/{path}` 中转 + `/api/cache/*` |
+| `web/cache/` | 行情本地缓存（SQLite + Sync Worker） |
+| `data/quote_cache.db` | 缓存库（gitignore） |
 | `web/static/index.html` | K 线页（MA / VOL / MACD，亮/暗主题） |
 | `web/static/xnge.html` | 犀利插件中转目录 |
 | `web/static/fupan.html` | 本地涨停复盘 Demo |

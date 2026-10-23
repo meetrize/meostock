@@ -2473,7 +2473,40 @@
       return { market, quote: list[0] };
     }
 
-    async function fetchKline(symbol, period) {
+    /** 本机 SQLite K 线缓存（二期）；失败返回 null 由调用方回退旧路径 */
+    async function fetchKlineFromCache(symbol, period, force = false) {
+      const qs = new URLSearchParams({
+        symbol: String(symbol || "").trim(),
+        period: period === "fs" ? "1m" : period || "1d",
+      });
+      if (force) qs.set("force", "1");
+      const res = await fetch(`/api/cache/kline?${qs}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || !Array.isArray(data.bars) || !data.bars.length) {
+        throw new Error(data.error || "本地 K 线缓存未命中");
+      }
+      const mkt = String(data.market || "").toUpperCase();
+      const out = {
+        market: mkt === "YF" ? "YF" : mkt === "FUTURES" ? "FUT" : mkt || "CN",
+        bars: data.bars,
+        source: data.from_cache ? `cache:${data.source || "local"}` : data.source || "cache",
+        fromCache: Boolean(data.from_cache),
+        stale: Boolean(data.stale),
+        name: data.name,
+      };
+      if (out.market === "YF" || String(symbol).toLowerCase().startsWith("yf:")) {
+        out.market = "YF";
+        out.yf = { symbol: data.code || String(symbol).replace(/^yf:/i, ""), name: data.name };
+      }
+      if (out.market === "FUT" || String(symbol).toLowerCase().startsWith("fut:")) {
+        const fut = resolveFutures(symbol);
+        out.market = "FUT";
+        if (fut) out.futures = fut;
+      }
+      return out;
+    }
+
+    async function fetchKlineLegacy(symbol, period) {
       // yfinance（服务端代理）
       const rawSym = String(symbol || "").trim();
       if (/^yf:/i.test(rawSym)) {
@@ -2565,6 +2598,21 @@
       if (!isMinute && Array.isArray(rows) && rows.length > 500) rows = rows.slice(-500);
       const bars = toBars(rows);
       return { market, bars, source: "stock-sdk" };
+    }
+
+    async function fetchKline(symbol, period) {
+      // 二期：优先本机 SQLite（与行情列表同一 mode）；失败再走原 sdk / yf 路径
+      try {
+        return await fetchKlineFromCache(symbol, period, false);
+      } catch (cacheErr) {
+        try {
+          return await fetchKlineLegacy(symbol, period);
+        } catch (legacyErr) {
+          throw new Error(
+            `${legacyErr.message || legacyErr}（本地缓存：${cacheErr.message || cacheErr}）`
+          );
+        }
+      }
     }
 
     function hitToSymbol(hit) {

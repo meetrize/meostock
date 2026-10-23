@@ -36,6 +36,28 @@ DAPAN_UPSTREAM = os.environ.get("DAPAN_UPSTREAM", "http://127.0.0.1:8766").rstri
 app = FastAPI(title="stock-sdk K-Line Demo", version="0.5.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+# 行情本地缓存（SQLite + 后台同步）
+try:
+    from cache.api import router as _cache_router
+    from cache.db import init_db as _cache_init_db
+    from cache.sync_worker import prefetch_on_startup as _cache_prefetch
+    from cache.sync_worker import start_worker as _cache_start_worker
+
+    app.include_router(_cache_router)
+
+    @app.on_event("startup")
+    def _quote_cache_startup() -> None:
+        if os.environ.get("QUOTE_CACHE_ENABLED", "1").strip() in ("0", "false", "False"):
+            return
+        _cache_init_db()
+        _cache_start_worker()
+        _cache_prefetch()
+
+except Exception as _cache_exc:  # noqa: BLE001 — 缓存可选，失败不阻断主站
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("quote cache disabled: %s", _cache_exc)
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {
@@ -513,7 +535,13 @@ def _file_response(path: Path, request: Request, *, no_cache: bool = False) -> R
         media = "text/css; charset=utf-8"
     headers: dict[str, str] = {}
     if no_cache:
-        headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        # SPA 入口禁止缓存，避免重建后仍引用已删除的 chunk（Importing a module script failed）
+        headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
+        headers["Pragma"] = "no-cache"
+        headers["Expires"] = "0"
+    elif path.suffix.lower() in {".js", ".css"}:
+        # 开发期勿用 immutable：重建后旧 hash 404 会被顽固缓存，导致 Importing a module script failed
+        headers["Cache-Control"] = "no-cache"
     if request.method == "HEAD":
         headers["content-length"] = str(path.stat().st_size)
         return Response(status_code=200, media_type=media, headers=headers)

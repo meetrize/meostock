@@ -29,5 +29,15 @@ VITE_BASE_URL=/dashboard/ pnpm build
 rm -rf "${OUT}"
 mkdir -p "${OUT}"
 cp -R "${SRC}/dist/." "${OUT}/"
+# 入口 HTML 加禁止缓存标记，降低「Importing a module script failed」概率
+python3 -c "
+from pathlib import Path
+html = Path('${OUT}') / 'index.html'
+text = html.read_text(encoding='utf-8')
+meta = '<meta http-equiv=\"Cache-Control\" content=\"no-store\" />\n    '
+if 'no-store' not in text:
+    text = text.replace('<head>', '<head>\n    ' + meta, 1)
+    html.write_text(text, encoding='utf-8')
+"
 echo "已输出 → ${OUT}"
 echo "访问: http://127.0.0.1:8765/dashboard/"

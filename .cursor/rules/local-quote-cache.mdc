@@ -1,0 +1,26 @@
+---
+description: 行情本地缓存一期开发约束与拍板决策
+globs: web/cache/**/*,web/server.py,vendor/stock-dashboard/src/pages/QuotesMarket/**/*,vendor/stock-dashboard/src/pages/Settings/**/*,docs/local-quote-cache.md,docs/dev-plan-local-quote-cache.md
+alwaysApply: false
+---
+
+# 行情本地缓存（一期）
+
+## 已拍板
+
+1. **服务端 httpx/urllib 复刻东财 `clist` 全市场批拉**，落 SQLite；前端不再对 cn/hk/us 直连 stock-sdk 全市场。
+2. **一期仍前端全量排序分页**（与现 QuotesMarket 一致）；不做服务端 sort/page。
+
+## 权威方案
+
+- 设计：`docs/local-quote-cache.md`
+- 开发计划：`docs/dev-plan-local-quote-cache.md`
+
+## 实现约束
+
+- DB：`data/quote_cache.db`（WAL），路径可用 `QUOTE_CACHE_PATH`
+- 模式：`speed` | `balanced` | `realtime`，默认 `balanced`
+- 单位与 sdk 契约一致：市值亿元、成交额万元
+- 改 dashboard 源码后需 `scripts/build_dashboard.sh`
+- 不引入 Redis；Sync Worker 用进程内线程队列
+- 一期范围：L0 代码表 + L1 快照 + `/api/cache/*` + QuotesMarket + Settings 三模式
