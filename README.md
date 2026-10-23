@@ -105,6 +105,7 @@ print(df.tail())
 |------|------|
 | http://127.0.0.1:8765/ | K 线演示（[KLineChart](https://github.com/klinecharts/KLineChart)） |
 | http://127.0.0.1:8765/dashboard/ | [stock-dashboard](https://github.com/chengzuopeng/stock-dashboard) 看板（自选 / 热力图 / 板块 / 选股等） |
+| http://127.0.0.1:8765/dapan/ | [a-share-heatmap](https://github.com/wenyuanw/a-share-heatmap) 大盘云图（看板侧栏「大盘云图」新窗口打开） |
 | http://127.0.0.1:8765/quotes | 行情列表（A / 港 / 美 + yfinance） |
 | http://127.0.0.1:8765/fupan | 本地涨停复盘 Demo（选股宝接口，不经通达信） |
 | http://127.0.0.1:8765/xnge/ | 犀利插件通用中转入口 |
@@ -134,24 +135,29 @@ print(df.tail())
 
 目录页 http://127.0.0.1:8765/xnge/ 还可打开跌停股、犀利宝、思维导图、时光机等其它路径；也可粘贴完整 `t.xnge.cn` URL 自动提取路径。旧地址 `/api/zt/xnge-proxy` 会 307 跳到 `/xnge/fupan/`。
 
-手动重建看板：
+手动重建看板 / 大盘云图：
 
 ```bash
-./scripts/build_dashboard.sh
+./scripts/build_dashboard.sh   # → web/static/dashboard/
+./scripts/build_dapan.sh       # → vendor/a-share-heatmap/.next（basePath=/dapan）
 ```
+
+`./run_web.sh` 会同时拉起 FastAPI（:8765）与大盘云图 Next.js（:8766），并由 FastAPI 将 `/dapan/` 反代到上游。
 
 | 路径 | 说明 |
 |------|------|
-| `web/server.py` | FastAPI：静态页 + `/dashboard` SPA + `/xnge/{path}` 中转 |
+| `web/server.py` | FastAPI：静态页 + `/dashboard` SPA + `/dapan` 反代 + `/xnge/{path}` 中转 |
 | `web/static/index.html` | K 线页（MA / VOL / MACD，亮/暗主题） |
 | `web/static/xnge.html` | 犀利插件中转目录 |
 | `web/static/fupan.html` | 本地涨停复盘 Demo |
 | `web/static/dashboard/` | stock-dashboard 构建产物 |
 | `vendor/stock-dashboard/` | 看板源码（上游克隆） |
+| `vendor/a-share-heatmap/` | 大盘云图源码（[wenyuanw/a-share-heatmap](https://github.com/wenyuanw/a-share-heatmap)） |
 | `web/static/stock-sdk.mjs` | stock-sdk 浏览器打包 |
 | `web/static/klinecharts.min.js` | KLineChart UMD |
-| `run_web.sh` | 启动演示 |
+| `run_web.sh` | 启动演示（含大盘云图子进程） |
 | `scripts/build_dashboard.sh` | 构建看板到 `web/static/dashboard/` |
+| `scripts/build_dapan.sh` | 构建大盘云图（打 basePath=/dapan 补丁后 `pnpm build`） |
 
 K 线页支持：A 股 `600036`、港股 `00700`、美股 `AAPL` / `105.AAPL`；周期 1/5/15/60 分、日线、周线。
 
@@ -192,5 +198,6 @@ K 线页支持：A 股 `600036`、港股 `00700`、美股 `AAPL` / `105.AAPL`；
 
 - [stock-sdk](https://github.com/chengzuopeng/stock-sdk) · [文档](https://stock-sdk.linkdiary.cn) · [NPM](https://www.npmjs.com/package/stock-sdk)
 - [stock-dashboard](https://github.com/chengzuopeng/stock-dashboard) · [在线体验](https://chengzuopeng.github.io/stock-dashboard/)
+- [a-share-heatmap](https://github.com/wenyuanw/a-share-heatmap) · [在线预览 dapan.app](https://dapan.app)
 - [mootdx · PyPI](https://pypi.org/project/mootdx/) · [mootdx2 · PyPI](https://pypi.org/project/mootdx2/)
 - [KLineChart](https://github.com/klinecharts/KLineChart) · [文档](https://www.klinecharts.com)

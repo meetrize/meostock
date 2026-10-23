@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import http.client
 import json
+import mimetypes
+import os
 import re
 import threading
 import time
@@ -15,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Query, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from yf_catalog import (
@@ -28,6 +30,8 @@ from yf_catalog import (
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 # stock-dashboard 构建产物（VITE_BASE_URL=/dashboard/）
 DASHBOARD_DIR = STATIC_DIR / "dashboard"
+# a-share-heatmap（Next.js）上游，默认由 run_web.sh 在 8766 拉起
+DAPAN_UPSTREAM = os.environ.get("DAPAN_UPSTREAM", "http://127.0.0.1:8766").rstrip("/")
 
 app = FastAPI(title="stock-sdk K-Line Demo", version="0.5.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -457,6 +461,27 @@ def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
+# 带哈希的静态资源：缺失时绝不能回退成 index.html，否则浏览器会报
+# “Importing a module script failed”（把 HTML 当 JS 模块加载）。
+_DASHBOARD_ASSET_SUFFIXES = {
+    ".js",
+    ".css",
+    ".map",
+    ".json",
+    ".svg",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".ico",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+}
+
+
 def _dashboard_file(rel: str) -> Path | None:
     """安全解析 dashboard 下的文件路径；不存在则返回 None。"""
     if not DASHBOARD_DIR.is_dir():
@@ -469,40 +494,160 @@ def _dashboard_file(rel: str) -> Path | None:
     return target if target.is_file() else None
 
 
-@app.get("/dashboard", response_model=None)
+def _dashboard_not_built() -> JSONResponse:
+    return JSONResponse(
+        {
+            "ok": False,
+            "error": "stock-dashboard 未构建。请运行: ./scripts/build_dashboard.sh",
+        },
+        status_code=404,
+    )
+
+
+def _file_response(path: Path, request: Request, *, no_cache: bool = False) -> Response:
+    """GET 返回文件；HEAD 只返回头（避免 405 导致 modulepreload 失败）。"""
+    media = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    if path.suffix.lower() == ".js":
+        media = "text/javascript; charset=utf-8"
+    elif path.suffix.lower() == ".css":
+        media = "text/css; charset=utf-8"
+    headers: dict[str, str] = {}
+    if no_cache:
+        headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    if request.method == "HEAD":
+        headers["content-length"] = str(path.stat().st_size)
+        return Response(status_code=200, media_type=media, headers=headers)
+    return FileResponse(path, media_type=media, headers=headers or None)
+
+
+@app.api_route("/dashboard", methods=["GET", "HEAD"], response_model=None)
 def dashboard_redirect() -> RedirectResponse:
     return RedirectResponse(url="/dashboard/", status_code=307)
 
 
-@app.get("/dashboard/", response_model=None)
-def dashboard_index() -> Response:
+@app.api_route("/dashboard/", methods=["GET", "HEAD"], response_model=None)
+def dashboard_index(request: Request) -> Response:
     index_html = DASHBOARD_DIR / "index.html"
     if not index_html.is_file():
-        return JSONResponse(
-            {
-                "ok": False,
-                "error": "stock-dashboard 未构建。请运行: ./scripts/build_dashboard.sh",
-            },
-            status_code=404,
-        )
-    return FileResponse(index_html)
+        return _dashboard_not_built()
+    return _file_response(index_html, request, no_cache=True)
 
 
-@app.get("/dashboard/{full_path:path}", response_model=None)
-def dashboard_spa(full_path: str) -> Response:
+@app.api_route("/dashboard/{full_path:path}", methods=["GET", "HEAD"], response_model=None)
+def dashboard_spa(full_path: str, request: Request) -> Response:
     """SPA：优先静态资源，其余回退 index.html（深链 /dashboard/s/600036 等）。"""
     if not DASHBOARD_DIR.is_dir():
-        return JSONResponse(
-            {
-                "ok": False,
-                "error": "stock-dashboard 未构建。请运行: ./scripts/build_dashboard.sh",
-            },
-            status_code=404,
-        )
+        return _dashboard_not_built()
     hit = _dashboard_file(full_path)
     if hit is not None:
-        return FileResponse(hit)
-    return FileResponse(DASHBOARD_DIR / "index.html")
+        return _file_response(hit, request)
+    suffix = Path(full_path).suffix.lower()
+    if suffix in _DASHBOARD_ASSET_SUFFIXES:
+        return Response(status_code=404, content="Not Found")
+    index_html = DASHBOARD_DIR / "index.html"
+    if not index_html.is_file():
+        return _dashboard_not_built()
+    return _file_response(index_html, request, no_cache=True)
+
+
+# ---------- 大盘云图（wenyuanw/a-share-heatmap，Next.js basePath=/dapan）----------
+_HOP_BY_HOP = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+    "content-encoding",
+    "content-length",
+}
+
+
+def _dapan_unavailable() -> JSONResponse:
+    return JSONResponse(
+        {
+            "ok": False,
+            "error": (
+                "大盘云图服务未启动。请先执行 ./scripts/build_dapan.sh，"
+                "再用 ./run_web.sh 启动（会自动拉起 Next.js :8766）。"
+            ),
+        },
+        status_code=503,
+    )
+
+
+def _proxy_dapan(path: str, request: Request) -> Response:
+    """把 /dapan/* 反代到本地 Next.js（含 API 流式响应）。"""
+    rel = path.lstrip("/")
+    upstream_path = f"/dapan/{rel}" if rel else "/dapan/"
+    qs = request.url.query
+    url = f"{DAPAN_UPSTREAM}{upstream_path}"
+    if qs:
+        url = f"{url}?{qs}"
+
+    headers = {
+        "User-Agent": request.headers.get("user-agent") or _BROWSER_UA,
+        "Accept": request.headers.get("accept") or "*/*",
+    }
+    if "range" in request.headers:
+        headers["Range"] = request.headers["range"]
+    if "accept-language" in request.headers:
+        headers["Accept-Language"] = request.headers["accept-language"]
+
+    try:
+        req = urllib.request.Request(url, headers=headers, method=request.method)
+        upstream = urllib.request.urlopen(req, timeout=120)
+    except urllib.error.HTTPError as exc:
+        body = exc.read()
+        out_headers = {
+            k: v
+            for k, v in exc.headers.items()
+            if k.lower() not in _HOP_BY_HOP
+        }
+        return Response(content=body, status_code=exc.code, headers=out_headers)
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return _dapan_unavailable()
+
+    out_headers = {
+        k: v
+        for k, v in upstream.headers.items()
+        if k.lower() not in _HOP_BY_HOP
+    }
+    media = upstream.headers.get("Content-Type")
+
+    def _iter():
+        try:
+            while True:
+                chunk = upstream.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            upstream.close()
+
+    return StreamingResponse(
+        _iter(),
+        status_code=upstream.status,
+        headers=out_headers,
+        media_type=media,
+    )
+
+
+@app.api_route("/dapan", methods=["GET", "HEAD"], response_model=None)
+def dapan_root(_request: Request) -> Response:
+    return RedirectResponse(url="/dapan/", status_code=307)
+
+
+@app.api_route("/dapan/", methods=["GET", "HEAD"], response_model=None)
+def dapan_index(request: Request) -> Response:
+    return _proxy_dapan("", request)
+
+
+@app.api_route("/dapan/{full_path:path}", methods=["GET", "HEAD"], response_model=None)
+def dapan_proxy(full_path: str, request: Request) -> Response:
+    return _proxy_dapan(full_path, request)
 
 
 def _to_eastmoney_secid(code: str) -> str | None:
