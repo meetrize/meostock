@@ -14,7 +14,14 @@ from pydantic import BaseModel, Field
 
 from cache import kline_models, models
 from cache.providers.kline_fetch import fetch_kline_bars, normalize_period, normalize_symbol
-from cache.sync_worker import enqueue, is_syncing, sync_now
+from cache.sync_worker import (
+    enqueue,
+    get_progress,
+    is_syncing,
+    start_sync,
+    start_sync_all,
+    sync_now,
+)
 from cache.ttl import (
     cn_daily_bars_missing_today,
     is_stale,
@@ -83,6 +90,13 @@ class ModeBody(BaseModel):
 class SyncBody(BaseModel):
     market: str
     force: bool = True
+    # True=后台入队并返回进度；False=阻塞跑完（兼容旧脚本）
+    background: bool = False
+
+
+class SyncAllBody(BaseModel):
+    force: bool = True
+    markets: list[str] | None = None
 
 
 class ClearBody(BaseModel):
@@ -261,11 +275,30 @@ def cache_sync(body: SyncBody) -> JSONResponse:
     if not _ENABLED:
         return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
     market = _market_key(body.market)
+    if body.background:
+        result = start_sync(market, force=bool(body.force))
+        return JSONResponse(result)
     if body.force:
         result = sync_now(market, force=True)
         return JSONResponse(result, status_code=200 if result.get("ok") else 502)
     enqueue(market, force=False, priority=1)
     return JSONResponse({"ok": True, "queued": True, "market": market})
+
+
+@router.post("/sync-all")
+def cache_sync_all(body: SyncAllBody) -> JSONResponse:
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
+    result = start_sync_all(force=bool(body.force), markets=body.markets)
+    return JSONResponse(result)
+
+
+@router.get("/sync/progress")
+def cache_sync_progress() -> JSONResponse:
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
+    prog = get_progress()
+    return JSONResponse({"ok": True, **prog, "syncing": is_syncing()})
 
 
 @router.post("/mode")
