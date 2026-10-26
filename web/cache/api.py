@@ -393,11 +393,16 @@ def cache_kline(
         0,
         description="1=有缓存立即返回，过期时后台刷新（多面板加速）",
     ),
+    cache_only: int = Query(
+        0,
+        description="1=只读本地 SQLite，不拉网、不后台刷新（前端「缓存模式」）",
+    ),
     mode: str | None = Query(None),
 ) -> JSONResponse:
     """K 线本地缓存：先读盘，过期或 force 再拉源并落库。
 
     ``local_first=1``：只要盘上有 bars 就立刻返回，需要联网时后台刷新（对齐列表 snapshot 的 stale-while-revalidate）。
+    ``cache_only=1``：仅返回已缓存 bars，无缓存则 404。
     """
     if not _ENABLED:
         return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
@@ -412,6 +417,7 @@ def cache_kline(
     sym = norm["symbol"]
     active_mode = normalize_mode(mode) if mode else models.get_mode()
     quote_source = models.get_quote_source()
+    only_cache = bool(cache_only)
 
     # 确保表存在（旧库升级）
     from cache.db import init_db
@@ -433,7 +439,7 @@ def cache_kline(
         and cn_daily_bars_missing_today(bars)
     ):
         stale = True
-    allow_net = quote_source != "local"
+    allow_net = (not only_cache) and quote_source != "local"
     if not allow_net:
         need_net = False
     elif quote_source == "network":
@@ -445,6 +451,50 @@ def cache_kline(
     source = (meta or {}).get("source")
     name = (meta or {}).get("name") or sym
     refreshing = False
+
+    # —— 缓存模式：只读盘，有则立即返回，无则 404 ——
+    if only_cache:
+        if not bars:
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error": f"本地无 K 线缓存: {symbol}/{period_n}",
+                    "market": market,
+                    "symbol": sym,
+                },
+                status_code=404,
+            )
+        out_bars = [
+            {
+                "timestamp": b["timestamp"],
+                "open": b["open"],
+                "high": b["high"],
+                "low": b["low"],
+                "close": b["close"],
+                "volume": b.get("volume") or 0,
+            }
+            for b in bars
+        ]
+        return JSONResponse(
+            {
+                "ok": True,
+                "market": market.upper() if market in ("cn", "hk", "us") else market,
+                "symbol": norm.get("display") or sym,
+                "code": sym,
+                "name": name,
+                "period": period_n,
+                "bars": out_bars,
+                "count": len(out_bars),
+                "source": source,
+                "from_cache": True,
+                "stale": bool(stale),
+                "refreshing": False,
+                "mode": active_mode,
+                "ttl_sec": kline_ttl_seconds(active_mode, period_n, market),
+                "as_of": as_of,
+                "cache_only": True,
+            }
+        )
 
     # —— 多面板加速：有缓存则先返回，联网刷新放到后台 ——
     if local_first and bars and not force:

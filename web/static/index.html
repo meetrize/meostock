@@ -1056,7 +1056,14 @@
             <span>网格线显示</span>
             <label class="switch"><input type="checkbox" id="setGrid" /><span class="slider"></span></label>
           </div>
+          <div class="setting-item">
+            <span>缓存模式</span>
+            <label class="switch"><input type="checkbox" id="setCacheMode" /><span class="slider"></span></label>
+          </div>
         </div>
+        <p class="ext-hint" style="margin-top:12px">
+          默认拉实时 K 线；开启「缓存模式」后只读本机 SQLite，不请求网络。
+        </p>
       </div>
       <div class="modal-ft">
         <button type="button" class="primary" id="settingReset">恢复默认</button>
@@ -1356,6 +1363,8 @@
       axisType: "normal",
       axisReverse: false,
       grid: true,
+      /** false=实时 K 线（默认）；true=只读本地缓存 */
+      cacheMode: false,
     };
     const DEFAULT_EXT_MENU = [
       { name: "雪球", url: "https://www.xueqiu.com/S/!!!!XXXXXX" },
@@ -1885,9 +1894,11 @@
       document.getElementById("setAxisType").value = s.axisType;
       document.getElementById("setAxisReverse").checked = !!s.axisReverse;
       document.getElementById("setGrid").checked = !!s.grid;
+      document.getElementById("setCacheMode").checked = !!s.cacheMode;
     }
 
     function readSettingForm() {
+      const prevCacheMode = !!chartSettings.cacheMode;
       chartSettings = {
         candleType: document.getElementById("setCandleType").value,
         lastPrice: document.getElementById("setLastPrice").checked,
@@ -1897,9 +1908,14 @@
         axisType: document.getElementById("setAxisType").value,
         axisReverse: document.getElementById("setAxisReverse").checked,
         grid: document.getElementById("setGrid").checked,
+        cacheMode: document.getElementById("setCacheMode").checked,
       };
       saveChartSettings();
       applyChartSettings();
+      // 切换缓存/实时后按新模式重载当前标的
+      if (prevCacheMode !== !!chartSettings.cacheMode && currentSymbol) {
+        bindDataLoader(currentSymbol);
+      }
     }
 
     function openSettingModal() {
@@ -1908,10 +1924,14 @@
     }
 
     function resetChartSettings() {
+      const prevCacheMode = !!chartSettings.cacheMode;
       chartSettings = { ...DEFAULT_SETTINGS };
       saveChartSettings();
       syncSettingForm();
       applyChartSettings();
+      if (prevCacheMode !== !!chartSettings.cacheMode && currentSymbol) {
+        bindDataLoader(currentSymbol);
+      }
     }
 
     function applyPageTheme(theme) {
@@ -2480,12 +2500,14 @@
     async function fetchKlineFromCache(symbol, period, opts = {}) {
       const force = !!opts.force;
       const localFirst = !!opts.localFirst;
+      const cacheOnly = !!opts.cacheOnly;
       const qs = new URLSearchParams({
         symbol: String(symbol || "").trim(),
         period: period === "fs" ? "1m" : period || "1d",
       });
       if (force) qs.set("force", "1");
       if (localFirst) qs.set("local_first", "1");
+      if (cacheOnly) qs.set("cache_only", "1");
       const res = await fetch(`/api/cache/kline?${qs}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok || !Array.isArray(data.bars) || !data.bars.length) {
@@ -2607,10 +2629,17 @@
       return { market, bars, source: "stock-sdk" };
     }
 
-    async function fetchKline(symbol, period, { force = false, localFirst = false } = {}) {
-      // 二期：优先本机 SQLite（与行情列表同一 mode）；失败再走原 sdk / yf 路径
+    async function fetchKline(symbol, period, { force = false, localFirst = false, cacheOnly = false } = {}) {
+      // 缓存模式：只读本机，不回退网络
+      if (cacheOnly || chartSettings.cacheMode) {
+        return await fetchKlineFromCache(symbol, period, { cacheOnly: true });
+      }
+      // 默认实时：强制拉网落库；失败再走 sdk / yf
       try {
-        return await fetchKlineFromCache(symbol, period, { force, localFirst });
+        return await fetchKlineFromCache(symbol, period, {
+          force: force || !localFirst,
+          localFirst,
+        });
       } catch (cacheErr) {
         try {
           return await fetchKlineLegacy(symbol, period);
@@ -2622,13 +2651,16 @@
       }
     }
 
-    /** 先读盘，未命中再完整拉数（对齐多面板） */
+    /**
+     * 首屏加载入口：默认实时；缓存模式只读盘。
+     * localFirst 仅在非缓存模式下作多面板加速兼容。
+     */
     async function fetchKlineFast(symbol, period) {
-      try {
-        return await fetchKlineFromCache(symbol, period, { localFirst: true });
-      } catch (_) {
-        return await fetchKline(symbol, period, { force: false });
+      if (chartSettings.cacheMode) {
+        return await fetchKlineFromCache(symbol, period, { cacheOnly: true });
       }
+      // 实时：强制拉网（阻塞等最新），失败回退 sdk
+      return await fetchKline(symbol, period, { force: true });
     }
 
     function hitToSymbol(hit) {
@@ -3742,11 +3774,17 @@
                 } catch (_) {}
                 callback(allBars, { forward: false, backward: false });
                 setStatus(
-                  data.fromCache && (data.stale || data.refreshing)
+                  data.fromCache && (data.stale || data.refreshing) && !chartSettings.cacheMode
                     ? `${fsStatusText(symbol)} · 缓存·刷新中`
-                    : fsStatusText(symbol)
+                    : chartSettings.cacheMode
+                      ? `${fsStatusText(symbol)} · 缓存`
+                      : fsStatusText(symbol)
                 );
-                if (data.fromCache && (data.stale || data.refreshing)) {
+                if (
+                  !chartSettings.cacheMode &&
+                  data.fromCache &&
+                  (data.stale || data.refreshing)
+                ) {
                   scheduleChartBackgroundRefresh(symbol, "fs", seq);
                 }
                 queueMicrotask(() => {
@@ -3798,7 +3836,11 @@
             setStatus(
               `${symbol} · ${currentPeriod} · ${bars.length} 根K线 · 数据源 ${klineStatusTag(data)}`
             );
-            if (data.fromCache && (data.stale || data.refreshing)) {
+            if (
+              !chartSettings.cacheMode &&
+              data.fromCache &&
+              (data.stale || data.refreshing)
+            ) {
               scheduleChartBackgroundRefresh(symbol, currentPeriod, seq);
             }
             queueMicrotask(() => {
