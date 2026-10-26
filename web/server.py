@@ -702,6 +702,207 @@ def _to_eastmoney_secid(code: str) -> str | None:
     return f"0.{symbol}"
 
 
+# 板块列表：东财 clist（行业 t:2 / 概念 t:3）；push2 不通时用新浪 FLJK 兜底
+_EM_BOARD_FS = {
+    "industry": "m:90+t:2+f:!50",
+    "concept": "m:90+t:3+f:!50",
+}
+_SINA_BOARD_FLJK = "https://money.finance.sina.com.cn/q/view/newFLJK.php"
+# industry=证监会行业；class=概念板块（新浪 param 命名）
+_SINA_BOARD_PARAM = {
+    "industry": "industry",
+    "concept": "class",
+}
+_EM_BOARD_FIELDS = (
+    "f12,f14,f2,f3,f4,f8,f20,f104,f105,f128,f136,f140,f141,f207,f208,f209"
+)
+
+
+def _num_or_none(v: Any) -> float | None:
+    if v is None or v == "" or v == "-":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _em_board_list(board_type: str) -> list[dict[str, Any]]:
+    fs = _EM_BOARD_FS[board_type]
+    params = {
+        "pn": "1",
+        "pz": "100",
+        "po": "1",
+        "np": "1",
+        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+        "fltt": "2",
+        "invt": "2",
+        "fid": "f3",
+        "fs": fs,
+        "fields": _EM_BOARD_FIELDS,
+    }
+    mirrors = (
+        EM_CLIST,
+        "https://79.push2.eastmoney.com/api/qt/clist/get",
+        "https://17.push2.eastmoney.com/api/qt/clist/get",
+        "https://29.push2.eastmoney.com/api/qt/clist/get",
+    )
+    last_err: Exception | None = None
+    data: dict[str, Any] | None = None
+    for base in mirrors:
+        try:
+            data = _http_get_json(f"{base}?{urllib.parse.urlencode(params)}")
+            break
+        except _http_errors() as e:
+            last_err = e
+    if data is None:
+        raise RuntimeError(str(last_err) if last_err else "eastmoney board empty")
+
+    rows: list[dict[str, Any]] = []
+    for i, row in enumerate(_normalize_diff((((data or {}).get("data") or {}).get("diff"))), start=1):
+        code = str(row.get("f12") or "").strip()
+        name = str(row.get("f14") or "").strip()
+        if not code or not name:
+            continue
+        rows.append(
+            {
+                "rank": i,
+                "code": code,
+                "name": name,
+                "price": _num_or_none(row.get("f2")),
+                "change": _num_or_none(row.get("f4")),
+                "changePercent": _num_or_none(row.get("f3")),
+                "totalMarketCap": _num_or_none(row.get("f20")),
+                "turnoverRate": _num_or_none(row.get("f8")),
+                "riseCount": _num_or_none(row.get("f104")),
+                "fallCount": _num_or_none(row.get("f105")),
+                "leadingStock": (str(row.get("f128") or "").strip() or None),
+                "leadingStockChangePercent": _num_or_none(row.get("f136")),
+            }
+        )
+    rows.sort(
+        key=lambda x: (
+            x["changePercent"] is not None,
+            x["changePercent"] if x["changePercent"] is not None else -1e18,
+        ),
+        reverse=True,
+    )
+    for i, row in enumerate(rows, start=1):
+        row["rank"] = i
+    return rows
+
+
+def _sina_board_list(board_type: str) -> list[dict[str, Any]]:
+    """新浪板块涨跌榜（东财 push2 不通时的首页兜底）。"""
+    param = _SINA_BOARD_PARAM[board_type]
+    url = f"{_SINA_BOARD_FLJK}?{urllib.parse.urlencode({'param': param})}"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _BROWSER_UA,
+            "Referer": "https://finance.sina.com.cn/",
+            "Accept": "*/*",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=15.0) as resp:
+        blob = resp.read()
+    text = None
+    for enc in ("gbk", "utf-8"):
+        try:
+            text = blob.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if text is None:
+        text = blob.decode("utf-8", errors="replace")
+
+    m = re.search(r"=\s*(\{.*\})\s*;?\s*$", text, re.S)
+    if not m:
+        raise RuntimeError("sina board payload missing")
+    data = json.loads(m.group(1))
+    rows: list[dict[str, Any]] = []
+    for _, v in data.items():
+        parts = str(v).split(",")
+        if len(parts) < 12:
+            continue
+        code = parts[0].strip()
+        name = parts[1].strip()
+        if not code or not name:
+            continue
+        leading = ",".join(parts[12:]).strip() if len(parts) > 12 else parts[-1].strip()
+        rows.append(
+            {
+                "rank": 0,
+                "code": code,
+                "name": name,
+                "price": _num_or_none(parts[3]),
+                "change": _num_or_none(parts[4]),
+                "changePercent": _num_or_none(parts[5]),
+                "totalMarketCap": None,
+                "turnoverRate": None,
+                "riseCount": None,
+                "fallCount": None,
+                "leadingStock": leading or None,
+                "leadingStockChangePercent": _num_or_none(parts[9]),
+            }
+        )
+    rows.sort(
+        key=lambda x: (
+            x["changePercent"] is not None,
+            x["changePercent"] if x["changePercent"] is not None else -1e18,
+        ),
+        reverse=True,
+    )
+    for i, row in enumerate(rows, start=1):
+        row["rank"] = i
+    return rows
+
+
+@app.get("/api/board/list")
+def board_list(
+    type: str = Query("industry", description="industry|concept"),
+) -> JSONResponse:
+    """行业 / 概念板块涨跌榜。优先东财 clist，失败回退新浪 FLJK。"""
+    board_type = (type or "industry").lower().strip()
+    if board_type not in _EM_BOARD_FS:
+        return JSONResponse(
+            {"ok": False, "error": "type must be industry|concept"},
+            status_code=400,
+        )
+
+    em_error: str | None = None
+    try:
+        items = _em_board_list(board_type)
+        if items:
+            return JSONResponse(
+                {"ok": True, "type": board_type, "items": items, "source": "eastmoney"}
+            )
+        em_error = "empty"
+    except Exception as e:  # noqa: BLE001
+        em_error = str(e) or type(e).__name__
+
+    try:
+        items = _sina_board_list(board_type)
+        return JSONResponse(
+            {
+                "ok": True,
+                "type": board_type,
+                "items": items,
+                "source": "sina",
+                "fallbackFrom": f"eastmoney: {em_error}" if em_error else None,
+            }
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": f"eastmoney: {em_error}; sina: {e}",
+            },
+            status_code=502,
+        )
+
+
 @app.get("/api/stock-industries")
 def stock_industries(
     codes: str = Query(..., description="逗号分隔股票代码，如 300296,600036"),
