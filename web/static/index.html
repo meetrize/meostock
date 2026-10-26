@@ -1060,9 +1060,22 @@
             <span>缓存模式</span>
             <label class="switch"><input type="checkbox" id="setCacheMode" /><span class="slider"></span></label>
           </div>
+          <div class="setting-item">
+            <span>实时更新频率</span>
+            <select id="setRefreshInterval">
+              <option value="0">关闭</option>
+              <option value="1">1 秒</option>
+              <option value="2">2 秒</option>
+              <option value="5">5 秒</option>
+              <option value="15">15 秒</option>
+              <option value="30">30 秒</option>
+              <option value="60">60 秒</option>
+            </select>
+          </div>
         </div>
         <p class="ext-hint" style="margin-top:12px">
           默认拉实时 K 线；开启「缓存模式」后只读本机 SQLite，不请求网络。
+          「实时更新频率」控制行情与 K 线轮询间隔（Yahoo 标的不低于 60 秒）。
         </p>
       </div>
       <div class="modal-ft">
@@ -1365,6 +1378,8 @@
       grid: true,
       /** false=实时 K 线（默认）；true=只读本地缓存 */
       cacheMode: false,
+      /** 实时轮询秒数；0=关闭。默认 15 */
+      refreshInterval: 15,
     };
     const DEFAULT_EXT_MENU = [
       { name: "雪球", url: "https://www.xueqiu.com/S/!!!!XXXXXX" },
@@ -1415,7 +1430,12 @@
     function loadChartSettings() {
       try {
         const raw = JSON.parse(localStorage.getItem(SETTING_KEY) || "null");
-        if (raw && typeof raw === "object") return { ...DEFAULT_SETTINGS, ...raw };
+        if (raw && typeof raw === "object") {
+          const merged = { ...DEFAULT_SETTINGS, ...raw };
+          merged.refreshInterval = normalizeRefreshInterval(merged.refreshInterval);
+          merged.cacheMode = !!merged.cacheMode;
+          return merged;
+        }
       } catch (_) {}
       return { ...DEFAULT_SETTINGS };
     }
@@ -1884,6 +1904,13 @@
       applyYAxisOptions();
     }
 
+    function normalizeRefreshInterval(v) {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n <= 0) return 0;
+      if ([1, 2, 5, 15, 30, 60].includes(n)) return n;
+      return 15;
+    }
+
     function syncSettingForm() {
       const s = chartSettings;
       document.getElementById("setCandleType").value = s.candleType;
@@ -1895,10 +1922,14 @@
       document.getElementById("setAxisReverse").checked = !!s.axisReverse;
       document.getElementById("setGrid").checked = !!s.grid;
       document.getElementById("setCacheMode").checked = !!s.cacheMode;
+      document.getElementById("setRefreshInterval").value = String(
+        normalizeRefreshInterval(s.refreshInterval)
+      );
     }
 
     function readSettingForm() {
       const prevCacheMode = !!chartSettings.cacheMode;
+      const prevInterval = normalizeRefreshInterval(chartSettings.refreshInterval);
       chartSettings = {
         candleType: document.getElementById("setCandleType").value,
         lastPrice: document.getElementById("setLastPrice").checked,
@@ -1909,12 +1940,22 @@
         axisReverse: document.getElementById("setAxisReverse").checked,
         grid: document.getElementById("setGrid").checked,
         cacheMode: document.getElementById("setCacheMode").checked,
+        refreshInterval: normalizeRefreshInterval(
+          document.getElementById("setRefreshInterval").value
+        ),
       };
       saveChartSettings();
       applyChartSettings();
       // 切换缓存/实时后按新模式重载当前标的
       if (prevCacheMode !== !!chartSettings.cacheMode && currentSymbol) {
         bindDataLoader(currentSymbol);
+      }
+      if (
+        currentSymbol &&
+        (prevInterval !== chartSettings.refreshInterval ||
+          prevCacheMode !== !!chartSettings.cacheMode)
+      ) {
+        startRealtimePoll(currentSymbol);
       }
     }
 
@@ -1932,6 +1973,7 @@
       if (prevCacheMode !== !!chartSettings.cacheMode && currentSymbol) {
         bindDataLoader(currentSymbol);
       }
+      if (currentSymbol) startRealtimePoll(currentSymbol);
     }
 
     function applyPageTheme(theme) {
@@ -3868,6 +3910,34 @@
       }
     }
 
+    /** 轮询间隔毫秒；0=关闭。Yahoo 不低于 60s */
+    function pollIntervalMs(symbol) {
+      let sec = normalizeRefreshInterval(chartSettings.refreshInterval);
+      if (sec <= 0) return 0;
+      try {
+        if (resolveMarket(symbol) === "YF") sec = Math.max(sec, 60);
+      } catch (_) {}
+      return sec * 1000;
+    }
+
+    /** 定时刷新行情；非缓存模式下同步刷 K 线 */
+    async function refreshRealtime(symbol) {
+      if (!symbol || symbol !== currentSymbol) return;
+      await refreshQuote(symbol);
+      if (chartSettings.cacheMode || !chart) return;
+      scheduleChartBackgroundRefresh(symbol, currentPeriod, chartLoadSeq);
+    }
+
+    function startRealtimePoll(symbol) {
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      const ms = pollIntervalMs(symbol);
+      if (!ms || !symbol) return;
+      pollTimer = setInterval(() => refreshRealtime(currentSymbol), ms);
+    }
+
     function readUrlParams() {
       const q = new URLSearchParams(location.search);
       // 兼容 symbol / code / s / ticker
@@ -3922,10 +3992,7 @@
       if (!skipUrlSync) syncUrl(symbol, currentPeriod, !pushUrl);
       bindDataLoader(symbol);
       await refreshQuote(symbol);
-      if (pollTimer) clearInterval(pollTimer);
-      // yfinance 轮询放宽，降低限流
-      const interval = resolveMarket(symbol) === "YF" ? 60000 : 15000;
-      pollTimer = setInterval(() => refreshQuote(currentSymbol), interval);
+      startRealtimePoll(symbol);
     }
 
     function bootstrapFromUrl() {
