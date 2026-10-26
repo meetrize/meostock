@@ -104,7 +104,7 @@ print(df.tail())
 | 地址 | 说明 |
 |------|------|
 | http://127.0.0.1:8765/ | K 线演示（[KLineChart](https://github.com/klinecharts/KLineChart)） |
-| http://127.0.0.1:8765/dashboard/ | [stock-dashboard](https://github.com/chengzuopeng/stock-dashboard) 看板（自选 / 热力图 / 板块 / 选股等） |
+| http://127.0.0.1:8765/dashboard/ | [stock-dashboard](https://github.com/chengzuopeng/stock-dashboard) 看板（总览可自定义布局；自选 / 热力图 / 板块 / 选股等） |
 | http://127.0.0.1:8765/dapan/ | [a-share-heatmap](https://github.com/wenyuanw/a-share-heatmap) 大盘云图（看板侧栏「大盘云图」新窗口打开） |
 | http://127.0.0.1:8765/dashboard/quotes | 行情列表（A / 港 / 美 + yfinance，本地 SQLite 缓存） |
 | http://127.0.0.1:8765/fupan | 本地涨停复盘 Demo（选股宝接口，不经通达信） |
