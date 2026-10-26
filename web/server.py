@@ -616,7 +616,9 @@ def _dapan_unavailable() -> JSONResponse:
 def _proxy_dapan(path: str, request: Request) -> Response:
     """把 /dapan/* 反代到本地 Next.js（含 API 流式响应）。"""
     rel = path.lstrip("/")
-    upstream_path = f"/dapan/{rel}" if rel else "/dapan/"
+    # Next.js（无 trailingSlash）以 /dapan 为规范路径，/dapan/ 会 308→/dapan；
+    # 若本端再把 /dapan 307→/dapan/ 会形成环。索引页直连无尾斜杠。
+    upstream_path = f"/dapan/{rel}" if rel else "/dapan"
     qs = request.url.query
     url = f"{DAPAN_UPSTREAM}{upstream_path}"
     if qs:
@@ -671,13 +673,14 @@ def _proxy_dapan(path: str, request: Request) -> Response:
 
 
 @app.api_route("/dapan", methods=["GET", "HEAD"], response_model=None)
-def dapan_root(_request: Request) -> Response:
-    return RedirectResponse(url="/dapan/", status_code=307)
+def dapan_root(request: Request) -> Response:
+    return _proxy_dapan("", request)
 
 
 @app.api_route("/dapan/", methods=["GET", "HEAD"], response_model=None)
-def dapan_index(request: Request) -> Response:
-    return _proxy_dapan("", request)
+def dapan_index(_request: Request) -> Response:
+    # 与上游 Next.js 一致：带尾斜杠时跳到无尾斜杠
+    return RedirectResponse(url="/dapan", status_code=307)
 
 
 @app.api_route("/dapan/{full_path:path}", methods=["GET", "HEAD"], response_model=None)
