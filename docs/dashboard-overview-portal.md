@@ -1,6 +1,6 @@
 # 总览页 Portal 面板改造方案
 
-> 范围：`/dashboard/` 总览（`vendor/stock-dashboard/src/pages/Dashboard`）  
+> 范围：`/dashboard/` 总览（`apps/stock-dashboard/src/pages/Dashboard`）  
 > 目标：可自定义布局的门户面板 + 更紧凑间距  
 > 状态：**已拍板**（2026-10-26）  
 > 执行计划：[`dev-plan-dashboard-overview-portal.md`](./dev-plan-dashboard-overview-portal.md)

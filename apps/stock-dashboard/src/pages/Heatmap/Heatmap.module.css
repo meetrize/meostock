@@ -1,0 +1,222 @@
+/* 热力图页面样式 */
+
+.heatmap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-height) - 32px);
+  background: var(--bg-primary);
+}
+
+/* 控制栏 - 浮动工具栏风格 */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.controlGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.controlGroup::after {
+  content: '';
+  width: 1px;
+  height: 20px;
+  background: var(--border-primary);
+  margin-left: var(--spacing-sm);
+}
+
+.controlGroup:last-child::after {
+  display: none;
+}
+
+.controlLabel {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.colorModeBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.colorModeBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+.colorModeBtn.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-bg);
+}
+
+/* 图表容器 - 全屏充满 */
+.chartCard {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.chartWrapper {
+  flex: 1;
+  width: 100%;
+  padding: var(--spacing-sm);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--spacing-lg);
+  color: var(--text-tertiary);
+}
+
+.emptyState p {
+  font-size: var(--font-size-sm);
+}
+
+/* 图例 - 参考图胶囊渐变条 */
+.legend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-secondary);
+}
+
+.legendBar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.legendLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.legendGradient {
+  width: 160px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    var(--color-fall),
+    var(--color-flat),
+    var(--color-rise)
+  );
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.legendPillWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  max-width: 100%;
+}
+
+.legendIconFall {
+  color: var(--color-fall);
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.legendIconRise {
+  color: var(--color-rise);
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.legendPill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(520px, 88vw);
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  /* 兜底：避免渐变未生效时中心发白 */
+  background-color: #141416;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.08),
+    inset 0 -1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.legendPillLabel {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+  letter-spacing: 0.01em;
+  user-select: none;
+  flex: 1;
+  text-align: center;
+}
+
+/* 响应式 */
+@media (max-width: 1024px) {
+  .controls {
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+  }
+
+  .controlGroup::after {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .heatmap {
+    height: calc(100vh - var(--header-height) - 16px);
+  }
+
+  .controls {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .controlLabel {
+    display: none;
+  }
+
+  .legendGradient {
+    width: 120px;
+  }
+
+  .legendPill {
+    width: min(320px, 78vw);
+    height: 24px;
+    padding: 0 10px;
+  }
+
+  .legendPillLabel {
+    font-size: 10px;
+  }
+}

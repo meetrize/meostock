@@ -1,0 +1,113 @@
+/* 总览 Portal 页面 */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+/* 覆盖 RGL 默认样式以贴合主题 */
+.dashboard :global(.react-grid-item.react-grid-placeholder) {
+  background: var(--color-accent);
+  opacity: 0.2;
+  border-radius: var(--radius-md);
+  /* 占位块不抢鼠标，避免与面板手柄打架 */
+  pointer-events: none;
+}
+
+.dashboard :global(.react-grid-item.resizing),
+.dashboard :global(.react-grid-item.react-draggable-dragging) {
+  z-index: 3;
+  opacity: 0.95;
+  overflow: hidden;
+}
+
+/* 拖/缩中禁止过渡，面板与占位块才能逐帧对齐 */
+.dashboard :global(.react-grid-item.resizing),
+.dashboard :global(.react-grid-item.react-draggable-dragging),
+.dashboard :global(.react-grid-item.placeholder-resizing),
+.dashboard :global(.react-grid-placeholder) {
+  transition: none !important;
+}
+
+/* 编辑态：右缘 / 下缘整条可拖，不只右下角 */
+.dashboard :global(.react-grid-item > .react-resizable-handle) {
+  opacity: 1;
+  z-index: 4;
+}
+
+.dashboard :global(.react-grid-item > .react-resizable-handle::after) {
+  border-color: var(--text-muted);
+}
+
+/* 右边缘：整条竖向热区 */
+.dashboard :global(.react-grid-item > .react-resizable-handle-e) {
+  top: 12px;
+  right: 0;
+  width: 10px;
+  height: calc(100% - 24px);
+  margin-top: 0;
+  transform: none;
+  cursor: ew-resize;
+}
+
+.dashboard :global(.react-grid-item > .react-resizable-handle-e::after) {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 3px;
+  height: 28px;
+  margin-top: -14px;
+  border: none;
+  border-radius: 2px;
+  background: var(--border-strong);
+  right: auto;
+  bottom: auto;
+}
+
+/* 下边缘：整条横向热区 */
+.dashboard :global(.react-grid-item > .react-resizable-handle-s) {
+  left: 12px;
+  bottom: 0;
+  width: calc(100% - 24px);
+  height: 10px;
+  margin-left: 0;
+  transform: none;
+  cursor: ns-resize;
+}
+
+.dashboard :global(.react-grid-item > .react-resizable-handle-s::after) {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 28px;
+  height: 3px;
+  margin-left: -14px;
+  border: none;
+  border-radius: 2px;
+  background: var(--border-strong);
+  right: auto;
+  top: auto;
+}
+
+/* 右下角保留对角缩放 */
+.dashboard :global(.react-grid-item > .react-resizable-handle-se) {
+  width: 16px;
+  height: 16px;
+  right: 0;
+  bottom: 0;
+  cursor: se-resize;
+}
+
+.dashboard :global(.react-grid-item > .react-resizable-handle-se::after) {
+  right: 3px;
+  bottom: 3px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  background: transparent;
+}

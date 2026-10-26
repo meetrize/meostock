@@ -1,0 +1,31 @@
+.canvasWrap {
+  position: relative;
+  width: 100%;
+}
+
+.canvasEditing {
+  /* 编辑态轻微底纹，便于感知栅格 */
+  background-image: linear-gradient(
+      to right,
+      rgba(127, 127, 127, 0.06) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, rgba(127, 127, 127, 0.06) 1px, transparent 1px);
+  background-size: calc((100% - 88px) / 12 + 8px) 44px;
+  border-radius: var(--radius-md);
+}
+
+.gridItem {
+  /* RGL 子项需可伸展 */
+  height: 100%;
+}
+
+.mobileStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobileItem {
+  min-height: 160px;
+}

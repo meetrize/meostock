@@ -1,0 +1,1 @@
+export { FupanReview } from './FupanReview';

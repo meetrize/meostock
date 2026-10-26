@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# 构建 vendor/stock-dashboard → web/static/dashboard（base=/dashboard/）
+# 构建 apps/stock-dashboard → web/static/dashboard（base=/dashboard/）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="${ROOT}/vendor/stock-dashboard"
+SRC="${ROOT}/apps/stock-dashboard"
 OUT="${ROOT}/web/static/dashboard"
 
-if [[ ! -d "${SRC}" ]]; then
-  echo "缺少 ${SRC}，正在克隆…"
-  mkdir -p "${ROOT}/vendor"
-  git clone --depth 1 https://github.com/chengzuopeng/stock-dashboard.git "${SRC}"
+if [[ ! -d "${SRC}" || ! -f "${SRC}/package.json" ]]; then
+  echo "缺少看板源码: ${SRC}"
+  echo "请从 Git 克隆完整仓库（源码在 apps/stock-dashboard，不再使用 vendor/）。"
+  exit 1
 fi
 
 cd "${SRC}"
@@ -20,6 +20,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 
 if [[ ! -d node_modules ]]; then
+  echo "安装看板依赖…"
   pnpm install --frozen-lockfile
 fi
 

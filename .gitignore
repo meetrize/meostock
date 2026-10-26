@@ -1,9 +1,27 @@
-
+# 依赖与虚拟环境
 node_modules/
-*.tgz
-.venv310/
 .venv/
-vendor/
+.venv310/
+*.tgz
+
+# 前端构建产物
+dist/
+.next/
 web/static/dashboard/assets/
+
+# 本地遗留目录（源码已迁至 apps/，勿再依赖 vendor/）
+vendor/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# 运行时缓存
 data/*.db
 data/*.db-*
+
+# 系统杂项
+.DS_Store
+*.log

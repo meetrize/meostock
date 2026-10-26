@@ -120,8 +120,8 @@ http://127.0.0.1:8765/multipanel?layout=2x2&symbols=600036,000001&period=1d
 | `web/static/multipanel.html` | 新建 |
 | `web/static/kline/*.mjs` | 新建 |
 | `web/server.py` | 路由 |
-| `vendor/stock-dashboard/src/pages/QuotesMarket/*` | 入口 |
-| `vendor/stock-dashboard/src/pages/Watchlist/*` | 入口 |
+| `apps/stock-dashboard/src/pages/QuotesMarket/*` | 入口 |
+| `apps/stock-dashboard/src/pages/Watchlist/*` | 入口 |
 | `web/static/dashboard/*` | 构建产物 |
 | `README.md` | 入口说明 |
 

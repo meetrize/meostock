@@ -1,0 +1,10 @@
+# Web 演示服务（run_web.sh / uvicorn）
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0
+yfinance>=0.2.40
+
+# 通达信相关示例脚本（可选）
+mootdx>=0.11.0
+# mootdx2 建议 Python 3.10+
+# mootdx2>=0.1.0

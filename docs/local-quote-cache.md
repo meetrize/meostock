@@ -397,7 +397,7 @@ POST /api/cache/clear         { "market": "cn"|null, "what": "snapshot|all" }
 
 ## 9. 前端改造要点（QuotesMarket）
 
-文件：`vendor/stock-dashboard/src/pages/QuotesMarket/QuotesMarket.tsx`
+文件：`apps/stock-dashboard/src/pages/QuotesMarket/QuotesMarket.tsx`
 
 1. `loadMarketRows`：`cn/hk/us/...` 统一走 `fetch('/api/cache/snapshot?market=...')`。  
 2. 保留 progress：若 `syncing`，轮询 `/api/cache/status` 或 snapshot 直至 `stale=false`。  

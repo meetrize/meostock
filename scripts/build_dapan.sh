@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# 构建 vendor/a-share-heatmap（Next.js，basePath=/dapan）
-# 源码来自 https://github.com/wenyuanw/a-share-heatmap
+# 构建 apps/a-share-heatmap（Next.js，basePath=/dapan）
+# 上游：https://github.com/wenyuanw/a-share-heatmap（本仓库已含 /dapan 挂载补丁）
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="${ROOT}/vendor/a-share-heatmap"
-MARKER="${SRC}/.mootdx-patched"
+SRC="${ROOT}/apps/a-share-heatmap"
 
-if [[ ! -d "${SRC}" ]]; then
-  echo "缺少 ${SRC}，正在克隆…"
-  mkdir -p "${ROOT}/vendor"
-  git clone --depth 1 https://github.com/wenyuanw/a-share-heatmap.git "${SRC}"
+if [[ ! -d "${SRC}" || ! -f "${SRC}/package.json" ]]; then
+  echo "缺少大盘云图源码: ${SRC}"
+  echo "请从 Git 克隆完整仓库（源码在 apps/a-share-heatmap）。"
+  exit 1
 fi
 
 cd "${SRC}"
@@ -20,14 +19,14 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-# 为本仓库挂载到 /dapan 打补丁（可重复执行）
+# 幂等补丁：确保 basePath=/dapan（已入库源码一般已打过）
 python3 - <<'PY'
 from pathlib import Path
+import re
 
 root = Path(".").resolve()
 marker = root / ".mootdx-patched"
 
-# 1) next.config.ts → basePath
 cfg = root / "next.config.ts"
 text = cfg.read_text(encoding="utf-8")
 if 'basePath: "/dapan"' not in text:
@@ -44,12 +43,10 @@ if 'basePath: "/dapan"' not in text:
 else:
     print("next.config.ts already patched")
 
-# 2) 绝对路径 fetch / 静态资源 → /dapan 前缀（幂等：跳过已含 /dapan 的）
-import re
 
 def prefix_api(s: str) -> str:
-    # `/api/heatmap` → `/dapan/api/heatmap`，但不重复前缀
-    return re.sub(r'(?<!/dapan)(/api/heatmap)', r'/dapan\1', s)
+    return re.sub(r"(?<!/dapan)(/api/heatmap)", r"/dapan\1", s)
+
 
 for path in root.rglob("*"):
     if path.suffix not in {".ts", ".tsx", ".js", ".jsx", ".mjs"}:

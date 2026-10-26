@@ -1,0 +1,454 @@
+/* 面板内容区样式（从原 Dashboard 抽出） */
+
+.statCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 单指数面板：两行紧凑，不出现竖向滚动 */
+.indexPanel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.indexPanelPrice {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.indexPanelPriceBtn {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.indexPanelPriceBtn:hover {
+  opacity: 0.85;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.indexPanelChart {
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.indexPanelChartHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.indexPanelMeta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.indexPanelMeta > span {
+  flex-shrink: 0;
+}
+
+.indexPanelAmount {
+  margin-left: auto;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.statValueRow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 6px;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  overflow: hidden;
+}
+
+.statValueLarge {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statDivider {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.statMeta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.statMeta > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.indices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--spacing-sm);
+  height: 100%;
+  align-content: start;
+}
+
+.indexCard {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color var(--transition-normal);
+}
+
+.indexCard:hover {
+  border-color: var(--border-strong);
+}
+
+.indexName {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.indexPrice {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.indexChange {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: 2px;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+}
+
+.indexChangeVal {
+  font-size: var(--font-size-xs);
+}
+
+.indexAmount {
+  margin-top: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.watchlist,
+.rankingList,
+.boardList {
+  display: flex;
+  flex-direction: column;
+}
+
+.watchlistItem {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-secondary);
+  cursor: pointer;
+}
+
+.watchlistItem:last-child {
+  border-bottom: none;
+}
+
+.watchlistItem:hover {
+  background: rgba(127, 127, 127, 0.06);
+  margin: 0 calc(-1 * var(--spacing-sm));
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+  border-radius: var(--radius-md);
+}
+
+.stockInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stockName {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stockCode {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+.stockPrice {
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.stockChange {
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+  text-align: right;
+}
+
+.rankingHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) 72px 72px minmax(64px, 1fr);
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 0 var(--spacing-xs);
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border-secondary);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.rankingHeaderNarrow {
+  grid-template-columns: minmax(0, 1.6fr) 64px 64px;
+}
+
+.rankingHeader > span:nth-child(2),
+.rankingHeader > span:nth-child(3),
+.rankingHeader > span:nth-child(4) {
+  text-align: right;
+}
+
+.rankingItem {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-secondary);
+  cursor: pointer;
+}
+
+.rankingItemMarket {
+  grid-template-columns: minmax(0, 1.6fr) 72px 72px minmax(64px, 1fr);
+}
+
+.rankingItemMarketNarrow {
+  grid-template-columns: minmax(0, 1.6fr) 64px 64px;
+}
+
+.rankingItem:last-child {
+  border-bottom: none;
+}
+
+.rankingItem:hover {
+  background: rgba(127, 127, 127, 0.06);
+  margin: 0 calc(-1 * var(--spacing-sm));
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+  border-radius: var(--radius-md);
+}
+
+.rankIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  min-width: 0;
+}
+
+.rankNum {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.stockIndustry {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rankingItem:nth-child(1) .rankNum,
+.rankingList > .rankingItem:nth-child(1) .rankNum {
+  background: var(--color-rise);
+  color: #fff;
+}
+
+.rankingItem:nth-child(2) .rankNum {
+  background: var(--color-warning);
+  color: #fff;
+}
+
+.rankingItem:nth-child(3) .rankNum {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.boardItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-secondary);
+  cursor: pointer;
+}
+
+.boardItem:last-child {
+  border-bottom: none;
+}
+
+.boardItem:hover {
+  background: rgba(127, 127, 127, 0.06);
+  margin: 0 calc(-1 * var(--spacing-sm));
+  padding-left: var(--spacing-sm);
+  padding-right: var(--spacing-sm);
+  border-radius: var(--radius-md);
+}
+
+.boardLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.boardRank {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.boardItem:nth-child(-n + 3) .boardRank {
+  background: var(--color-accent-bg);
+  color: var(--color-accent);
+}
+
+.boardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.boardName {
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardLeader {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.boardRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.boardChange {
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.boardStats {
+  display: flex;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+}

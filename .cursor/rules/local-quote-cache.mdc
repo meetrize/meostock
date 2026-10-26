@@ -1,6 +1,6 @@
 ---
 description: 行情本地缓存一期开发约束与拍板决策
-globs: web/cache/**/*,web/server.py,vendor/stock-dashboard/src/pages/QuotesMarket/**/*,vendor/stock-dashboard/src/pages/Settings/**/*,docs/local-quote-cache.md,docs/dev-plan-local-quote-cache.md
+globs: web/cache/**/*,web/server.py,apps/stock-dashboard/src/pages/QuotesMarket/**/*,apps/stock-dashboard/src/pages/Settings/**/*,docs/local-quote-cache.md,docs/dev-plan-local-quote-cache.md
 alwaysApply: false
 ---
 

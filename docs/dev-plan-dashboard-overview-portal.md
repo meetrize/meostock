@@ -1,7 +1,7 @@
 # 总览 Portal 面板 — 开发计划
 
 > 权威设计：[`dashboard-overview-portal.md`](./dashboard-overview-portal.md)  
-> 代码落点：`vendor/stock-dashboard/src/pages/Dashboard`（构建 → `web/static/dashboard`）
+> 代码落点：`apps/stock-dashboard/src/pages/Dashboard`（构建 → `web/static/dashboard`）
 
 ---
 
@@ -49,7 +49,7 @@ http://127.0.0.1:8765/dashboard/
 
 ### P1 — 依赖与 Portal 骨架
 
-- [x] `vendor/stock-dashboard`：`pnpm add react-grid-layout`（自带类型；未保留 stub `@types`）
+- [x] `apps/stock-dashboard`：`pnpm add react-grid-layout`（自带类型；未保留 stub `@types`）
 - [x] 引入 RGL CSS；`margin: [8, 8]` 对齐 gutter
 - [x] 新建 `pages/Dashboard/portal/`：`PortalCanvas` / `PortalToolbar` / `WidgetChrome`
 - [x] `widgetCatalog.ts`：类型、默认/min/max、组件映射
@@ -106,7 +106,7 @@ http://127.0.0.1:8765/dashboard/
 - Widget `key` / layout `i` 必须一致。  
 - 持久化 debounce，禁止每次 mousemove 写盘。  
 - 每完成一个 P* 在本文件勾选。  
-- 改 `vendor/stock-dashboard` 后需跑 `./scripts/build_dashboard.sh` 才反映到 `/dashboard/`。
+- 改 `apps/stock-dashboard` 后需跑 `./scripts/build_dashboard.sh` 才反映到 `/dashboard/`。
 
 ---
 
@@ -116,10 +116,10 @@ http://127.0.0.1:8765/dashboard/
 |------|------|
 | `docs/dashboard-overview-portal.md` | 设计（已拍板） |
 | `docs/dev-plan-dashboard-overview-portal.md` | 本计划 |
-| `vendor/stock-dashboard/package.json` | 加 `react-grid-layout` |
-| `vendor/stock-dashboard/src/pages/Dashboard/Dashboard.tsx` | 改为 Portal 壳 + 数据上提 |
-| `vendor/stock-dashboard/src/pages/Dashboard/Dashboard.module.css` | P0 间距 + Portal 样式 |
-| `vendor/stock-dashboard/src/pages/Dashboard/portal/*` | 新建 |
+| `apps/stock-dashboard/package.json` | 加 `react-grid-layout` |
+| `apps/stock-dashboard/src/pages/Dashboard/Dashboard.tsx` | 改为 Portal 壳 + 数据上提 |
+| `apps/stock-dashboard/src/pages/Dashboard/Dashboard.module.css` | P0 间距 + Portal 样式 |
+| `apps/stock-dashboard/src/pages/Dashboard/portal/*` | 新建 |
 | `web/static/dashboard/*` | 构建产物 |
 | `README.md` | 总览布局说明 |
 

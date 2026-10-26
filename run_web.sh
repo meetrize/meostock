@@ -31,7 +31,7 @@ if [[ ! -f web/static/dashboard/index.html ]]; then
 fi
 
 # a-share-heatmap 大盘云图（/dapan/ → Next.js :8766）
-DAPAN_SRC="${ROOT}/vendor/a-share-heatmap"
+DAPAN_SRC="${ROOT}/apps/a-share-heatmap"
 if [[ ! -d "${DAPAN_SRC}/.next" ]]; then
   echo "缺少大盘云图构建产物，正在构建…"
   "${ROOT}/scripts/build_dapan.sh"

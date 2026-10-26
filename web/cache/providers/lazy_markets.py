@@ -20,7 +20,7 @@ from cache.providers.em_snapshot import (
 
 _DASHBOARD_DATA = (
     Path(__file__).resolve().parents[3]
-    / "vendor"
+    / "apps"
     / "stock-dashboard"
     / "src"
     / "data"
