@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from cache import kline_models, models
 from cache.providers.kline_fetch import fetch_kline_bars, normalize_period, normalize_symbol
+from cache.providers.lazy_markets import enrich_index_quotes
 from cache.sync_worker import (
     enqueue,
     get_progress,
@@ -248,6 +249,34 @@ def cache_snapshot(
         else:
             enqueue(market, force=False, priority=2)
             syncing = True
+
+    # 指数：快照无价时用本地日 K 收盘价回填（缓存模式下闭市也应显示最近价）
+    if market == "index" and items:
+        missing = [it for it in items if it.get("price") is None]
+        if missing:
+            try:
+                filled = enrich_index_quotes(
+                    missing, max_workers=4, allow_network=allow_net
+                )
+            except Exception as e:
+                _log.warning("index quote hydrate failed: %s", e)
+                filled = []
+            by_code = {str(it.get("code")): it for it in filled if it.get("price") is not None}
+            if by_code:
+                hydrated: list[dict[str, Any]] = []
+                for it in items:
+                    patch = by_code.get(str(it.get("code")))
+                    hydrated.append({**it, **patch} if patch else it)
+                items = hydrated
+                # 写回库，避免每次请求重复回填
+                try:
+                    models.upsert_snapshot_rows(
+                        market,
+                        [it for it in items if it.get("price") is not None],
+                        source="kline" if quote_source == "local" else (source or "kline"),
+                    )
+                except Exception as e:
+                    _log.warning("index quote persist failed: %s", e)
 
     return JSONResponse(
         {

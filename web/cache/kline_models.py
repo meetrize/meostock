@@ -70,6 +70,43 @@ def read_kline_bars(
     return bars
 
 
+def read_last_kline_bars(
+    market: str,
+    symbol: str,
+    period: str,
+    *,
+    limit: int = 2,
+) -> list[dict[str, Any]]:
+    """按时间倒序取末 N 根，再正序返回（用于现价/昨收）。"""
+    n = max(int(limit), 1)
+    conn = get_conn()
+    with _lock:
+        rows = conn.execute(
+            """
+            SELECT ts, open, high, low, close, volume, amount, source
+            FROM kline_bar
+            WHERE market=? AND symbol=? AND period=?
+            ORDER BY ts DESC
+            LIMIT ?
+            """,
+            (market, symbol, period, n),
+        ).fetchall()
+    bars = [
+        {
+            "timestamp": int(r["ts"]),
+            "open": r["open"],
+            "high": r["high"],
+            "low": r["low"],
+            "close": r["close"],
+            "volume": r["volume"] if r["volume"] is not None else 0,
+            "amount": r["amount"],
+            "source": r["source"],
+        }
+        for r in reversed(rows)
+    ]
+    return bars
+
+
 def replace_kline_bars(
     market: str,
     symbol: str,

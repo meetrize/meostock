@@ -85,6 +85,105 @@ def catalog_index() -> list[dict[str, Any]]:
     return rows
 
 
+def _index_quote_from_spot(kline_symbol: str) -> dict[str, Any] | None:
+    """新浪/东财现价 → 快照字段。"""
+    from cache.providers.kline_fetch import fetch_cn_spot
+
+    spot = fetch_cn_spot(kline_symbol)
+    if not spot:
+        return None
+    price = float(spot.get("close") or 0)
+    if price <= 0:
+        return None
+    prev = float(spot.get("prev_close") or 0) or None
+    change = (price - prev) if prev else None
+    change_pct = (change / prev * 100.0) if prev and change is not None else None
+    return {
+        "price": price,
+        "open": spot.get("open"),
+        "high": spot.get("high"),
+        "low": spot.get("low"),
+        "prevClose": prev,
+        "change": change,
+        "changePercent": change_pct,
+        "volume": spot.get("volume"),
+        "quoteReady": True,
+    }
+
+
+def _index_quote_from_kline(kline_symbol: str) -> dict[str, Any] | None:
+    """本地日 K 末两根 → 现价/涨跌（闭市或离线时用）。"""
+    from cache.kline_models import read_last_kline_bars
+    from cache.providers.kline_fetch import normalize_symbol
+
+    try:
+        norm = normalize_symbol(kline_symbol)
+    except Exception:
+        return None
+    bars = read_last_kline_bars(norm["market"], norm["symbol"], "1d", limit=2)
+    if not bars:
+        return None
+    last = bars[-1]
+    price = last.get("close")
+    if price is None:
+        return None
+    try:
+        price_f = float(price)
+    except (TypeError, ValueError):
+        return None
+    if price_f <= 0:
+        return None
+    prev = None
+    if len(bars) >= 2 and bars[-2].get("close") is not None:
+        try:
+            prev = float(bars[-2]["close"])
+        except (TypeError, ValueError):
+            prev = None
+    change = (price_f - prev) if prev else None
+    change_pct = (change / prev * 100.0) if prev and change is not None else None
+    return {
+        "price": price_f,
+        "open": last.get("open"),
+        "high": last.get("high"),
+        "low": last.get("low"),
+        "prevClose": prev,
+        "change": change,
+        "changePercent": change_pct,
+        "volume": last.get("volume"),
+        "quoteReady": True,
+    }
+
+
+def enrich_index_quotes(
+    rows: list[dict[str, Any]],
+    *,
+    max_workers: int = 6,
+    allow_network: bool = True,
+) -> list[dict[str, Any]]:
+    """为指数目录补齐报价：优先现货，失败则回退本地日 K 收盘价。"""
+    out = [dict(r) for r in rows]
+
+    def _one(idx: int, row: dict[str, Any]) -> tuple[int, dict[str, Any] | None]:
+        sym = str(row.get("klineSymbol") or row.get("code") or "")
+        if not sym:
+            return idx, None
+        patch = _index_quote_from_spot(sym) if allow_network else None
+        if not patch:
+            patch = _index_quote_from_kline(sym)
+        return idx, patch
+
+    workers = max_workers if allow_network else min(max_workers, 4)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futs = [pool.submit(_one, i, row) for i, row in enumerate(out)]
+        for fut in as_completed(futs):
+            idx, patch = fut.result()
+            if not patch:
+                continue
+            out[idx].update(patch)
+            out[idx]["quoteReady"] = True
+    return out
+
+
 def catalog_futures() -> list[dict[str, Any]]:
     rows = []
     for item in _load_json("futuresCatalog.json"):

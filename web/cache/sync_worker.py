@@ -15,6 +15,7 @@ from cache.providers.lazy_markets import (
     catalog_index,
     catalog_yf,
     enrich_futures_quotes,
+    enrich_index_quotes,
     enrich_yf_quotes,
     fetch_fund_snapshot,
     merge_keep_quotes,
@@ -381,8 +382,29 @@ def _run_sync(market: str, *, force: bool = False) -> dict[str, Any]:
                 progress_cb(n, n)
         elif market == "index":
             prev = models.read_snapshot(market)
-            rows = merge_keep_quotes(catalog_index(), prev)
-            n = models.replace_snapshot(market, rows, source="static")
+            base = catalog_index()
+            if track:
+                _job_expected[market] = max(len(base), 1)
+            if progress_cb:
+                progress_cb(0, len(base) or 1)
+            ready_n = sum(
+                1 for r in prev if r.get("quoteReady") and r.get("price") is not None
+            )
+            # 已有足够报价且非 force：保留旧价，避免闭市反复打网
+            if not force and prev and ready_n >= max(1, int(len(prev) * 0.5)):
+                rows = merge_keep_quotes(base, prev)
+                source = "cache+static"
+            else:
+                try:
+                    enriched = enrich_index_quotes(base, max_workers=6, allow_network=True)
+                except Exception:
+                    enriched = enrich_index_quotes(
+                        base, max_workers=4, allow_network=False
+                    )
+                rows = merge_keep_quotes(enriched, prev)
+                got = sum(1 for r in rows if r.get("price") is not None)
+                source = "eastmoney" if got else "kline+static"
+            n = models.replace_snapshot(market, rows, source=source)
             if progress_cb:
                 progress_cb(n, n)
         elif market == "futures":
