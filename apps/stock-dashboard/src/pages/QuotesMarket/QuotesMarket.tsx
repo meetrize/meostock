@@ -25,6 +25,9 @@ import {
   getUsQuotes,
   getFundQuotes,
   getFuturesLastBar,
+  getAllHKQuotes,
+  getAllUSQuotes,
+  getDomesticFuturesSpotMap,
 } from '@/services/sdk';
 import { useAppSettings } from '@/contexts';
 import {
@@ -449,7 +452,9 @@ async function fetchCacheSnapshot(
     throw new Error('行情同步中，请稍后刷新');
   }
   if (!rows.length) {
-    throw new Error('本地缓存暂无数据');
+    throw new Error(
+      '本地缓存暂无数据。若设置了「仅本地」请改为「自动」或总览菜单切回「缓存（优先快照）」后再刷新'
+    );
   }
   return { rows, meta };
 }
@@ -629,39 +634,69 @@ async function fetchQuotesForMarket(
   }
 
   if (market === 'futures') {
-    let done = 0;
-    const concurrency = 4;
-    for (let i = 0; i < rows.length; i += concurrency) {
-      const chunk = rows.slice(i, i + concurrency);
-      await Promise.all(
-        chunk.map(async (r) => {
-          try {
-            const last = await getFuturesLastBar(r.code);
-            if (!last) return;
-            map.set(r.code, {
-              name: last.name || r.name,
-              price: last.close ?? null,
-              change: last.change ?? null,
-              changePercent: last.changePercent ?? null,
-              open: last.open ?? null,
-              high: last.high ?? null,
-              low: last.low ?? null,
-              volume: last.volume ?? null,
-              amount: last.amount != null ? Number(last.amount) / 10000 : null,
-              amplitude: last.amplitude ?? null,
-              prevClose:
-                last.close != null && last.change != null
-                  ? Number(last.close) - Number(last.change)
-                  : null,
-            });
-          } catch {
-            /* ignore */
-          } finally {
-            done += 1;
-            onProgress?.(done, total);
-          }
-        })
-      );
+    // 优先 futsseapi 现货（push2his/kline 常断）；再按需回退日 K
+    try {
+      const spot = await getDomesticFuturesSpotMap({ force });
+      let done = 0;
+      for (const r of rows) {
+        const hit = spot.get(r.code.toLowerCase());
+        if (hit && hit.price != null) {
+          map.set(r.code, {
+            name: hit.name || r.name,
+            price: hit.price,
+            change: hit.change,
+            changePercent: hit.changePercent,
+            open: hit.open,
+            high: hit.high,
+            low: hit.low,
+            prevClose: hit.prevClose,
+            volume: hit.volume,
+            amount: hit.amount,
+          });
+        }
+        done += 1;
+        onProgress?.(done, total);
+      }
+    } catch {
+      /* spot 失败再走日 K */
+    }
+
+    const missing = rows.filter((r) => !map.has(r.code));
+    if (missing.length) {
+      let done = rows.length - missing.length;
+      const concurrency = 4;
+      for (let i = 0; i < missing.length; i += concurrency) {
+        const chunk = missing.slice(i, i + concurrency);
+        await Promise.all(
+          chunk.map(async (r) => {
+            try {
+              const last = await getFuturesLastBar(r.code);
+              if (!last) return;
+              map.set(r.code, {
+                name: last.name || r.name,
+                price: last.close ?? null,
+                change: last.change ?? null,
+                changePercent: last.changePercent ?? null,
+                open: last.open ?? null,
+                high: last.high ?? null,
+                low: last.low ?? null,
+                volume: last.volume ?? null,
+                amount: last.amount != null ? Number(last.amount) / 10000 : null,
+                amplitude: last.amplitude ?? null,
+                prevClose:
+                  last.close != null && last.change != null
+                    ? Number(last.close) - Number(last.change)
+                    : null,
+              });
+            } catch {
+              /* ignore */
+            } finally {
+              done += 1;
+              onProgress?.(done, total);
+            }
+          })
+        );
+      }
     }
     onProgress?.(total, total);
     return map;
@@ -671,12 +706,77 @@ async function fetchQuotesForMarket(
   return map;
 }
 
+async function loadFromSdkBatch(
+  m: 'hk' | 'us',
+  onProgress?: ProgressFn,
+  force = false
+): Promise<{ rows: QuoteRow[]; meta: CacheSnapshotMeta }> {
+  // 文档 quotes.hk / quotes.us 同源腾讯；全市场用 batch（与 sdk.ts getAll* 一致）
+  const quotes =
+    m === 'hk'
+      ? await getAllHKQuotes({ onProgress, force })
+      : await getAllUSQuotes({ onProgress, force });
+  const marketTag = m === 'hk' ? 'HK' : 'US';
+  const rows = (Array.isArray(quotes) ? quotes : []).map((q) => {
+    const row = fromFullQuote({ ...(q as Parameters<typeof fromFullQuote>[0]), market: marketTag });
+    return { ...row, quoteReady: true };
+  });
+  void persistQuotesToCache(m, rows);
+  const now = Date.now() / 1000;
+  return {
+    rows,
+    meta: {
+      asOf: now,
+      syncedAt: now,
+      stale: false,
+      syncing: false,
+      source: 'stock-sdk',
+      total: rows.length,
+    },
+  };
+}
+
+/** 港美：只读一次缓存，空/失败立刻返回 null（避免冷启动干等 45s） */
+async function peekCacheSnapshot(market: 'hk' | 'us'): Promise<{
+  rows: QuoteRow[];
+  meta: CacheSnapshotMeta;
+} | null> {
+  try {
+    const qs = new URLSearchParams({ market });
+    const res = await fetch(`/api/cache/snapshot?${qs}`);
+    const data = await res.json();
+    if (!data.ok) return null;
+    const items = (data.items || []) as Array<Record<string, unknown>>;
+    if (!items.length) return null;
+    return {
+      rows: items.map(itemToQuoteRow),
+      meta: {
+        asOf: typeof data.as_of === 'number' ? data.as_of : null,
+        syncedAt: typeof data.synced_at === 'number' ? data.synced_at : null,
+        stale: Boolean(data.stale),
+        syncing: Boolean(data.syncing),
+        source: data.source ? String(data.source) : null,
+        total: Number(data.total) || items.length,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function loadMarketRows(
   m: MarketId,
   onProgress?: ProgressFn,
   force = false
 ): Promise<{ rows: QuoteRow[]; meta: CacheSnapshotMeta }> {
-  // 全市场走本机 SQLite 缓存（服务端东财 clist / 静态目录 / yf）
+  // 优先本机 SQLite；港美东财 clist 失败时回退浏览器 stock-sdk（腾讯源，见文档 quotes）
+  if (m === 'hk' || m === 'us') {
+    if (!force) {
+      const cached = await peekCacheSnapshot(m);
+      if (cached?.rows.length) return cached;
+    }
+    return loadFromSdkBatch(m, onProgress, force);
+  }
   return fetchCacheSnapshot(m, force, onProgress);
 }
 

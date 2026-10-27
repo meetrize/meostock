@@ -279,11 +279,122 @@ export async function getUsQuotes(codes: string[]) {
   return sdk.quotes.us(codes);
 }
 
-/** 国内期货主连：无独立 quotes，用最近日 K 近似 */
+/** 国内期货主连：无独立 quotes，用最近日 K 近似（东财 push2his，偶发不可达） */
 export async function getFuturesLastBar(symbol: string) {
   const rows = await sdk.futures.kline(symbol, { period: 'daily' });
   if (!Array.isArray(rows) || !rows.length) return null;
   return rows[rows.length - 1];
+}
+
+/** 全球期货实时行情（文档 futures.globalSpot；东财源） */
+export async function getFuturesGlobalSpot(options?: { pageSize?: number; force?: boolean }) {
+  const key = getCacheKey('futures.globalSpot', options?.pageSize);
+  if (options?.force) cache.delete(key);
+  return withCache(key, DEFAULT_TTL.quotes, () =>
+    sdk.futures.globalSpot({ pageSize: options?.pageSize })
+  );
+}
+
+/** 东财期货交易所 market id（主连/合约列表，CORS *，push2 不通时仍可用） */
+const FUTURES_EXCHANGE_MID: Record<string, number> = {
+  SHFE: 113,
+  DCE: 114,
+  CZCE: 115,
+  CFFEX: 8,
+  INE: 142,
+  GFEX: 225,
+};
+
+/** 中金所主连：目录用 IFM 等，futsseapi 用数字 dm */
+const CFFEX_MAIN_ALIAS: Record<string, string> = {
+  ifm: '040130',
+  ihm: '070130',
+  icm: '060130',
+  imm: '150130',
+  tfm: '050130',
+  tm: '110130',
+  tlm: '140130',
+  tsm: '130130',
+};
+
+export interface DomesticFuturesSpot {
+  code: string;
+  name: string;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  prevClose: number | null;
+  volume: number | null;
+  amount: number | null;
+}
+
+/**
+ * 国内期货现货快照（futsseapi，按交易所一次拉全表）。
+ * 目录主连码如 AUM/RBM 对应接口 dm=aum/rbm（大小写不敏感）。
+ */
+export async function getDomesticFuturesSpotMap(options?: {
+  force?: boolean;
+}): Promise<Map<string, DomesticFuturesSpot>> {
+  const key = getCacheKey('futures.domesticSpot');
+  if (options?.force) cache.delete(key);
+
+  const cached = await withCache(key, DEFAULT_TTL.quotes, async () => {
+    const mids = Object.values(FUTURES_EXCHANGE_MID);
+    const field = 'dm,sc,name,p,zde,zdf,o,h,l,zjsj,vol,cje';
+    const pages = await Promise.all(
+      mids.map(async (mid) => {
+        const url =
+          `https://futsseapi.eastmoney.com/list/${mid}` +
+          `?orderBy=zdf&sort=desc&pageSize=500&pageIndex=0` +
+          `&token=12345678567890ab&field=${encodeURIComponent(field)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`futsseapi ${mid} HTTP ${res.status}`);
+        const data = (await res.json()) as {
+          list?: Array<Record<string, unknown>>;
+        };
+        return Array.isArray(data.list) ? data.list : [];
+      })
+    );
+
+    const out: Record<string, DomesticFuturesSpot> = {};
+    const num = (v: unknown): number | null => {
+      if (v === null || v === undefined || v === '' || v === '-') return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    for (const row of pages.flat()) {
+      const dm = String(row.dm || '')
+        .trim()
+        .toLowerCase();
+      if (!dm) continue;
+      const amountYuan = num(row.cje);
+      const spot: DomesticFuturesSpot = {
+        code: dm.toUpperCase(),
+        name: String(row.name || dm),
+        price: num(row.p),
+        change: num(row.zde),
+        changePercent: num(row.zdf),
+        open: num(row.o),
+        high: num(row.h),
+        low: num(row.l),
+        prevClose: num(row.zjsj),
+        volume: num(row.vol),
+        amount: amountYuan != null ? amountYuan / 10000 : null,
+      };
+      out[dm] = spot;
+    }
+    // 目录码 IFM → 040130 等
+    for (const [alias, dm] of Object.entries(CFFEX_MAIN_ALIAS)) {
+      const hit = out[dm];
+      if (hit) out[alias] = { ...hit, code: alias.toUpperCase() };
+    }
+    return out;
+  });
+
+  return new Map(Object.entries(cached));
 }
 
 // ========== K 线数据 API ==========

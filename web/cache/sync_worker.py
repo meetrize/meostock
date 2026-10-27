@@ -354,10 +354,8 @@ def _run_sync(market: str, *, force: bool = False) -> dict[str, Any]:
             def _batch(rows: list[dict[str, Any]]) -> None:
                 models.upsert_snapshot_rows(market, rows, source="eastmoney")
 
-            if track:
-                rows, source = _fetch_full_with_fallback(market, on_batch=_batch)
-            else:
-                rows, source = fetch_market_snapshot(market, on_batch=_batch)
+            # 单市场入队也走东财→新浪回退（原先仅 sync-all 进度任务走 fallback）
+            rows, source = _fetch_full_with_fallback(market, on_batch=_batch)
             n = models.replace_snapshot(market, rows, source=source)
         elif market == "fund":
             if progress_cb:

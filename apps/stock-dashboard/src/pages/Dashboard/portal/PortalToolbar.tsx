@@ -80,7 +80,7 @@ export function PortalToolbar({
     updateSettings({ quoteSource: source });
     try {
       await syncQuoteSourceToServer(source);
-      toast.success(source === 'network' ? '已切换实时数据' : '已切换缓存数据');
+      toast.success(source === 'network' ? '已切换实时数据' : '已切换优先缓存');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     }
@@ -184,7 +184,8 @@ export function PortalToolbar({
                 className={`${styles.toggleBtn} ${!realtime ? styles.toggleActive : ''}`}
                 aria-pressed={!realtime}
                 onClick={() => {
-                  if (realtime) void setQuoteSource('local');
+                  // 「缓存」= 优先本机快照、过期再同步；勿用 local（仅本地会禁止入队，空库时全失败）
+                  if (realtime) void setQuoteSource('auto');
                 }}
               >
                 缓存

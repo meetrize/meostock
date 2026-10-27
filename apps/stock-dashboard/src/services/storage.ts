@@ -39,7 +39,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     heatmap: 10000,
   },
   cacheMode: 'balanced',
-  quoteSource: 'network',
+  /** 与文档一致：优先本机快照，过期后台同步；勿默认 network/local */
+  quoteSource: 'auto',
   colorMode: 'red-rise',
   heatmapConfig: {
     dimension: 'industry',
@@ -401,12 +402,28 @@ export function getSettings(): AppSettings {
     parsed.cacheMode === 'realtime'
       ? parsed.cacheMode
       : DEFAULT_SETTINGS.cacheMode;
-  const quoteSource =
+  let quoteSource =
     parsed.quoteSource === 'auto' ||
     parsed.quoteSource === 'local' ||
     parsed.quoteSource === 'network'
       ? parsed.quoteSource
       : DEFAULT_SETTINGS.quoteSource;
+
+  // 总览「缓存」曾误写成 local（禁止联网同步），空库时行情页全挂；一次性纠正为 auto。
+  // 仍需「仅本地」可在设置页重新选择。
+  const portalLocalFixKey = 'settings.quoteSource.portalLocalFix.v1';
+  try {
+    if (quoteSource === 'local' && !localStorage.getItem(portalLocalFixKey)) {
+      quoteSource = 'auto';
+      localStorage.setItem(portalLocalFixKey, '1');
+      const next = { ...parsed, quoteSource: 'auto' as const };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({ ...DEFAULT_SETTINGS, ...next }));
+    } else if (!localStorage.getItem(portalLocalFixKey)) {
+      localStorage.setItem(portalLocalFixKey, '1');
+    }
+  } catch {
+    /* ignore */
+  }
 
   return {
     ...DEFAULT_SETTINGS,
