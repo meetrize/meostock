@@ -15,6 +15,11 @@ YF_MARKETS: list[dict[str, str]] = [
     {"code": "EUROPE", "name": "欧洲", "desc": "欧洲主要股指"},
     {"code": "RATES", "name": "利率", "desc": "美债收益率等"},
     {"code": "COMMODITIES", "name": "大宗商品", "desc": "金银油气等期货"},
+    {
+        "code": "METALS",
+        "name": "贵金属/能源",
+        "desc": "金银铜铂钯与原油天然气等（Yahoo 期货近似现货）",
+    },
     {"code": "CURRENCIES", "name": "外汇", "desc": "主要货币对"},
     {"code": "CRYPTOCURRENCIES", "name": "加密货币", "desc": "主流数字货币"},
 ]
@@ -89,6 +94,9 @@ YF_NAME_ZH: dict[str, str] = {
     "PA=F": "钯金期货",
     "PL=F": "铂金期货",
     "ALI=F": "铝期货",
+    "ZNC=F": "锌期货",
+    "XNIUSD": "镍（暂无免费行情）",
+    "XPBUSD": "铅（暂无免费行情）",
     # CURRENCIES（Yahoo 多为 XXX=X 表示兑美元，或 EURUSD=X）
     "EURUSD=X": "欧元/美元",
     "JPY=X": "美元/日元",
@@ -226,6 +234,21 @@ YF_CATALOG: dict[str, list[dict[str, str]]] = {
         {"symbol": "HE=F", "exchange": "CME"},
         {"symbol": "GF=F", "exchange": "CME"},
     ],
+    # 固定「贵金属/能源」表：经纪商 XAUUSD 等无统一免费源，用 Yahoo 期货连续约近似
+    "METALS": [
+        {"symbol": "GC=F", "exchange": "CMX", "name": "现货黄金 GOLD（XAUUSD≈COMEX金）"},
+        {"symbol": "SI=F", "exchange": "CMX", "name": "现货白银 Silver（XAGUSD≈COMEX银）"},
+        {"symbol": "ALI=F", "exchange": "CMX", "name": "铝 Aluminum（XALUSD≈）"},
+        {"symbol": "HG=F", "exchange": "CMX", "name": "铜 COPPER（XCUUSD≈COMEX铜）"},
+        {"symbol": "PA=F", "exchange": "NYM", "name": "钯 Palladium（XPDUSD≈）"},
+        {"symbol": "PL=F", "exchange": "NYM", "name": "铂金 Platinum（XPTUSD≈）"},
+        {"symbol": "XNIUSD", "exchange": "LME", "name": "镍 Nickel（暂无免费行情）"},
+        {"symbol": "XPBUSD", "exchange": "LME", "name": "铅 Lead（暂无免费行情）"},
+        {"symbol": "ZNC=F", "exchange": "CMX", "name": "锌 Zinc（XZNUSD≈）"},
+        {"symbol": "BZ=F", "exchange": "NYM", "name": "英国原油 UKOIL（布伦特）"},
+        {"symbol": "CL=F", "exchange": "NYM", "name": "美国原油 USOIL（WTI）"},
+        {"symbol": "NG=F", "exchange": "NYM", "name": "天然气 NGAS（XNGUSD≈）"},
+    ],
     "CURRENCIES": [
         {"symbol": "USDCNY=X", "exchange": "CCY"},
         {"symbol": "CNY=X", "exchange": "CCY"},
@@ -302,11 +325,12 @@ def catalog_items(market: str) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for row in rows:
         sym = row["symbol"]
+        custom_name = str(row.get("name") or "").strip()
         items.append(
             {
                 "symbol": f"yf:{sym}",
                 "code": sym,
-                "name": translate_name(sym),
+                "name": custom_name or translate_name(sym),
                 "nameEn": "",
                 "market": f"yf:{market}",
                 "marketLabel": label,

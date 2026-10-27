@@ -153,6 +153,7 @@ const MARKETS: MarketDef[] = [
   { id: 'futures', label: '期货', group: 'stock-sdk' },
   { id: 'fund', label: '基金', group: 'stock-sdk' },
   { id: 'index', label: '指数', group: 'stock-sdk' },
+  { id: 'yf:METALS', label: '贵金属/能源', group: 'yfinance' },
   { id: 'yf:COMMODITIES', label: '大宗商品', group: 'yfinance' },
   { id: 'yf:CURRENCIES', label: '外汇', group: 'yfinance' },
   { id: 'yf:CRYPTOCURRENCIES', label: '加密货币', group: 'yfinance' },

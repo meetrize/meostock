@@ -1038,7 +1038,10 @@ def yf_markets() -> JSONResponse:
 
 @app.get("/api/yf/symbols")
 def yf_symbols(
-    market: str = Query("COMMODITIES", description="US|GB|ASIA|EUROPE|RATES|COMMODITIES|CURRENCIES|CRYPTOCURRENCIES"),
+    market: str = Query(
+        "COMMODITIES",
+        description="US|GB|ASIA|EUROPE|RATES|COMMODITIES|METALS|CURRENCIES|CRYPTOCURRENCIES",
+    ),
     q: str = Query("", description="代码/中英文名过滤"),
     refresh: int = Query(0, description="1=跳过列表缓存"),
 ) -> JSONResponse:

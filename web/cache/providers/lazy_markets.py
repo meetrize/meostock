@@ -421,7 +421,10 @@ def enrich_yf_quotes(
             if not q:
                 continue
             row = out[i]
-            row["name"] = str(q.get("name") or row.get("name") or row.get("code"))
+            # 保留目录自定义名（如贵金属/能源表的 GOLD/XAUUSD 说明）
+            existing = str(row.get("name") or "").strip()
+            if not existing or existing == str(row.get("code") or ""):
+                row["name"] = str(q.get("name") or existing or row.get("code"))
             row["price"] = q.get("price")
             row["change"] = q.get("change")
             row["changePercent"] = q.get("changePercent")
@@ -432,7 +435,8 @@ def enrich_yf_quotes(
             row["volume"] = q.get("volume")
             row["amount"] = q.get("amount")
             row["amplitude"] = q.get("amplitude")
-            row["quoteReady"] = row.get("price") is not None
+            # 占位码（无 Yahoo 源）也标 ready，避免页面空转重试
+            row["quoteReady"] = True
     return out
 
 
