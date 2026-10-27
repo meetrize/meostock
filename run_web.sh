@@ -76,12 +76,24 @@ else
 fi
 
 python - <<'PY' >/dev/null 2>&1 || pip install -q fastapi uvicorn yfinance
-import fastapi, uvicorn
+import subprocess
+import sys
+
+import fastapi, uvicorn  # noqa: F401
+
 try:
     import yfinance  # noqa: F401
 except ImportError:
-    import subprocess, sys
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "yfinance"])
+
+# Python < 3.10：Pydantic 解析 list[str] | None 需要 backport，否则 /api/cache/* 整组禁用
+if sys.version_info < (3, 10):
+    try:
+        import eval_type_backport  # noqa: F401
+    except ImportError:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "-q", "eval_type_backport"]
+        )
 PY
 
 export PYTHONPATH="${ROOT}/web:${PYTHONPATH:-}"
