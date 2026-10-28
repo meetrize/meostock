@@ -32,6 +32,7 @@ import { useToast } from '@/components/common';
 import { useIsInWatchlist, useTheme } from '@/hooks';
 import type { SearchHistoryItem } from '@/types';
 import type { AppSearchResult } from '@/services/sdk';
+import { SyncIndicator } from './SyncIndicator';
 import styles from './Header.module.css';
 
 function getHistoryRoute(item: SearchHistoryItem): string | null {
@@ -357,6 +358,7 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
       </div>
 
       <div className={styles.right}>
+        <SyncIndicator />
         <button
           className={styles.themeBtn}
           onClick={toggleTheme}

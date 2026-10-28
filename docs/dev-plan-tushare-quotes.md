@@ -11,7 +11,8 @@
 | 5 | Token | 环境变量；`docs/tushare.txt` 脱敏 |
 | 6 | 前端直连上游 | **禁止**；一律本机 `/api/tushare/*` |
 
-权威设计：[`tushare-quotes-integration-plan.md`](./tushare-quotes-integration-plan.md)
+权威设计：[`tushare-quotes-integration-plan.md`](./tushare-quotes-integration-plan.md)  
+缓存续作：[`tushare-local-cache.md`](./tushare-local-cache.md) · [`dev-plan-tushare-local-cache.md`](./dev-plan-tushare-local-cache.md)
 
 ---
 

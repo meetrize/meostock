@@ -10,3 +10,6 @@ export { AppSettingsProvider } from './AppSettingsProvider';
 export { BoardDataProvider } from './BoardDataContext';
 export { useBoardData } from './useBoardData';
 export { useAppSettings } from './useAppSettings';
+
+export { SyncStatusProvider } from './SyncStatusProvider';
+export { useSyncStatus } from './useSyncStatus';

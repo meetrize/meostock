@@ -46,6 +46,11 @@ export interface TushareMarketResult {
   hint?: string;
   placeholder?: boolean;
   meta?: Record<string, unknown>;
+  cached?: boolean;
+  stale?: boolean;
+  syncing?: boolean;
+  synced_at?: number | null;
+  as_of?: number | null;
 }
 
 export interface TushareTradeDateResult {
@@ -101,6 +106,40 @@ export async function fetchTushareHealth(): Promise<{
   } catch {
     return { ok: false };
   }
+}
+
+export async function fetchTushareSchedule(): Promise<{
+  ok: boolean;
+  enabled?: boolean;
+  cron?: string[];
+  last_run?: string | null;
+  last_result?: string | null;
+  error?: string;
+}> {
+  const res = await fetch('/api/tushare/schedule');
+  return res.json();
+}
+
+export async function setTushareSchedule(enabled: boolean): Promise<{
+  ok: boolean;
+  enabled?: boolean;
+  error?: string;
+}> {
+  const res = await fetch('/api/tushare/schedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  return res.json();
+}
+
+export async function clearTushareCache(): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch('/api/tushare/cache/clear', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+  return res.json();
 }
 
 export function isTushareMarketId(id: string): boolean {

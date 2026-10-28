@@ -21,6 +21,7 @@ from cache.providers.lazy_markets import (
     merge_keep_quotes,
 )
 from cache.providers.sina_snapshot import SINA_HQ_NODE, fetch_sina_market_snapshot
+from cache.source_lanes import LANE_META, lane_of, markets_for_lane
 
 ProgressCb = Callable[[int, int], None]
 
@@ -113,7 +114,60 @@ def _set_progress(**kwargs: Any) -> None:
 
 def get_progress() -> dict[str, Any]:
     with _progress_lock:
-        return dict(_progress)
+        base = dict(_progress)
+    # 按来源轨汇总（供顶栏分轨 UI）
+    lanes: dict[str, dict[str, Any]] = {}
+    for lane in ("em-sina", "lazy-catalog", "yfinance"):
+        lanes[lane] = {
+            "lane": lane,
+            "label": LANE_META[lane]["label"],
+            "title": LANE_META[lane]["title"],
+            "active": False,
+            "done": 0,
+            "total": 0,
+            "percent": 0,
+            "market": None,
+            "market_label": None,
+            "message": "",
+        }
+    job_markets = list(_job_markets) if base.get("active") else []
+    if job_markets:
+        # 本批各轨应完成市场数
+        by_lane: dict[str, list[str]] = {}
+        for m in job_markets:
+            by_lane.setdefault(lane_of(m), []).append(m)
+        cur = base.get("market")
+        cur_lane = lane_of(str(cur)) if cur else None
+        markets_done = int(base.get("markets_done") or 0)
+        # 粗算：已完成个数按队列顺序前缀
+        finished = set(job_markets[:markets_done])
+        for lane, ms in by_lane.items():
+            if lane not in lanes:
+                continue
+            total = len(ms)
+            done = sum(1 for m in ms if m in finished)
+            active = bool(base.get("active") and cur_lane == lane)
+            if active and cur and cur not in finished:
+                # 当前市场进行中：用 item 进度估一点
+                item_t = max(1, int(base.get("total") or 1))
+                item_d = max(0, min(int(base.get("done") or 0), item_t))
+                frac = item_d / item_t
+                percent = int(min(99, (done + frac) / total * 100)) if total else 0
+            else:
+                percent = int(done / total * 100) if total else 0
+            lanes[lane].update(
+                {
+                    "active": active,
+                    "done": done + (1 if active and cur and cur not in finished else 0),
+                    "total": total,
+                    "percent": percent if total else 0,
+                    "market": cur if active else None,
+                    "market_label": base.get("market_label") if active else None,
+                    "message": base.get("message") or "",
+                }
+            )
+    base["lanes"] = lanes
+    return base
 
 
 def _recompute_overall(*, item_done: int = 0, item_total: int = 0) -> tuple[int, int]:
@@ -277,18 +331,29 @@ def start_sync(market: str, *, force: bool = True) -> dict[str, Any]:
     return {"ok": True, "queued": True, "market": market}
 
 
-def start_sync_all(*, force: bool = True, markets: list[str] | None = None) -> dict[str, Any]:
-    """后台同步全部（或指定）市场。"""
+def start_sync_all(
+    *,
+    force: bool = True,
+    markets: list[str] | None = None,
+    lanes: list[str] | None = None,
+) -> dict[str, Any]:
+    """后台同步全部（或指定市场 / 来源轨）。"""
     if markets:
         targets = [_normalize_market(m) for m in markets]
+    elif lanes:
+        targets = []
+        for lane in lanes:
+            targets.extend(markets_for_lane(lane))
     else:
         targets = list(_ALL_SYNC_MARKETS)
     seen: set[str] = set()
     ordered: list[str] = []
     for m in targets:
-        if m not in seen:
+        if m not in seen and lane_of(m) != "placeholder":
             seen.add(m)
             ordered.append(m)
+    if not ordered:
+        return {"ok": False, "error": "无有效市场", "markets": []}
     _begin_job("all", ordered)
     for i, m in enumerate(ordered):
         enqueue(m, force=force, priority=1 + i)
@@ -297,6 +362,7 @@ def start_sync_all(*, force: bool = True, markets: list[str] | None = None) -> d
         "queued": True,
         "markets": ordered,
         "markets_total": len(ordered),
+        "lanes": sorted({lane_of(m) for m in ordered}),
     }
 
 

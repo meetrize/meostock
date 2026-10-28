@@ -4,7 +4,12 @@
 
 import { AppRouter } from './router';
 import { ToastProvider } from './components/common';
-import { ThemeProvider, AppSettingsProvider, BoardDataProvider } from './contexts';
+import {
+  ThemeProvider,
+  AppSettingsProvider,
+  BoardDataProvider,
+  SyncStatusProvider,
+} from './contexts';
 
 export function App() {
   return (
@@ -12,7 +17,9 @@ export function App() {
       <AppSettingsProvider>
         <BoardDataProvider>
           <ToastProvider>
-            <AppRouter />
+            <SyncStatusProvider>
+              <AppRouter />
+            </SyncStatusProvider>
           </ToastProvider>
         </BoardDataProvider>
       </AppSettingsProvider>

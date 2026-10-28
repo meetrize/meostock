@@ -110,6 +110,10 @@
 }
 
 .marketItem {
+  display: grid;
+  grid-template-columns: 8px 1fr auto;
+  align-items: center;
+  gap: 8px;
   text-align: left;
   border: 1px solid transparent;
   background: transparent;
@@ -128,6 +132,26 @@
 .marketItem.active {
   background: linear-gradient(135deg, rgba(105, 178, 255, 0.18), rgba(105, 178, 255, 0.08));
   border-color: rgba(105, 178, 255, 0.16);
+}
+
+.laneBadge {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.marketLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.laneTag {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 
 .main {

@@ -91,13 +91,14 @@ class ModeBody(BaseModel):
 class SyncBody(BaseModel):
     market: str
     force: bool = True
-    # True=后台入队并返回进度；False=阻塞跑完（兼容旧脚本）
-    background: bool = False
+    # 默认后台入队（不挡 UI）；False=阻塞跑完（兼容旧脚本）
+    background: bool = True
 
 
 class SyncAllBody(BaseModel):
     force: bool = True
     markets: list[str] | None = None
+    lanes: list[str] | None = None  # em-sina | lazy-catalog | yfinance
 
 
 class ClearBody(BaseModel):
@@ -318,7 +319,11 @@ def cache_sync(body: SyncBody) -> JSONResponse:
 def cache_sync_all(body: SyncAllBody) -> JSONResponse:
     if not _ENABLED:
         return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
-    result = start_sync_all(force=bool(body.force), markets=body.markets)
+    result = start_sync_all(
+        force=bool(body.force),
+        markets=body.markets,
+        lanes=body.lanes,
+    )
     return JSONResponse(result)
 
 
@@ -328,6 +333,25 @@ def cache_sync_progress() -> JSONResponse:
         return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
     prog = get_progress()
     return JSONResponse({"ok": True, **prog, "syncing": is_syncing()})
+
+
+@router.get("/sync/catalog")
+def cache_sync_catalog() -> JSONResponse:
+    """来源轨 × 市场对照 + 各市场 meta（供徽章/设置矩阵）。"""
+    from cache.source_lanes import catalog_payload
+
+    payload = catalog_payload()
+    metas = {m["market"]: m for m in models.list_market_meta()} if _ENABLED else {}
+    for lane in payload.get("lanes") or []:
+        for node in lane.get("markets") or []:
+            mid = node["id"]
+            meta = metas.get(mid) or metas.get(mid.lower())
+            if meta:
+                node["synced_at"] = meta.get("snapshot_synced_at")
+                node["row_count"] = meta.get("row_count")
+                node["source"] = meta.get("source")
+                node["sync_state"] = meta.get("sync_state")
+    return JSONResponse(payload)
 
 
 @router.post("/mode")

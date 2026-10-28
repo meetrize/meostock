@@ -98,3 +98,32 @@ CREATE TABLE IF NOT EXISTS kline_meta (
   last_access_at REAL,
   PRIMARY KEY (market, symbol, period)
 );
+
+-- Tushare 专题切片（按 market_id + trade_date）
+CREATE TABLE IF NOT EXISTS ts_snapshot (
+  market_id TEXT NOT NULL,
+  trade_date TEXT NOT NULL,
+  table_kind TEXT NOT NULL DEFAULT 'topic',
+  label TEXT NOT NULL DEFAULT '',
+  columns_json TEXT NOT NULL DEFAULT '[]',
+  items_json TEXT NOT NULL DEFAULT '[]',
+  row_count INTEGER NOT NULL DEFAULT 0,
+  source TEXT,
+  as_of REAL,
+  synced_at REAL NOT NULL,
+  etag TEXT,
+  PRIMARY KEY (market_id, trade_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ts_snapshot_synced ON ts_snapshot (market_id, synced_at);
+
+CREATE TABLE IF NOT EXISTS ts_market_meta (
+  market_id TEXT PRIMARY KEY,
+  last_trade_date TEXT,
+  as_of REAL,
+  synced_at REAL,
+  row_count INTEGER NOT NULL DEFAULT 0,
+  source TEXT,
+  sync_state TEXT NOT NULL DEFAULT 'idle',
+  last_error TEXT
+);

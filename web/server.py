@@ -58,11 +58,28 @@ except Exception as _cache_exc:  # noqa: BLE001 — 缓存可选，失败不阻�
 
     logging.getLogger("uvicorn.error").warning("quote cache disabled: %s", _cache_exc)
 
-# Tushare 双中继网关（行情页专题 / 新市场）
+# Tushare 双中继网关（行情页专题 / 新市场 + 本地缓存/定时）
 try:
     from tsrelay.api import router as _tushare_router
+    from tsrelay.scheduler import start_scheduler as _ts_start_scheduler
+    from tsrelay.store import ensure_schema as _ts_ensure_schema
+    from tsrelay.sync_worker import start_worker as _ts_start_worker
 
     app.include_router(_tushare_router)
+
+    @app.on_event("startup")
+    def _tushare_startup() -> None:
+        if os.environ.get("TUSHARE_ENABLED", "1").strip() in ("0", "false", "False"):
+            return
+        try:
+            _ts_ensure_schema()
+            _ts_start_worker()
+            _ts_start_scheduler()
+        except Exception as exc:  # noqa: BLE001
+            import logging
+
+            logging.getLogger("uvicorn.error").warning("tushare startup: %s", exc)
+
 except Exception as _ts_exc:  # noqa: BLE001
     import logging
 

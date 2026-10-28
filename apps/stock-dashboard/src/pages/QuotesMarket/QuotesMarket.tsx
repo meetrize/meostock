@@ -29,7 +29,7 @@ import {
   getAllUSQuotes,
   getDomesticFuturesSpotMap,
 } from '@/services/sdk';
-import { useAppSettings } from '@/contexts';
+import { useAppSettings, useSyncStatus } from '@/contexts';
 import {
   formatPrice,
   formatPercent,
@@ -48,6 +48,7 @@ import {
   type TushareCol,
   type TushareNavGroup,
 } from '@/services/tushare';
+import { LANE_META, laneOf } from '@/services/sourceLanes';
 import styles from './QuotesMarket.module.css';
 
 /** 原 cache/sdk 市场 + Tushare 节点（ts:*） */
@@ -380,96 +381,6 @@ interface CacheSnapshotMeta {
   syncing: boolean;
   source: string | null;
   total: number;
-}
-
-interface CacheSyncProgress {
-  active: boolean;
-  syncing: boolean;
-  job: 'single' | 'all' | string | null;
-  marketsTotal: number;
-  marketsDone: number;
-  market: string | null;
-  marketLabel: string | null;
-  done: number;
-  total: number;
-  overallDone: number;
-  overallTotal: number;
-  okCount: number;
-  failCount: number;
-  message: string;
-  source: string | null;
-  errors: Array<{ market: string; error: string }>;
-}
-
-async function postCacheSync(market: MarketId): Promise<void> {
-  const res = await fetch('/api/cache/sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ market: String(market), force: true, background: true }),
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || '同步请求失败');
-}
-
-async function postCacheSyncAll(): Promise<{ marketsTotal: number }> {
-  const res = await fetch('/api/cache/sync-all', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ force: true }),
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || '同步全部失败');
-  return { marketsTotal: Number(data.markets_total) || 0 };
-}
-
-async function fetchCacheSyncProgress(): Promise<CacheSyncProgress> {
-  const res = await fetch('/api/cache/sync/progress');
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || '进度读取失败');
-  return {
-    active: Boolean(data.active),
-    syncing: Boolean(data.syncing),
-    job: data.job ?? null,
-    marketsTotal: Number(data.markets_total) || 0,
-    marketsDone: Number(data.markets_done) || 0,
-    market: data.market ? String(data.market) : null,
-    marketLabel: data.market_label ? String(data.market_label) : null,
-    done: Number(data.done) || 0,
-    total: Number(data.total) || 0,
-    overallDone: Number(data.overall_done) || 0,
-    overallTotal: Number(data.overall_total) || 0,
-    okCount: Number(data.ok_count) || 0,
-    failCount: Number(data.fail_count) || 0,
-    message: String(data.message || ''),
-    source: data.source ? String(data.source) : null,
-    errors: Array.isArray(data.errors) ? data.errors : [],
-  };
-}
-
-/** 轮询后台同步进度，直到结束；返回最终进度 */
-async function waitCacheSync(
-  onProgress: (p: CacheSyncProgress) => void,
-  signal?: { cancelled: boolean }
-): Promise<CacheSyncProgress> {
-  let last: CacheSyncProgress | null = null;
-  const deadline = Date.now() + 30 * 60_000;
-  // 等任务真正开始
-  for (let i = 0; i < 40; i++) {
-    if (signal?.cancelled) break;
-    last = await fetchCacheSyncProgress();
-    onProgress(last);
-    if (last.active || last.syncing) break;
-    await new Promise((r) => setTimeout(r, 120));
-  }
-  while (Date.now() < deadline) {
-    if (signal?.cancelled) break;
-    last = await fetchCacheSyncProgress();
-    onProgress(last);
-    if (!last.active && !last.syncing) break;
-    await new Promise((r) => setTimeout(r, 350));
-  }
-  if (!last) last = await fetchCacheSyncProgress();
-  return last;
 }
 
 function itemToQuoteRow(item: Record<string, unknown>): QuoteRow {
@@ -1015,6 +926,13 @@ export function QuotesMarket() {
   const toast = useToast();
   const isInWatchlist = useIsInWatchlist();
   const { settings } = useAppSettings();
+  const {
+    tracks,
+    softVersion,
+    completedLanes,
+    requestSyncMarket,
+    requestSyncLane,
+  } = useSyncStatus();
   const [navTree, setNavTree] = useState<TushareNavGroup[]>(FALLBACK_TREE);
   const markets = useMemo(() => flattenNav(navTree), [navTree]);
   const [market, setMarket] = useState<MarketId>('cn');
@@ -1030,8 +948,6 @@ export function QuotesMarket() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState('');
   const [cacheMeta, setCacheMeta] = useState<CacheSnapshotMeta | null>(null);
-  const [cacheSyncing, setCacheSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState<CacheSyncProgress | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT.key);
   const [sortDir, setSortDir] = useState<1 | -1>(DEFAULT_SORT.dir);
   const [page, setPage] = useState(1);
@@ -1040,7 +956,9 @@ export function QuotesMarket() {
   const forceQuotesRef = useRef(false);
   /** 离开美股前记住的非美股排序，切回其他市场时恢复 */
   const nonUsSortRef = useRef<SortState>(DEFAULT_SORT);
-  const syncAbortRef = useRef<{ cancelled: boolean } | null>(null);
+  const marketLane = laneOf(market);
+  const laneTrack = tracks.find((t) => t.lane === marketLane);
+  const nodeSyncing = Boolean(laneTrack?.active);
 
   useEffect(() => {
     let cancelled = false;
@@ -1059,15 +977,17 @@ export function QuotesMarket() {
   }, []);
 
   const loadMarket = useCallback(
-    async (m: MarketId, force = false, dateOverride?: string) => {
+    async (m: MarketId, force = false, dateOverride?: string, soft = false) => {
       const def = markets.find((x) => x.id === m);
       const label = def?.label || String(m);
-      setLoading(true);
-      setPageLoading(false);
-      setError('');
-      setCacheMeta(null);
-      setPlaceholderHint('');
-      setProgress({ done: 0, total: 0 });
+      if (!soft) {
+        setLoading(true);
+        setPageLoading(false);
+        setError('');
+        setCacheMeta(null);
+        setPlaceholderHint('');
+        setProgress({ done: 0, total: 0 });
+      }
 
       // 占位节点
       if (def?.kind === 'placeholder' || m.startsWith('ts:ph:')) {
@@ -1083,14 +1003,16 @@ export function QuotesMarket() {
       // Tushare 专题 / 新市场
       if (isTushareMarketId(m)) {
         const td = dateOverride || tradeDateInput || tradeDate;
-        setLoadHint(`正在加载${label}${td ? `（${td}）` : ''}…`);
+        if (!soft) setLoadHint(`正在加载${label}${td ? `（${td}）` : ''}…`);
         try {
           const data = await fetchTushareMarket(m, td || undefined);
           if (!data.ok) {
-            setRows([]);
-            setError(data.error || '加载失败');
-            setActiveColumns(COLUMNS);
-            setTableKind('topic');
+            if (!soft) {
+              setRows([]);
+              setError(data.error || '加载失败');
+              setActiveColumns(COLUMNS);
+              setTableKind('topic');
+            }
             return;
           }
           if (data.placeholder) {
@@ -1110,39 +1032,44 @@ export function QuotesMarket() {
           setTableKind((data.table as 'quote' | 'topic') || 'topic');
           setRows((data.items || []) as TopicRow[]);
           setCacheMeta({
-            asOf: Date.now() / 1000,
-            syncedAt: Date.now() / 1000,
-            stale: false,
-            syncing: false,
+            asOf: typeof data.as_of === 'number' ? data.as_of : Date.now() / 1000,
+            syncedAt:
+              typeof data.synced_at === 'number' ? data.synced_at : Date.now() / 1000,
+            stale: Boolean(data.stale),
+            syncing: Boolean(data.syncing),
             source: data.source ? `tushare:${data.source}` : 'tushare',
             total: data.total || (data.items || []).length,
           });
-          setPage(1);
+          if (!soft) setPage(1);
           setLoadHint(`${label}加载完成（${data.total ?? data.items?.length ?? 0} 条）`);
           setProgress({
             done: data.total || 0,
             total: data.total || 0,
           });
         } catch (e) {
-          setRows([]);
-          setError(e instanceof Error ? e.message : String(e));
+          if (!soft) {
+            setRows([]);
+            setError(e instanceof Error ? e.message : String(e));
+          }
         } finally {
-          setLoading(false);
+          if (!soft) setLoading(false);
         }
         return;
       }
 
       // 本地 cache / sdk 原路径
       const fullSnap = m === 'cn' || m === 'hk' || m === 'us';
-      setActiveColumns(COLUMNS);
-      setTableKind('quote');
-      setLoadHint(
-        force
-          ? `正在刷新${label}本地缓存…`
-          : fullSnap
-            ? `正在加载${label}行情（本地缓存）…`
-            : `正在加载${label}列表…`
-      );
+      if (!soft) {
+        setActiveColumns(COLUMNS);
+        setTableKind('quote');
+        setLoadHint(
+          force
+            ? `正在刷新${label}本地缓存…`
+            : fullSnap
+              ? `正在加载${label}行情（本地缓存）…`
+              : `正在加载${label}列表…`
+        );
+      }
       try {
         const { rows: next, meta } = await loadMarketRows(
           m,
@@ -1154,7 +1081,7 @@ export function QuotesMarket() {
         );
         setRows(next.map(quoteToTopic));
         setCacheMeta(meta);
-        setPage(1);
+        if (!soft) setPage(1);
         if (fullSnap) {
           setLoadHint(
             meta.stale || meta.syncing
@@ -1167,11 +1094,13 @@ export function QuotesMarket() {
           setProgress({ done: 0, total: Math.min(PAGE_SIZE, next.length) });
         }
       } catch (e) {
-        setRows([]);
-        setCacheMeta(null);
-        setError(e instanceof Error ? e.message : String(e));
+        if (!soft) {
+          setRows([]);
+          setCacheMeta(null);
+          setError(e instanceof Error ? e.message : String(e));
+        }
       } finally {
-        setLoading(false);
+        if (!soft) setLoading(false);
       }
     },
     [markets, tradeDate, tradeDateInput]
@@ -1183,121 +1112,64 @@ export function QuotesMarket() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [market]);
 
+  // 后台同步完成后 softReload 当前市场（无蒙层）
+  useEffect(() => {
+    if (!softVersion || !completedLanes.length) return;
+    if (!completedLanes.includes(marketLane)) return;
+    void loadMarket(market, false, undefined, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [softVersion]);
+
   const handleRefresh = () => {
-    if (loading || pageLoading || cacheSyncing) return;
+    if (loading || pageLoading) return;
     forceQuotesRef.current = true;
     void loadMarket(market, true);
   };
 
-  const runCacheSync = useCallback(
-    async (mode: 'current' | 'all') => {
-      if (cacheSyncing || loading || pageLoading) return;
-      const signal = { cancelled: false };
-      syncAbortRef.current = signal;
-      setCacheSyncing(true);
-      setSyncProgress({
-        active: true,
-        syncing: true,
-        job: mode === 'all' ? 'all' : 'single',
-        marketsTotal: mode === 'all' ? 6 : 1,
-        marketsDone: 0,
-        market: mode === 'current' ? String(market) : null,
-        marketLabel:
-          mode === 'current'
-            ? markets.find((x) => x.id === market)?.label || String(market)
-            : null,
-        done: 0,
-        total: 0,
-        overallDone: 0,
-        overallTotal: mode === 'all' ? 6 : 1,
-        okCount: 0,
-        failCount: 0,
-        message: mode === 'all' ? '正在排队同步全部市场…' : '正在排队同步当前市场…',
-        source: null,
-        errors: [],
-      });
-      try {
-        if (mode === 'all') {
-          await postCacheSyncAll();
-        } else {
-          await postCacheSync(market);
-        }
-        const final = await waitCacheSync((p) => {
-          if (!signal.cancelled) setSyncProgress(p);
-        }, signal);
-        if (signal.cancelled) return;
-        setSyncProgress(final);
-        const fail = final.failCount;
-        const ok = final.okCount;
-        if (fail > 0 && ok === 0) {
-          toast.error(final.message || '同步失败');
-        } else if (fail > 0) {
-          toast.info(final.message || `部分失败：成功 ${ok}，失败 ${fail}`);
-        } else {
-          toast.success(final.message || '同步完成');
-        }
-        // 同步完成后刷新当前市场列表
-        forceQuotesRef.current = true;
-        await loadMarket(market, false);
-      } catch (e) {
-        if (!signal.cancelled) {
-          toast.error(e instanceof Error ? e.message : String(e));
-        }
-      } finally {
-        if (!signal.cancelled) {
-          setCacheSyncing(false);
-          setSyncProgress(null);
-        }
-        if (syncAbortRef.current === signal) syncAbortRef.current = null;
-      }
-    },
-    [cacheSyncing, loading, pageLoading, market, loadMarket, toast, markets]
-  );
+  const handleSyncNode = useCallback(async () => {
+    if (nodeSyncing || marketLane === 'placeholder') return;
+    try {
+      await requestSyncMarket(
+        market,
+        isTushareMarketId(market)
+          ? { tradeDate: tradeDateInput || tradeDate || undefined }
+          : undefined
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }, [
+    nodeSyncing,
+    marketLane,
+    requestSyncMarket,
+    market,
+    tradeDateInput,
+    tradeDate,
+    toast,
+  ]);
 
-  useEffect(() => {
-    return () => {
-      if (syncAbortRef.current) syncAbortRef.current.cancelled = true;
-    };
-  }, []);
+  const handleSyncCurrentLane = useCallback(async () => {
+    if (nodeSyncing || marketLane === 'placeholder') return;
+    try {
+      await requestSyncLane(marketLane);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }, [nodeSyncing, marketLane, requestSyncLane, toast]);
 
-  const showOverlay = loading || pageLoading || cacheSyncing;
-  const syncOverallDone = syncProgress?.overallDone ?? 0;
-  const syncOverallTotal = syncProgress?.overallTotal ?? 0;
-  const overlayDone = cacheSyncing
-    ? syncOverallDone
-    : progress.done;
-  const overlayTotal = cacheSyncing
-    ? syncOverallTotal
-    : progress.total;
+  // 仅首次空表加载显示蒙层；同步绝不挡 UI
+  const showOverlay = (loading || pageLoading) && rows.length === 0 && !placeholderHint;
+  const overlayDone = progress.done;
+  const overlayTotal = progress.total;
   const progressPct =
     overlayTotal > 0
       ? Math.min(100, Math.round((overlayDone / overlayTotal) * 1000) / 10)
-      : loading || cacheSyncing
+      : loading
         ? 8
         : 0;
-  const overlayHint = cacheSyncing
-    ? syncProgress?.message || '正在同步缓存…'
-    : loadHint;
-  const overlayMeta = (() => {
-    if (cacheSyncing && syncProgress) {
-      const parts: string[] = [];
-      if (syncProgress.job === 'all' && syncProgress.marketsTotal > 0) {
-        parts.push(`市场 ${syncProgress.marketsDone}/${syncProgress.marketsTotal}`);
-      }
-      if (syncProgress.total > 0) {
-        parts.push(
-          `${syncProgress.marketLabel || '当前'} ${syncProgress.done}/${syncProgress.total}`
-        );
-      }
-      parts.push(`合计 ${syncOverallDone}/${Math.max(syncOverallTotal, 1)}（${progressPct}%）`);
-      if (syncProgress.source) parts.push(`源 ${syncProgress.source}`);
-      return parts.join(' · ');
-    }
-    if (overlayTotal > 0) {
-      return `${overlayDone} / ${overlayTotal}（${progressPct}%）`;
-    }
-    return '准备中…';
-  })();
+  const overlayHint = loadHint;
+  const overlayMeta =
+    overlayTotal > 0 ? `${overlayDone} / ${overlayTotal}（${progressPct}%）` : '准备中…';
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1521,7 +1393,7 @@ export function QuotesMarket() {
 
   const activeLabel = markets.find((m) => m.id === market)?.label || market;
   const showTradeDate = isTushareMarketId(market);
-  const showCacheSync = isLegacyMarket(market);
+  const canSyncNode = marketLane !== 'placeholder';
 
   const applyTradeDate = () => {
     const d = tradeDateInput.replace(/\D/g, '');
@@ -1542,28 +1414,39 @@ export function QuotesMarket() {
           <button
             type="button"
             className={styles.syncAllBtn}
-            onClick={() => void runCacheSync('all')}
-            disabled={cacheSyncing || loading || pageLoading}
-            title="同步全部本地缓存市场（东财/新浪；不含 Tushare）"
+            onClick={() => void handleSyncCurrentLane()}
+            disabled={nodeSyncing || marketLane === 'placeholder'}
+            title={`同步本轨：${LANE_META[marketLane].title}（进度见顶栏）`}
           >
             <Layers size={13} />
-            同步所有
+            同步本轨
           </button>
         </div>
         <div className={styles.navScroll}>
           {navTree.map((g) => (
             <div key={g.id} className={styles.groupBlock}>
               <div className={styles.groupLabel}>{g.label}</div>
-              {(g.children || []).map((m) => (
-                <button
-                  key={m.id}
-                  type="button"
-                  className={`${styles.marketItem} ${market === m.id ? styles.active : ''}`}
-                  onClick={() => selectMarket(m.id)}
-                >
-                  {m.label}
-                </button>
-              ))}
+              {(g.children || []).map((m) => {
+                const lane = laneOf(m.id);
+                const meta = LANE_META[lane];
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`${styles.marketItem} ${market === m.id ? styles.active : ''}`}
+                    onClick={() => selectMarket(m.id)}
+                    title={`${meta.title} · ${m.id}`}
+                  >
+                    <span
+                      className={styles.laneBadge}
+                      style={{ background: meta.colorVar }}
+                      aria-hidden
+                    />
+                    <span className={styles.marketLabel}>{m.label}</span>
+                    <span className={styles.laneTag}>{meta.label}</span>
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>
@@ -1612,23 +1495,23 @@ export function QuotesMarket() {
                 <LayoutGrid size={14} />
                 多面板
               </button>
-              {showCacheSync && (
-              <button
-                type="button"
-                className={styles.refreshBtn}
-                onClick={() => void runCacheSync('current')}
-                disabled={cacheSyncing || loading || pageLoading}
-                title="同步当前市场最新缓存（失败时自动切新浪等备用源）"
-              >
-                <Database size={14} className={cacheSyncing ? styles.spin : undefined} />
-                同步缓存
-              </button>
+              {canSyncNode && (
+                <button
+                  type="button"
+                  className={styles.refreshBtn}
+                  onClick={() => void handleSyncNode()}
+                  disabled={nodeSyncing}
+                  title="后台同步本节点（进度见顶栏，不打断浏览）"
+                >
+                  <Database size={14} className={nodeSyncing ? styles.spin : undefined} />
+                  同步本节点
+                </button>
               )}
               <button
                 type="button"
                 className={styles.refreshBtn}
                 onClick={handleRefresh}
-                disabled={loading || pageLoading || cacheSyncing}
+                disabled={loading || pageLoading}
                 title="重新加载当前市场列表"
               >
                 <RefreshCw
@@ -1641,9 +1524,13 @@ export function QuotesMarket() {
               {cacheMeta && (
                 <span
                   className={styles.cacheHint}
-                  title={`模式 ${settings.cacheMode || 'balanced'} · 源 ${cacheMeta.source || '--'}`}
+                  title={`模式 ${settings.cacheMode || 'balanced'} · 源 ${cacheMeta.source || '--'} · ${LANE_META[marketLane].title}`}
                 >
-                  {cacheMeta.syncing ? '同步中 · ' : cacheMeta.stale ? '缓存 · ' : ''}
+                  {nodeSyncing || cacheMeta.syncing
+                    ? '后台同步中 · '
+                    : cacheMeta.stale
+                      ? '缓存 · '
+                      : ''}
                   {formatCacheTime(cacheMeta.asOf ?? cacheMeta.syncedAt)}
                 </span>
               )}

@@ -4,11 +4,12 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, Palette, BarChart2, Info, Database } from 'lucide-react';
+import { RefreshCw, Palette, BarChart2, Info, Database, Layers } from 'lucide-react';
 import { Card, NumberField, useToast } from '@/components/common';
 import { useAppSettings } from '@/contexts';
 import type { QuoteCacheMode, QuoteSource } from '@/types';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
+import { SourceLaneMatrix } from './SourceLaneMatrix';
 import styles from './Settings.module.css';
 
 function parsePeriods(value: string, fallback: number[]) {
@@ -269,11 +270,11 @@ export function Settings() {
                       const res = await fetch('/api/cache/sync', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ market: 'cn', force: true }),
+                        body: JSON.stringify({ market: 'cn', force: true, background: true }),
                       });
                       const data = await res.json();
                       if (!data.ok) throw new Error(data.error || '同步失败');
-                      toast.success(`A股已同步 ${data.row_count ?? ''} 条`);
+                      toast.success(data.queued ? 'A股同步已排队（见顶栏）' : `A股已同步 ${data.row_count ?? ''} 条`);
                     } catch (e) {
                       toast.error(e instanceof Error ? e.message : String(e));
                     }
@@ -325,6 +326,18 @@ export function Settings() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <Layers size={18} className={styles.sectionIcon} />
+            <h3>数据来源同步</h3>
+          </div>
+          <div className={styles.sectionContent}>
+            <SourceLaneMatrix />
           </div>
         </div>
       </Card>
