@@ -26,6 +26,12 @@
   margin: 0 auto;
 }
 
+/* 总览：相对顶栏/左右边缘固定 10px，其它页仍用 spacing-xl */
+.contentTight {
+  padding: 10px;
+  max-width: none;
+}
+
 /* 底部声明 */
 .footer {
   display: flex;
@@ -38,6 +44,12 @@
   border-top: 1px solid var(--border-secondary);
   margin-top: var(--spacing-xl);
   background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.03));
+}
+
+.footerTight {
+  margin-top: 10px;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 .footer a {
@@ -66,6 +78,10 @@
     padding: var(--spacing-md);
   }
 
+  .contentTight {
+    padding: 10px;
+  }
+
   .content::before {
     display: none;
   }
@@ -73,5 +89,10 @@
   .footer {
     flex-wrap: wrap;
     padding: var(--spacing-md);
+  }
+
+  .footerTight {
+    padding-left: 10px;
+    padding-right: 10px;
   }
 }

@@ -28,9 +28,15 @@ function persistSidebarCollapsed(collapsed: boolean) {
   }
 }
 
+/** 总览页：内容区贴边更紧（固定 10px） */
+function isDashboardPath(pathname: string): boolean {
+  return pathname === '/' || pathname === '';
+}
+
 export function Layout() {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getStoredSidebarCollapsed);
+  const tightContent = isDashboardPath(location.pathname);
 
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => {
@@ -50,13 +56,17 @@ export function Layout() {
         onToggleSidebar={toggleSidebar}
       />
       <main className={styles.main}>
-        <div className={styles.content}>
+        <div
+          className={`${styles.content}${tightContent ? ` ${styles.contentTight}` : ''}`}
+        >
           {/* key 按路径复位：某页渲染崩溃后导航到其他页可自动恢复 */}
           <ErrorBoundary key={location.pathname}>
             <Outlet />
           </ErrorBoundary>
         </div>
-        <footer className={styles.footer}>
+        <footer
+          className={`${styles.footer}${tightContent ? ` ${styles.footerTight}` : ''}`}
+        >
           <span>数据来源：</span>
           <a
             href="https://stock-sdk.linkdiary.cn/"
