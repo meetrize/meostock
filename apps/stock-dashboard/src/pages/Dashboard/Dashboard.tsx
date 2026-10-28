@@ -132,28 +132,45 @@ export function Dashboard() {
   }, []);
 
   const fetchMarketInsights = useCallback(async () => {
-    try {
-      const [
-        marketFundFlowData,
-        northboundSummaryData,
-        industryFundFlowData,
-        conceptFundFlowData,
-        fundFlowRankData,
-      ] = await Promise.all([
-        getMarketFundFlow(),
-        getNorthboundFlowSummary(),
-        getSectorFundFlowRank({ indicator: 'today', sectorType: 'industry' }),
-        getSectorFundFlowRank({ indicator: 'today', sectorType: 'concept' }),
-        getFundFlowRank({ indicator: 'today' }),
-      ]);
+    // 各接口独立：板块榜偶发断连时，不能拖垮北向 / 大盘主力
+    const [
+      marketFundFlowResult,
+      northboundResult,
+      industryFundFlowResult,
+      conceptFundFlowResult,
+      fundFlowRankResult,
+    ] = await Promise.allSettled([
+      getMarketFundFlow(),
+      getNorthboundFlowSummary(),
+      getSectorFundFlowRank({ indicator: 'today', sectorType: 'industry' }),
+      getSectorFundFlowRank({ indicator: 'today', sectorType: 'concept' }),
+      getFundFlowRank({ indicator: 'today' }),
+    ]);
 
-      setMarketFundFlowHistory(marketFundFlowData);
-      setNorthboundSummary(northboundSummaryData);
-      setIndustryFundFlowRanks(industryFundFlowData);
-      setConceptFundFlowRanks(conceptFundFlowData);
-      setFundFlowRanks(fundFlowRankData);
-    } catch (error) {
-      console.error('Dashboard market insights error:', error);
+    if (marketFundFlowResult.status === 'fulfilled') {
+      setMarketFundFlowHistory(marketFundFlowResult.value);
+    } else {
+      console.error('Dashboard marketFundFlow error:', marketFundFlowResult.reason);
+    }
+    if (northboundResult.status === 'fulfilled') {
+      setNorthboundSummary(northboundResult.value);
+    } else {
+      console.error('Dashboard northboundSummary error:', northboundResult.reason);
+    }
+    if (industryFundFlowResult.status === 'fulfilled') {
+      setIndustryFundFlowRanks(industryFundFlowResult.value);
+    } else {
+      console.error('Dashboard industryFundFlow error:', industryFundFlowResult.reason);
+    }
+    if (conceptFundFlowResult.status === 'fulfilled') {
+      setConceptFundFlowRanks(conceptFundFlowResult.value);
+    } else {
+      console.error('Dashboard conceptFundFlow error:', conceptFundFlowResult.reason);
+    }
+    if (fundFlowRankResult.status === 'fulfilled') {
+      setFundFlowRanks(fundFlowRankResult.value);
+    } else {
+      console.error('Dashboard fundFlowRank error:', fundFlowRankResult.reason);
     }
   }, []);
 
@@ -223,13 +240,34 @@ export function Dashboard() {
     boardTab === 'industry' ? industryFundFlowRanks : conceptFundFlowRanks;
   const strongestBoard = currentBoards[0];
   const latestMarketFundFlow = marketFundFlowHistory.at(-1) ?? null;
-  const northboundSnapshot =
-    northboundSummary.find(
-      (item) => item.direction.includes('北向') || item.boardName.includes('北向')
-    ) ??
-    northboundSummary.find((item) => item.direction.includes('沪深港通')) ??
-    northboundSummary[0] ??
-    null;
+  // 北向 = 沪股通 + 深股通合计（单取「沪股通」会漏深市）
+  const northboundSnapshot = useMemo(() => {
+    const northItems = northboundSummary.filter(
+      (item) =>
+        item.direction.includes('北向') || item.boardName.includes('北向')
+    );
+    if (northItems.length === 0) {
+      return (
+        northboundSummary.find((item) => item.direction.includes('沪深港通')) ??
+        northboundSummary[0] ??
+        null
+      );
+    }
+    if (northItems.length === 1) return northItems[0];
+    const sum = (pick: (row: (typeof northItems)[number]) => number | null | undefined) =>
+      northItems.reduce((acc, row) => acc + (Number(pick(row)) || 0), 0);
+    const base = northItems[0];
+    return {
+      ...base,
+      boardName: '北向',
+      netInflow: sum((r) => r.netInflow),
+      netBuyAmount: sum((r) => r.netBuyAmount),
+      remainAmount: sum((r) => r.remainAmount),
+      upCount: sum((r) => r.upCount),
+      downCount: sum((r) => r.downCount),
+      flatCount: sum((r) => r.flatCount),
+    };
+  }, [northboundSummary]);
 
   const marketSummary = useMemo<MarketSummary>(() => {
     return marketQuotes.reduce(
