@@ -13,11 +13,30 @@ export type PortalWidgetType =
   | 'stat.northbound'
   | 'stat.mainForce'
   | 'stat.strongestBoard'
+  | 'stat.margin'
   | 'watchlist'
   | 'marketRanking'
   | 'fundFlowRank'
   | 'hotBoards'
-  | 'boardFundFlow';
+  | 'boardFundFlow'
+  | 'strip.globalIndices'
+  | 'strip.futures'
+  | 'strip.metals'
+  | 'strip.fx'
+  | 'strip.crypto'
+  | 'strip.rates'
+  | 'topic.limitList'
+  | 'topic.topList'
+  | 'rank.hk'
+  | 'rank.cb';
+
+export type PortalCatalogGroupId =
+  | 'ashare'
+  | 'sentiment'
+  | 'capital'
+  | 'cross'
+  | 'assets'
+  | 'derivatives';
 
 export interface PortalWidgetInstance {
   id: string;
@@ -53,8 +72,8 @@ export interface PortalPersistedState {
   presets: PortalPreset[];
 }
 
-/** v5：第二排 KPI 与指数同高（h=2） */
-export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v5';
+/** v6：多来源默认面板（全球指数 / 涨跌停名单 / 期货条带） */
+export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v6';
 
 export const PORTAL_COLS = 12;
 export const PORTAL_ROW_HEIGHT = 36;

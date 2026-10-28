@@ -452,3 +452,130 @@
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
 }
+
+/* 横滑条带 */
+.strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+  align-items: stretch;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.stripEmpty {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.stripCard {
+  flex: 0 0 auto;
+  min-width: 96px;
+  max-width: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.stripCard:hover {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stripName {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stripPrice {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.stripPct {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 专题名单 */
+.topicList {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 6px;
+}
+
+.topicMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.topicRows {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.topicRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 8px;
+}
+
+.topicRow:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.topicRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.topicTag {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -27,9 +27,11 @@ import {
   type DashboardDataValue,
   type MarketSummary,
 } from './portal/dashboardDataContext';
+import { PortalMarketsContext } from './portal/portalMarketsContext';
 import { PortalCanvas } from './portal/PortalCanvas';
 import { PortalToolbar } from './portal/PortalToolbar';
 import { usePortalLayout } from './portal/usePortalLayout';
+import { usePortalMarketsData } from './portal/usePortalMarketsData';
 import { MAIN_INDEX_CODES } from './portal/indexCatalog';
 import { PORTAL_MOBILE_BREAKPOINT } from './portal/types';
 import styles from './Dashboard.module.css';
@@ -68,6 +70,8 @@ export function Dashboard() {
     addWidget,
     resetToDefault,
   } = usePortalLayout();
+  const portalMarkets = usePortalMarketsData(widgets);
+  const { refreshPortalMarkets } = portalMarkets;
 
   const [indices, setIndices] = useState<FullQuote[]>([]);
   const [watchlistQuotes, setWatchlistQuotes] = useState<FullQuote[]>([]);
@@ -158,8 +162,14 @@ export function Dashboard() {
       fetchQuoteData({ force: true }),
       fetchMarketOverview({ force: true }),
       fetchMarketInsights(),
+      refreshPortalMarkets({ force: true }),
     ]);
-  }, [fetchMarketInsights, fetchMarketOverview, fetchQuoteData]);
+  }, [
+    fetchMarketInsights,
+    fetchMarketOverview,
+    fetchQuoteData,
+    refreshPortalMarkets,
+  ]);
 
   useEffect(() => {
     fetchQuoteData();
@@ -332,24 +342,26 @@ export function Dashboard() {
 
   return (
     <DashboardDataContext.Provider value={dataValue}>
-      <div className={styles.dashboard}>
-        <PortalToolbar
-          editing={editing}
-          mobile={mobile}
-          onToggleEdit={() => setEditing((v) => !v)}
-          onAddWidget={addWidget}
-          onReset={resetToDefault}
-          onRefresh={refreshAll}
-        />
-        <PortalCanvas
-          editing={editing && !mobile}
-          mobile={mobile}
-          layout={layout}
-          widgets={widgets}
-          onLayoutChange={onLayoutChange}
-          onRemoveWidget={removeWidget}
-        />
-      </div>
+      <PortalMarketsContext.Provider value={portalMarkets}>
+        <div className={styles.dashboard}>
+          <PortalToolbar
+            editing={editing}
+            mobile={mobile}
+            onToggleEdit={() => setEditing((v) => !v)}
+            onAddWidget={addWidget}
+            onReset={resetToDefault}
+            onRefresh={refreshAll}
+          />
+          <PortalCanvas
+            editing={editing && !mobile}
+            mobile={mobile}
+            layout={layout}
+            widgets={widgets}
+            onLayoutChange={onLayoutChange}
+            onRemoveWidget={removeWidget}
+          />
+        </div>
+      </PortalMarketsContext.Provider>
     </DashboardDataContext.Provider>
   );
 }

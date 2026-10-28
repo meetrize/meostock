@@ -14,6 +14,10 @@ import { WatchlistWidget } from './WatchlistWidget';
 import { MarketRankingWidget } from './MarketRankingWidget';
 import { FundFlowRankWidget } from './FundFlowRankWidget';
 import { BoardFundFlowWidget, HotBoardsWidget } from './BoardsWidgets';
+import { StripWidget } from './StripWidget';
+import { TopicListWidget } from './TopicListWidget';
+import { RankListWidget } from './RankListWidget';
+import { StatMarginWidget } from './StatMarginWidget';
 
 export function renderWidget(
   type: PortalWidgetType,
@@ -37,6 +41,8 @@ export function renderWidget(
       return <StatMainForceWidget />;
     case 'stat.strongestBoard':
       return <StatStrongestBoardWidget />;
+    case 'stat.margin':
+      return <StatMarginWidget />;
     case 'watchlist':
       return <WatchlistWidget gridH={gridH} />;
     case 'marketRanking':
@@ -47,6 +53,19 @@ export function renderWidget(
       return <HotBoardsWidget gridH={gridH} />;
     case 'boardFundFlow':
       return <BoardFundFlowWidget gridH={gridH} />;
+    case 'strip.globalIndices':
+    case 'strip.futures':
+    case 'strip.metals':
+    case 'strip.fx':
+    case 'strip.crypto':
+    case 'strip.rates':
+      return <StripWidget type={type} />;
+    case 'topic.limitList':
+    case 'topic.topList':
+      return <TopicListWidget type={type} gridH={gridH} />;
+    case 'rank.hk':
+    case 'rank.cb':
+      return <RankListWidget type={type} gridH={gridH} />;
     default:
       return null;
   }

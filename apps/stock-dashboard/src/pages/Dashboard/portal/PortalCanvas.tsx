@@ -20,7 +20,11 @@ import {
 import styles from './PortalCanvas.module.css';
 
 function isCompactWidgetType(type: string): boolean {
-  return isIndexWidgetType(type) || type.startsWith('stat.');
+  return (
+    isIndexWidgetType(type) ||
+    type.startsWith('stat.') ||
+    type.startsWith('strip.')
+  );
 }
 
 function openIndexKline(code: string) {

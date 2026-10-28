@@ -4,7 +4,7 @@ import { useToast } from '@/components/common';
 import { useAppSettings } from '@/contexts';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
 import type { QuoteSource } from '@/types';
-import { WIDGET_CATALOG_LIST } from './widgetCatalog';
+import { catalogGroups, laneMetaOf } from './widgetCatalog';
 import type { PortalWidgetType } from './types';
 import styles from './PortalToolbar.module.css';
 
@@ -285,22 +285,43 @@ export function PortalToolbar({
               </button>
             </div>
             <div className={styles.modalBody}>
-              {WIDGET_CATALOG_LIST.map((entry) => (
-                <button
-                  key={entry.type}
-                  type="button"
-                  className={styles.catalogCard}
-                  onClick={() => {
-                    onAddWidget(entry.type);
-                    setAddOpen(false);
-                  }}
-                >
-                  <span className={styles.catalogName}>{entry.name}</span>
-                  <span className={styles.catalogDesc}>{entry.description}</span>
-                  <span className={styles.catalogMeta}>
-                    默认 {entry.defaultLayout.w}×{entry.defaultLayout.h}
-                  </span>
-                </button>
+              {catalogGroups().map((group) => (
+                <div key={group.id} className={styles.catalogGroup}>
+                  <div className={styles.catalogGroupTitle}>{group.label}</div>
+                  <div className={styles.catalogGroupGrid}>
+                    {group.entries.map((entry) => {
+                      const lane = laneMetaOf(entry.type);
+                      return (
+                        <button
+                          key={entry.type}
+                          type="button"
+                          className={styles.catalogCard}
+                          onClick={() => {
+                            onAddWidget(entry.type);
+                            setAddOpen(false);
+                          }}
+                        >
+                          <span className={styles.catalogNameRow}>
+                            <span
+                              className={styles.laneDot}
+                              style={{ background: lane.colorVar }}
+                              title={lane.title}
+                            />
+                            <span className={styles.catalogName}>{entry.name}</span>
+                            {entry.starred ? (
+                              <span className={styles.starTag}>荐</span>
+                            ) : null}
+                          </span>
+                          <span className={styles.catalogDesc}>{entry.description}</span>
+                          <span className={styles.catalogMeta}>
+                            {lane.label} · 默认 {entry.defaultLayout.w}×
+                            {entry.defaultLayout.h}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
