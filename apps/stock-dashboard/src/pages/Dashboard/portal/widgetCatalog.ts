@@ -42,14 +42,21 @@ const TALL_H = 60;
 
 const INDEX_LAYOUT = {
   w: 2,
-  h: 2,
+  h: 3,
   minW: 2,
   minH: 2,
   maxW: FULL_W,
   maxH: TALL_H,
 } as const;
 
-const KPI_LAYOUT = { ...INDEX_LAYOUT } as const;
+const KPI_LAYOUT = {
+  w: 2,
+  h: 2,
+  minW: 2,
+  minH: 2,
+  maxW: FULL_W,
+  maxH: TALL_H,
+} as const;
 
 const LIST_LAYOUT = {
   w: 6,
@@ -105,7 +112,7 @@ const indexEntries = Object.fromEntries(
     {
       type: p.type,
       name: p.name,
-      description: `指数 ${p.code} · 点击价格看曲线`,
+      description: `指数 ${p.code} · 标题报价 + 面积走势`,
       group: 'ashare' as const,
       lane: 'lazy-catalog' as const,
       defaultLayout: { ...INDEX_LAYOUT },
@@ -119,7 +126,7 @@ const sparkEntries = Object.fromEntries(
     {
       type: p.type as SparkWidgetType,
       name: p.name,
-      description: `${p.code} · 点击价格看曲线`,
+      description: `${p.code} · 标题报价 + 面积走势`,
       group: SPARK_GROUP_TO_CATALOG[p.group],
       lane: SPARK_GROUP_LANE[p.group],
       defaultLayout: { ...INDEX_LAYOUT },

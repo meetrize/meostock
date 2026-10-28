@@ -1,6 +1,7 @@
 # 总览：独立指数/标的面板 + 价格/面积曲线
 
-> 状态：**已拍板并实施**（2026-10-28）  
+> 状态：**已实施；双模式部分已被取代**（2026-10-28）  
+> **后续形态**：标题常驻报价 + 正文常驻面积图，取消价格/曲线切换 → [`dashboard-portal-spark-quote-unified.md`](./dashboard-portal-spark-quote-unified.md)  
 > 关联：[`dashboard-portal-multi-source.md`](./dashboard-portal-multi-source.md) · 计划 [`dev-plan-dashboard-portal-spark-panels.md`](./dev-plan-dashboard-portal-spark-panels.md)
 
 ---

@@ -7,8 +7,8 @@ import type { Layout } from 'react-grid-layout';
 import { createDefaultPersistedState, createDefaultWatchPreset } from './defaultLayouts';
 import { applyCatalogConstraints, WIDGET_CATALOG } from './widgetCatalog';
 import {
+  PORTAL_LEGACY_STORAGE_KEYS,
   PORTAL_STORAGE_KEY,
-  type IndexDisplayMode,
   type PortalLayoutItem,
   type PortalPersistedState,
   type PortalWidgetInstance,
@@ -33,10 +33,32 @@ function isWidget(value: unknown): value is PortalWidgetInstance {
   return typeof v.id === 'string' && typeof v.type === 'string' && v.type in WIDGET_CATALOG;
 }
 
+/** v7→v8：指数/spark 若仍为 h=2，抬到 h=3 以容纳面积图 */
+function bumpSparkHeights(
+  layout: PortalLayoutItem[],
+  widgets: PortalWidgetInstance[]
+): PortalLayoutItem[] {
+  const byId = new Map(widgets.map((w) => [w.id, w]));
+  return layout.map((item) => {
+    const w = byId.get(item.i);
+    if (!w) return item;
+    const t = w.type;
+    if (
+      (t.startsWith('index.') || t.startsWith('spark.')) &&
+      item.h === 2
+    ) {
+      return { ...item, h: 3 };
+    }
+    return item;
+  });
+}
+
 function parseState(raw: string | null): PortalPersistedState | null {
   if (!raw) return null;
   try {
-    const data = JSON.parse(raw) as PortalPersistedState;
+    const data = JSON.parse(raw) as PortalPersistedState & {
+      indexDisplayMode?: unknown;
+    };
     if (data?.version !== 1 || !Array.isArray(data.presets) || data.presets.length === 0) {
       return null;
     }
@@ -47,13 +69,16 @@ function parseState(raw: string | null): PortalPersistedState | null {
         }
         const widgets = p.widgets.filter(isWidget);
         const widgetIds = new Set(widgets.map((w) => w.id));
-        const layout = p.layout
-          .filter(isLayoutItem)
-          .filter((item) => widgetIds.has(item.i))
-          .map((item) => {
-            const widget = widgets.find((w) => w.id === item.i)!;
-            return applyCatalogConstraints(widget.type, item);
-          });
+        const layout = bumpSparkHeights(
+          p.layout
+            .filter(isLayoutItem)
+            .filter((item) => widgetIds.has(item.i))
+            .map((item) => {
+              const widget = widgets.find((w) => w.id === item.i)!;
+              return applyCatalogConstraints(widget.type, item);
+            }),
+          widgets
+        );
         if (layout.length === 0 || widgets.length === 0) return null;
         return { id: p.id, name: p.name || '未命名', layout, widgets };
       })
@@ -67,7 +92,6 @@ function parseState(raw: string | null): PortalPersistedState | null {
     return {
       version: 1,
       density: data.density === 'comfortable' ? 'comfortable' : 'tight',
-      indexDisplayMode: data.indexDisplayMode === 'chart' ? 'chart' : 'price',
       activePresetId,
       presets,
     };
@@ -80,6 +104,13 @@ function loadState(): PortalPersistedState {
   try {
     const parsed = parseState(localStorage.getItem(PORTAL_STORAGE_KEY));
     if (parsed) return parsed;
+    for (const key of PORTAL_LEGACY_STORAGE_KEYS) {
+      const legacy = parseState(localStorage.getItem(key));
+      if (legacy) {
+        saveState(legacy);
+        return legacy;
+      }
+    }
   } catch {
     // ignore
   }
@@ -235,18 +266,11 @@ export function usePortalLayout() {
   );
 
   const resetToDefault = useCallback(() => {
-    const fresh = createDefaultPersistedState(state.indexDisplayMode || 'price');
+    const fresh = createDefaultPersistedState();
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setState(fresh);
     saveState(fresh);
-  }, [state.indexDisplayMode]);
-
-  const setIndexDisplayMode = useCallback(
-    (mode: IndexDisplayMode) => {
-      persist({ ...state, indexDisplayMode: mode });
-    },
-    [persist, state]
-  );
+  }, []);
 
   const layoutById = useMemo(() => {
     const map = new Map<string, PortalLayoutItem>();
@@ -254,13 +278,8 @@ export function usePortalLayout() {
     return map;
   }, [activePreset.layout]);
 
-  const indexDisplayMode: IndexDisplayMode =
-    state.indexDisplayMode === 'chart' ? 'chart' : 'price';
-
   return {
     density: state.density,
-    indexDisplayMode,
-    setIndexDisplayMode,
     layout: activePreset.layout,
     widgets: activePreset.widgets,
     layoutById,

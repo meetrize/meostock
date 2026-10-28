@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { GripVertical, MoreVertical } from 'lucide-react';
+import { WidgetHeaderSlotContext } from './widgetHeaderSlotContext';
 import styles from './WidgetChrome.module.css';
 
 interface WidgetChromeProps {
@@ -12,6 +13,8 @@ interface WidgetChromeProps {
   /** 点击标题（非编辑态）；用于打开 K 线等 */
   onTitleClick?: () => void;
   titleHint?: string;
+  /** 标题行右侧额外内容（也可由子组件经 header slot portal 注入） */
+  headerEnd?: ReactNode;
 }
 
 export function WidgetChrome({
@@ -22,8 +25,10 @@ export function WidgetChrome({
   compact = false,
   onTitleClick,
   titleHint,
+  headerEnd,
 }: WidgetChromeProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [headerSlotEl, setHeaderSlotEl] = useState<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,6 +69,13 @@ export function WidgetChrome({
         ) : (
           <div className={styles.title}>{title}</div>
         )}
+        <div
+          ref={setHeaderSlotEl}
+          className={styles.headerEnd}
+          data-header-slot=""
+        >
+          {headerEnd}
+        </div>
         <div className={styles.menuWrap} ref={menuRef}>
           <button
             type="button"
@@ -99,7 +111,9 @@ export function WidgetChrome({
         </div>
       </div>
       <div className={`${styles.body} ${compact ? styles.bodyCompact : ''}`}>
-        {children}
+        <WidgetHeaderSlotContext.Provider value={headerSlotEl}>
+          {children}
+        </WidgetHeaderSlotContext.Provider>
       </div>
     </div>
   );

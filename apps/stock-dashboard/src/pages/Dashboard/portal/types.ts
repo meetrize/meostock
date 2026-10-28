@@ -6,8 +6,6 @@ import type { LayoutItem } from 'react-grid-layout';
 import type { IndexWidgetType } from './indexCatalog';
 import type { SparkWidgetType } from './sparkCatalog';
 
-export type IndexDisplayMode = 'price' | 'chart';
-
 export type PortalWidgetType =
   | IndexWidgetType
   | SparkWidgetType
@@ -78,14 +76,17 @@ export interface PortalPreset {
 export interface PortalPersistedState {
   version: 1;
   density: 'tight' | 'comfortable';
-  /** 指数类面板默认展示：价格 or 面积曲线 */
-  indexDisplayMode: IndexDisplayMode;
   activePresetId: string;
   presets: PortalPreset[];
 }
 
-/** v7：独立全球/期货面板 + 全局价格/曲线 */
-export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v7';
+/** v8：标题常驻报价 + 正文常驻面积曲线（取消价格/曲线切换） */
+export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v8';
+
+/** 升级时尝试迁移的旧 key */
+export const PORTAL_LEGACY_STORAGE_KEYS = [
+  'stock-dashboard:overview-portal:v7',
+] as const;
 
 export const PORTAL_COLS = 12;
 export const PORTAL_ROW_HEIGHT = 36;

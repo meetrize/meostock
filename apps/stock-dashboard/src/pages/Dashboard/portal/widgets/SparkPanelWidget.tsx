@@ -15,12 +15,14 @@ export function SparkPanelWidget({ type }: Props) {
   const { sparkQuotes } = usePortalMarkets();
   const list = sparkQuotes[def.market] || [];
   const quote = list.find((q) => sameCode(q.code, def.code));
+  // 全球/有成交额的品种显示额；期货等无 amount 时 Header 自动隐藏
+  const showAmount = def.group !== 'fx' && def.group !== 'rates';
   return (
     <SparkQuoteWidget
       code={def.code}
       klineSymbol={def.klineSymbol}
       quote={quote}
-      showAmount={def.group === 'global'}
+      showAmount={showAmount}
     />
   );
 }

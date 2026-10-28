@@ -5,7 +5,7 @@ import { useAppSettings } from '@/contexts';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
 import type { QuoteSource } from '@/types';
 import { catalogGroups, laneMetaOf } from './widgetCatalog';
-import type { IndexDisplayMode, PortalWidgetType } from './types';
+import type { PortalWidgetType } from './types';
 import styles from './PortalToolbar.module.css';
 
 const REFRESH_OPTIONS_MS = [
@@ -24,8 +24,6 @@ interface PortalToolbarProps {
   onAddWidget: (type: PortalWidgetType) => void;
   onReset: () => void;
   onRefresh: () => Promise<void>;
-  indexDisplayMode: IndexDisplayMode;
-  onIndexDisplayModeChange: (mode: IndexDisplayMode) => void;
 }
 
 function isRealtimeSource(source: QuoteSource | undefined): boolean {
@@ -39,8 +37,6 @@ export function PortalToolbar({
   onAddWidget,
   onReset,
   onRefresh,
-  indexDisplayMode,
-  onIndexDisplayModeChange,
 }: PortalToolbarProps) {
   const toast = useToast();
   const { settings, updateSettings, getRefreshInterval } = useAppSettings();
@@ -193,32 +189,6 @@ export function PortalToolbar({
                 }}
               >
                 缓存
-              </button>
-            </div>
-
-            <div className={styles.menuSectionLabel}>指数展示</div>
-            <div className={styles.toggleRow} role="group" aria-label="价格或曲线">
-              <button
-                type="button"
-                className={`${styles.toggleBtn} ${indexDisplayMode === 'price' ? styles.toggleActive : ''}`}
-                aria-pressed={indexDisplayMode === 'price'}
-                onClick={() => {
-                  onIndexDisplayModeChange('price');
-                  toast.success('指数默认显示价格');
-                }}
-              >
-                价格
-              </button>
-              <button
-                type="button"
-                className={`${styles.toggleBtn} ${indexDisplayMode === 'chart' ? styles.toggleActive : ''}`}
-                aria-pressed={indexDisplayMode === 'chart'}
-                onClick={() => {
-                  onIndexDisplayModeChange('chart');
-                  toast.success('指数默认显示面积曲线');
-                }}
-              >
-                曲线
               </button>
             </div>
 

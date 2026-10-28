@@ -10,49 +10,54 @@
   overflow: hidden;
 }
 
-/* 单指数面板：两行紧凑，不出现竖向滚动 */
-.indexPanel {
+/* 指数面板：标题报价由 chrome slot；正文常驻面积图
+ * 层级：点位 > 涨跌幅 > 涨跌额 > 成交额（后两者更小、不省略） */
+.headerQuote {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  cursor: pointer;
-}
-
-.indexPanelPrice {
-  font-size: 16px;
-  font-weight: 700;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 11px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.15;
+  overflow: visible;
+  color: var(--text-tertiary);
   white-space: nowrap;
 }
 
-.indexPanelPriceBtn {
-  display: block;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
+.headerQuote > span {
+  flex-shrink: 0;
 }
 
-.indexPanelPriceBtn:hover {
-  opacity: 0.85;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.headerQuotePrice {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.headerQuotePct {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.headerQuoteChg {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.92;
+}
+
+.headerQuoteAmount {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  opacity: 0.9;
 }
 
 .indexPanelChart {
+  position: relative;
   height: 100%;
   min-height: 0;
   width: 100%;
@@ -67,32 +72,19 @@
   color: var(--text-tertiary);
 }
 
-.indexPanelMeta {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: nowrap;
-  gap: 6px;
-  min-width: 0;
-  font-size: 11px;
+.retBadge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  z-index: 2;
+  pointer-events: none;
+  font-size: 10px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  color: var(--text-tertiary);
-  line-height: 1.2;
-  overflow: hidden;
-}
-
-.indexPanelMeta > span {
-  flex-shrink: 0;
-}
-
-.indexPanelAmount {
-  margin-left: auto;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-shrink: 1;
-  min-width: 0;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0.9;
+  text-shadow: 0 0 4px var(--bg-secondary);
 }
 
 .statValueRow {
