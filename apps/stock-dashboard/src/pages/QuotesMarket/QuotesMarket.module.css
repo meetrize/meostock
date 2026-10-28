@@ -19,6 +19,32 @@
   max-height: calc(100vh - var(--header-height) - var(--spacing-xl) * 2);
 }
 
+.navScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tradeDateBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tradeDateInput {
+  width: 96px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .sidebarHeader {
   display: flex;
   align-items: center;
@@ -74,7 +100,6 @@
 
 .groupBlock:last-child {
   border-bottom: none;
-  overflow-y: auto;
 }
 
 .groupLabel {

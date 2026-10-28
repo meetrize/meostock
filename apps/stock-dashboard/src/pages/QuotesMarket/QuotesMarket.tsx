@@ -40,21 +40,26 @@ import {
   normalizeStockCode,
 } from '@/utils/format';
 import { openMultipanel } from '@/utils/multipanel';
+import {
+  fetchTushareCatalog,
+  fetchTushareMarket,
+  fetchTushareTradeDate,
+  isTushareMarketId,
+  type TushareCol,
+  type TushareNavGroup,
+} from '@/services/tushare';
 import styles from './QuotesMarket.module.css';
 
-type MarketId =
-  | 'cn'
-  | 'hk'
-  | 'us'
-  | 'futures'
-  | 'fund'
-  | 'index'
-  | `yf:${string}`;
+/** 原 cache/sdk 市场 + Tushare 节点（ts:*） */
+type MarketId = string;
 
 interface MarketDef {
   id: MarketId;
   label: string;
-  group: 'stock-sdk' | 'yfinance';
+  group: 'stock-sdk' | 'yfinance' | 'tushare';
+  kind?: 'legacy' | 'tushare' | 'placeholder';
+  table?: 'quote' | 'topic';
+  hint?: string;
 }
 
 interface QuoteRow {
@@ -81,9 +86,15 @@ interface QuoteRow {
   amplitude: number | null;
 }
 
-type SortKey = keyof QuoteRow;
+type SortKey = string;
 
 type SortState = { key: SortKey; dir: 1 | -1 };
+
+type TopicRow = Record<string, unknown> & {
+  code?: string;
+  name?: string;
+  klineSymbol?: string;
+};
 
 const PAGE_SIZE = 20;
 
@@ -146,26 +157,116 @@ function nextSortState(prev: SortState, key: SortKey): SortState {
   return { key, dir: key === 'name' || key === 'code' ? 1 : -1 };
 }
 
-const MARKETS: MarketDef[] = [
-  { id: 'cn', label: 'A股', group: 'stock-sdk' },
-  { id: 'hk', label: '港股', group: 'stock-sdk' },
-  { id: 'us', label: '美股', group: 'stock-sdk' },
-  { id: 'futures', label: '期货', group: 'stock-sdk' },
-  { id: 'fund', label: '基金', group: 'stock-sdk' },
-  { id: 'index', label: '指数', group: 'stock-sdk' },
-  { id: 'yf:METALS', label: '贵金属/能源', group: 'yfinance' },
-  { id: 'yf:COMMODITIES', label: '大宗商品', group: 'yfinance' },
-  { id: 'yf:CURRENCIES', label: '外汇', group: 'yfinance' },
-  { id: 'yf:CRYPTOCURRENCIES', label: '加密货币', group: 'yfinance' },
-  { id: 'yf:RATES', label: '利率', group: 'yfinance' },
-  { id: 'yf:US', label: '美国', group: 'yfinance' },
-  { id: 'yf:EUROPE', label: '欧洲', group: 'yfinance' },
-  { id: 'yf:ASIA', label: '亚洲', group: 'yfinance' },
-  { id: 'yf:GB', label: '英国', group: 'yfinance' },
+const FALLBACK_TREE: TushareNavGroup[] = [
+  {
+    id: 'g_cn',
+    label: '沪深京',
+    children: [
+      { id: 'cn', label: '全部A股', kind: 'legacy', table: 'quote' },
+      { id: 'ts:limit', label: '涨跌停', kind: 'tushare', table: 'topic' },
+      { id: 'ts:stk_limit', label: '涨跌停价', kind: 'tushare', table: 'topic' },
+      { id: 'ts:suspend', label: '停复牌', kind: 'tushare', table: 'topic' },
+      { id: 'ts:new_share', label: '新股', kind: 'tushare', table: 'topic' },
+    ],
+  },
+  {
+    id: 'g_board',
+    label: '板块指数',
+    children: [
+      { id: 'ts:sw', label: '申万行业', kind: 'tushare', table: 'quote' },
+      { id: 'ts:ths', label: '同花顺板块', kind: 'tushare', table: 'topic' },
+      { id: 'ts:dc', label: '东财板块', kind: 'tushare', table: 'topic' },
+    ],
+  },
+  {
+    id: 'g_index',
+    label: '指数 / 基金 / 衍生品',
+    children: [
+      { id: 'index', label: '国内指数', kind: 'legacy', table: 'quote' },
+      { id: 'fund', label: '公募/场内基金', kind: 'legacy', table: 'quote' },
+      { id: 'ts:etf', label: 'ETF日线', kind: 'tushare', table: 'quote' },
+      { id: 'futures', label: '国内期货', kind: 'legacy', table: 'quote' },
+      { id: 'ts:cb', label: '可转债', kind: 'tushare', table: 'quote' },
+      { id: 'ts:opt', label: '期权合约', kind: 'tushare', table: 'topic' },
+    ],
+  },
+  {
+    id: 'g_flow',
+    label: '资金与异动',
+    children: [
+      { id: 'ts:moneyflow', label: '个股资金流', kind: 'tushare', table: 'topic' },
+      { id: 'ts:hsgt', label: '沪深港通', kind: 'tushare', table: 'topic' },
+      { id: 'ts:top_list', label: '龙虎榜', kind: 'tushare', table: 'topic' },
+      { id: 'ts:block_trade', label: '大宗交易', kind: 'tushare', table: 'topic' },
+      { id: 'ts:margin', label: '两融汇总', kind: 'tushare', table: 'topic' },
+      { id: 'ts:margin_detail', label: '两融明细', kind: 'tushare', table: 'topic' },
+    ],
+  },
+  {
+    id: 'g_hkus',
+    label: '港美与扩展',
+    children: [
+      { id: 'hk', label: '港股', kind: 'legacy', table: 'quote' },
+      { id: 'us', label: '美股', kind: 'legacy', table: 'quote' },
+      { id: 'yf:METALS', label: '贵金属/能源', kind: 'legacy', table: 'quote' },
+      { id: 'yf:COMMODITIES', label: '大宗商品', kind: 'legacy', table: 'quote' },
+      { id: 'yf:CURRENCIES', label: '外汇', kind: 'legacy', table: 'quote' },
+      { id: 'yf:CRYPTOCURRENCIES', label: '加密货币', kind: 'legacy', table: 'quote' },
+      { id: 'yf:RATES', label: '利率', kind: 'legacy', table: 'quote' },
+      { id: 'yf:US', label: '美国', kind: 'legacy', table: 'quote' },
+      { id: 'yf:EUROPE', label: '欧洲', kind: 'legacy', table: 'quote' },
+      { id: 'yf:ASIA', label: '亚洲', kind: 'legacy', table: 'quote' },
+      { id: 'yf:GB', label: '英国', kind: 'legacy', table: 'quote' },
+    ],
+  },
+  {
+    id: 'g_research',
+    label: '专题（二期）',
+    children: [
+      {
+        id: 'ts:ph:fina',
+        label: '财务与股东',
+        kind: 'placeholder',
+        table: 'topic',
+        hint: '一期占位：财务/股东见开发计划 P2',
+      },
+      {
+        id: 'ts:ph:news',
+        label: '资讯公告',
+        kind: 'placeholder',
+        table: 'topic',
+        hint: '一期占位：资讯额度单独评估',
+      },
+      {
+        id: 'ts:ph:macro',
+        label: '宏观利率',
+        kind: 'placeholder',
+        table: 'topic',
+        hint: '一期占位：宏观列入 P1',
+      },
+    ],
+  },
 ];
 
-/** 按重要性排列的列 */
-const COLUMNS: { key: SortKey; label: string; align?: 'left' | 'right' }[] = [
+function flattenNav(tree: TushareNavGroup[]): MarketDef[] {
+  const out: MarketDef[] = [];
+  for (const g of tree) {
+    for (const c of g.children || []) {
+      out.push({
+        id: c.id,
+        label: c.label,
+        group: c.kind === 'legacy' ? (c.id.startsWith('yf:') ? 'yfinance' : 'stock-sdk') : 'tushare',
+        kind: c.kind,
+        table: c.table,
+        hint: c.hint,
+      });
+    }
+  }
+  return out;
+}
+
+/** 按重要性排列的列（本地 cache 行情默认） */
+const COLUMNS: TushareCol[] = [
   { key: 'code', label: '代码', align: 'left' },
   { key: 'name', label: '名称', align: 'left' },
   { key: 'changePercent', label: '涨幅', align: 'right' },
@@ -185,6 +286,10 @@ const COLUMNS: { key: SortKey; label: string; align?: 'left' | 'right' }[] = [
   { key: 'volumeRatio', label: '量比', align: 'right' },
   { key: 'amplitude', label: '振幅', align: 'right' },
 ];
+
+function isLegacyMarket(m: MarketId): boolean {
+  return !isTushareMarketId(m);
+}
 
 function emptyRow(partial: Partial<QuoteRow> & Pick<QuoteRow, 'code' | 'name' | 'klineSymbol'>): QuoteRow {
   return {
@@ -809,59 +914,116 @@ function compareValues(a: unknown, b: unknown, dir: 1 | -1): number {
   return String(av).localeCompare(String(bv), 'zh-CN') * dir;
 }
 
-function formatCell(key: SortKey, row: QuoteRow): ReactNode {
+function numOf(row: TopicRow, key: string): number | null {
+  const v = row[key];
+  if (v == null || v === '') return null;
+  const n = typeof v === 'number' ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatCell(key: SortKey, row: TopicRow): ReactNode {
   switch (key) {
     case 'code':
-      return row.code;
+      return String(row.code ?? '--');
     case 'name':
-      return row.name;
+      return String(row.name ?? '--');
     case 'changePercent':
+    case 'pctChg':
+    case 'pctChange': {
+      const n = numOf(row, key) ?? numOf(row, 'changePercent');
+      return <span className={getChangeColorClass(n)}>{formatPercent(n)}</span>;
+    }
+    case 'change': {
+      const n = numOf(row, 'change');
       return (
-        <span className={getChangeColorClass(row.changePercent)}>
-          {formatPercent(row.changePercent)}
+        <span className={getChangeColorClass(n)}>
+          {n == null ? '--' : `${n > 0 ? '+' : ''}${n.toFixed(2)}`}
         </span>
       );
-    case 'change':
-      return (
-        <span className={getChangeColorClass(row.change)}>
-          {row.change == null || Number.isNaN(row.change)
-            ? '--'
-            : `${row.change > 0 ? '+' : ''}${row.change.toFixed(2)}`}
-        </span>
-      );
+    }
     case 'price':
     case 'open':
     case 'prevClose':
     case 'high':
     case 'low':
-      return formatPrice(row[key]);
+    case 'close':
+    case 'upLimit':
+    case 'downLimit':
+    case 'exercisePrice':
+      return formatPrice(numOf(row, key));
     case 'volume':
-      return formatVolume(row.volume);
+      return formatVolume(numOf(row, 'volume'));
     case 'amount':
-      return formatAmount(row.amount);
+    case 'fdAmount':
+    case 'lBuy':
+    case 'lSell':
+    case 'netAmount':
+    case 'netMfAmount':
+    case 'rzye':
+    case 'rzmre':
+    case 'rzche':
+    case 'rqye':
+    case 'rzrqye':
+    case 'buySmAmount':
+    case 'sellSmAmount':
+    case 'buyMdAmount':
+    case 'sellMdAmount':
+    case 'buyLgAmount':
+    case 'sellLgAmount':
+    case 'buyElgAmount':
+    case 'sellElgAmount':
+    case 'northMoney':
+    case 'southMoney':
+    case 'hgt':
+    case 'sgt':
+    case 'ggtSs':
+    case 'ggtSz':
+      return formatAmount(numOf(row, key));
     case 'pb':
     case 'pe':
     case 'volumeRatio':
-      return row[key] == null || Number.isNaN(row[key] as number)
-        ? '--'
-        : (row[key] as number).toFixed(2);
+    case 'bondOverRate':
+    case 'extra':
+    case 'vol':
+    case 'rqmcl':
+    case 'openTimes':
+    case 'limitTimes':
+    case 'count': {
+      const n = numOf(row, key);
+      return n == null ? '--' : n.toFixed(key === 'count' || key === 'openTimes' || key === 'limitTimes' ? 0 : 2);
+    }
     case 'turnoverRate':
     case 'amplitude':
-      return formatPercent(row[key] as number | null, false);
+      return formatPercent(numOf(row, key), false);
     case 'totalMarketCap':
     case 'circulatingMarketCap':
-      return formatMarketCap(row[key] as number | null);
-    default:
-      return '--';
+      return formatMarketCap(numOf(row, key));
+    default: {
+      const v = row[key];
+      if (v == null || v === '') return '--';
+      if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '--';
+      return String(v);
+    }
   }
+}
+
+function quoteToTopic(row: QuoteRow): TopicRow {
+  return { ...row };
 }
 
 export function QuotesMarket() {
   const toast = useToast();
   const isInWatchlist = useIsInWatchlist();
   const { settings } = useAppSettings();
+  const [navTree, setNavTree] = useState<TushareNavGroup[]>(FALLBACK_TREE);
+  const markets = useMemo(() => flattenNav(navTree), [navTree]);
   const [market, setMarket] = useState<MarketId>('cn');
-  const [rows, setRows] = useState<QuoteRow[]>([]);
+  const [rows, setRows] = useState<TopicRow[]>([]);
+  const [activeColumns, setActiveColumns] = useState<TushareCol[]>(COLUMNS);
+  const [tableKind, setTableKind] = useState<'quote' | 'topic'>('quote');
+  const [tradeDate, setTradeDate] = useState('');
+  const [tradeDateInput, setTradeDateInput] = useState('');
+  const [placeholderHint, setPlaceholderHint] = useState('');
   const [loading, setLoading] = useState(true);
   const [pageLoading, setPageLoading] = useState(false);
   const [loadHint, setLoadHint] = useState('加载中…');
@@ -880,56 +1042,146 @@ export function QuotesMarket() {
   const nonUsSortRef = useRef<SortState>(DEFAULT_SORT);
   const syncAbortRef = useRef<{ cancelled: boolean } | null>(null);
 
-  const loadMarket = useCallback(async (m: MarketId, force = false) => {
-    const label = MARKETS.find((x) => x.id === m)?.label || String(m);
-    const fullSnap = m === 'cn' || m === 'hk' || m === 'us';
-    setLoading(true);
-    setPageLoading(false);
-    setError('');
-    setCacheMeta(null);
-    setLoadHint(
-      force
-        ? `正在刷新${label}本地缓存…`
-        : fullSnap
-          ? `正在加载${label}行情（本地缓存）…`
-          : `正在加载${label}列表…`
-    );
-    setProgress({ done: 0, total: 0 });
-    try {
-      const { rows: next, meta } = await loadMarketRows(
-        m,
-        (done, total) => {
-          setProgress({ done, total });
-          setLoadHint(`正在同步${label}行情 ${done}/${total}…`);
-        },
-        force
-      );
-      setRows(next);
-      setCacheMeta(meta);
-      setPage(1);
-      if (fullSnap) {
-        setLoadHint(
-          meta.stale || meta.syncing
-            ? `${label}已显示缓存（${next.length} 只），后台同步中…`
-            : `${label}行情加载完成（${next.length} 只）`
-        );
-        setProgress({ done: next.length, total: next.length });
-      } else {
-        setLoadHint('列表已就绪，正在加载行情…');
-        setProgress({ done: 0, total: Math.min(PAGE_SIZE, next.length) });
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const cat = await fetchTushareCatalog();
+      if (!cancelled && cat?.tree?.length) setNavTree(cat.tree);
+      const td = await fetchTushareTradeDate();
+      if (!cancelled && td.trade_date) {
+        setTradeDate(td.trade_date);
+        setTradeDateInput(td.trade_date);
       }
-    } catch (e) {
-      setRows([]);
-      setCacheMeta(null);
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const loadMarket = useCallback(
+    async (m: MarketId, force = false, dateOverride?: string) => {
+      const def = markets.find((x) => x.id === m);
+      const label = def?.label || String(m);
+      setLoading(true);
+      setPageLoading(false);
+      setError('');
+      setCacheMeta(null);
+      setPlaceholderHint('');
+      setProgress({ done: 0, total: 0 });
+
+      // 占位节点
+      if (def?.kind === 'placeholder' || m.startsWith('ts:ph:')) {
+        setRows([]);
+        setTableKind('topic');
+        setActiveColumns([]);
+        setPlaceholderHint(def?.hint || '一期占位，后续迭代开通');
+        setLoadHint(label);
+        setLoading(false);
+        return;
+      }
+
+      // Tushare 专题 / 新市场
+      if (isTushareMarketId(m)) {
+        const td = dateOverride || tradeDateInput || tradeDate;
+        setLoadHint(`正在加载${label}${td ? `（${td}）` : ''}…`);
+        try {
+          const data = await fetchTushareMarket(m, td || undefined);
+          if (!data.ok) {
+            setRows([]);
+            setError(data.error || '加载失败');
+            setActiveColumns(COLUMNS);
+            setTableKind('topic');
+            return;
+          }
+          if (data.placeholder) {
+            setRows([]);
+            setPlaceholderHint(data.hint || '一期占位');
+            setActiveColumns([]);
+            setTableKind('topic');
+            setLoadHint(label);
+            return;
+          }
+          if (data.trade_date) {
+            setTradeDate(data.trade_date);
+            setTradeDateInput(data.trade_date);
+          }
+          const cols = (data.columns && data.columns.length ? data.columns : COLUMNS) as TushareCol[];
+          setActiveColumns(cols);
+          setTableKind((data.table as 'quote' | 'topic') || 'topic');
+          setRows((data.items || []) as TopicRow[]);
+          setCacheMeta({
+            asOf: Date.now() / 1000,
+            syncedAt: Date.now() / 1000,
+            stale: false,
+            syncing: false,
+            source: data.source ? `tushare:${data.source}` : 'tushare',
+            total: data.total || (data.items || []).length,
+          });
+          setPage(1);
+          setLoadHint(`${label}加载完成（${data.total ?? data.items?.length ?? 0} 条）`);
+          setProgress({
+            done: data.total || 0,
+            total: data.total || 0,
+          });
+        } catch (e) {
+          setRows([]);
+          setError(e instanceof Error ? e.message : String(e));
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // 本地 cache / sdk 原路径
+      const fullSnap = m === 'cn' || m === 'hk' || m === 'us';
+      setActiveColumns(COLUMNS);
+      setTableKind('quote');
+      setLoadHint(
+        force
+          ? `正在刷新${label}本地缓存…`
+          : fullSnap
+            ? `正在加载${label}行情（本地缓存）…`
+            : `正在加载${label}列表…`
+      );
+      try {
+        const { rows: next, meta } = await loadMarketRows(
+          m,
+          (done, total) => {
+            setProgress({ done, total });
+            setLoadHint(`正在同步${label}行情 ${done}/${total}…`);
+          },
+          force
+        );
+        setRows(next.map(quoteToTopic));
+        setCacheMeta(meta);
+        setPage(1);
+        if (fullSnap) {
+          setLoadHint(
+            meta.stale || meta.syncing
+              ? `${label}已显示缓存（${next.length} 只），后台同步中…`
+              : `${label}行情加载完成（${next.length} 只）`
+          );
+          setProgress({ done: next.length, total: next.length });
+        } else {
+          setLoadHint('列表已就绪，正在加载行情…');
+          setProgress({ done: 0, total: Math.min(PAGE_SIZE, next.length) });
+        }
+      } catch (e) {
+        setRows([]);
+        setCacheMeta(null);
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [markets, tradeDate, tradeDateInput]
+  );
 
   useEffect(() => {
     loadMarket(market, false);
-  }, [market, loadMarket]);
+    // 仅市场切换触发；交易日由手动应用
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [market]);
 
   const handleRefresh = () => {
     if (loading || pageLoading || cacheSyncing) return;
@@ -947,14 +1199,17 @@ export function QuotesMarket() {
         active: true,
         syncing: true,
         job: mode === 'all' ? 'all' : 'single',
-        marketsTotal: mode === 'all' ? MARKETS.length : 1,
+        marketsTotal: mode === 'all' ? 6 : 1,
         marketsDone: 0,
         market: mode === 'current' ? String(market) : null,
-        marketLabel: mode === 'current' ? MARKETS.find((x) => x.id === market)?.label || String(market) : null,
+        marketLabel:
+          mode === 'current'
+            ? markets.find((x) => x.id === market)?.label || String(market)
+            : null,
         done: 0,
         total: 0,
         overallDone: 0,
-        overallTotal: mode === 'all' ? MARKETS.length : 1,
+        overallTotal: mode === 'all' ? 6 : 1,
         okCount: 0,
         failCount: 0,
         message: mode === 'all' ? '正在排队同步全部市场…' : '正在排队同步当前市场…',
@@ -996,7 +1251,7 @@ export function QuotesMarket() {
         if (syncAbortRef.current === signal) syncAbortRef.current = null;
       }
     },
-    [cacheSyncing, loading, pageLoading, market, loadMarket, toast]
+    [cacheSyncing, loading, pageLoading, market, loadMarket, toast, markets]
   );
 
   useEffect(() => {
@@ -1047,12 +1302,12 @@ export function QuotesMarket() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter(
-      (r) =>
-        r.code.toLowerCase().includes(q) ||
-        r.name.toLowerCase().includes(q) ||
-        r.klineSymbol.toLowerCase().includes(q)
-    );
+    return rows.filter((r) => {
+      const code = String(r.code ?? '').toLowerCase();
+      const name = String(r.name ?? '').toLowerCase();
+      const kline = String(r.klineSymbol ?? '').toLowerCase();
+      return code.includes(q) || name.includes(q) || kline.includes(q);
+    });
   }, [rows, query]);
 
   const sorted = useMemo(() => {
@@ -1065,12 +1320,19 @@ export function QuotesMarket() {
   const currentPage = Math.min(page, totalPages);
   const pageRows = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
-  const pageNeedRows = pageRows.filter((r) => !r.quoteReady);
+  const pageNeedRows = useMemo(() => {
+    if (!isLegacyMarket(market) || market === 'cn' || market === 'hk' || market === 'us') {
+      return [] as QuoteRow[];
+    }
+    return pageRows
+      .filter((r) => r.quoteReady === false)
+      .map((r) => r as unknown as QuoteRow);
+  }, [market, pageRows]);
   const pageNeedKey = pageNeedRows.map((r) => r.code).join(',');
 
-  // 所有市场：先出列表，再补当前页行情（蒙板进度）
+  // 本地 lazy 市场：先出列表，再补当前页行情
   useEffect(() => {
-    if (!pageNeedKey) {
+    if (!isLegacyMarket(market) || !pageNeedKey) {
       setPageLoading(false);
       return;
     }
@@ -1101,13 +1363,25 @@ export function QuotesMarket() {
             return hit ? applyQuotePatch(r, hit) : null;
           })
           .filter((r): r is QuoteRow => r != null);
-        setRows((prev) => mergeQuoteMap(prev, map, needRows));
+        setRows((prev) =>
+          mergeQuoteMap(
+            prev.map((x) => x as unknown as QuoteRow),
+            map,
+            needRows
+          ).map(quoteToTopic)
+        );
         void persistQuotesToCache(market, patched);
         setLoadHint('行情加载完成');
         setProgress({ done: needRows.length, total: needRows.length });
       } catch {
         if (!cancelled) {
-          setRows((prev) => mergeQuoteMap(prev, new Map(), needRows));
+          setRows((prev) =>
+            mergeQuoteMap(
+              prev.map((x) => x as unknown as QuoteRow),
+              new Map(),
+              needRows
+            ).map(quoteToTopic)
+          );
         }
       } finally {
         if (!cancelled) setPageLoading(false);
@@ -1119,11 +1393,14 @@ export function QuotesMarket() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [market, currentPage, pageNeedKey]);
 
-  // 后台按批补齐（A/H/美已全量快照；基金/期货/yf 只补 quoteReady=false 的）
+  // 后台按批补齐（仅本地 lazy 市场）
   useEffect(() => {
+    if (!isLegacyMarket(market)) return;
     if (market === 'cn' || market === 'hk' || market === 'us') return;
     if (!rows.length) return;
-    const pending = rows.filter((r) => !r.quoteReady);
+    const pending = rows
+      .filter((r) => r.quoteReady === false)
+      .map((r) => r as unknown as QuoteRow);
     if (!pending.length) return;
     const bgLimit = market === 'fund' ? 200 : pending.length;
     const queue = pending.slice(0, bgLimit);
@@ -1142,10 +1419,24 @@ export function QuotesMarket() {
               return hit ? applyQuotePatch(r, hit) : null;
             })
             .filter((r): r is QuoteRow => r != null);
-          setRows((prev) => mergeQuoteMap(prev, map, chunk));
+          setRows((prev) =>
+            mergeQuoteMap(
+              prev.map((x) => x as unknown as QuoteRow),
+              map,
+              chunk
+            ).map(quoteToTopic)
+          );
           void persistQuotesToCache(market, patched);
         } catch {
-          if (!cancelled) setRows((prev) => mergeQuoteMap(prev, new Map(), chunk));
+          if (!cancelled) {
+            setRows((prev) =>
+              mergeQuoteMap(
+                prev.map((x) => x as unknown as QuoteRow),
+                new Map(),
+                chunk
+              ).map(quoteToTopic)
+            );
+          }
         }
       }
     })();
@@ -1186,14 +1477,21 @@ export function QuotesMarket() {
     setMarket(next);
   };
 
-  const openKline = (row: QuoteRow) => {
-    const url = `/?symbol=${encodeURIComponent(row.klineSymbol)}&period=1d`;
+  const openKline = (row: TopicRow) => {
+    const sym = String(row.klineSymbol || row.code || '');
+    if (!sym) {
+      toast.info('当前行无可打开的 K 线标的');
+      return;
+    }
+    const url = `/?symbol=${encodeURIComponent(sym)}&period=1d`;
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   /** 用当前筛选排序结果打开多面板（可超一屏，多面板内翻页） */
   const openMultipanelFromPage = () => {
-    const codes = sorted.map((r) => r.klineSymbol).filter(Boolean);
+    const codes = sorted
+      .map((r) => String(r.klineSymbol || r.code || ''))
+      .filter(Boolean);
     if (!codes.length) {
       toast.info('当前列表暂无标的');
       return;
@@ -1201,66 +1499,72 @@ export function QuotesMarket() {
     openMultipanel(codes, { period: '1d' });
   };
 
-  const handleToggleWatchlist = (e: React.MouseEvent, row: QuoteRow) => {
+  const handleToggleWatchlist = (e: React.MouseEvent, row: TopicRow) => {
     e.stopPropagation();
-    const code = watchlistCodeOf(row, market);
+    if (!isLegacyMarket(market)) {
+      toast.info('Tushare 专题表暂不支持加入自选');
+      return;
+    }
+    const code = watchlistCodeOf(row as unknown as QuoteRow, market);
     if (!code) {
       toast.info('当前市场暂不支持加入自选（自选主要面向 A 股）');
       return;
     }
     if (isInWatchlist(code)) {
       watchlistActions.remove(code);
-      toast.success(`已将 ${row.name} 移出自选`);
+      toast.success(`已将 ${String(row.name || code)} 移出自选`);
       return;
     }
     watchlistActions.add(code);
-    toast.success(`已将 ${row.name} 加入自选`);
+    toast.success(`已将 ${String(row.name || code)} 加入自选`);
   };
 
-  const sdkMarkets = MARKETS.filter((m) => m.group === 'stock-sdk');
-  const yfMarkets = MARKETS.filter((m) => m.group === 'yfinance');
-  const activeLabel = MARKETS.find((m) => m.id === market)?.label || market;
+  const activeLabel = markets.find((m) => m.id === market)?.label || market;
+  const showTradeDate = isTushareMarketId(market);
+  const showCacheSync = isLegacyMarket(market);
+
+  const applyTradeDate = () => {
+    const d = tradeDateInput.replace(/\D/g, '');
+    if (d.length !== 8) {
+      toast.info('请输入 YYYYMMDD 交易日');
+      return;
+    }
+    setTradeDate(d);
+    setTradeDateInput(d);
+    void loadMarket(market, true, d);
+  };
 
   return (
     <div className={styles.page}>
       <aside className={styles.sidebar}>
         <div className={styles.sidebarHeader}>
-          <h3>市场类型</h3>
+          <h3>行情分类</h3>
           <button
             type="button"
             className={styles.syncAllBtn}
             onClick={() => void runCacheSync('all')}
             disabled={cacheSyncing || loading || pageLoading}
-            title="同步全部市场最新缓存（失败时自动切新浪等备用源）"
+            title="同步全部本地缓存市场（东财/新浪；不含 Tushare）"
           >
             <Layers size={13} />
             同步所有
           </button>
         </div>
-        <div className={styles.groupBlock}>
-          <div className={styles.groupLabel}>stock-sdk</div>
-          {sdkMarkets.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className={`${styles.marketItem} ${market === m.id ? styles.active : ''}`}
-              onClick={() => selectMarket(m.id)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <div className={styles.groupBlock}>
-          <div className={styles.groupLabel}>yfinance</div>
-          {yfMarkets.map((m) => (
-            <button
-              key={m.id}
-              type="button"
-              className={`${styles.marketItem} ${market === m.id ? styles.active : ''}`}
-              onClick={() => selectMarket(m.id)}
-            >
-              {m.label}
-            </button>
+        <div className={styles.navScroll}>
+          {navTree.map((g) => (
+            <div key={g.id} className={styles.groupBlock}>
+              <div className={styles.groupLabel}>{g.label}</div>
+              {(g.children || []).map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={`${styles.marketItem} ${market === m.id ? styles.active : ''}`}
+                  onClick={() => selectMarket(m.id)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       </aside>
@@ -1270,6 +1574,25 @@ export function QuotesMarket() {
           title={`${activeLabel}行情`}
           extra={
             <div className={styles.toolbar}>
+              {showTradeDate && (
+                <div className={styles.tradeDateBox}>
+                  <input
+                    className={styles.tradeDateInput}
+                    value={tradeDateInput}
+                    onChange={(e) => setTradeDateInput(e.target.value)}
+                    placeholder="YYYYMMDD"
+                    title="Tushare 交易日"
+                  />
+                  <button
+                    type="button"
+                    className={styles.refreshBtn}
+                    onClick={applyTradeDate}
+                    disabled={loading}
+                  >
+                    应用日期
+                  </button>
+                </div>
+              )}
               <input
                 className={styles.search}
                 value={query}
@@ -1283,12 +1606,13 @@ export function QuotesMarket() {
                 type="button"
                 className={styles.refreshBtn}
                 onClick={openMultipanelFromPage}
-                disabled={loading || pageRows.length === 0}
+                disabled={loading || pageRows.length === 0 || tableKind !== 'quote'}
                 title="用当前筛选列表打开多面板（超出一屏可翻页）"
               >
                 <LayoutGrid size={14} />
                 多面板
               </button>
+              {showCacheSync && (
               <button
                 type="button"
                 className={styles.refreshBtn}
@@ -1299,6 +1623,7 @@ export function QuotesMarket() {
                 <Database size={14} className={cacheSyncing ? styles.spin : undefined} />
                 同步缓存
               </button>
+              )}
               <button
                 type="button"
                 className={styles.refreshBtn}
@@ -1342,8 +1667,17 @@ export function QuotesMarket() {
             )}
           {error ? (
             <Empty title="加载失败" description={error} />
+          ) : placeholderHint ? (
+            <Empty title={activeLabel} description={placeholderHint} />
           ) : !loading && sorted.length === 0 ? (
-            <Empty title="暂无数据" description="换一个市场或清空搜索试试" />
+            <Empty
+              title="暂无数据"
+              description={
+                showTradeDate
+                  ? '该交易日可能无事件，或可换日期重试'
+                  : '换一个市场或清空搜索试试'
+              }
+            />
           ) : (
             <>
               <div className={styles.tableWrap}>
@@ -1351,7 +1685,7 @@ export function QuotesMarket() {
                   <thead>
                     <tr>
                       <th className={styles.actionCol} />
-                      {COLUMNS.map((col) => {
+                      {activeColumns.map((col) => {
                         const active = sortKey === col.key;
                         return (
                           <th
@@ -1377,12 +1711,14 @@ export function QuotesMarket() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageRows.map((row) => {
-                      const wlCode = watchlistCodeOf(row, market);
+                    {pageRows.map((row, index) => {
+                      const wlCode = isLegacyMarket(market)
+                        ? watchlistCodeOf(row as unknown as QuoteRow, market)
+                        : null;
                       const starred = wlCode ? isInWatchlist(wlCode) : false;
                       return (
                         <tr
-                          key={`${row.klineSymbol}-${row.code}`}
+                          key={`${String(row.klineSymbol || "")}~${String(row.code || "")}~${String(row.tradeDate || row.reason || index)}`}
                           onClick={() => openKline(row)}
                           title="打开 K 线图"
                         >
@@ -1402,7 +1738,7 @@ export function QuotesMarket() {
                               {starred ? <Check size={14} /> : <Plus size={14} />}
                             </button>
                           </td>
-                          {COLUMNS.map((col) => (
+                          {activeColumns.map((col) => (
                             <td
                               key={col.key}
                               className={col.align === 'left' ? styles.left : styles.right}

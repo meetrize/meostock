@@ -1,0 +1,28 @@
+Tushare 双中继接入说明（密钥勿写入本文件）
+
+Token：在项目根目录配置环境变量（推荐复制 .env.example → .env）：
+  TUSHARE_TOKEN=你的客户卡号
+  # 兼容别名：TUSHARE_RELAY_TOKEN / DATAHUBCO_TOKEN
+
+kaixin8（ProMax，主源）接口：
+  https://tl.kaixin8.top/tushare/sdk
+  文档：docs/promax说明.txt
+
+datahubco（备源）接口：
+  https://datahubco.com/api/tushare
+  文档：docs/15000积分.txt
+
+SDK 调用示例：
+  import os
+  import tushare as ts
+  pro = ts.pro_api(os.environ["TUSHARE_TOKEN"])
+  pro._DataApi__http_url = os.environ.get(
+      "TUSHARE_PRIMARY_URL", "https://tl.kaixin8.top/tushare/sdk"
+  )
+  df = pro.daily(ts_code="000001.SZ", trade_date="20261023")
+  print(df)
+
+本应用网关：GET /api/tushare/health|catalog|trade-date|market
+设计与开发计划：
+  docs/tushare-quotes-integration-plan.md
+  docs/dev-plan-tushare-quotes.md

@@ -96,6 +96,14 @@ if sys.version_info < (3, 10):
         )
 PY
 
+# 加载本地 .env（TUSHARE_TOKEN 等）；不覆盖已导出变量
+if [[ -f "${ROOT}/.env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source "${ROOT}/.env"
+  set +a
+fi
+
 export PYTHONPATH="${ROOT}/web:${PYTHONPATH:-}"
 cd "${ROOT}/web"
 echo "启动 Web 演示（stock-sdk）:"

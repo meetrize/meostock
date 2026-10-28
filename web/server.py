@@ -58,6 +58,16 @@ except Exception as _cache_exc:  # noqa: BLE001 — 缓存可选，失败不阻�
 
     logging.getLogger("uvicorn.error").warning("quote cache disabled: %s", _cache_exc)
 
+# Tushare 双中继网关（行情页专题 / 新市场）
+try:
+    from tsrelay.api import router as _tushare_router
+
+    app.include_router(_tushare_router)
+except Exception as _ts_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("tushare gateway disabled: %s", _ts_exc)
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {
