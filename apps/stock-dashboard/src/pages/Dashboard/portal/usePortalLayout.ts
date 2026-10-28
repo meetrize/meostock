@@ -8,6 +8,7 @@ import { createDefaultPersistedState, createDefaultWatchPreset } from './default
 import { applyCatalogConstraints, WIDGET_CATALOG } from './widgetCatalog';
 import {
   PORTAL_STORAGE_KEY,
+  type IndexDisplayMode,
   type PortalLayoutItem,
   type PortalPersistedState,
   type PortalWidgetInstance,
@@ -66,6 +67,7 @@ function parseState(raw: string | null): PortalPersistedState | null {
     return {
       version: 1,
       density: data.density === 'comfortable' ? 'comfortable' : 'tight',
+      indexDisplayMode: data.indexDisplayMode === 'chart' ? 'chart' : 'price',
       activePresetId,
       presets,
     };
@@ -233,11 +235,18 @@ export function usePortalLayout() {
   );
 
   const resetToDefault = useCallback(() => {
-    const fresh = createDefaultPersistedState();
+    const fresh = createDefaultPersistedState(state.indexDisplayMode || 'price');
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setState(fresh);
     saveState(fresh);
-  }, []);
+  }, [state.indexDisplayMode]);
+
+  const setIndexDisplayMode = useCallback(
+    (mode: IndexDisplayMode) => {
+      persist({ ...state, indexDisplayMode: mode });
+    },
+    [persist, state]
+  );
 
   const layoutById = useMemo(() => {
     const map = new Map<string, PortalLayoutItem>();
@@ -245,8 +254,13 @@ export function usePortalLayout() {
     return map;
   }, [activePreset.layout]);
 
+  const indexDisplayMode: IndexDisplayMode =
+    state.indexDisplayMode === 'chart' ? 'chart' : 'price';
+
   return {
     density: state.density,
+    indexDisplayMode,
+    setIndexDisplayMode,
     layout: activePreset.layout,
     widgets: activePreset.widgets,
     layoutById,

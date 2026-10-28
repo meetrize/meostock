@@ -4,9 +4,13 @@
 
 import type { LayoutItem } from 'react-grid-layout';
 import type { IndexWidgetType } from './indexCatalog';
+import type { SparkWidgetType } from './sparkCatalog';
+
+export type IndexDisplayMode = 'price' | 'chart';
 
 export type PortalWidgetType =
   | IndexWidgetType
+  | SparkWidgetType
   | 'stat.breadth'
   | 'stat.limit'
   | 'stat.amount'
@@ -36,7 +40,13 @@ export type PortalCatalogGroupId =
   | 'capital'
   | 'cross'
   | 'assets'
-  | 'derivatives';
+  | 'derivatives'
+  | 'global'
+  | 'futuresSpark'
+  | 'metals'
+  | 'fx'
+  | 'crypto'
+  | 'rates';
 
 export interface PortalWidgetInstance {
   id: string;
@@ -68,12 +78,14 @@ export interface PortalPreset {
 export interface PortalPersistedState {
   version: 1;
   density: 'tight' | 'comfortable';
+  /** 指数类面板默认展示：价格 or 面积曲线 */
+  indexDisplayMode: IndexDisplayMode;
   activePresetId: string;
   presets: PortalPreset[];
 }
 
-/** v6：多来源默认面板（全球指数 / 涨跌停名单 / 期货条带） */
-export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v6';
+/** v7：独立全球/期货面板 + 全局价格/曲线 */
+export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v7';
 
 export const PORTAL_COLS = 12;
 export const PORTAL_ROW_HEIGHT = 36;

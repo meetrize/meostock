@@ -10,6 +10,7 @@ import { WIDGET_CATALOG } from './widgetCatalog';
 import { WidgetChrome } from './WidgetChrome';
 import { renderWidget } from './widgets';
 import { getIndexCodeByType, isIndexWidgetType } from './indexCatalog';
+import { getSparkPanel, isSparkWidgetType } from './sparkCatalog';
 import {
   PORTAL_COLS,
   PORTAL_GUTTER,
@@ -21,7 +22,8 @@ import styles from './PortalCanvas.module.css';
 
 function isCompactWidgetType(type: string): boolean {
   return (
-    isIndexWidgetType(type) ||
+    type.startsWith('index.') ||
+    type.startsWith('spark.') ||
     type.startsWith('stat.') ||
     type.startsWith('strip.')
   );
@@ -30,6 +32,16 @@ function isCompactWidgetType(type: string): boolean {
 function openIndexKline(code: string) {
   const symbol = encodeURIComponent(code);
   window.open(`/?symbol=${symbol}&period=1d`, '_blank', 'noopener,noreferrer');
+}
+
+function titleClickFor(type: string): (() => void) | undefined {
+  if (isIndexWidgetType(type)) {
+    return () => openIndexKline(getIndexCodeByType(type));
+  }
+  if (isSparkWidgetType(type)) {
+    return () => openIndexKline(getSparkPanel(type).klineSymbol);
+  }
+  return undefined;
 }
 
 interface PortalCanvasProps {
@@ -250,17 +262,9 @@ export function PortalCanvas({
                 editing={false}
                 compact={isCompactWidgetType(widget.type)}
                 onRemove={() => onRemoveWidget(widget.id)}
-                onTitleClick={
-                  isIndexWidgetType(widget.type)
-                    ? () => {
-                        if (isIndexWidgetType(widget.type)) {
-                          openIndexKline(getIndexCodeByType(widget.type));
-                        }
-                      }
-                    : undefined
-                }
+                onTitleClick={titleClickFor(widget.type)}
                 titleHint={
-                  isIndexWidgetType(widget.type) ? '打开日线 K 线' : undefined
+                  titleClickFor(widget.type) ? '打开日线 K 线' : undefined
                 }
               >
                 {renderWidget(widget.type, w, h)}
@@ -318,17 +322,9 @@ export function PortalCanvas({
                   editing={editing}
                   compact={isCompactWidgetType(widget.type)}
                   onRemove={() => onRemoveWidget(widget.id)}
-                  onTitleClick={
-                    isIndexWidgetType(widget.type)
-                      ? () => {
-                          if (isIndexWidgetType(widget.type)) {
-                            openIndexKline(getIndexCodeByType(widget.type));
-                          }
-                        }
-                      : undefined
-                  }
+                  onTitleClick={titleClickFor(widget.type)}
                   titleHint={
-                    isIndexWidgetType(widget.type) ? '打开日线 K 线' : undefined
+                    titleClickFor(widget.type) ? '打开日线 K 线' : undefined
                   }
                 >
                   {renderWidget(widget.type, item.w, item.h)}

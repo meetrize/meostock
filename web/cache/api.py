@@ -116,6 +116,14 @@ class SourceBody(BaseModel):
     source: str = Field(..., description="auto|local|network")
 
 
+class KlineWarmupBody(BaseModel):
+    """预热本地 K 线缓存（默认门户期货主连日线）。"""
+
+    symbols: list[str] | None = None  # 如 ["fut:AUM","fut:SCM"]；空则用默认清单
+    period: str = "1d"
+    force: bool = False
+
+
 class GcBody(BaseModel):
     max_age_days: float = 30.0
     max_series: int = 200
@@ -650,5 +658,117 @@ def cache_kline(
             "mode": active_mode,
             "ttl_sec": kline_ttl_seconds(active_mode, period_n, market),
             "as_of": as_of,
+        }
+    )
+
+
+# 总览 spark 面板 K 线预热清单（与前端 sparkCatalog 对齐）
+_DEFAULT_SPARK_KLINE = (
+    # 国内期货主连
+    "fut:AUM",
+    "fut:AGM",
+    "fut:CUM",
+    "fut:RBM",
+    "fut:SCM",
+    "fut:RUM",
+    "fut:MM",
+    "fut:IFM",
+    "fut:ICM",
+    "fut:IMM",
+    # 国际商品 / 贵金属（Yahoo）
+    "yf:GC=F",
+    "yf:SI=F",
+    "yf:CL=F",
+    "yf:BZ=F",
+    "yf:HG=F",
+    "yf:NG=F",
+)
+
+
+def warmup_kline_symbols(
+    symbols: list[str] | None = None,
+    *,
+    period: str = "1d",
+    force: bool = False,
+) -> dict[str, Any]:
+    """同步预热若干 K 线到 SQLite（供总览面积图）。"""
+    from cache.db import init_db
+
+    init_db()
+    period_n = normalize_period(period)
+    targets = [s.strip() for s in (symbols or list(_DEFAULT_SPARK_KLINE)) if s and s.strip()]
+    ok_list: list[dict[str, Any]] = []
+    fail_list: list[dict[str, Any]] = []
+    for raw in targets:
+        try:
+            norm = normalize_symbol(raw)
+            market = norm["market"]
+            sym = norm["symbol"]
+            existing = kline_models.read_kline_bars(market, sym, period_n)
+            if existing and not force:
+                ok_list.append(
+                    {
+                        "symbol": raw,
+                        "count": len(existing),
+                        "source": "cache",
+                        "skipped": True,
+                    }
+                )
+                continue
+            fresh, name, source = fetch_kline_bars(norm, period_n)
+            if not fresh:
+                fail_list.append({"symbol": raw, "error": "empty bars"})
+                continue
+            kline_models.replace_kline_bars(
+                market, sym, period_n, fresh, source=source, name=name
+            )
+            ok_list.append(
+                {
+                    "symbol": raw,
+                    "count": len(fresh),
+                    "source": source,
+                    "name": name,
+                    "skipped": False,
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            fail_list.append({"symbol": raw, "error": str(e)})
+            _log.warning("kline warmup failed %s: %s", raw, e)
+    return {
+        "ok": True,
+        "period": period_n,
+        "ok_count": len(ok_list),
+        "fail_count": len(fail_list),
+        "items": ok_list,
+        "fail": fail_list,
+    }
+
+
+@router.post("/kline/warmup")
+def cache_kline_warmup(body: KlineWarmupBody | None = None) -> JSONResponse:
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
+    b = body or KlineWarmupBody()
+    # 后台跑，避免阻塞门户首屏
+    result_box: dict[str, Any] = {"started": True}
+
+    def _run() -> None:
+        try:
+            result_box.update(
+                warmup_kline_symbols(b.symbols, period=b.period, force=bool(b.force))
+            )
+        except Exception as e:  # noqa: BLE001
+            result_box["ok"] = False
+            result_box["error"] = str(e)
+
+    th = threading.Thread(target=_run, name="kline-warmup", daemon=True)
+    th.start()
+    return JSONResponse(
+        {
+            "ok": True,
+            "queued": True,
+            "message": "K 线预热已在后台开始",
+            "symbols": b.symbols or list(_DEFAULT_SPARK_KLINE),
+            "period": b.period,
         }
     )

@@ -18,6 +18,8 @@ import { StripWidget } from './StripWidget';
 import { TopicListWidget } from './TopicListWidget';
 import { RankListWidget } from './RankListWidget';
 import { StatMarginWidget } from './StatMarginWidget';
+import { SparkPanelWidget } from './SparkPanelWidget';
+import { isSparkWidgetType } from '../sparkCatalog';
 
 export function renderWidget(
   type: PortalWidgetType,
@@ -26,6 +28,9 @@ export function renderWidget(
 ): ReactNode {
   if (isIndexWidgetType(type)) {
     return <IndexWidget type={type} />;
+  }
+  if (isSparkWidgetType(type)) {
+    return <SparkPanelWidget type={type} />;
   }
 
   switch (type) {

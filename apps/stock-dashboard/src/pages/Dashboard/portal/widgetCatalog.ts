@@ -4,6 +4,7 @@
 
 import { LANE_META, type SourceLane } from '@/services/sourceLanes';
 import { MAIN_INDEX_PANELS } from './indexCatalog';
+import { SPARK_PANELS, type SparkWidgetType } from './sparkCatalog';
 import type {
   PortalCatalogGroupId,
   PortalLayoutItem,
@@ -18,16 +19,21 @@ export interface WidgetCatalogEntry {
   lane: SourceLane;
   defaultLayout: Pick<PortalLayoutItem, 'w' | 'h' | 'minW' | 'minH' | 'maxW' | 'maxH'>;
   allowMultiple?: boolean;
-  /** 添加面板抽屉中标星推荐 */
   starred?: boolean;
 }
 
 export const CATALOG_GROUP_LABELS: Record<PortalCatalogGroupId, string> = {
   ashare: 'A 股核心',
+  global: '全球指数',
+  futuresSpark: '国内期货',
+  metals: '贵金属/能源',
+  fx: '外汇',
+  crypto: '加密货币',
+  rates: '美债利率',
   sentiment: '情绪与异动',
   capital: '资金',
   cross: '跨境市场',
-  assets: '全球资产',
+  assets: '紧凑条带（可选）',
   derivatives: '衍生品与场内',
 };
 
@@ -43,14 +49,7 @@ const INDEX_LAYOUT = {
   maxH: TALL_H,
 } as const;
 
-const KPI_LAYOUT = {
-  w: 2,
-  h: 2,
-  minW: 2,
-  minH: 2,
-  maxW: FULL_W,
-  maxH: TALL_H,
-} as const;
+const KPI_LAYOUT = { ...INDEX_LAYOUT } as const;
 
 const LIST_LAYOUT = {
   w: 6,
@@ -79,13 +78,34 @@ const HALF_STRIP_LAYOUT = {
   maxH: TALL_H,
 } as const;
 
+const SPARK_GROUP_TO_CATALOG: Record<
+  (typeof SPARK_PANELS)[number]['group'],
+  PortalCatalogGroupId
+> = {
+  global: 'global',
+  futures: 'futuresSpark',
+  metals: 'metals',
+  fx: 'fx',
+  crypto: 'crypto',
+  rates: 'rates',
+};
+
+const SPARK_GROUP_LANE: Record<(typeof SPARK_PANELS)[number]['group'], SourceLane> = {
+  global: 'yfinance',
+  futures: 'lazy-catalog',
+  metals: 'yfinance',
+  fx: 'yfinance',
+  crypto: 'yfinance',
+  rates: 'yfinance',
+};
+
 const indexEntries = Object.fromEntries(
   MAIN_INDEX_PANELS.map((p) => [
     p.type,
     {
       type: p.type,
       name: p.name,
-      description: `指数 ${p.code}`,
+      description: `指数 ${p.code} · 点击价格看曲线`,
       group: 'ashare' as const,
       lane: 'lazy-catalog' as const,
       defaultLayout: { ...INDEX_LAYOUT },
@@ -93,8 +113,23 @@ const indexEntries = Object.fromEntries(
   ])
 ) as Record<(typeof MAIN_INDEX_PANELS)[number]['type'], WidgetCatalogEntry>;
 
+const sparkEntries = Object.fromEntries(
+  SPARK_PANELS.map((p) => [
+    p.type,
+    {
+      type: p.type as SparkWidgetType,
+      name: p.name,
+      description: `${p.code} · 点击价格看曲线`,
+      group: SPARK_GROUP_TO_CATALOG[p.group],
+      lane: SPARK_GROUP_LANE[p.group],
+      defaultLayout: { ...INDEX_LAYOUT },
+    } satisfies WidgetCatalogEntry,
+  ])
+) as Record<SparkWidgetType, WidgetCatalogEntry>;
+
 export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
   ...indexEntries,
+  ...sparkEntries,
   'stat.breadth': {
     type: 'stat.breadth',
     name: '市场涨跌',
@@ -194,50 +229,48 @@ export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
   },
   'strip.globalIndices': {
     type: 'strip.globalIndices',
-    name: '全球主要指数',
-    description: '美欧亚主要股指横滑条带',
+    name: '全球指数条带',
+    description: '紧凑横滑（推荐改用独立面板）',
     group: 'assets',
     lane: 'yfinance',
     defaultLayout: { ...STRIP_LAYOUT },
   },
   'strip.futures': {
     type: 'strip.futures',
-    name: '国内主力期货',
-    description: '商品/股指主力合约条带',
+    name: '期货条带',
+    description: '紧凑横滑（推荐改用独立面板）',
     group: 'assets',
     lane: 'lazy-catalog',
     defaultLayout: { ...HALF_STRIP_LAYOUT },
   },
   'strip.metals': {
     type: 'strip.metals',
-    name: '贵金属/能源',
-    description: '金银原油等 Yahoo 条带',
+    name: '贵金属条带',
+    description: '紧凑横滑',
     group: 'assets',
     lane: 'yfinance',
     defaultLayout: { ...STRIP_LAYOUT },
-    starred: true,
   },
   'strip.fx': {
     type: 'strip.fx',
-    name: '主要外汇',
-    description: '美元人民币等汇率条带',
+    name: '外汇条带',
+    description: '紧凑横滑',
     group: 'assets',
     lane: 'yfinance',
     defaultLayout: { ...STRIP_LAYOUT },
-    starred: true,
   },
   'strip.crypto': {
     type: 'strip.crypto',
-    name: '加密货币',
-    description: 'BTC/ETH 等条带',
+    name: '加密条带',
+    description: '紧凑横滑',
     group: 'assets',
     lane: 'yfinance',
     defaultLayout: { ...STRIP_LAYOUT },
   },
   'strip.rates': {
     type: 'strip.rates',
-    name: '美债利率',
-    description: '美债收益率迷你条带',
+    name: '利率条带',
+    description: '紧凑横滑',
     group: 'assets',
     lane: 'yfinance',
     defaultLayout: { ...HALF_STRIP_LAYOUT },
@@ -288,11 +321,17 @@ export function catalogGroups(): Array<{
 }> {
   const order: PortalCatalogGroupId[] = [
     'ashare',
+    'global',
+    'futuresSpark',
+    'metals',
+    'fx',
+    'rates',
+    'crypto',
     'sentiment',
     'capital',
     'cross',
-    'assets',
     'derivatives',
+    'assets',
   ];
   return order.map((id) => ({
     id,
@@ -319,7 +358,6 @@ export function applyCatalogConstraints(
   };
 }
 
-/** 估算列表可见行数（扣掉标题与内边距） */
 export function estimateVisibleRows(h: number, rowPx = 36, gutter = 8): number {
   const panelPx = h * rowPx + Math.max(0, h - 1) * gutter;
   const contentPx = panelPx - 44;

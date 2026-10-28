@@ -559,20 +559,195 @@ def fetch_cn_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str, 
     return bars, name, source
 
 
-def _futures_exchange(symbol: str) -> str:
+_EX_TS_SUFFIX = {
+    "SHFE": "SHF",
+    "DCE": "DCE",
+    "CZCE": "ZCE",
+    "CFFEX": "CFX",
+    "INE": "INE",
+    "GFEX": "GFE",
+}
+
+# 东财主连码 → 新浪连续（商品 IndexService / 股指 CffexFuturesService）
+_CFFEX_PRODUCTS = {"IF", "IC", "IM", "IH", "T", "TF", "TS", "TL"}
+
+
+def _futures_catalog_row(symbol: str) -> dict[str, str] | None:
     try:
         from cache.providers.lazy_markets import _load_json
 
         for item in _load_json("futuresCatalog.json"):
             if str(item.get("symbol") or "").upper() == symbol.upper():
-                return str(item.get("exchange") or "SHFE")
+                return {
+                    "symbol": str(item.get("symbol") or symbol).upper(),
+                    "name": str(item.get("name") or symbol),
+                    "exchange": str(item.get("exchange") or "SHFE").upper(),
+                }
     except Exception:
         pass
-    return "SHFE"
+    return None
 
 
-def fetch_futures_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
-    # 期货 SDK/东财：日/周；分钟回退日线
+def _futures_exchange(symbol: str) -> str:
+    row = _futures_catalog_row(symbol)
+    return (row or {}).get("exchange") or "SHFE"
+
+
+def _futures_product_code(symbol: str) -> str:
+    """AUM→AU, MM→M, MAM→MA, IFM→IF。"""
+    s = (symbol or "").upper().strip()
+    if s.endswith("M") and len(s) >= 2:
+        return s[:-1]
+    return s
+
+
+def _futures_ts_code(symbol: str) -> str:
+    product = _futures_product_code(symbol)
+    ex = _futures_exchange(symbol)
+    return f"{product}.{_EX_TS_SUFFIX.get(ex, 'SHF')}"
+
+
+def _futures_sina_symbol(symbol: str) -> str:
+    """东财主连 → 新浪连续码（AU0 / IF0）。"""
+    return f"{_futures_product_code(symbol)}0"
+
+
+def _parse_day_bar(
+    day: str,
+    open_v: Any,
+    high_v: Any,
+    low_v: Any,
+    close_v: Any,
+    vol_v: Any,
+    amount_v: Any = None,
+) -> dict[str, Any] | None:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        dt = datetime.strptime(str(day)[:10], "%Y-%m-%d").replace(
+            tzinfo=ZoneInfo("Asia/Shanghai")
+        )
+        return {
+            "timestamp": int(dt.timestamp() * 1000),
+            "open": float(open_v),
+            "high": float(high_v),
+            "low": float(low_v),
+            "close": float(close_v),
+            "volume": float(vol_v) if vol_v is not None else 0.0,
+            "amount": float(amount_v)
+            if amount_v is not None and amount_v not in ("", "-")
+            else None,
+        }
+    except Exception:
+        return None
+
+
+def _fetch_futures_bars_tushare(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
+    """Tushare fut_daily 主连（AU.SHF / IF.CFX…），日线为主。"""
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    # 分钟/周先回退日线（总览面积图只要日线）
+    _ = period
+    ts_code = _futures_ts_code(symbol)
+    row = _futures_catalog_row(symbol)
+    name = (row or {}).get("name") or symbol
+
+    try:
+        from tsrelay.client import get_client
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"tushare client unavailable: {e}") from e
+
+    client = get_client()
+    if not client.configured():
+        raise RuntimeError("TUSHARE_TOKEN 未配置")
+
+    end = datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d")
+    start = (datetime.now(ZoneInfo("Asia/Shanghai")) - timedelta(days=420)).strftime(
+        "%Y%m%d"
+    )
+    result = client.query(
+        "fut_daily",
+        params={"ts_code": ts_code, "start_date": start, "end_date": end},
+    )
+    if not result.ok:
+        raise RuntimeError(result.error or result.msg or "fut_daily failed")
+    records = result.as_records()
+    bars: list[dict[str, Any]] = []
+    for rec in records:
+        day = str(rec.get("trade_date") or "")
+        if len(day) == 8:
+            day = f"{day[:4]}-{day[4:6]}-{day[6:8]}"
+        bar = _parse_day_bar(
+            day,
+            rec.get("open"),
+            rec.get("high"),
+            rec.get("low"),
+            rec.get("close"),
+            rec.get("vol"),
+            rec.get("amount"),
+        )
+        if bar:
+            bars.append(bar)
+    bars.sort(key=lambda b: b["timestamp"])
+    return bars, name
+
+
+def _http_text(url: str, *, timeout: float = 20.0, referer: str = "") -> str:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _BROWSER_UA,
+            "Referer": referer or "https://finance.sina.com.cn/",
+            "Accept": "*/*",
+            "Connection": "close",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def _fetch_futures_bars_sina(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
+    """新浪日线兜底（商品 InnerFutures / 中金所 Cffex）。"""
+    _ = period
+    product = _futures_product_code(symbol)
+    sina_sym = _futures_sina_symbol(symbol)
+    row = _futures_catalog_row(symbol)
+    name = (row or {}).get("name") or symbol
+    if product in _CFFEX_PRODUCTS:
+        url = (
+            "https://stock.finance.sina.com.cn/futures/api/json.php/"
+            f"CffexFuturesService.getCffexFuturesDailyKLine?symbol={urllib.parse.quote(sina_sym)}"
+        )
+    else:
+        url = (
+            "https://stock2.finance.sina.com.cn/futures/api/json.php/"
+            f"IndexService.getInnerFuturesDailyKLine?symbol={urllib.parse.quote(sina_sym)}"
+        )
+    raw = _http_text(url, timeout=15.0)
+    if not raw or raw.strip() in ("null", "[]"):
+        return [], name
+    data = json.loads(raw)
+    if not isinstance(data, list):
+        return [], name
+    bars: list[dict[str, Any]] = []
+    # 新浪: [date, open, high, low, close, volume]
+    for row_v in data:
+        if not isinstance(row_v, (list, tuple)) or len(row_v) < 5:
+            continue
+        day = str(row_v[0] or "")
+        if not day.startswith("20"):
+            continue
+        bar = _parse_day_bar(day, row_v[1], row_v[2], row_v[3], row_v[4], row_v[5] if len(row_v) > 5 else 0)
+        if bar:
+            bars.append(bar)
+    bars.sort(key=lambda b: b["timestamp"])
+    return bars[-500:], name
+
+
+def _fetch_futures_bars_eastmoney(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
     p = period if period in ("1d", "1w", "1M") else "1d"
     mid = _EXCHANGE_MID.get(_futures_exchange(symbol), 113)
     secid = f"{mid}.{symbol.upper()}"
@@ -599,37 +774,47 @@ def fetch_futures_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], 
             last_err = e
             time.sleep(0.3 * (attempt + 1))
     if data is None:
-        raise RuntimeError(f"futures kline failed: {last_err}")
+        raise RuntimeError(f"eastmoney futures kline failed: {last_err}")
     body = data.get("data") if isinstance(data.get("data"), dict) else {}
     name = str((body or {}).get("name") or symbol)
     klines = (body or {}).get("klines") if isinstance(body, dict) else None
     if not isinstance(klines, list):
         return [], name
     bars: list[dict[str, Any]] = []
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
-
     for line in klines:
         parts = str(line).split(",")
         if len(parts) < 6:
             continue
-        try:
-            day = parts[0]
-            dt = datetime.strptime(day[:10], "%Y-%m-%d").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-            bars.append(
-                {
-                    "timestamp": int(dt.timestamp() * 1000),
-                    "open": float(parts[1]),
-                    "close": float(parts[2]),
-                    "high": float(parts[3]),
-                    "low": float(parts[4]),
-                    "volume": float(parts[5]),
-                    "amount": float(parts[6]) if len(parts) > 6 and parts[6] not in ("", "-") else None,
-                }
-            )
-        except Exception:
-            continue
+        bar = _parse_day_bar(
+            parts[0],
+            parts[1],
+            parts[3],
+            parts[4],
+            parts[2],
+            parts[5],
+            parts[6] if len(parts) > 6 else None,
+        )
+        if bar:
+            bars.append(bar)
     return bars, name
+
+
+def fetch_futures_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str, str]:
+    """期货日线：Tushare 主 → 新浪兜底 → 东财（常被掐）。返回 (bars, name, source)。"""
+    errors: list[str] = []
+    for label, fn in (
+        ("tushare", _fetch_futures_bars_tushare),
+        ("sina", _fetch_futures_bars_sina),
+        ("eastmoney", _fetch_futures_bars_eastmoney),
+    ):
+        try:
+            bars, name = fn(symbol, period)
+            if bars:
+                return bars, name, label
+            errors.append(f"{label}: empty")
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"{label}: {e}")
+    raise RuntimeError("futures kline failed: " + " | ".join(errors))
 
 
 def fetch_kline_bars(norm: dict[str, str], period: str) -> tuple[list[dict[str, Any]], str, str]:
@@ -650,7 +835,6 @@ def fetch_kline_bars(norm: dict[str, str], period: str) -> tuple[list[dict[str, 
         return bars, name, source
 
     if market == "futures":
-        bars, name = fetch_futures_bars(symbol, period)
-        return bars, name, "eastmoney"
+        return fetch_futures_bars(symbol, period)
 
     raise ValueError(f"unsupported market: {market}")

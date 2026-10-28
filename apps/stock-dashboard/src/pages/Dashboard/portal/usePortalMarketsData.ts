@@ -21,6 +21,7 @@ import {
   type CuratedQuote,
 } from './curatedSymbols';
 import type { PortalMarketsValue, PortalTopicRows } from './portalMarketsContext';
+import { getSparkPanel, isSparkWidgetType } from './sparkCatalog';
 import type { PortalWidgetInstance, PortalWidgetType } from './types';
 
 const STRIP_CURATED: Partial<Record<PortalWidgetType, CuratedQuote[]>> = {
@@ -75,6 +76,7 @@ export function usePortalMarketsData(
   const { getRefreshInterval } = useAppSettings();
   const types = useMemo(() => new Set(widgets.map((w) => w.type)), [widgets]);
 
+  const [sparkQuotes, setSparkQuotes] = useState<Record<string, FullQuote[]>>({});
   const [stripQuotes, setStripQuotes] = useState<Record<string, FullQuote[]>>({});
   const [topics, setTopics] = useState<Record<string, PortalTopicRows>>({});
   const [ranks, setRanks] = useState<Record<string, FullQuote[]>>({});
@@ -89,6 +91,9 @@ export function usePortalMarketsData(
         [];
 
       for (const t of types) {
+        if (isSparkWidgetType(t)) {
+          snapMarkets.add(getSparkPanel(t).market);
+        }
         const curated = STRIP_CURATED[t];
         if (curated) {
           curatedByStrip.push({ type: t, curated });
@@ -111,6 +116,7 @@ export function usePortalMarketsData(
       );
       const byMarket: Record<string, FullQuote[]> = {};
       for (const r of snapResults) byMarket[r.market] = r.items;
+      setSparkQuotes(byMarket);
 
       const nextStrips: Record<string, FullQuote[]> = {};
       for (const { type, curated } of curatedByStrip) {
@@ -187,6 +193,7 @@ export function usePortalMarketsData(
   });
 
   return {
+    sparkQuotes,
     stripQuotes,
     topics,
     ranks,

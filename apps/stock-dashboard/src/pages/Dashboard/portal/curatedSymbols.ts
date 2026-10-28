@@ -30,7 +30,7 @@ export const FUTURES_CURATED: CuratedQuote[] = [
   { market: 'futures', code: 'RBM', name: '螺纹' },
   { market: 'futures', code: 'SCM', name: '原油' },
   { market: 'futures', code: 'RUM', name: '橡胶' },
-  { market: 'futures', code: 'MAM', name: '豆粕' },
+  { market: 'futures', code: 'MM', name: '豆粕' },
   { market: 'futures', code: 'IFM', name: '沪深300期' },
   { market: 'futures', code: 'ICM', name: '中证500期' },
   { market: 'futures', code: 'IMM', name: '中证1000期' },

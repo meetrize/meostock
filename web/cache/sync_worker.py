@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 import time
@@ -24,6 +25,7 @@ from cache.providers.sina_snapshot import SINA_HQ_NODE, fetch_sina_market_snapsh
 from cache.source_lanes import LANE_META, lane_of, markets_for_lane
 
 ProgressCb = Callable[[int, int], None]
+_log = logging.getLogger("quote-cache.sync")
 
 _FULL_MARKETS = frozenset({"cn", "hk", "us"})
 _ALL_SYNC_MARKETS: tuple[str, ...] = (
@@ -615,7 +617,7 @@ def start_worker() -> None:
 
 
 def prefetch_on_startup() -> None:
-    """启动预热：静态目录 + 上次市场（若有）。"""
+    """启动预热：静态目录 + 上次市场（若有）+ 期货日线 K 线。"""
     if os.environ.get("QUOTE_CACHE_ENABLED", "1").strip() in ("0", "false", "False"):
         return
     enqueue("index", priority=8)
@@ -623,3 +625,20 @@ def prefetch_on_startup() -> None:
     last = models.get_config("last_market")
     if last:
         enqueue(last, priority=3)
+
+    def _warm_futures_kline() -> None:
+        try:
+            # 延迟几秒，避免与 snapshot 抢启动带宽
+            time.sleep(3.0)
+            from cache.api import warmup_kline_symbols
+
+            result = warmup_kline_symbols(force=False)
+            _log.info(
+                "futures kline warmup done ok=%s fail=%s",
+                result.get("ok_count"),
+                result.get("fail_count"),
+            )
+        except Exception:  # noqa: BLE001
+            _log.exception("futures kline warmup failed")
+
+    threading.Thread(target=_warm_futures_kline, name="kline-warmup-boot", daemon=True).start()

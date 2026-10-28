@@ -17,6 +17,8 @@ export type PortalTopicRows = {
 };
 
 export type PortalMarketsValue = {
+  /** market_id → 全表/过滤后的 quote（供独立 spark 面板） */
+  sparkQuotes: Record<string, FullQuote[]>;
   stripQuotes: Record<string, FullQuote[]>;
   topics: Record<string, PortalTopicRows>;
   ranks: Record<string, FullQuote[]>;

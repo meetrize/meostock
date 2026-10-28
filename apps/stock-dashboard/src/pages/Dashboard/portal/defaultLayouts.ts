@@ -1,10 +1,20 @@
 /**
- * 默认看盘布局 v6：A 股核心 + 全球指数条带 + 涨跌停名单 + 期货条带
+ * 默认看盘布局 v7：A 股指数 + 全球/期货独立面板 + 涨跌停名单
  */
 
 import { MAIN_INDEX_PANELS } from './indexCatalog';
+import {
+  DEFAULT_FUTURES_SPARK_TYPES,
+  DEFAULT_GLOBAL_SPARK_TYPES,
+} from './sparkCatalog';
 import { applyCatalogConstraints } from './widgetCatalog';
-import type { PortalLayoutItem, PortalPreset, PortalWidgetInstance, PortalWidgetType } from './types';
+import type {
+  IndexDisplayMode,
+  PortalLayoutItem,
+  PortalPreset,
+  PortalWidgetInstance,
+  PortalWidgetType,
+} from './types';
 
 function item(
   id: string,
@@ -26,6 +36,24 @@ export function createDefaultWatchPreset(): PortalPreset {
     item(`index-${p.code}`, p.type, i * 2, 0, 2, 2)
   );
 
+  // 全球指数：两行 6+4（w=2）
+  const globalParts = DEFAULT_GLOBAL_SPARK_TYPES.map((t, i) => {
+    const row = Math.floor(i / 6);
+    const col = i % 6;
+    return item(`spark-${t}`, t, col * 2, 4 + row * 2, 2, 2);
+  });
+
+  // 期货：接在全球下方
+  const futStartY = 4 + Math.ceil(DEFAULT_GLOBAL_SPARK_TYPES.length / 6) * 2;
+  const futParts = DEFAULT_FUTURES_SPARK_TYPES.map((t, i) => {
+    const row = Math.floor(i / 6);
+    const col = i % 6;
+    return item(`spark-${t}`, t, col * 2, futStartY + row * 2, 2, 2);
+  });
+
+  const afterFutY =
+    futStartY + Math.ceil(DEFAULT_FUTURES_SPARK_TYPES.length / 6) * 2;
+
   const parts = [
     ...indexParts,
     item('stat-breadth', 'stat.breadth', 0, 2, 2, 2),
@@ -34,16 +62,14 @@ export function createDefaultWatchPreset(): PortalPreset {
     item('stat-northbound', 'stat.northbound', 6, 2, 2, 2),
     item('stat-mainForce', 'stat.mainForce', 8, 2, 2, 2),
     item('stat-strongestBoard', 'stat.strongestBoard', 10, 2, 2, 2),
-    // KPI 正下方：全球主要指数
-    item('strip-global', 'strip.globalIndices', 0, 4, 12, 3),
-    item('watchlist', 'watchlist', 0, 7, 6, 10),
-    item('hotBoards', 'hotBoards', 6, 7, 6, 10),
-    // 新行：涨跌停名单 | 期货条带
-    item('topic-limit', 'topic.limitList', 0, 17, 6, 10),
-    item('strip-futures', 'strip.futures', 6, 17, 6, 3),
-    item('marketRanking', 'marketRanking', 0, 27, 6, 12),
-    item('boardFundFlow', 'boardFundFlow', 6, 27, 6, 12),
-    item('fundFlowRank', 'fundFlowRank', 0, 39, 6, 10),
+    ...globalParts,
+    ...futParts,
+    item('watchlist', 'watchlist', 0, afterFutY, 6, 10),
+    item('hotBoards', 'hotBoards', 6, afterFutY, 6, 10),
+    item('topic-limit', 'topic.limitList', 0, afterFutY + 10, 6, 10),
+    item('marketRanking', 'marketRanking', 6, afterFutY + 10, 6, 12),
+    item('boardFundFlow', 'boardFundFlow', 0, afterFutY + 22, 6, 12),
+    item('fundFlowRank', 'fundFlowRank', 6, afterFutY + 22, 6, 10),
   ];
 
   return {
@@ -54,11 +80,12 @@ export function createDefaultWatchPreset(): PortalPreset {
   };
 }
 
-export function createDefaultPersistedState() {
+export function createDefaultPersistedState(indexDisplayMode: IndexDisplayMode = 'price') {
   const preset = createDefaultWatchPreset();
   return {
     version: 1 as const,
     density: 'tight' as const,
+    indexDisplayMode,
     activePresetId: preset.id,
     presets: [preset],
   };
