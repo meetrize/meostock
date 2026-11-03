@@ -106,11 +106,15 @@ fi
 
 export PYTHONPATH="${ROOT}/web:${PYTHONPATH:-}"
 cd "${ROOT}/web"
-echo "启动 Web 演示（stock-sdk）:"
+echo ""
+echo "服务已就绪（Ctrl+C 停止全部）："
 echo "  K 线:     http://127.0.0.1:8765/"
 echo "  看板:     http://127.0.0.1:8765/dashboard/"
+echo "  行情:     http://127.0.0.1:8765/dashboard/quotes"
 echo "  大盘云图: http://127.0.0.1:8765/dapan/"
 echo "  涨停复盘: http://127.0.0.1:8765/fupan"
 echo "  插件中转: http://127.0.0.1:8765/xnge/"
+echo "  示例:     http://127.0.0.1:8765/?symbol=600036&period=1d"
+echo ""
 # 不用 exec，以便 EXIT trap 能停掉大盘云图子进程
 python -m uvicorn server:app --host 127.0.0.1 --port 8765
