@@ -614,6 +614,14 @@
         <input type="checkbox" id="syncCrosshair" />
         同步十字线
       </label>
+      <label class="mp-bar-check" title="缩放任一面板时间轴时，当前页全部面板同步柱宽">
+        <input type="checkbox" id="syncZoom" />
+        同步缩放
+      </label>
+      <label class="mp-bar-check" title="拖动任一面板时间轴时，当前页全部面板按右缘时间戳对齐">
+        <input type="checkbox" id="syncPan" />
+        同步平移
+      </label>
       <span class="mp-pager" id="mpPager" title="标的翻页（↓下一页 · ↑上一页）">
         <button type="button" id="btnPagePrev" title="上一页 (↑)">‹</button>
         <span class="muted" id="pageLabel">1/1</span>
@@ -706,6 +714,8 @@
     let currentLayout = resolveLayout("2x2");
     let currentPeriod = "1d";
     let syncCrosshairOn = false;
+    let syncZoomOn = false;
+    let syncPanOn = false;
     const pageLabelEl = document.getElementById("pageLabel");
     const btnPagePrev = document.getElementById("btnPagePrev");
     const btnPageNext = document.getElementById("btnPageNext");
@@ -724,6 +734,8 @@
     const data = getKlineData();
     const appEl = document.querySelector(".app");
     const syncCrosshairEl = document.getElementById("syncCrosshair");
+    const syncZoomEl = document.getElementById("syncZoom");
+    const syncPanEl = document.getElementById("syncPan");
     const hideVolEl = document.getElementById("hideVol");
     const hideYAxisEl = document.getElementById("hideYAxis");
     const hideMaEl = document.getElementById("hideMa");
@@ -739,6 +751,14 @@
       livePanels().forEach((p) => {
         if (p === sourcePanel) return;
         p.syncCrosshairFrom(payload);
+      });
+    }
+
+    function handleTimeScaleSync(payload, sourcePanel) {
+      if ((!syncZoomOn && !syncPanOn) || !payload) return;
+      livePanels().forEach((p) => {
+        if (p === sourcePanel) return;
+        p.syncTimeScaleFrom(payload, { zoom: syncZoomOn, pan: syncPanOn });
       });
     }
 
@@ -920,6 +940,8 @@
         symbols: allSymbols.slice(),
         pageIndex,
         syncCrosshair: syncCrosshairOn,
+        syncZoom: syncZoomOn,
+        syncPan: syncPanOn,
         hideVol: hideVolGlobal,
         hideYAxis: hideYAxisGlobal,
         hideMa: hideMaGlobal,
@@ -1029,6 +1051,7 @@
           maLocked: !!saved.maLocked,
           onStatus: (msg) => setStatus(msg),
           onCrosshair: handleCrosshair,
+          onTimeScaleSync: handleTimeScaleSync,
         });
         panel.onVolumeChange = () => persistSession();
         panel.onYAxisChange = () => persistSession();
@@ -1109,6 +1132,18 @@
     syncCrosshairEl.addEventListener("change", () => {
       syncCrosshairOn = !!syncCrosshairEl.checked;
       setStatus(syncCrosshairOn ? "已开启十字线同步" : "已关闭十字线同步");
+      persistSession();
+    });
+
+    syncZoomEl.addEventListener("change", () => {
+      syncZoomOn = !!syncZoomEl.checked;
+      setStatus(syncZoomOn ? "已开启时间轴同步缩放" : "已关闭时间轴同步缩放");
+      persistSession();
+    });
+
+    syncPanEl.addEventListener("change", () => {
+      syncPanOn = !!syncPanEl.checked;
+      setStatus(syncPanOn ? "已开启时间轴同步平移" : "已关闭时间轴同步平移");
       persistSession();
     });
 
@@ -1300,6 +1335,10 @@
 
     syncCrosshairOn = !!session?.syncCrosshair;
     syncCrosshairEl.checked = syncCrosshairOn;
+    syncZoomOn = !!session?.syncZoom;
+    syncZoomEl.checked = syncZoomOn;
+    syncPanOn = !!session?.syncPan;
+    syncPanEl.checked = syncPanOn;
     hideVolGlobal = !!session?.hideVol;
     hideVolEl.checked = hideVolGlobal;
     hideYAxisGlobal = !!session?.hideYAxis;

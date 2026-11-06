@@ -101,6 +101,11 @@ export class ChartPanel {
     this.scheduleRefresh = opts.scheduleRefresh || this.schedule;
     /** @type {(data: object, panel: ChartPanel) => void} */
     this.onCrosshair = opts.onCrosshair || null;
+    /**
+     * 用户缩放 / 平移时间轴时回调（程序化 setBarSpace / scroll 由 _syncingTimeScale 抑制）
+     * @type {(payload: { barSpace?: number, fromTs?: number, toTs?: number }, panel: ChartPanel) => void}
+     */
+    this.onTimeScaleSync = opts.onTimeScaleSync || opts.onZoomSync || null;
 
     this.symbol = String(opts.symbol || "").trim();
     this.period = isValidPeriod(opts.period) ? opts.period : "1d";
@@ -133,6 +138,7 @@ export class ChartPanel {
     this.mainIndicators = [];
     this.subIndicators = {};
     this._syncingCrosshair = false;
+    this._syncingTimeScale = false;
     /** @type {any[]|null} resetData 时直接喂给 getBars，避免二次请求 */
     this._pendingBars = null;
 
@@ -312,6 +318,17 @@ export class ChartPanel {
       } catch (_) {}
     });
 
+    // 用户缩放 / 平移时间轴时通知外层（程序化改视口不走这两类 action，或由 _syncingTimeScale 挡住）
+    const emitTimeScale = () => {
+      if (this._syncingTimeScale || !this.onTimeScaleSync) return;
+      try {
+        const payload = ChartPanel.extractTimeScalePayload(this.chart);
+        if (payload) this.onTimeScaleSync(payload, this);
+      } catch (_) {}
+    };
+    this.chart.subscribeAction("onZoom", emitTimeScale);
+    this.chart.subscribeAction("onScroll", emitTimeScale);
+
     requestAnimationFrame(() => this.resize());
     return this.chart;
   }
@@ -472,6 +489,93 @@ export class ChartPanel {
       paneId: data.paneId || "candle_pane",
       y: Number.isFinite(Number(data.y)) ? Number(data.y) : undefined,
     };
+  }
+
+  /**
+   * 从本图提取可同步的时间轴（柱宽 + 可见区间时间戳）
+   * @param {any} chart
+   * @returns {{ barSpace: number, fromTs?: number, toTs?: number } | null}
+   */
+  static extractTimeScalePayload(chart) {
+    if (!chart || typeof chart.getBarSpace !== "function") return null;
+    try {
+      const bs = chart.getBarSpace();
+      const barSpace = typeof bs === "number" ? bs : Number(bs?.bar);
+      if (!Number.isFinite(barSpace) || barSpace <= 0) return null;
+      /** @type {{ barSpace: number, fromTs?: number, toTs?: number }} */
+      const payload = { barSpace };
+      const range = chart.getVisibleRange?.();
+      const list = chart.getDataList?.() || [];
+      if (range && list.length) {
+        const clamp = (i) =>
+          Math.max(0, Math.min(list.length - 1, Math.floor(Number(i))));
+        const fromIdx = clamp(range.realFrom ?? range.from);
+        const toIdx = clamp(range.realTo ?? range.to);
+        const fromTs = Number(list[fromIdx]?.timestamp);
+        const toTs = Number(list[toIdx]?.timestamp);
+        if (Number.isFinite(fromTs)) payload.fromTs = fromTs;
+        if (Number.isFinite(toTs)) payload.toTs = toTs;
+      }
+      return payload;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /** @deprecated 使用 extractTimeScalePayload */
+  static extractZoomPayload(chart) {
+    return ChartPanel.extractTimeScalePayload(chart);
+  }
+
+  /**
+   * 时间轴同步：按需对齐柱宽 / 右缘时间戳（其它面板调用）
+   * @param {{ barSpace?: number, toTs?: number } | null} payload
+   * @param {{ zoom?: boolean, pan?: boolean }} [opts]
+   */
+  syncTimeScaleFrom(payload, opts = {}) {
+    if (!this.chart || this._disposed || !payload) return;
+    const doZoom = !!opts.zoom;
+    const doPan = !!opts.pan;
+    if (!doZoom && !doPan) return;
+
+    let nextBar = null;
+    if (doZoom) {
+      const barSpace = Number(payload.barSpace);
+      if (Number.isFinite(barSpace) && barSpace > 0) {
+        try {
+          const cur = this.chart.getBarSpace?.();
+          const curBar = typeof cur === "number" ? cur : Number(cur?.bar);
+          if (!Number.isFinite(curBar) || Math.abs(curBar - barSpace) >= 0.01) {
+            nextBar = barSpace;
+          }
+        } catch (_) {
+          nextBar = barSpace;
+        }
+      }
+    }
+
+    const toTs = doPan ? Number(payload.toTs) : NaN;
+    const needPan = doPan && Number.isFinite(toTs);
+
+    if (nextBar == null && !needPan) return;
+
+    this._syncingTimeScale = true;
+    try {
+      if (nextBar != null) this.chart.setBarSpace(nextBar);
+      if (needPan && typeof this.chart.scrollToTimestamp === "function") {
+        this.chart.scrollToTimestamp(toTs, 0);
+      }
+    } catch (_) {
+    } finally {
+      queueMicrotask(() => {
+        this._syncingTimeScale = false;
+      });
+    }
+  }
+
+  /** @deprecated 使用 syncTimeScaleFrom(payload, { zoom: true }) */
+  syncZoomFrom(payload) {
+    this.syncTimeScaleFrom(payload, { zoom: true });
   }
 
   _fitFsViewport() {
