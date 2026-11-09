@@ -200,7 +200,7 @@ print(df.tail())
 | `balanced`（默认） | 先出缓存，盘中约 45s 后台同步 |
 | `realtime` | 更勤强制同步 |
 
-设计见 `docs/local-quote-cache.md`。
+设计见 `docs/local-quote-cache.md`；各市场远程数据源见 `docs/quotes-market-data-sources.md`；库表 ERD 见 `docs/quote-cache-db.md`。
 
 ### URL 直达
 

@@ -227,6 +227,8 @@ P3  代码表日更、K 线增量
 
 ## 7. 数据库设计（SQLite）
 
+> 完整 ERD、字段释义与关系见专文 [`quote-cache-db.md`](./quote-cache-db.md)。以下为摘要。
+
 **路径**：`data/quote_cache.db`（gitignore）  
 **PRAGMA**：`journal_mode=WAL`；`synchronous=NORMAL`；`busy_timeout=5000`。
 

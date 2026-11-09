@@ -17,13 +17,18 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
 
-EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
-# 备用节点（与 stock-sdk 类似）
-EM_CLIST_MIRRORS = (
-    EM_CLIST,
-    "https://79.push2.eastmoney.com/api/qt/clist/get",
-    "https://17.push2.eastmoney.com/api/qt/clist/get",
+# 与 a-share-heatmap market-heatmap.ts 一致：push2delay 优先，主站常空响应
+EM_CLIST_HOSTS = (
+    "push2delay.eastmoney.com",
+    "82.push2.eastmoney.com",
+    "7.push2.eastmoney.com",
+    "48.push2.eastmoney.com",
+    "push2.eastmoney.com",
 )
+EM_CLIST_MIRRORS = tuple(
+    f"https://{host}/api/qt/clist/get" for host in EM_CLIST_HOSTS
+)
+EM_CLIST = EM_CLIST_MIRRORS[0]
 
 MARKET_FS = {
     "cn": "m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048",
@@ -165,20 +170,29 @@ def _fetch_page(
         "pz": str(page_size),
         "po": "1",
         "np": "1",
+        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
         "fltt": "2",
         "invt": "2",
-        "fid": "f3",
+        "fid": "f12",
         "fs": fs,
         "fields": _FIELDS,
     }
     last_err: Exception | None = None
     data: dict[str, Any] | None = None
+    # 优先 base_url（默认 push2delay），再按 heatmap 主机序轮转
     mirrors = tuple(dict.fromkeys((base_url, *EM_CLIST_MIRRORS)))
     for attempt in range(retries):
-        for mirror in mirrors:
+        # 首次优先 delay；失败后再轮转其余镜像（对齐 heatmap attempt 策略）
+        host_idx = (attempt - 1) % len(mirrors) if attempt > 0 else 0
+        ordered = mirrors[host_idx:] + mirrors[:host_idx]
+        for mirror in ordered:
             url = f"{mirror}?{urllib.parse.urlencode(params)}"
             try:
-                data = _http_get_json(url, timeout=25.0)
+                payload = _http_get_json(url, timeout=12.0)
+                body = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+                if not isinstance(body, dict) or body.get("diff") is None:
+                    raise ValueError("eastmoney clist payload is invalid")
+                data = payload
                 last_err = None
                 break
             except (
@@ -193,7 +207,7 @@ def _fetch_page(
                 continue
         if data is not None:
             break
-        time.sleep(0.4 * (attempt + 1))
+        time.sleep(0.12 * (attempt + 1) * (attempt + 1))
     if data is None:
         raise RuntimeError(f"clist page {page} failed: {last_err}")
 
@@ -212,13 +226,14 @@ def fetch_market_snapshot(
     market: str,
     *,
     page_size: int = 100,
-    max_workers: int = 2,
+    max_workers: int = 4,
     on_progress: ProgressCb | None = None,
     on_batch: Callable[[list[dict[str, Any]]], None] | None = None,
 ) -> tuple[list[dict[str, Any]], str]:
     """拉取全市场快照。返回 (rows, source)。
 
     有限并发 + 失败重试；可通过 on_batch 渐进落库（首屏不必等全量）。
+    主机序对齐 a-share-heatmap（push2delay 优先）。
     """
     market = (market or "").lower().strip()
     if market not in MARKET_FS:

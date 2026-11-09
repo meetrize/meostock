@@ -22,6 +22,7 @@ from cache.providers.lazy_markets import (
     merge_keep_quotes,
 )
 from cache.providers.sina_snapshot import SINA_HQ_NODE, fetch_sina_market_snapshot
+from cache.providers.tencent_snapshot import fetch_tencent_cn_snapshot
 from cache.source_lanes import LANE_META, lane_of, markets_for_lane
 
 ProgressCb = Callable[[int, int], None]
@@ -373,7 +374,11 @@ def _fetch_full_with_fallback(
     *,
     on_batch: Callable[[list[dict[str, Any]]], None] | None,
 ) -> tuple[list[dict[str, Any]], str]:
-    """东财优先；失败且支持新浪时回退。"""
+    """全市场快照：东财优先；A 股再腾讯（按已知代码），最后新浪。
+
+    主机序 / 回退对齐 a-share-heatmap 大盘云图策略（实现在 FastAPI 缓存层）。
+    """
+    label = _label(market)
     try:
         rows, source = fetch_market_snapshot(
             market,
@@ -384,16 +389,46 @@ def _fetch_full_with_fallback(
             return rows, source
         raise RuntimeError("eastmoney empty")
     except Exception as em_err:
+        # A 股：东财失败 → 腾讯（需上一份代码表）→ 新浪
+        if market == "cn":
+            prev = models.read_snapshot("cn")
+            if prev:
+                try:
+                    _set_progress(
+                        message=f"东财失败，改用腾讯同步{label}…",
+                        source="tencent",
+                    )
+                    rows, source = fetch_tencent_cn_snapshot(
+                        prev,
+                        on_batch=on_batch,
+                        on_progress=_on_item_progress,
+                    )
+                    _set_progress(source=source)
+                    _ = em_err
+                    return rows, source
+                except Exception as tc_err:
+                    _ = tc_err
+            if market not in SINA_HQ_NODE:
+                raise
+            _set_progress(message=f"腾讯不可用，改用新浪同步{label}…", source="sina")
+            rows, source = fetch_sina_market_snapshot(
+                market,
+                on_batch=on_batch,
+                on_progress=_on_item_progress,
+            )
+            _set_progress(source=source)
+            _ = em_err
+            return rows, source
+
         if market not in SINA_HQ_NODE:
             raise
-        _set_progress(message=f"东财失败，改用新浪同步{_label(market)}…", source="sina")
+        _set_progress(message=f"东财失败，改用新浪同步{label}…", source="sina")
         rows, source = fetch_sina_market_snapshot(
             market,
             on_batch=on_batch,
             on_progress=_on_item_progress,
         )
         _set_progress(source=source)
-        # 保留东财错误信息便于排查，但不抛出
         _ = em_err
         return rows, source
 
