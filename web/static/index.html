@@ -2294,10 +2294,10 @@
         .sort((a, b) => a.timestamp - b.timestamp);
     }
 
-    /** 取 Asia/Shanghai 的年月日时分 */
-    function shanghaiParts(ts) {
+    /** 分时/交易日：按市场时区拆分与补齐（美股不可再用 A 股 9:30–15:00） */
+    function partsInTz(ts, timeZone) {
       const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "Asia/Shanghai",
+        timeZone,
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
@@ -2315,9 +2315,97 @@
       };
     }
 
+    function localToUtcMs(timeZone, y, mo, d, h, mi) {
+      let t = Date.UTC(y, mo - 1, d, h, mi);
+      for (let i = 0; i < 5; i++) {
+        const p = partsInTz(t, timeZone);
+        const deltaMin = h * 60 + mi - (p.h * 60 + p.mi);
+        const deltaDay =
+          (Date.UTC(y, mo - 1, d) - Date.UTC(p.y, p.mo - 1, p.d)) / 86_400_000;
+        if (deltaMin === 0 && deltaDay === 0) break;
+        t += deltaMin * 60_000 + deltaDay * 86_400_000;
+      }
+      return t;
+    }
+
+    function getFsSessionSpec(market) {
+      const m = String(market || "CN").toUpperCase();
+      if (m === "US" || m === "YF") {
+        const timeZone = "America/New_York";
+        return {
+          timeZone,
+          daySlots: 391,
+          buildSlots(dayTs) {
+            const p = partsInTz(dayTs, timeZone);
+            const slots = [];
+            for (let t = 9 * 60 + 30; t <= 16 * 60; t += 1) {
+              slots.push(
+                localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60)
+              );
+            }
+            return slots;
+          },
+        };
+      }
+      if (m === "HK") {
+        const timeZone = "Asia/Hong_Kong";
+        return {
+          timeZone,
+          daySlots: 332,
+          buildSlots(dayTs) {
+            const p = partsInTz(dayTs, timeZone);
+            const slots = [];
+            for (let t = 9 * 60 + 30; t <= 12 * 60; t += 1) {
+              slots.push(
+                localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60)
+              );
+            }
+            for (let t = 13 * 60; t <= 16 * 60; t += 1) {
+              slots.push(
+                localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60)
+              );
+            }
+            return slots;
+          },
+        };
+      }
+      const timeZone = "Asia/Shanghai";
+      return {
+        timeZone,
+        daySlots: 242,
+        buildSlots(dayTs) {
+          const p = partsInTz(dayTs, timeZone);
+          const slots = [];
+          for (let t = 9 * 60 + 30; t <= 11 * 60 + 30; t += 1) {
+            slots.push(
+              localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60)
+            );
+          }
+          for (let t = 13 * 60; t <= 15 * 60; t += 1) {
+            slots.push(
+              localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60)
+            );
+          }
+          return slots;
+        },
+      };
+    }
+
+    function dayRangeInTz(ts = Date.now(), timeZone = "Asia/Shanghai") {
+      const p = partsInTz(ts, timeZone);
+      return {
+        ymd: `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`,
+        start: localToUtcMs(timeZone, p.y, p.mo, p.d, 0, 0),
+        end: localToUtcMs(timeZone, p.y, p.mo, p.d, 23, 59),
+      };
+    }
+
+    function shanghaiParts(ts) {
+      return partsInTz(ts, "Asia/Shanghai");
+    }
+
     function shanghaiLocalToUtcMs(y, mo, d, h, mi) {
-      const pad = (n) => String(n).padStart(2, "0");
-      return Date.parse(`${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}:00+08:00`);
+      return localToUtcMs("Asia/Shanghai", y, mo, d, h, mi);
     }
 
     function floorShanghaiMinuteUtc(ts) {
@@ -2325,82 +2413,63 @@
       return shanghaiLocalToUtcMs(p.y, p.mo, p.d, p.h, p.mi);
     }
 
-    /**
-     * A 股交易分钟轴：09:30–11:30、13:00–15:00（共 242 个点，不含午休）。
-     * 用于分时图固定从开盘画到收盘。
-     */
-    function buildCnFsSlotTimestamps(dayTs) {
-      const p = shanghaiParts(dayTs);
-      const slots = [];
-      for (let t = 9 * 60 + 30; t <= 11 * 60 + 30; t += 1) {
-        slots.push(shanghaiLocalToUtcMs(p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
-      }
-      for (let t = 13 * 60; t <= 15 * 60; t += 1) {
-        slots.push(shanghaiLocalToUtcMs(p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
-      }
-      return slots;
-    }
-
-    /** 取上海时区「今天」0:00–23:59 的 UTC 毫秒范围 */
     function shanghaiDayRangeUtc(ts = Date.now()) {
-      const p = shanghaiParts(ts);
-      return {
-        ymd: `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`,
-        start: shanghaiLocalToUtcMs(p.y, p.mo, p.d, 0, 0),
-        end: shanghaiLocalToUtcMs(p.y, p.mo, p.d, 23, 59),
-      };
+      return dayRangeInTz(ts, "Asia/Shanghai");
     }
 
     /**
      * 分时多日策略：
-     * 1) 网络：一次 cnMinute(period=1) 拿近约 5 个交易日，按日拆分
-     * 2) 数据：全部写入图（约 5×242 根，体量很小）；forward 必须为 false
-     *    —— klinecharts 在 from===0 且 forward=true 时会自动连环拉历史，
-     *    首屏若只塞 1 日再 forward=true，会立刻把 5 日全展开
-     * 3) 视口：barSpace 按「一日宽度」适配，并滚到最近一日开盘，首屏只看见今天
-     * 4) 向左拖即可看到昨天及更早；切股票 / 退出分时清空缓存
+     * 1) 按市场交易日拆分（美股用美东，避免跨北京自然日被拆碎）
+     * 2) 按该市场时段补齐；forward 必须 false
+     * 3) 视口按一日槽位数适配，滚到最近一日
      */
-    const FS_DAY_SLOTS = 242; // 09:30–11:30 + 13:00–15:00
-    let fsCache = null; // { symbol, days: ymd[], byDay: Map }
+    const FS_DAY_SLOTS = 242; // A 股默认；美/港用 getFsSessionSpec().daySlots
+    let fsCache = null; // { symbol, days: ymd[], byDay: Map, market, daySlots }
 
     function resetFsCache() {
       fsCache = null;
     }
 
-    function groupBarsByShanghaiDay(bars) {
+    function groupBarsByMarketDay(bars, market = "CN") {
+      const { timeZone } = getFsSessionSpec(market);
       const map = new Map();
       (bars || []).forEach((b) => {
         if (!b || !Number.isFinite(b.timestamp)) return;
-        const { ymd } = shanghaiDayRangeUtc(b.timestamp);
+        const { ymd } = dayRangeInTz(b.timestamp, timeZone);
         if (!map.has(ymd)) map.set(ymd, []);
         map.get(ymd).push(b);
       });
-      const days = [...map.keys()].sort(); // 升序：旧 → 新
+      const days = [...map.keys()].sort();
       days.forEach((ymd) => {
         map.set(
           ymd,
           map.get(ymd).sort((a, b) => a.timestamp - b.timestamp)
         );
       });
-      return { days, byDay: map };
+      return { days, byDay: map, timeZone };
     }
 
-    /**
-     * 单日分时补齐到 9:30–15:00。
-     * 历史完整日：缺分钟前值补齐；今天未走到的分钟用 NaN 占位。
-     */
-    function padFsDayBars(dayBars) {
+    function groupBarsByShanghaiDay(bars) {
+      return groupBarsByMarketDay(bars, "CN");
+    }
+
+    function padFsDayBars(dayBars, market = "CN") {
       const list = Array.isArray(dayBars)
         ? dayBars.filter((b) => b && Number.isFinite(b.timestamp))
         : [];
       if (!list.length) return [];
-      const slots = buildCnFsSlotTimestamps(list[0].timestamp);
+      const spec = getFsSessionSpec(market);
+      const slots = spec.buildSlots(list[0].timestamp);
       const byMin = new Map();
       list.forEach((b) => {
-        byMin.set(floorShanghaiMinuteUtc(b.timestamp), b);
+        const p = partsInTz(b.timestamp, spec.timeZone);
+        byMin.set(
+          localToUtcMs(spec.timeZone, p.y, p.mo, p.d, p.h, p.mi),
+          b
+        );
       });
-      const todayYmd = shanghaiDayRangeUtc(Date.now()).ymd;
-      const dayYmd = shanghaiDayRangeUtc(list[0].timestamp).ymd;
+      const todayYmd = dayRangeInTz(Date.now(), spec.timeZone).ymd;
+      const dayYmd = dayRangeInTz(list[0].timestamp, spec.timeZone).ymd;
       const isToday = dayYmd === todayYmd;
       const now = Date.now();
       let last = null;
@@ -2447,28 +2516,46 @@
       return out;
     }
 
-    /** 兼容：只取今天（或最近交易日）并补齐 —— 给非 DataLoader 调用方用 */
-    function padCnFsBars(bars) {
-      const { days, byDay } = groupBarsByShanghaiDay(bars);
+    function prepareFsChartBars(bars, market = "CN") {
+      const spec = getFsSessionSpec(market);
+      const { days, byDay } = groupBarsByMarketDay(bars, market);
+      if (!days.length) {
+        return { days: [], byDay, bars: [], daySlots: spec.daySlots, latest: null };
+      }
+      const out = days.flatMap((ymd) => padFsDayBars(byDay.get(ymd) || [], market));
+      return {
+        days,
+        byDay,
+        bars: out,
+        daySlots: spec.daySlots,
+        latest: days[days.length - 1],
+      };
+    }
+
+    /** 兼容：只取今天（或最近交易日）并补齐 */
+    function padCnFsBars(bars, market = "CN") {
+      const { days, byDay } = groupBarsByMarketDay(bars, market);
       if (!days.length) return [];
-      const todayYmd = shanghaiDayRangeUtc(Date.now()).ymd;
+      const { timeZone } = getFsSessionSpec(market);
+      const todayYmd = dayRangeInTz(Date.now(), timeZone).ymd;
       const ymd = byDay.has(todayYmd) ? todayYmd : days[days.length - 1];
-      return padFsDayBars(byDay.get(ymd));
+      return padFsDayBars(byDay.get(ymd), market);
     }
 
     /**
-     * 首屏按「一日宽度」适配，并滚到最新一根（最近交易日 15:00）。
-     * 注意：scrollToDataIndex(i) 是把 i 对齐到视口【右缘】，不能用来滚到今日开盘，
-     * 否则右缘落在 09:30，画面会变成「昨天」为主。
+     * 首屏按「一日宽度」适配，并滚到最新一根。
      */
-    function fitFsViewportOneDay() {
+    function fitFsViewportOneDay(daySlots) {
       if (!chart) return;
       try {
         const el = document.getElementById("chart");
         const w = el?.clientWidth || 800;
-        const space = Math.max(1.5, Math.min(6, (w - 48) / FS_DAY_SLOTS));
+        const slots =
+          Number(daySlots) > 0
+            ? Number(daySlots)
+            : fsCache?.daySlots || FS_DAY_SLOTS;
+        const space = Math.max(1.5, Math.min(6, (w - 48) / slots));
         chart.setBarSpace(space);
-        // 最新一根贴右；一日宽度下左缘自然落在该日 09:30
         if (typeof chart.scrollToRealTime === "function") {
           chart.scrollToRealTime();
         } else if (typeof chart.setOffsetRightDistance === "function") {
@@ -2694,15 +2781,18 @@
     }
 
     /**
-     * 首屏加载入口：默认实时；缓存模式只读盘。
-     * localFirst 仅在非缓存模式下作多面板加速兼容。
+     * 首屏加载：优先本地缓存秒开，脏数据再后台 force 刷新。
+     * （切周期不再每次阻塞拉网，避免美股 Yahoo/东财超时卡顿）
      */
     async function fetchKlineFast(symbol, period) {
       if (chartSettings.cacheMode) {
         return await fetchKlineFromCache(symbol, period, { cacheOnly: true });
       }
-      // 实时：强制拉网（阻塞等最新），失败回退 sdk
-      return await fetchKline(symbol, period, { force: true });
+      try {
+        return await fetchKlineFromCache(symbol, period, { localFirst: true });
+      } catch (_) {
+        return await fetchKline(symbol, period, { force: false, localFirst: false });
+      }
     }
 
     function hitToSymbol(hit) {
@@ -3731,11 +3821,20 @@
           if (!raw.length) return;
           let bars = raw;
           let statusText = `${symbol} · ${period} · ${raw.length} 根K线 · 数据源 ${klineStatusTag(data)}`;
+          let fsSlots = FS_DAY_SLOTS;
           if (period === "fs") {
-            const { days, byDay } = groupBarsByShanghaiDay(raw);
-            if (!days.length) return;
-            fsCache = { symbol, days, byDay };
-            bars = days.flatMap((ymd) => padFsDayBars(byDay.get(ymd) || []));
+            const mkt = data.market || resolveMarket(symbol);
+            const prepared = prepareFsChartBars(raw, mkt);
+            if (!prepared.days.length) return;
+            fsCache = {
+              symbol,
+              days: prepared.days,
+              byDay: prepared.byDay,
+              market: mkt,
+              daySlots: prepared.daySlots,
+            };
+            bars = prepared.bars;
+            fsSlots = prepared.daySlots;
             statusText = fsStatusText(symbol);
           }
           pendingChartBars = bars;
@@ -3753,7 +3852,7 @@
             try {
               chart.resize();
             } catch (_) {}
-            if (period === "fs") fitFsViewportOneDay();
+            if (period === "fs") fitFsViewportOneDay(fsSlots);
           });
         })
         .catch(() => {
@@ -3794,24 +3893,28 @@
                 ensureChart(data.market);
                 applyChartSettings();
                 const raw = data.bars || [];
-                const { days, byDay } = groupBarsByShanghaiDay(raw);
-                if (!days.length) {
+                const mkt = data.market || market;
+                const prepared = prepareFsChartBars(raw, mkt);
+                if (!prepared.days.length) {
                   resetFsCache();
                   callback([], false);
                   setStatus(`${symbol} · 分时无数据`);
                   return;
                 }
-                fsCache = { symbol, days, byDay };
-                // 旧→新拼齐全日槽；forward 必须 false，否则 from===0 会连环展开
-                const allBars = days.flatMap((ymd) =>
-                  padFsDayBars(byDay.get(ymd) || [])
-                );
-                // 先按一日宽度设 barSpace，再入图，避免首帧把 5 日挤进视口
+                fsCache = {
+                  symbol,
+                  days: prepared.days,
+                  byDay: prepared.byDay,
+                  market: mkt,
+                  daySlots: prepared.daySlots,
+                };
+                const allBars = prepared.bars;
+                // 先按一日宽度设 barSpace，再入图，避免首帧把多日挤进视口
                 try {
                   const el = document.getElementById("chart");
                   const w = el?.clientWidth || 800;
                   chart.setBarSpace(
-                    Math.max(1.5, Math.min(6, (w - 48) / FS_DAY_SLOTS))
+                    Math.max(1.5, Math.min(6, (w - 48) / prepared.daySlots))
                   );
                 } catch (_) {}
                 callback(allBars, { forward: false, backward: false });
@@ -3833,12 +3936,15 @@
                   if (seq !== chartLoadSeq) return;
                   refreshCompareOverlays();
                   placeCnTestLabel(
-                    padFsDayBars(byDay.get(days[days.length - 1]) || [])
+                    padFsDayBars(
+                      prepared.byDay.get(prepared.days[prepared.days.length - 1]) || [],
+                      mkt
+                    )
                   );
                   try {
                     chart.resize();
                   } catch (_) {}
-                  fitFsViewportOneDay();
+                  fitFsViewportOneDay(prepared.daySlots);
                 });
                 return;
               }
@@ -3910,21 +4016,33 @@
       }
     }
 
-    /** 轮询间隔毫秒；0=关闭。Yahoo 不低于 60s */
+    /** 轮询间隔毫秒；0=关闭。美/港/Yahoo 不低于 60s（避免 force 打爆东财/Yahoo） */
     function pollIntervalMs(symbol) {
       let sec = normalizeRefreshInterval(chartSettings.refreshInterval);
       if (sec <= 0) return 0;
       try {
-        if (resolveMarket(symbol) === "YF") sec = Math.max(sec, 60);
+        const m = resolveMarket(symbol);
+        if (m === "YF" || m === "US" || m === "HK") sec = Math.max(sec, 60);
       } catch (_) {}
       return sec * 1000;
     }
 
-    /** 定时刷新行情；非缓存模式下同步刷 K 线 */
+    let lastKlineForceAt = 0;
+
+    /** 定时刷新行情；K 线按市场节流 force，避免切周期后又被轮询拖慢 */
     async function refreshRealtime(symbol) {
       if (!symbol || symbol !== currentSymbol) return;
       await refreshQuote(symbol);
       if (chartSettings.cacheMode || !chart) return;
+      let market = "CN";
+      try {
+        market = resolveMarket(symbol);
+      } catch (_) {}
+      const gapMs =
+        market === "US" || market === "HK" || market === "YF" ? 60_000 : 15_000;
+      const now = Date.now();
+      if (now - lastKlineForceAt < gapMs) return;
+      lastKlineForceAt = now;
       scheduleChartBackgroundRefresh(symbol, currentPeriod, chartLoadSeq);
     }
 

@@ -24,7 +24,7 @@ from cache.sync_worker import (
     sync_now,
 )
 from cache.ttl import (
-    cn_daily_bars_missing_today,
+    daily_bars_missing_today,
     is_stale,
     kline_is_stale,
     kline_ttl_seconds,
@@ -492,12 +492,11 @@ def cache_kline(
     as_of = float(meta["as_of"]) if meta and meta.get("as_of") else None
     age = (now - as_of) if as_of is not None else None
     stale = kline_is_stale(age, active_mode, period_n, market)
-    # A 股交易日白天：缓存日 K 若尚无今日棒，视为过期（新浪历史常缺未收盘日）
+    # 日 K 若尚无当前交易日棒，视为过期（Yahoo/新浪历史常缺未收盘或刚收盘日）
     if (
         not stale
-        and market == "cn"
         and period_n == "1d"
-        and cn_daily_bars_missing_today(bars)
+        and daily_bars_missing_today(market, bars)
     ):
         stale = True
     allow_net = (not only_cache) and quote_source != "local"

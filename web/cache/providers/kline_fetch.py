@@ -166,6 +166,30 @@ def _sina_scale(period: str) -> int:
     return m.get(period, 240)
 
 
+def _em_klt(period: str) -> str:
+    # 101日 102周 103月；分钟 1/5/15/60
+    m = {
+        "1d": "101",
+        "1w": "102",
+        "1M": "103",
+        "1m": "1",
+        "5m": "5",
+        "15m": "15",
+        "1h": "60",
+    }
+    return m.get(period, "101")
+
+
+# 主站 push2his 对美股/部分时段常 RemoteDisconnected；优先可用节点
+_EM_KLINE_HOSTS = (
+    "82.push2his.eastmoney.com",
+    "91.push2his.eastmoney.com",
+    "push2delay.eastmoney.com",
+    "63.push2his.eastmoney.com",
+    "push2his.eastmoney.com",
+)
+
+
 def fetch_yf_bars(yf_symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
     """复用 server 侧 Yahoo 逻辑。"""
     import server as srv
@@ -181,6 +205,423 @@ def fetch_yf_bars(yf_symbol: str, period: str) -> tuple[list[dict[str, Any]], st
     return bars, name
 
 
+# 美股东财市场号：NASDAQ=105 / NYSE=106 / AMEX=107
+_US_SECID_CACHE: dict[str, str] = {}
+_US_MKT_TRY = (105, 106, 107)
+
+
+def _hk_secid(symbol: str) -> str:
+    pure = re.sub(r"\D", "", str(symbol or "")) or str(symbol or "")
+    # 东财港股多为 5 位：00700
+    code = pure.zfill(5) if pure.isdigit() else pure
+    return f"116.{code}"
+
+
+def _resolve_us_secid(ticker: str) -> str:
+    """解析美股东财 secid（带进程内缓存）。"""
+    t = (ticker or "").upper().strip()
+    if not t:
+        raise ValueError("empty us ticker")
+    hit = _US_SECID_CACHE.get(t)
+    if hit:
+        return hit
+    # 1) 搜索联想（最快拿到准确 MktNum）
+    try:
+        url = (
+            "https://searchapi.eastmoney.com/api/suggest/get?"
+            + urllib.parse.urlencode(
+                {
+                    "input": t,
+                    "type": "14",
+                    "token": "D43BF722C8E33BDC906FB84D85E326E8",
+                    "count": "8",
+                }
+            )
+        )
+        data = _http_json(url, timeout=8.0)
+        table = data.get("QuotationCodeTable") if isinstance(data, dict) else None
+        rows = (table or {}).get("Data") if isinstance(table, dict) else None
+        if isinstance(rows, list):
+            for row in rows:
+                if not isinstance(row, dict):
+                    continue
+                if str(row.get("Code") or "").upper() != t:
+                    continue
+                mkt = str(row.get("MktNum") or "").strip()
+                qid = str(row.get("QuoteID") or "").strip()
+                if qid and "." in qid:
+                    _US_SECID_CACHE[t] = qid
+                    return qid
+                if mkt.isdigit():
+                    secid = f"{mkt}.{t}"
+                    _US_SECID_CACHE[t] = secid
+                    return secid
+    except Exception:
+        pass
+    # 2) 兜底按 105→106→107 探测有行情的市场号
+    for mid in _US_MKT_TRY:
+        secid = f"{mid}.{t}"
+        try:
+            url = (
+                "https://push2.eastmoney.com/api/qt/stock/get?"
+                + urllib.parse.urlencode(
+                    {
+                        "secid": secid,
+                        "fltt": "2",
+                        "fields": "f57,f58,f43",
+                    }
+                )
+            )
+            data = _http_json(url, timeout=6.0)
+            body = data.get("data") if isinstance(data.get("data"), dict) else None
+            if body and body.get("f43") not in (None, "-", 0, "0"):
+                _US_SECID_CACHE[t] = secid
+                return secid
+        except Exception:
+            continue
+    secid = f"105.{t}"
+    _US_SECID_CACHE[t] = secid
+    return secid
+
+
+def _parse_em_klines(
+    klines: list[Any],
+    *,
+    day_tz: str,
+    minute_tz: str,
+    daily_open_hm: tuple[int, int] = (0, 0),
+) -> list[dict[str, Any]]:
+    """解析东财 klines；日线按交易日开盘时刻，分钟线按 minute_tz 墙钟。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    z_day = ZoneInfo(day_tz)
+    z_min = ZoneInfo(minute_tz)
+    bars: list[dict[str, Any]] = []
+    for line in klines:
+        parts = str(line).split(",")
+        if len(parts) < 6:
+            continue
+        try:
+            day = parts[0]
+            if len(day) == 10:  # YYYY-MM-DD
+                hh, mm = daily_open_hm
+                dt = datetime.strptime(day, "%Y-%m-%d").replace(
+                    hour=hh, minute=mm, tzinfo=z_day
+                )
+            else:
+                dt = datetime.strptime(day[:16], "%Y-%m-%d %H:%M").replace(tzinfo=z_min)
+            bars.append(
+                {
+                    "timestamp": int(dt.timestamp() * 1000),
+                    "open": float(parts[1]),
+                    "close": float(parts[2]),
+                    "high": float(parts[3]),
+                    "low": float(parts[4]),
+                    "volume": float(parts[5]),
+                    "amount": float(parts[6])
+                    if len(parts) > 6 and parts[6] not in ("", "-")
+                    else None,
+                }
+            )
+        except Exception:
+            continue
+    return bars
+
+
+def _fetch_em_bars_by_secid(
+    secid: str,
+    period: str,
+    *,
+    day_tz: str,
+    minute_tz: str,
+    daily_open_hm: tuple[int, int],
+    timeout: float = 6.0,
+) -> tuple[list[dict[str, Any]], str]:
+    klt = _em_klt(period)
+    params = {
+        "secid": secid,
+        "fields1": "f1,f2,f3,f4,f5,f6",
+        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+        "klt": klt,
+        "fqt": "1",
+        "end": "20500101",
+        "lmt": "500",
+    }
+    qs = urllib.parse.urlencode(params)
+    last_err: Exception | None = None
+    data: dict[str, Any] | None = None
+    # 每主机只试 1 次：断连立刻换节点，避免美股卡在坏主站上重试
+    for host in _EM_KLINE_HOSTS:
+        url = f"https://{host}/api/qt/stock/kline/get?{qs}"
+        try:
+            data = _http_json(url, timeout=timeout)
+            break
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            OSError,
+            json.JSONDecodeError,
+            ValueError,
+        ) as e:
+            last_err = e
+            continue
+    if data is None:
+        raise RuntimeError(f"eastmoney kline failed: {last_err}")
+
+    body = data.get("data") if isinstance(data.get("data"), dict) else {}
+    name = str((body or {}).get("name") or secid)
+    klines = (body or {}).get("klines") if isinstance(body, dict) else None
+    if not isinstance(klines, list) or not klines:
+        return [], name
+    bars = _parse_em_klines(
+        klines,
+        day_tz=day_tz,
+        minute_tz=minute_tz,
+        daily_open_hm=daily_open_hm,
+    )
+    return bars, name
+
+
+def fetch_us_spot(ticker: str) -> dict[str, Any] | None:
+    """美股东财实时行情，用于补当日日 K。返回 open/high/low/close/volume/date(美东)。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        secid = _resolve_us_secid(ticker)
+        url = (
+            "https://push2.eastmoney.com/api/qt/stock/get?"
+            + urllib.parse.urlencode(
+                {
+                    "secid": secid,
+                    "fltt": "2",
+                    "fields": "f43,f44,f45,f46,f47,f57,f58,f60,f86",
+                }
+            )
+        )
+        data = _http_json(url, timeout=8.0)
+        body = data.get("data") if isinstance(data.get("data"), dict) else None
+        if not body or body.get("f43") in (None, "-", 0, "0"):
+            return None
+        price = float(body["f43"])
+        if price <= 0:
+            return None
+        ny = ZoneInfo("America/New_York")
+        qdate = datetime.now(ny).date()
+        try:
+            ts = int(body.get("f86") or 0)
+            if ts > 1_000_000_000:
+                qdate = datetime.fromtimestamp(ts, tz=ny).date()
+        except Exception:
+            pass
+        return {
+            "name": str(body.get("f58") or ticker),
+            "open": float(body.get("f46") or price),
+            "prev_close": float(body.get("f60") or price),
+            "close": price,
+            "high": float(body.get("f44") or price),
+            "low": float(body.get("f45") or price),
+            "volume": float(body.get("f47") or 0),
+            "date": qdate,
+            "secid": secid,
+        }
+    except Exception:
+        return None
+
+
+def fetch_hk_spot(symbol: str) -> dict[str, Any] | None:
+    """港股东财实时行情，用于补当日日 K。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        secid = _hk_secid(symbol)
+        url = (
+            "https://push2.eastmoney.com/api/qt/stock/get?"
+            + urllib.parse.urlencode(
+                {
+                    "secid": secid,
+                    "fltt": "2",
+                    "fields": "f43,f44,f45,f46,f47,f57,f58,f60,f86",
+                }
+            )
+        )
+        data = _http_json(url, timeout=8.0)
+        body = data.get("data") if isinstance(data.get("data"), dict) else None
+        if not body or body.get("f43") in (None, "-", 0, "0"):
+            return None
+        price = float(body["f43"])
+        if price <= 0:
+            return None
+        hk = ZoneInfo("Asia/Hong_Kong")
+        qdate = datetime.now(hk).date()
+        try:
+            ts = int(body.get("f86") or 0)
+            if ts > 1_000_000_000:
+                qdate = datetime.fromtimestamp(ts, tz=hk).date()
+        except Exception:
+            pass
+        return {
+            "name": str(body.get("f58") or symbol),
+            "open": float(body.get("f46") or price),
+            "prev_close": float(body.get("f60") or price),
+            "close": price,
+            "high": float(body.get("f44") or price),
+            "low": float(body.get("f45") or price),
+            "volume": float(body.get("f47") or 0),
+            "date": qdate,
+            "secid": secid,
+        }
+    except Exception:
+        return None
+
+
+def merge_today_daily_bar(
+    bars: list[dict[str, Any]],
+    spot: dict[str, Any] | None,
+    *,
+    tz_name: str,
+    open_hm: tuple[int, int] = (9, 30),
+) -> list[dict[str, Any]]:
+    """用实时行情补/改当日日 K。"""
+    if not bars or not spot:
+        return bars
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    qdate = spot.get("date")
+    if qdate is None:
+        return bars
+    tz = ZoneInfo(tz_name)
+    hh, mm = open_hm
+    ts = int(
+        datetime(qdate.year, qdate.month, qdate.day, hh, mm, tzinfo=tz).timestamp() * 1000
+    )
+    today_bar = {
+        "timestamp": ts,
+        "open": float(spot["open"]),
+        "high": float(spot["high"]),
+        "low": float(spot["low"]),
+        "close": float(spot["close"]),
+        "volume": float(spot.get("volume") or 0),
+    }
+    last_ts = int(bars[-1]["timestamp"])
+    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=tz).date()
+    if last_day == qdate:
+        prev = bars[-1]
+        bars[-1] = {
+            "timestamp": ts,
+            "open": float(prev.get("open") or today_bar["open"]),
+            "high": max(float(prev.get("high") or 0), today_bar["high"]),
+            "low": min(
+                float(prev["low"]) if prev.get("low") not in (None, 0) else today_bar["low"],
+                today_bar["low"],
+            ),
+            "close": today_bar["close"],
+            "volume": today_bar["volume"] or float(prev.get("volume") or 0),
+        }
+    elif last_day < qdate:
+        bars = list(bars) + [today_bar]
+    return bars
+
+
+def fetch_us_bars(ticker: str, period: str) -> tuple[list[dict[str, Any]], str, str]:
+    """美股：东财优先（含当日），失败回退 Yahoo；日线再用现价补棒。"""
+    errors: list[str] = []
+    bars: list[dict[str, Any]] = []
+    name = ticker
+    source = "eastmoney"
+    try:
+        secid = _resolve_us_secid(ticker)
+        # 东财美股分钟时间戳为北京墙钟；日线日期为美东交易日
+        bars, name = _fetch_em_bars_by_secid(
+            secid,
+            period,
+            day_tz="America/New_York",
+            minute_tz="Asia/Shanghai",
+            daily_open_hm=(9, 30),
+        )
+        if not bars:
+            errors.append("eastmoney empty")
+    except Exception as e:
+        errors.append(f"eastmoney: {e}")
+        bars = []
+
+    if not bars:
+        try:
+            bars, name = fetch_yf_bars(ticker, period)
+            source = "yahoo"
+            if not bars:
+                errors.append("yahoo empty")
+        except Exception as e:
+            errors.append(f"yahoo: {e}")
+            bars = []
+
+    if not bars:
+        raise RuntimeError("美股 K 线不可用：" + "；".join(errors))
+
+    if normalize_period(period) == "1d":
+        spot = fetch_us_spot(ticker)
+        if spot:
+            if spot.get("name"):
+                name = str(spot["name"])
+            bars = merge_today_daily_bar(
+                bars, spot, tz_name="America/New_York", open_hm=(9, 30)
+            )
+
+    return bars, name, source
+
+
+def fetch_hk_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str, str]:
+    """港股：东财优先，失败回退 Yahoo；日线现价补棒。"""
+    errors: list[str] = []
+    bars: list[dict[str, Any]] = []
+    name = symbol
+    source = "eastmoney"
+    yf_sym = symbol
+    pure = re.sub(r"\D", "", str(symbol or ""))
+    if pure.isdigit():
+        yf_sym = f"{str(int(pure)).zfill(4)}.HK"
+    try:
+        bars, name = _fetch_em_bars_by_secid(
+            _hk_secid(symbol),
+            period,
+            day_tz="Asia/Hong_Kong",
+            minute_tz="Asia/Hong_Kong",
+            daily_open_hm=(9, 30),
+        )
+        if not bars:
+            errors.append("eastmoney empty")
+    except Exception as e:
+        errors.append(f"eastmoney: {e}")
+        bars = []
+
+    if not bars:
+        try:
+            bars, name = fetch_yf_bars(yf_sym, period)
+            source = "yahoo"
+            if not bars:
+                errors.append("yahoo empty")
+        except Exception as e:
+            errors.append(f"yahoo: {e}")
+            bars = []
+
+    if not bars:
+        raise RuntimeError("港股 K 线不可用：" + "；".join(errors))
+
+    if normalize_period(period) == "1d":
+        spot = fetch_hk_spot(symbol)
+        if spot:
+            if spot.get("name"):
+                name = str(spot["name"])
+            bars = merge_today_daily_bar(
+                bars, spot, tz_name="Asia/Hong_Kong", open_hm=(9, 30)
+            )
+
+    return bars, name, source
+
+
 def _cn_secid(symbol: str) -> str:
     s = symbol.lower()
     code = s[2:] if s.startswith(("sh", "sz", "bj")) else s
@@ -194,28 +635,6 @@ def _cn_secid(symbol: str) -> str:
     if code.startswith(("5", "6", "9")):
         return f"1.{code}"
     return f"0.{code}"
-
-
-def _em_klt(period: str) -> str:
-    # 101日 102周 103月；分钟 1/5/15/60
-    m = {
-        "1d": "101",
-        "1w": "102",
-        "1M": "103",
-        "1m": "1",
-        "5m": "5",
-        "15m": "15",
-        "1h": "60",
-    }
-    return m.get(period, "101")
-
-
-_EM_KLINE_HOSTS = (
-    "push2his.eastmoney.com",
-    "82.push2his.eastmoney.com",
-    "91.push2his.eastmoney.com",
-    "push2delay.eastmoney.com",
-)
 
 
 def fetch_cn_bars_eastmoney(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
@@ -825,7 +1244,13 @@ def fetch_kline_bars(norm: dict[str, str], period: str) -> tuple[list[dict[str, 
     market = norm["market"]
     symbol = norm["symbol"]
 
-    if market in ("us", "hk", "yf"):
+    if market == "us":
+        return fetch_us_bars(symbol, period)
+
+    if market == "hk":
+        return fetch_hk_bars(symbol, period)
+
+    if market == "yf":
         yf_sym = norm.get("yf_symbol") or symbol
         bars, name = fetch_yf_bars(yf_sym, period)
         return bars, name, "yahoo"

@@ -1,15 +1,22 @@
 /**
- * A 股分时补齐（简化版：按日补 09:30–15:00）
- * 多面板一期默认只用「最近一日」；完整多日拖动仍以单图页为准。
+ * 分时补齐：按市场交易时段生成全日分钟轴。
+ * - A 股：09:30–11:30 + 13:00–15:00（242）
+ * - 港股：09:30–12:00 + 13:00–16:00（332）
+ * - 美股/YF：09:30–16:00 ET（391）
  */
 
-const FS_DAY_SLOTS = 242;
+const CN_FS_DAY_SLOTS = 242;
+const HK_FS_DAY_SLOTS = 332;
+const US_FS_DAY_SLOTS = 391;
 
-export { FS_DAY_SLOTS };
+/** @deprecated 兼容旧引用：默认 A 股槽位数 */
+const FS_DAY_SLOTS = CN_FS_DAY_SLOTS;
 
-function shanghaiParts(ts) {
+export { FS_DAY_SLOTS, CN_FS_DAY_SLOTS, HK_FS_DAY_SLOTS, US_FS_DAY_SLOTS };
+
+function partsInTz(ts, timeZone) {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -27,42 +34,102 @@ function shanghaiParts(ts) {
   };
 }
 
-function shanghaiLocalToUtcMs(y, mo, d, h, mi) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return Date.parse(`${y}-${pad(mo)}-${pad(d)}T${pad(h)}:${pad(mi)}:00+08:00`);
+/** 将某时区本地年月日时分转为 UTC ms */
+function localToUtcMs(timeZone, y, mo, d, h, mi) {
+  let t = Date.UTC(y, mo - 1, d, h, mi);
+  for (let i = 0; i < 5; i++) {
+    const p = partsInTz(t, timeZone);
+    const deltaMin = h * 60 + mi - (p.h * 60 + p.mi);
+    const deltaDay =
+      (Date.UTC(y, mo - 1, d) - Date.UTC(p.y, p.mo - 1, p.d)) / 86_400_000;
+    if (deltaMin === 0 && deltaDay === 0) break;
+    t += deltaMin * 60_000 + deltaDay * 86_400_000;
+  }
+  return t;
 }
 
-function floorShanghaiMinuteUtc(ts) {
-  const p = shanghaiParts(ts);
-  return shanghaiLocalToUtcMs(p.y, p.mo, p.d, p.h, p.mi);
-}
-
-export function shanghaiDayRangeUtc(ts = Date.now()) {
-  const p = shanghaiParts(ts);
+/**
+ * @param {string} [market]
+ * @returns {{ timeZone: string, daySlots: number, buildSlots: (dayTs: number) => number[] }}
+ */
+export function getFsSessionSpec(market) {
+  const m = String(market || "CN").toUpperCase();
+  if (m === "US" || m === "YF") {
+    const timeZone = "America/New_York";
+    return {
+      timeZone,
+      daySlots: US_FS_DAY_SLOTS,
+      buildSlots(dayTs) {
+        const p = partsInTz(dayTs, timeZone);
+        const slots = [];
+        for (let t = 9 * 60 + 30; t <= 16 * 60; t += 1) {
+          slots.push(localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
+        }
+        return slots;
+      },
+    };
+  }
+  if (m === "HK") {
+    const timeZone = "Asia/Hong_Kong";
+    return {
+      timeZone,
+      daySlots: HK_FS_DAY_SLOTS,
+      buildSlots(dayTs) {
+        const p = partsInTz(dayTs, timeZone);
+        const slots = [];
+        for (let t = 9 * 60 + 30; t <= 12 * 60; t += 1) {
+          slots.push(localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
+        }
+        for (let t = 13 * 60; t <= 16 * 60; t += 1) {
+          slots.push(localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
+        }
+        return slots;
+      },
+    };
+  }
+  const timeZone = "Asia/Shanghai";
   return {
-    ymd: `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`,
-    start: shanghaiLocalToUtcMs(p.y, p.mo, p.d, 0, 0),
-    end: shanghaiLocalToUtcMs(p.y, p.mo, p.d, 23, 59),
+    timeZone,
+    daySlots: CN_FS_DAY_SLOTS,
+    buildSlots(dayTs) {
+      const p = partsInTz(dayTs, timeZone);
+      const slots = [];
+      for (let t = 9 * 60 + 30; t <= 11 * 60 + 30; t += 1) {
+        slots.push(localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
+      }
+      for (let t = 13 * 60; t <= 15 * 60; t += 1) {
+        slots.push(localToUtcMs(timeZone, p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
+      }
+      return slots;
+    },
   };
 }
 
-function buildCnFsSlotTimestamps(dayTs) {
-  const p = shanghaiParts(dayTs);
-  const slots = [];
-  for (let t = 9 * 60 + 30; t <= 11 * 60 + 30; t += 1) {
-    slots.push(shanghaiLocalToUtcMs(p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
-  }
-  for (let t = 13 * 60; t <= 15 * 60; t += 1) {
-    slots.push(shanghaiLocalToUtcMs(p.y, p.mo, p.d, Math.floor(t / 60), t % 60));
-  }
-  return slots;
+export function dayRangeInTz(ts = Date.now(), timeZone = "Asia/Shanghai") {
+  const p = partsInTz(ts, timeZone);
+  return {
+    ymd: `${p.y}-${String(p.mo).padStart(2, "0")}-${String(p.d).padStart(2, "0")}`,
+    start: localToUtcMs(timeZone, p.y, p.mo, p.d, 0, 0),
+    end: localToUtcMs(timeZone, p.y, p.mo, p.d, 23, 59),
+  };
 }
 
-export function groupBarsByShanghaiDay(bars) {
+/** @deprecated 兼容旧名 */
+export function shanghaiDayRangeUtc(ts = Date.now()) {
+  return dayRangeInTz(ts, "Asia/Shanghai");
+}
+
+function floorMinuteUtc(ts, timeZone) {
+  const p = partsInTz(ts, timeZone);
+  return localToUtcMs(timeZone, p.y, p.mo, p.d, p.h, p.mi);
+}
+
+export function groupBarsByMarketDay(bars, market = "CN") {
+  const { timeZone } = getFsSessionSpec(market);
   const map = new Map();
   (bars || []).forEach((b) => {
     if (!b || !Number.isFinite(b.timestamp)) return;
-    const { ymd } = shanghaiDayRangeUtc(b.timestamp);
+    const { ymd } = dayRangeInTz(b.timestamp, timeZone);
     if (!map.has(ymd)) map.set(ymd, []);
     map.get(ymd).push(b);
   });
@@ -73,21 +140,27 @@ export function groupBarsByShanghaiDay(bars) {
       map.get(ymd).sort((a, b) => a.timestamp - b.timestamp)
     );
   });
-  return { days, byDay: map };
+  return { days, byDay: map, timeZone };
 }
 
-export function padFsDayBars(dayBars) {
+/** @deprecated 兼容旧名（按上海日分组） */
+export function groupBarsByShanghaiDay(bars) {
+  return groupBarsByMarketDay(bars, "CN");
+}
+
+export function padFsDayBars(dayBars, market = "CN") {
   const list = Array.isArray(dayBars)
     ? dayBars.filter((b) => b && Number.isFinite(b.timestamp))
     : [];
   if (!list.length) return [];
-  const slots = buildCnFsSlotTimestamps(list[0].timestamp);
+  const spec = getFsSessionSpec(market);
+  const slots = spec.buildSlots(list[0].timestamp);
   const byMin = new Map();
   list.forEach((b) => {
-    byMin.set(floorShanghaiMinuteUtc(b.timestamp), b);
+    byMin.set(floorMinuteUtc(b.timestamp, spec.timeZone), b);
   });
-  const todayYmd = shanghaiDayRangeUtc(Date.now()).ymd;
-  const dayYmd = shanghaiDayRangeUtc(list[0].timestamp).ymd;
+  const todayYmd = dayRangeInTz(Date.now(), spec.timeZone).ymd;
+  const dayYmd = dayRangeInTz(list[0].timestamp, spec.timeZone).ymd;
   const isToday = dayYmd === todayYmd;
   const now = Date.now();
   let last = null;
@@ -134,11 +207,36 @@ export function padFsDayBars(dayBars) {
   return out;
 }
 
+/**
+ * 准备分时入图数据：按市场交易日拆分并补齐，旧→新拼接。
+ * @returns {{ days: string[], bars: number[]|object[], daySlots: number, latest: string|null }}
+ */
+export function prepareFsChartBars(bars, market = "CN") {
+  const spec = getFsSessionSpec(market);
+  const { days, byDay } = groupBarsByMarketDay(bars, market);
+  if (!days.length) {
+    return { days: [], bars: [], daySlots: spec.daySlots, latest: null };
+  }
+  const out = days.flatMap((ymd) => padFsDayBars(byDay.get(ymd) || [], market));
+  return {
+    days,
+    bars: out,
+    daySlots: spec.daySlots,
+    latest: days[days.length - 1],
+  };
+}
+
 /** 只取今天（或最近交易日）并补齐 */
-export function padCnFsBarsLatestDay(bars) {
-  const { days, byDay } = groupBarsByShanghaiDay(bars);
-  if (!days.length) return [];
-  const todayYmd = shanghaiDayRangeUtc(Date.now()).ymd;
-  const ymd = byDay.has(todayYmd) ? todayYmd : days[days.length - 1];
-  return padFsDayBars(byDay.get(ymd));
+export function padCnFsBarsLatestDay(bars, market = "CN") {
+  const prepared = prepareFsChartBars(bars, market);
+  if (!prepared.days.length) return [];
+  const { timeZone } = getFsSessionSpec(market);
+  const todayYmd = dayRangeInTz(Date.now(), timeZone).ymd;
+  const ymd = prepared.days.includes(todayYmd)
+    ? todayYmd
+    : prepared.days[prepared.days.length - 1];
+  return padFsDayBars(
+    groupBarsByMarketDay(bars, market).byDay.get(ymd) || [],
+    market
+  );
 }

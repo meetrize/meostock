@@ -11,7 +11,12 @@ import {
   loadChartSettings,
   THEME_KEY,
 } from "./styles.mjs";
-import { FS_DAY_SLOTS, padCnFsBarsLatestDay } from "./fs.mjs";
+import {
+  FS_DAY_SLOTS,
+  getFsSessionSpec,
+  padCnFsBarsLatestDay,
+  prepareFsChartBars,
+} from "./fs.mjs";
 import { isIntradayPeriod, resolveSessionOpenTs } from "./session.mjs";
 import { mountChrome, updateChrome, unmountChrome } from "./chrome.mjs";
 
@@ -578,6 +583,14 @@ export class ChartPanel {
     this.syncTimeScaleFrom(payload, { zoom: true });
   }
 
+  _fsDaySlots() {
+    let market = "CN";
+    try {
+      market = this.data.resolveMarket(this.symbol);
+    } catch (_) {}
+    return getFsSessionSpec(market).daySlots || FS_DAY_SLOTS;
+  }
+
   _fitFsViewport() {
     if (!this.chart || !this._host) return;
     // 隐 Y 轴时改走「当日开盘→最新」铺满
@@ -587,7 +600,7 @@ export class ChartPanel {
     }
     try {
       const w = this._host.clientWidth || 400;
-      const space = Math.max(1.5, Math.min(6, (w - 48) / FS_DAY_SLOTS));
+      const space = Math.max(1.5, Math.min(6, (w - 48) / this._fsDaySlots()));
       this.chart.setBarSpace(space);
       if (typeof this.chart.scrollToRealTime === "function") {
         this.chart.scrollToRealTime();
@@ -660,10 +673,23 @@ export class ChartPanel {
   _prepareBars(rawBars) {
     let bars = rawBars || [];
     if (this.period === "fs") {
-      bars = padCnFsBarsLatestDay(bars);
+      let market = "CN";
+      try {
+        market = this.data.resolveMarket(this.symbol);
+      } catch (_) {}
+      // 多面板：最近一日；按时区补齐，避免美股被 A 股时段滤空
+      const prepared = prepareFsChartBars(bars, market);
+      const latest = prepared.latest;
+      if (latest) {
+        const dayBars = padCnFsBarsLatestDay(bars, market);
+        bars = dayBars.length ? dayBars : prepared.bars;
+      } else {
+        bars = [];
+      }
       try {
         const w = this._host?.clientWidth || 400;
-        this.chart?.setBarSpace(Math.max(1.5, Math.min(6, (w - 48) / FS_DAY_SLOTS)));
+        const slots = prepared.daySlots || this._fsDaySlots();
+        this.chart?.setBarSpace(Math.max(1.5, Math.min(6, (w - 48) / slots)));
       } catch (_) {}
     }
     return bars;

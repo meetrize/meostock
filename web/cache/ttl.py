@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 MODES = ("speed", "balanced", "realtime")
@@ -231,6 +231,74 @@ def cn_daily_bars_missing_today(bars: list | None, now: datetime | None = None) 
     dt = (now or datetime.now(tz=_SH)).astimezone(_SH)
     last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=_SH).date()
     return last_day < dt.date()
+
+
+def _session_date_for_tz(tz: ZoneInfo, open_t: time, now: datetime | None = None) -> date:
+    """当前（或上一）交易日：开盘前回退到前一工作日。"""
+    dt = (now or datetime.now(tz=tz)).astimezone(tz)
+    d = dt.date()
+    if dt.time() < open_t:
+        d = d - timedelta(days=1)
+    while d.weekday() >= 5:
+        d = d - timedelta(days=1)
+    return d
+
+
+def us_session_date(now: datetime | None = None) -> date:
+    return _session_date_for_tz(_NY, time(9, 25), now)
+
+
+def hk_session_date(now: datetime | None = None) -> date:
+    d = _session_date_for_tz(_HK, time(9, 20), now)
+    # 粗用 A 股假日表回退（港股假日不完全一致，宁多刷新）
+    guard = 0
+    while is_cn_holiday(d) and guard < 10:
+        d = d - timedelta(days=1)
+        while d.weekday() >= 5:
+            d = d - timedelta(days=1)
+        guard += 1
+    return d
+
+
+def us_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
+    """美股日 K 末根早于美东当前交易日 → 缺当日（Yahoo 常滞后，需东财/现价补）。"""
+    if not bars:
+        return False
+    try:
+        last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
+    except (TypeError, ValueError, AttributeError, IndexError):
+        return False
+    if last_ts <= 0:
+        return False
+    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=_NY).date()
+    return last_day < us_session_date(now)
+
+
+def hk_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
+    """港股日 K 末根早于港股当前交易日 → 缺当日。"""
+    if not bars:
+        return False
+    try:
+        last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
+    except (TypeError, ValueError, AttributeError, IndexError):
+        return False
+    if last_ts <= 0:
+        return False
+    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=_HK).date()
+    return last_day < hk_session_date(now)
+
+
+def daily_bars_missing_today(
+    market: str, bars: list | None, now: datetime | None = None
+) -> bool:
+    m = (market or "").lower()
+    if m == "cn":
+        return cn_daily_bars_missing_today(bars, now)
+    if m == "us":
+        return us_daily_bars_missing_today(bars, now)
+    if m == "hk":
+        return hk_daily_bars_missing_today(bars, now)
+    return False
 
 
 def kline_ttl_seconds(mode: str, period: str, market: str = "", now: datetime | None = None) -> float:
