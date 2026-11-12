@@ -146,6 +146,15 @@
       font-weight: 650;
     }
 
+    .tb-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+      padding-left: 8px;
+      margin-left: 2px;
+      border-left: 1px solid var(--line);
+    }
     .tb-tools {
       display: inline-flex;
       align-items: center;
@@ -169,6 +178,16 @@
     }
     a.tb-tool { box-sizing: border-box; }
     .tb-tool:hover { color: var(--text); background: var(--btn-active-bg); }
+    .tb-tool:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      color: var(--muted);
+      background: transparent;
+    }
+    .tb-tool:disabled:hover {
+      color: var(--muted);
+      background: transparent;
+    }
     .tb-tool svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
     .tb-tool .label { display: none; }
     @media (min-width: 720px) {
@@ -885,6 +904,12 @@
         <button type="button" data-period="1d" class="active">1D</button>
         <button type="button" data-period="1w">1W</button>
       </div>
+      <div class="tb-actions" title="图操作">
+        <button type="button" class="tb-tool" id="btnLoadHistory" title="加载更早历史 K 线">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+          <span class="label" id="btnLoadHistoryLabel">历史</span>
+        </button>
+      </div>
       <div class="tb-tools">
         <a class="tb-tool" href="/dashboard/" target="_blank" rel="noopener" title="打开股票看板（stock-dashboard）">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
@@ -1419,6 +1444,106 @@
     /** 日/周向前续拉：耗尽标记与 inflight */
     let chartHistoryExhausted = false;
     let chartBackwardInflight = false;
+
+    function canLoadHistoryPeriod(period = currentPeriod) {
+      return period === "1d" || period === "1w" || period === "1M";
+    }
+
+    function syncLoadHistoryBtn() {
+      const btn = document.getElementById("btnLoadHistory");
+      const label = document.getElementById("btnLoadHistoryLabel");
+      if (!btn) return;
+      const periodOk = canLoadHistoryPeriod();
+      const loading = chartBackwardInflight;
+      let title = "加载更早历史 K 线（再拉一页）";
+      let text = "历史";
+      let disabled = false;
+      if (!periodOk) {
+        disabled = true;
+        title = "当前周期不支持向前加载历史（请用日/周 K）";
+      } else if (chartSettings.cacheMode) {
+        disabled = true;
+        title = "缓存模式中，无法向前拉取";
+      } else if (loading) {
+        disabled = true;
+        text = "加载中…";
+        title = "正在加载更早历史…";
+      } else if (chartHistoryExhausted) {
+        disabled = true;
+        title = "已无更早数据";
+      } else if (!chart) {
+        disabled = true;
+        title = "图表未就绪";
+      }
+      btn.disabled = disabled;
+      btn.title = title;
+      if (label) label.textContent = text;
+    }
+
+    async function loadOlderHistoryManual() {
+      if (
+        !chart ||
+        !canLoadHistoryPeriod() ||
+        chartHistoryExhausted ||
+        chartBackwardInflight ||
+        chartSettings.cacheMode
+      ) {
+        syncLoadHistoryBtn();
+        return;
+      }
+      const symbol = currentSymbol;
+      const period = currentPeriod;
+      const list = chart.getDataList?.() || [];
+      const firstTs = Number(list[0]?.timestamp);
+      if (!Number.isFinite(firstTs) || firstTs <= 0) {
+        setStatus("当前图无数据，无法加载更早历史");
+        return;
+      }
+      const seq = chartLoadSeq;
+      chartBackwardInflight = true;
+      syncLoadHistoryBtn();
+      try {
+        setStatus(`加载更早 ${symbol} ${period} …`);
+        const data = await fetchKlineBefore(symbol, period, firstTs, { limit: 500 });
+        if (seq !== chartLoadSeq || !chart || currentSymbol !== symbol) return;
+        const older = (data.bars || []).filter((b) => Number(b.timestamp) < firstTs);
+        const hasMore = !!data.hasMore && !data.exhausted && older.length > 0;
+        if (data.exhausted || !hasMore) chartHistoryExhausted = true;
+        if (!older.length) {
+          setStatus(
+            chartHistoryExhausted
+              ? `${symbol} · ${period} · 已无更早数据`
+              : `${symbol} · ${period} · 本页无更早 K 线`
+          );
+          return;
+        }
+        const existing = chart.getDataList?.() || list;
+        const merged = older.concat(existing);
+        pendingChartBars = merged;
+        try {
+          chart.resetData();
+        } catch (_) {
+          pendingChartBars = null;
+          throw new Error("注入历史数据失败");
+        }
+        setStatus(
+          `${symbol} · ${period} · 已续拉 ${older.length} 根更早K线 · 共 ${merged.length} 根 · ${data.source || ""}`
+        );
+        queueMicrotask(() => {
+          if (seq !== chartLoadSeq || !chart) return;
+          try {
+            if (typeof chart.scrollToTimestamp === "function") {
+              chart.scrollToTimestamp(firstTs);
+            }
+          } catch (_) {}
+        });
+      } catch (e) {
+        setStatus(`向前加载失败: ${e.message || e}`);
+      } finally {
+        chartBackwardInflight = false;
+        syncLoadHistoryBtn();
+      }
+    }
 
     function loadMaParams() {
       try {
@@ -1960,6 +2085,7 @@
       ) {
         startRealtimePoll(currentSymbol);
       }
+      syncLoadHistoryBtn();
     }
 
     function openSettingModal() {
@@ -1977,6 +2103,7 @@
         bindDataLoader(currentSymbol);
       }
       if (currentSymbol) startRealtimePoll(currentSymbol);
+      syncLoadHistoryBtn();
     }
 
     function applyPageTheme(theme) {
@@ -3987,8 +4114,7 @@
           }
 
           // —— 普通 K 线：向前续拉 ——
-          const canBackwardPeriod =
-            currentPeriod === "1d" || currentPeriod === "1w" || currentPeriod === "1M";
+          const canBackwardPeriod = canLoadHistoryPeriod(currentPeriod);
           if (type === "backward") {
             if (
               !canBackwardPeriod ||
@@ -3997,15 +4123,18 @@
               chartSettings.cacheMode
             ) {
               callback([], { forward: false, backward: false });
+              syncLoadHistoryBtn();
               return;
             }
             const list = chart?.getDataList?.() || [];
             const firstTs = Number(list[0]?.timestamp);
             if (!Number.isFinite(firstTs) || firstTs <= 0) {
               callback([], { forward: false, backward: false });
+              syncLoadHistoryBtn();
               return;
             }
             chartBackwardInflight = true;
+            syncLoadHistoryBtn();
             try {
               setStatus(`加载更早 ${symbol} ${currentPeriod} …`);
               const data = await fetchKlineBefore(symbol, currentPeriod, firstTs, {
@@ -4032,6 +4161,7 @@
               });
             } finally {
               chartBackwardInflight = false;
+              syncLoadHistoryBtn();
             }
             return;
           }
@@ -4049,10 +4179,12 @@
                 forward: false,
                 backward: canBackwardPeriod && !chartHistoryExhausted,
               });
+              syncLoadHistoryBtn();
               return;
             }
             setStatus(`加载 ${symbol} ${currentPeriod} …`);
             chartHistoryExhausted = false;
+            syncLoadHistoryBtn();
             const data = await fetchKlineFast(symbol, currentPeriod);
             if (seq !== chartLoadSeq) {
               callback([], false);
@@ -4065,6 +4197,7 @@
             const backward =
               canBackwardPeriod && data.hasMore !== false && !chartHistoryExhausted;
             callback(bars, { forward: false, backward });
+            syncLoadHistoryBtn();
             setStatus(
               `${symbol} · ${currentPeriod} · ${bars.length} 根K线 · 数据源 ${klineStatusTag(data)}`
             );
@@ -4175,6 +4308,7 @@
       });
       // 分时 ↔ 其它周期时切换面积图 / 蜡烛图
       if (chart) applyChartSettings();
+      syncLoadHistoryBtn();
       return true;
     }
 
@@ -4217,6 +4351,9 @@
       if (!btn) return;
       applyPeriodUI(btn.dataset.period);
       load({ pushUrl: true });
+    });
+    document.getElementById("btnLoadHistory").addEventListener("click", () => {
+      void loadOlderHistoryManual();
     });
     document.getElementById("btnCompare").addEventListener("click", openCompareModal);
     document.getElementById("btnIndicator").addEventListener("click", openIndicatorModal);
@@ -4416,6 +4553,7 @@
     });
 
     applyPageTheme(currentTheme);
+    syncLoadHistoryBtn();
     bootstrapFromUrl();
   </script>
 </body>
