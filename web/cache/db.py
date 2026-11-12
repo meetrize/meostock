@@ -37,12 +37,27 @@ def get_conn() -> sqlite3.Connection:
         return conn
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, decl: str) -> None:
+    """旧库增量加列（IF NOT EXISTS 风格）。"""
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    names = {str(r[1] if not isinstance(r, sqlite3.Row) else r["name"]) for r in rows}
+    if column not in names:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 def init_db() -> Path:
     """创建表并写入默认配置。返回 db 路径。"""
     conn = get_conn()
     sql = _SCHEMA.read_text(encoding="utf-8")
     with _lock:
         conn.executescript(sql)
+        # 旧库升级：K 线历史是否已耗尽（避免重复打空网）
+        try:
+            _ensure_column(
+                conn, "kline_meta", "history_exhausted", "INTEGER NOT NULL DEFAULT 0"
+            )
+        except sqlite3.Error:
+            pass
         cur = conn.execute("SELECT value FROM cache_config WHERE key = ?", ("mode",))
         if cur.fetchone() is None:
             import time

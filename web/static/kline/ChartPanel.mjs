@@ -146,6 +146,9 @@ export class ChartPanel {
     this._syncingTimeScale = false;
     /** @type {any[]|null} resetData 时直接喂给 getBars，避免二次请求 */
     this._pendingBars = null;
+    /** 向前续拉 inflight，避免左缘抖动重复请求 */
+    this._backwardInflight = false;
+    this._historyExhausted = false;
 
     this._ensureDom();
   }
@@ -769,12 +772,70 @@ export class ChartPanel {
     const self = this;
     this._pendingBars = null;
 
+    this._backwardInflight = false;
+    this._historyExhausted = false;
+    const canBackwardPeriod = (p) => p === "1d" || p === "1w" || p === "1M";
+
     c.setDataLoader({
       async getBars({ type, callback }) {
         if (self._disposed || seq !== self._loadSeq) {
           callback([], false);
           return;
         }
+
+        // —— 向前续拉更早历史 ——
+        if (type === "backward") {
+          if (
+            self.period === "fs" ||
+            !canBackwardPeriod(self.period) ||
+            self._historyExhausted ||
+            self._backwardInflight
+          ) {
+            callback([], { forward: false, backward: false });
+            return;
+          }
+          const list = self.chart?.getDataList?.() || [];
+          const firstTs = Number(list[0]?.timestamp);
+          if (!Number.isFinite(firstTs) || firstTs <= 0) {
+            callback([], { forward: false, backward: false });
+            return;
+          }
+          if (typeof self.data.fetchKlineBefore !== "function") {
+            callback([], { forward: false, backward: false });
+            return;
+          }
+          self._backwardInflight = true;
+          try {
+            self._status(`加载更早 ${symbol} ${self.period} …`);
+            const data = await self.schedule(() =>
+              self.data.fetchKlineBefore(symbol, self.period, firstTs, { limit: 500 })
+            );
+            if (self._disposed || seq !== self._loadSeq) {
+              callback([], { forward: false, backward: false });
+              return;
+            }
+            const older = (data.bars || []).filter(
+              (b) => Number(b.timestamp) < firstTs
+            );
+            const hasMore = !!data.hasMore && !data.exhausted && older.length > 0;
+            if (data.exhausted || !hasMore) self._historyExhausted = true;
+            callback(older, { forward: false, backward: hasMore });
+            if (older.length) {
+              self._status(
+                `${symbol} · ${self.period} · 已续拉 ${older.length} 根更早K线`
+              );
+            }
+          } catch (_) {
+            callback([], {
+              forward: false,
+              backward: !self._historyExhausted,
+            });
+          } finally {
+            self._backwardInflight = false;
+          }
+          return;
+        }
+
         if (type !== "init") {
           callback([], false);
           return;
@@ -784,15 +845,20 @@ export class ChartPanel {
         if (self._pendingBars) {
           const bars = self._pendingBars;
           self._pendingBars = null;
-          callback(
-            bars,
-            self.period === "fs" ? { forward: false, backward: false } : false
-          );
+          const more =
+            self.period === "fs"
+              ? { forward: false, backward: false }
+              : {
+                  forward: false,
+                  backward: canBackwardPeriod(self.period) && !self._historyExhausted,
+                };
+          callback(bars, more);
           return;
         }
 
         try {
           self._status(`加载 ${symbol} ${self.period} …`);
+          self._historyExhausted = false;
           const fetchFast =
             typeof self.data.fetchKlineFast === "function"
               ? () => self.data.fetchKlineFast(symbol, self.period)
@@ -806,9 +872,18 @@ export class ChartPanel {
           self._applyStyles();
 
           const bars = self._prepareBars(data.bars || []);
+          if (data.exhausted) self._historyExhausted = true;
+          const backward =
+            self.period === "fs"
+              ? false
+              : canBackwardPeriod(self.period) &&
+                data.hasMore !== false &&
+                !self._historyExhausted;
           callback(
             bars,
-            self.period === "fs" ? { forward: false, backward: false } : false
+            self.period === "fs"
+              ? { forward: false, backward: false }
+              : { forward: false, backward }
           );
           self._applyLoadedMeta(data, bars);
 

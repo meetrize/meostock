@@ -13,7 +13,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from cache import kline_models, models
-from cache.providers.kline_fetch import fetch_kline_bars, normalize_period, normalize_symbol
+from cache.providers.kline_fetch import (
+    fetch_kline_bars,
+    fetch_kline_bars_before,
+    normalize_period,
+    normalize_symbol,
+)
 from cache.providers.lazy_markets import enrich_index_quotes
 from cache.sync_worker import (
     enqueue,
@@ -51,13 +56,15 @@ def _refresh_kline_background(norm: dict[str, str], period_n: str) -> None:
     try:
         fresh, fetch_name, fetch_source = fetch_kline_bars(norm, period_n)
         if fresh:
-            kline_models.replace_kline_bars(
+            # upsert 最近窗，保留已向前加载的更早历史
+            kline_models.upsert_kline_bars(
                 market,
                 sym,
                 period_n,
                 fresh,
                 source=fetch_source,
                 name=fetch_name,
+                touch_as_of=True,
             )
     except Exception as e:
         _log.warning("kline bg refresh failed %s/%s %s: %s", market, sym, period_n, e)
@@ -458,12 +465,18 @@ def cache_kline(
         0,
         description="1=只读本地 SQLite，不拉网、不后台刷新（前端「缓存模式」）",
     ),
+    before_ts: int | None = Query(
+        None,
+        description="毫秒时间戳；有则向前续拉更早 K 线（缩放触左缘）",
+    ),
+    limit: int = Query(500, description="向前续拉每页根数，默认 500，上限 1000"),
     mode: str | None = Query(None),
 ) -> JSONResponse:
     """K 线本地缓存：先读盘，过期或 force 再拉源并落库。
 
     ``local_first=1``：只要盘上有 bars 就立刻返回，需要联网时后台刷新（对齐列表 snapshot 的 stale-while-revalidate）。
     ``cache_only=1``：仅返回已缓存 bars，无缓存则 404。
+    ``before_ts``：向前续拉，返回严格早于该时间的一页 bars。
     """
     if not _ENABLED:
         return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
@@ -479,6 +492,7 @@ def cache_kline(
     active_mode = normalize_mode(mode) if mode else models.get_mode()
     quote_source = models.get_quote_source()
     only_cache = bool(cache_only)
+    page_limit = max(1, min(int(limit or 500), 1000))
 
     # 确保表存在（旧库升级）
     from cache.db import init_db
@@ -487,6 +501,135 @@ def cache_kline(
 
     kline_models.touch_access(market, sym, period_n)
     meta = kline_models.get_kline_meta(market, sym, period_n)
+
+    # —— 向前续拉（缩放触左缘）——
+    if before_ts is not None and int(before_ts) > 0:
+        cut = int(before_ts)
+        exhausted = bool(meta and int(meta.get("history_exhausted") or 0))
+        local_older = kline_models.read_kline_bars_before(
+            market, sym, period_n, cut, limit=page_limit
+        )
+        source = (meta or {}).get("source")
+        name = (meta or {}).get("name") or sym
+        from_cache = bool(local_older)
+        allow_net = (not only_cache) and quote_source != "local"
+
+        # 本地已有满页更早数据：直接返回
+        if len(local_older) >= page_limit:
+            out_bars = [
+                {
+                    "timestamp": b["timestamp"],
+                    "open": b["open"],
+                    "high": b["high"],
+                    "low": b["low"],
+                    "close": b["close"],
+                    "volume": b.get("volume") or 0,
+                }
+                for b in local_older
+            ]
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "market": market.upper() if market in ("cn", "hk", "us") else market,
+                    "symbol": norm.get("display") or sym,
+                    "code": sym,
+                    "name": name,
+                    "period": period_n,
+                    "bars": out_bars,
+                    "count": len(out_bars),
+                    "source": source,
+                    "from_cache": True,
+                    "direction": "backward",
+                    "has_more": not exhausted,
+                    "exhausted": exhausted,
+                    "before_ts": cut,
+                }
+            )
+
+        need_fetch = allow_net and not exhausted and len(local_older) < page_limit
+        if need_fetch:
+            try:
+                older, fetch_name, fetch_source, src_exhausted = fetch_kline_bars_before(
+                    norm, period_n, cut, limit=page_limit
+                )
+                if older:
+                    kline_models.upsert_kline_bars(
+                        market,
+                        sym,
+                        period_n,
+                        older,
+                        source=fetch_source,
+                        name=fetch_name,
+                        history_exhausted=bool(src_exhausted),
+                        touch_as_of=False,
+                    )
+                    source = fetch_source
+                    name = fetch_name or name
+                    from_cache = False
+                    exhausted = bool(src_exhausted)
+                else:
+                    exhausted = True
+                    kline_models.set_history_exhausted(market, sym, period_n, True)
+            except Exception as e:
+                if not local_older:
+                    return JSONResponse(
+                        {
+                            "ok": False,
+                            "error": str(e),
+                            "market": market,
+                            "symbol": sym,
+                            "direction": "backward",
+                        },
+                        status_code=502,
+                    )
+                _log.warning(
+                    "kline backward fetch failed %s/%s %s: %s",
+                    market,
+                    sym,
+                    period_n,
+                    e,
+                )
+
+        # 再读盘合并返回
+        out_list = kline_models.read_kline_bars_before(
+            market, sym, period_n, cut, limit=page_limit
+        )
+        if not out_list and local_older:
+            out_list = local_older
+        out_bars = [
+            {
+                "timestamp": b["timestamp"],
+                "open": b["open"],
+                "high": b["high"],
+                "low": b["low"],
+                "close": b["close"],
+                "volume": b.get("volume") or 0,
+            }
+            for b in out_list
+        ]
+        has_more = (not exhausted) and len(out_bars) >= page_limit
+        if not out_bars:
+            exhausted = True
+            has_more = False
+        return JSONResponse(
+            {
+                "ok": True,
+                "market": market.upper() if market in ("cn", "hk", "us") else market,
+                "symbol": norm.get("display") or sym,
+                "code": sym,
+                "name": name,
+                "period": period_n,
+                "bars": out_bars,
+                "count": len(out_bars),
+                "source": source,
+                "from_cache": from_cache,
+                "direction": "backward",
+                "has_more": has_more,
+                "exhausted": exhausted,
+                "before_ts": cut,
+            }
+        )
+
     bars = kline_models.read_kline_bars(market, sym, period_n)
     now = time.time()
     as_of = float(meta["as_of"]) if meta and meta.get("as_of") else None
@@ -596,15 +739,17 @@ def cache_kline(
         try:
             fresh, fetch_name, fetch_source = fetch_kline_bars(norm, period_n)
             if fresh:
-                kline_models.replace_kline_bars(
+                # upsert 最近窗，保留已向前加载的更早历史
+                kline_models.upsert_kline_bars(
                     market,
                     sym,
                     period_n,
                     fresh,
                     source=fetch_source,
                     name=fetch_name,
+                    touch_as_of=True,
                 )
-                bars = fresh
+                bars = kline_models.read_kline_bars(market, sym, period_n)
                 name = fetch_name or name
                 source = fetch_source
                 from_cache = False
@@ -639,6 +784,9 @@ def cache_kline(
         }
         for b in bars
     ]
+    hist_exhausted = bool(meta and int(meta.get("history_exhausted") or 0))
+    # 日/周默认可向后；已耗尽则关闭
+    can_backward = period_n in ("1d", "1w", "1M") and not hist_exhausted
 
     return JSONResponse(
         {
@@ -657,6 +805,8 @@ def cache_kline(
             "mode": active_mode,
             "ttl_sec": kline_ttl_seconds(active_mode, period_n, market),
             "as_of": as_of,
+            "has_more": can_backward,
+            "exhausted": hist_exhausted,
         }
     )
 
@@ -718,8 +868,8 @@ def warmup_kline_symbols(
             if not fresh:
                 fail_list.append({"symbol": raw, "error": "empty bars"})
                 continue
-            kline_models.replace_kline_bars(
-                market, sym, period_n, fresh, source=source, name=name
+            kline_models.upsert_kline_bars(
+                market, sym, period_n, fresh, source=source, name=name, touch_as_of=True
             )
             ok_list.append(
                 {

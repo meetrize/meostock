@@ -107,18 +107,13 @@ def read_last_kline_bars(
     return bars
 
 
-def replace_kline_bars(
+def _bars_payload(
     market: str,
     symbol: str,
     period: str,
     bars: list[dict[str, Any]],
-    *,
     source: str,
-    name: str | None = None,
-) -> int:
-    """全量替换某标的某周期（按需缓存体量小，实现简单可靠）。"""
-    now = time.time()
-    conn = get_conn()
+) -> list[tuple[Any, ...]]:
     payload: list[tuple[Any, ...]] = []
     for b in bars:
         try:
@@ -142,6 +137,22 @@ def replace_kline_bars(
                 source,
             )
         )
+    return payload
+
+
+def replace_kline_bars(
+    market: str,
+    symbol: str,
+    period: str,
+    bars: list[dict[str, Any]],
+    *,
+    source: str,
+    name: str | None = None,
+) -> int:
+    """全量替换某标的某周期（会丢掉更早历史；优先用 upsert_kline_bars）。"""
+    now = time.time()
+    conn = get_conn()
+    payload = _bars_payload(market, symbol, period, bars, source)
     with _lock:
         conn.execute("BEGIN IMMEDIATE")
         try:
@@ -162,8 +173,8 @@ def replace_kline_bars(
                 """
                 INSERT INTO kline_meta(
                   market, symbol, period, name, as_of, synced_at, bar_count,
-                  source, sync_state, last_error, last_access_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'idle', NULL, ?)
+                  source, sync_state, last_error, last_access_at, history_exhausted
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'idle', NULL, ?, 0)
                 ON CONFLICT(market, symbol, period) DO UPDATE SET
                   name = COALESCE(excluded.name, kline_meta.name),
                   as_of = excluded.as_of,
@@ -191,6 +202,147 @@ def replace_kline_bars(
             conn.rollback()
             raise
     return len(payload)
+
+
+def upsert_kline_bars(
+    market: str,
+    symbol: str,
+    period: str,
+    bars: list[dict[str, Any]],
+    *,
+    source: str,
+    name: str | None = None,
+    history_exhausted: bool | None = None,
+    touch_as_of: bool = True,
+) -> int:
+    """合并写入 K 线（不删更早历史）。返回本次 upsert 根数。"""
+    now = time.time()
+    conn = get_conn()
+    payload = _bars_payload(market, symbol, period, bars, source)
+    with _lock:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            if payload:
+                conn.executemany(
+                    """
+                    INSERT INTO kline_bar(
+                      market, symbol, period, ts, open, high, low, close, volume, amount, source
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(market, symbol, period, ts) DO UPDATE SET
+                      open = excluded.open,
+                      high = excluded.high,
+                      low = excluded.low,
+                      close = excluded.close,
+                      volume = excluded.volume,
+                      amount = COALESCE(excluded.amount, kline_bar.amount),
+                      source = excluded.source
+                    """,
+                    payload,
+                )
+            total = conn.execute(
+                "SELECT COUNT(*) AS c FROM kline_bar WHERE market=? AND symbol=? AND period=?",
+                (market, symbol, period),
+            ).fetchone()["c"]
+            as_of_val = now if touch_as_of else None
+            conn.execute(
+                """
+                INSERT INTO kline_meta(
+                  market, symbol, period, name, as_of, synced_at, bar_count,
+                  source, sync_state, last_error, last_access_at, history_exhausted
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'idle', NULL, ?, 0)
+                ON CONFLICT(market, symbol, period) DO UPDATE SET
+                  name = COALESCE(excluded.name, kline_meta.name),
+                  as_of = COALESCE(?, kline_meta.as_of),
+                  synced_at = excluded.synced_at,
+                  bar_count = excluded.bar_count,
+                  source = COALESCE(excluded.source, kline_meta.source),
+                  sync_state = 'idle',
+                  last_error = NULL,
+                  last_access_at = excluded.last_access_at
+                """,
+                (
+                    market,
+                    symbol,
+                    period,
+                    name,
+                    now,
+                    now,
+                    int(total),
+                    source,
+                    now,
+                    as_of_val,
+                ),
+            )
+            if history_exhausted is not None:
+                conn.execute(
+                    """
+                    UPDATE kline_meta SET history_exhausted=?
+                    WHERE market=? AND symbol=? AND period=?
+                    """,
+                    (1 if history_exhausted else 0, market, symbol, period),
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+    return len(payload)
+
+
+def set_history_exhausted(
+    market: str, symbol: str, period: str, exhausted: bool = True
+) -> None:
+    conn = get_conn()
+    with _lock:
+        conn.execute(
+            """
+            INSERT INTO kline_meta(
+              market, symbol, period, history_exhausted, sync_state, last_access_at
+            ) VALUES (?, ?, ?, ?, 'idle', ?)
+            ON CONFLICT(market, symbol, period) DO UPDATE SET
+              history_exhausted = excluded.history_exhausted
+            """,
+            (market, symbol, period, 1 if exhausted else 0, time.time()),
+        )
+        conn.commit()
+
+
+def read_kline_bars_before(
+    market: str,
+    symbol: str,
+    period: str,
+    before_ts_ms: int,
+    *,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """读盘：严格早于 before_ts 的最近 limit 根（升序返回）。"""
+    n = max(1, min(int(limit or 500), 1000))
+    cut = int(before_ts_ms)
+    conn = get_conn()
+    with _lock:
+        rows = conn.execute(
+            """
+            SELECT ts, open, high, low, close, volume, amount, source
+            FROM kline_bar
+            WHERE market=? AND symbol=? AND period=? AND ts < ?
+            ORDER BY ts DESC
+            LIMIT ?
+            """,
+            (market, symbol, period, cut, n),
+        ).fetchall()
+    bars = [
+        {
+            "timestamp": int(r["ts"]),
+            "open": r["open"],
+            "high": r["high"],
+            "low": r["low"],
+            "close": r["close"],
+            "volume": r["volume"] if r["volume"] is not None else 0,
+            "amount": r["amount"],
+            "source": r["source"],
+        }
+        for r in reversed(rows)
+    ]
+    return bars
 
 
 def set_kline_error(market: str, symbol: str, period: str, err: str) -> None:

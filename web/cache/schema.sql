@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS kline_meta (
   sync_state TEXT NOT NULL DEFAULT 'idle',
   last_error TEXT,
   last_access_at REAL,
+  history_exhausted INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (market, symbol, period)
 );
 

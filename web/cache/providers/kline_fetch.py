@@ -205,6 +205,29 @@ def fetch_yf_bars(yf_symbol: str, period: str) -> tuple[list[dict[str, Any]], st
     return bars, name
 
 
+def fetch_yf_bars_before(
+    yf_symbol: str,
+    period: str,
+    before_ts_ms: int,
+    *,
+    limit: int = 500,
+) -> tuple[list[dict[str, Any]], str]:
+    """Yahoo 向前分页：拉 before_ts 之前的一页。"""
+    import server as srv
+
+    bars = srv._yf_history_bars_before(
+        yf_symbol, period=period, before_ts_ms=before_ts_ms, limit=limit
+    )
+    name = ""
+    try:
+        from yf_catalog import translate_name
+
+        name = translate_name(yf_symbol)
+    except Exception:
+        name = yf_symbol
+    return bars, name
+
+
 # 美股东财市场号：NASDAQ=105 / NYSE=106 / AMEX=107
 _US_SECID_CACHE: dict[str, str] = {}
 _US_MKT_TRY = (105, 106, 107)
@@ -329,6 +352,24 @@ def _parse_em_klines(
     return bars
 
 
+def _end_yyyymmdd_before(before_ts_ms: int) -> str:
+    """东财 end：取 before_ts 前一自然日 YYYYMMDD。"""
+    from datetime import datetime, timedelta, timezone
+
+    ts = max(0, int(before_ts_ms)) / 1000.0
+    day = datetime.fromtimestamp(ts, tz=timezone.utc).date() - timedelta(days=1)
+    return day.strftime("%Y%m%d")
+
+
+def _filter_bars_before(
+    bars: list[dict[str, Any]], before_ts_ms: int
+) -> list[dict[str, Any]]:
+    cut = int(before_ts_ms)
+    out = [b for b in bars if int(b.get("timestamp") or 0) < cut]
+    out.sort(key=lambda b: int(b.get("timestamp") or 0))
+    return out
+
+
 def _fetch_em_bars_by_secid(
     secid: str,
     period: str,
@@ -337,6 +378,8 @@ def _fetch_em_bars_by_secid(
     minute_tz: str,
     daily_open_hm: tuple[int, int],
     timeout: float = 6.0,
+    end: str = "20500101",
+    lmt: int = 500,
 ) -> tuple[list[dict[str, Any]], str]:
     klt = _em_klt(period)
     params = {
@@ -345,8 +388,8 @@ def _fetch_em_bars_by_secid(
         "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
         "klt": klt,
         "fqt": "1",
-        "end": "20500101",
-        "lmt": "500",
+        "end": end or "20500101",
+        "lmt": str(max(1, min(int(lmt), 1000))),
     }
     qs = urllib.parse.urlencode(params)
     last_err: Exception | None = None
@@ -637,75 +680,23 @@ def _cn_secid(symbol: str) -> str:
     return f"0.{code}"
 
 
-def fetch_cn_bars_eastmoney(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
-    secid = _cn_secid(symbol)
-    klt = _em_klt(period)
-    params = {
-        "secid": secid,
-        "fields1": "f1,f2,f3,f4,f5,f6",
-        "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-        "klt": klt,
-        "fqt": "1",
-        "end": "20500101",
-        "lmt": "500",
-    }
-    qs = urllib.parse.urlencode(params)
-    last_err: Exception | None = None
-    data: dict[str, Any] | None = None
-    for host in _EM_KLINE_HOSTS:
-        url = f"https://{host}/api/qt/stock/kline/get?{qs}"
-        for attempt in range(2):
-            try:
-                data = _http_json(url, timeout=12.0)
-                break
-            except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as e:
-                last_err = e
-                time.sleep(0.25 * (attempt + 1))
-        if data is not None:
-            break
-    if data is None:
-        raise RuntimeError(f"eastmoney kline failed: {last_err}")
-
-    body = data.get("data") if isinstance(data.get("data"), dict) else {}
-    name = str((body or {}).get("name") or symbol)
-    klines = (body or {}).get("klines") if isinstance(body, dict) else None
-    if not isinstance(klines, list) or not klines:
-        return [], name
-
-    bars: list[dict[str, Any]] = []
-    for line in klines:
-        parts = str(line).split(",")
-        if len(parts) < 6:
-            continue
-        # date, open, close, high, low, volume, amount, ...
-        try:
-            from datetime import datetime
-            from zoneinfo import ZoneInfo
-
-            day = parts[0]
-            if len(day) == 10:  # YYYY-MM-DD
-                dt = datetime.strptime(day, "%Y-%m-%d").replace(tzinfo=ZoneInfo("Asia/Shanghai"))
-                ts = int(dt.timestamp() * 1000)
-            else:
-                # YYYY-MM-DD HH:MM
-                dt = datetime.strptime(day[:16], "%Y-%m-%d %H:%M").replace(
-                    tzinfo=ZoneInfo("Asia/Shanghai")
-                )
-                ts = int(dt.timestamp() * 1000)
-            bars.append(
-                {
-                    "timestamp": ts,
-                    "open": float(parts[1]),
-                    "close": float(parts[2]),
-                    "high": float(parts[3]),
-                    "low": float(parts[4]),
-                    "volume": float(parts[5]),
-                    "amount": float(parts[6]) if len(parts) > 6 and parts[6] not in ("", "-") else None,
-                }
-            )
-        except Exception:
-            continue
-    return bars, name
+def fetch_cn_bars_eastmoney(
+    symbol: str,
+    period: str,
+    *,
+    end: str = "20500101",
+    lmt: int = 500,
+) -> tuple[list[dict[str, Any]], str]:
+    return _fetch_em_bars_by_secid(
+        _cn_secid(symbol),
+        period,
+        day_tz="Asia/Shanghai",
+        minute_tz="Asia/Shanghai",
+        daily_open_hm=(9, 30),
+        timeout=12.0,
+        end=end,
+        lmt=lmt,
+    )
 
 
 def fetch_cn_bars_sina(symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
@@ -1261,5 +1252,179 @@ def fetch_kline_bars(norm: dict[str, str], period: str) -> tuple[list[dict[str, 
 
     if market == "futures":
         return fetch_futures_bars(symbol, period)
+
+    raise ValueError(f"unsupported market: {market}")
+
+
+def _try_em_before(
+    *,
+    secid: str,
+    period: str,
+    before_ts_ms: int,
+    limit: int,
+    day_tz: str,
+    minute_tz: str,
+    daily_open_hm: tuple[int, int],
+    timeout: float = 10.0,
+) -> tuple[list[dict[str, Any]], str, bool]:
+    """东财向前一页。返回 (older_bars, name, page_full)。"""
+    end = _end_yyyymmdd_before(before_ts_ms)
+    bars, name = _fetch_em_bars_by_secid(
+        secid,
+        period,
+        day_tz=day_tz,
+        minute_tz=minute_tz,
+        daily_open_hm=daily_open_hm,
+        timeout=timeout,
+        end=end,
+        lmt=limit,
+    )
+    older = _filter_bars_before(bars, before_ts_ms)
+    return older, name, len(bars) >= max(1, limit)
+
+
+def fetch_kline_bars_before(
+    norm: dict[str, str],
+    period: str,
+    before_ts_ms: int,
+    *,
+    limit: int = 500,
+) -> tuple[list[dict[str, Any]], str, str, bool]:
+    """按市场源优先级探测并拉取 before_ts 之前的一页。
+
+    返回 (older_bars, name, source, exhausted)。
+    exhausted=True 表示所有源都无法再提供更早数据。
+    """
+    period = normalize_period(period)
+    market = norm["market"]
+    symbol = norm["symbol"]
+    limit = max(1, min(int(limit or 500), 1000))
+    before_ts_ms = int(before_ts_ms)
+    if before_ts_ms <= 0:
+        return [], symbol, "", True
+
+    # 分钟线源站窗口短，本期不强制向前翻页
+    if period in ("fs", "1m", "5m", "15m", "1h"):
+        return [], symbol, "", True
+
+    errors: list[str] = []
+    name = symbol
+
+    if market == "cn":
+        # 东财 → Yahoo（新浪多为最近 N 根，不支持 end 分页，跳过）
+        try:
+            older, name, page_full = _try_em_before(
+                secid=_cn_secid(symbol),
+                period=period,
+                before_ts_ms=before_ts_ms,
+                limit=limit,
+                day_tz="Asia/Shanghai",
+                minute_tz="Asia/Shanghai",
+                daily_open_hm=(9, 30),
+                timeout=12.0,
+            )
+            if older:
+                return older, name, "eastmoney", len(older) < limit
+        except Exception as e:
+            errors.append(f"eastmoney: {e}")
+
+        yf_sym = _cn_to_yahoo(symbol)
+        try:
+            bars, name = fetch_yf_bars_before(
+                yf_sym, period, before_ts_ms, limit=limit
+            )
+            older = _filter_bars_before(bars, before_ts_ms)
+            if older:
+                return older, name or symbol, "yahoo", len(older) < limit
+            errors.append("yahoo: no older")
+        except Exception as e:
+            errors.append(f"yahoo: {e}")
+        return [], name, "", True
+
+    if market == "us":
+        try:
+            secid = _resolve_us_secid(symbol)
+            older, name, page_full = _try_em_before(
+                secid=secid,
+                period=period,
+                before_ts_ms=before_ts_ms,
+                limit=limit,
+                day_tz="America/New_York",
+                minute_tz="Asia/Shanghai",
+                daily_open_hm=(9, 30),
+                timeout=10.0,
+            )
+            if older:
+                return older, name, "eastmoney", len(older) < limit
+        except Exception as e:
+            errors.append(f"eastmoney: {e}")
+        try:
+            bars, name = fetch_yf_bars_before(symbol, period, before_ts_ms, limit=limit)
+            older = _filter_bars_before(bars, before_ts_ms)
+            if older:
+                return older, name or symbol, "yahoo", len(older) < limit
+            errors.append("yahoo: no older")
+        except Exception as e:
+            errors.append(f"yahoo: {e}")
+        return [], name, "", True
+
+    if market == "hk":
+        try:
+            older, name, page_full = _try_em_before(
+                secid=_hk_secid(symbol),
+                period=period,
+                before_ts_ms=before_ts_ms,
+                limit=limit,
+                day_tz="Asia/Hong_Kong",
+                minute_tz="Asia/Hong_Kong",
+                daily_open_hm=(9, 30),
+                timeout=10.0,
+            )
+            if older:
+                return older, name, "eastmoney", len(older) < limit
+        except Exception as e:
+            errors.append(f"eastmoney: {e}")
+        yf_sym = norm.get("yf_symbol") or symbol
+        try:
+            bars, name = fetch_yf_bars_before(yf_sym, period, before_ts_ms, limit=limit)
+            older = _filter_bars_before(bars, before_ts_ms)
+            if older:
+                return older, name or symbol, "yahoo", len(older) < limit
+            errors.append("yahoo: no older")
+        except Exception as e:
+            errors.append(f"yahoo: {e}")
+        return [], name, "", True
+
+    if market == "yf":
+        yf_sym = norm.get("yf_symbol") or symbol
+        try:
+            bars, name = fetch_yf_bars_before(yf_sym, period, before_ts_ms, limit=limit)
+            older = _filter_bars_before(bars, before_ts_ms)
+            if older:
+                return older, name or symbol, "yahoo", len(older) < limit
+        except Exception as e:
+            errors.append(f"yahoo: {e}")
+        return [], name, "", True
+
+    if market == "futures":
+        # 期货日线：用东财 end 分页；失败则 exhausted（新浪多为全量截断最近 500）
+        try:
+            mid = _EXCHANGE_MID.get(_futures_exchange(symbol), 113)
+            secid = f"{mid}.{symbol.upper()}"
+            older, name, page_full = _try_em_before(
+                secid=secid,
+                period=period if period in ("1d", "1w", "1M") else "1d",
+                before_ts_ms=before_ts_ms,
+                limit=limit,
+                day_tz="Asia/Shanghai",
+                minute_tz="Asia/Shanghai",
+                daily_open_hm=(9, 0),
+                timeout=12.0,
+            )
+            if older:
+                return older, name, "eastmoney", len(older) < limit
+        except Exception as e:
+            errors.append(f"eastmoney: {e}")
+        return [], name, "", True
 
     raise ValueError(f"unsupported market: {market}")

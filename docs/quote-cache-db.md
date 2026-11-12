@@ -310,6 +310,7 @@ erDiagram
 | `source` | 如 `eastmoney` / `sina` / `yahoo` |
 | `sync_state` / `last_error` | 状态 |
 | `last_access_at` | 最近访问（可做 LRU 清理） |
+| `history_exhausted` | 1=已无法向前续拉更早历史（见 [`kline-history-load-more.md`](./kline-history-load-more.md)） |
 
 **`kline_bar`** — 单根 K：
 
@@ -418,5 +419,6 @@ FROM quote_snapshot WHERE market='cn' ORDER BY change_percent DESC LIMIT 10;
 |------|------|
 | [`local-quote-cache.md`](./local-quote-cache.md) | 缓存架构、模式、TTL |
 | [`quotes-market-data-sources.md`](./quotes-market-data-sources.md) | 行情页各市场远程数据源 |
+| [`kline-history-load-more.md`](./kline-history-load-more.md) | 日 K 缩放触底向前续拉 |
 | [`tushare-local-cache.md`](./tushare-local-cache.md) | Tushare 轨设计 |
 | [`background-sync-ux.md`](./background-sync-ux.md) | 后台同步 UX |

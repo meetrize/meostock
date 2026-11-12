@@ -490,6 +490,135 @@ def _yf_history_bars(symbol: str, period: str = "1d") -> list[dict[str, Any]]:
     return bars
 
 
+def _yf_chart_api_bars_window(
+    symbol: str,
+    period: str,
+    *,
+    period1: int,
+    period2: int,
+) -> list[dict[str, Any]]:
+    """Yahoo chart API 按 Unix 秒时间窗拉取（用于向前续拉）。"""
+    interval, _ = _yf_period_map(period)
+    p1 = max(0, int(period1))
+    p2 = max(p1 + 1, int(period2))
+    qs = urllib.parse.urlencode(
+        {
+            "interval": interval,
+            "period1": str(p1),
+            "period2": str(p2),
+            "includePrePost": "false",
+            "events": "div,splits",
+        }
+    )
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(symbol, safe='')}?{qs}"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        payload = json.loads(resp.read().decode("utf-8", errors="replace"))
+    result = (((payload or {}).get("chart") or {}).get("result") or [None])[0]
+    if not result:
+        return []
+    ts_list = result.get("timestamp") or []
+    quote = (((result.get("indicators") or {}).get("quote") or [None])[0]) or {}
+    opens = quote.get("open") or []
+    highs = quote.get("high") or []
+    lows = quote.get("low") or []
+    closes = quote.get("close") or []
+    volumes = quote.get("volume") or []
+    bars: list[dict[str, Any]] = []
+    for i, ts in enumerate(ts_list):
+        try:
+            c = closes[i]
+            if c is None:
+                continue
+            bars.append(
+                {
+                    "timestamp": int(ts) * 1000,
+                    "open": float(opens[i] if opens[i] is not None else c),
+                    "high": float(highs[i] if highs[i] is not None else c),
+                    "low": float(lows[i] if lows[i] is not None else c),
+                    "close": float(c),
+                    "volume": float(volumes[i] or 0) if i < len(volumes) else 0.0,
+                }
+            )
+        except Exception:
+            continue
+    return bars
+
+
+def _yf_history_bars_before(
+    symbol: str,
+    period: str = "1d",
+    *,
+    before_ts_ms: int,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """拉 before_ts 之前最多 limit 根（不硬截成「最近 500」）。"""
+    limit = max(1, min(int(limit or 500), 1000))
+    before_sec = max(1, int(before_ts_ms) // 1000)
+    # 日/周：约 2 年交易日窗口；分钟：较短
+    p = (period or "1d").strip().lower()
+    if p in ("1m", "5m", "15m", "1h"):
+        span = 60 * 86400
+    elif p == "1w":
+        span = 5 * 365 * 86400
+    else:
+        span = 2 * 365 * 86400
+    period2 = before_sec - 86400
+    period1 = max(0, period2 - span)
+    if period2 <= period1:
+        return []
+
+    bars: list[dict[str, Any]] = []
+    try:
+        bars = _yf_chart_api_bars_window(
+            symbol, period, period1=period1, period2=period2
+        )
+    except Exception:
+        bars = []
+
+    if not bars:
+        try:
+            import yfinance as yf
+            from datetime import datetime, timezone
+
+            interval, _ = _yf_period_map(period)
+            start = datetime.fromtimestamp(period1, tz=timezone.utc)
+            end = datetime.fromtimestamp(period2, tz=timezone.utc)
+            t = yf.Ticker(symbol)
+            df = t.history(start=start, end=end, interval=interval, auto_adjust=True)
+            if df is not None and not getattr(df, "empty", True):
+                for idx, row in df.iterrows():
+                    try:
+                        ts = int(idx.timestamp() * 1000)
+                        bars.append(
+                            {
+                                "timestamp": ts,
+                                "open": float(row["Open"]),
+                                "high": float(row["High"]),
+                                "low": float(row["Low"]),
+                                "close": float(row["Close"]),
+                                "volume": float(row.get("Volume") or 0),
+                            }
+                        )
+                    except Exception:
+                        continue
+        except Exception:
+            bars = []
+
+    bars = [b for b in bars if int(b.get("timestamp") or 0) < int(before_ts_ms)]
+    bars.sort(key=lambda b: int(b.get("timestamp") or 0))
+    if len(bars) > limit:
+        bars = bars[-limit:]
+    return bars
+
+
 def _yf_kline_cached(symbol: str, period: str, *, force: bool = False) -> list[dict[str, Any]]:
     key = f"{symbol}|{period}"
     now = time.time()

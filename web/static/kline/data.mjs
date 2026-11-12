@@ -296,6 +296,8 @@ export function createKlineData(sdk = new StockSDK()) {
       stale: Boolean(data.stale),
       refreshing: Boolean(data.refreshing),
       name: data.name,
+      hasMore: data.has_more !== false && !data.exhausted,
+      exhausted: Boolean(data.exhausted),
     };
     if (out.market === "YF" || String(symbol).toLowerCase().startsWith("yf:")) {
       out.market = "YF";
@@ -307,6 +309,35 @@ export function createKlineData(sdk = new StockSDK()) {
       if (fut) out.futures = fut;
     }
     return out;
+  }
+
+  /**
+   * 向前续拉更早 K 线（缩放触左缘）
+   * @param {string} symbol
+   * @param {string} period
+   * @param {number} beforeTs 毫秒时间戳
+   * @param {{ limit?: number }} [opts]
+   */
+  async function fetchKlineBefore(symbol, period, beforeTs, opts = {}) {
+    const qs = new URLSearchParams({
+      symbol: String(symbol || "").trim(),
+      period: period === "fs" ? "1m" : period || "1d",
+      before_ts: String(Math.floor(Number(beforeTs) || 0)),
+      limit: String(Math.max(1, Math.min(Number(opts.limit) || 500, 1000))),
+    });
+    const res = await fetch(`/api/cache/kline?${qs}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      throw new Error(data.error || "向前加载 K 线失败");
+    }
+    return {
+      bars: Array.isArray(data.bars) ? data.bars : [],
+      hasMore: Boolean(data.has_more) && !data.exhausted,
+      exhausted: Boolean(data.exhausted),
+      source: data.source,
+      name: data.name,
+      fromCache: Boolean(data.from_cache),
+    };
   }
 
   async function fetchKlineLegacy(symbol, period) {
@@ -460,6 +491,7 @@ export function createKlineData(sdk = new StockSDK()) {
     fetchKline,
     fetchKlineFast,
     fetchKlineFromCache,
+    fetchKlineBefore,
     fetchKlineLegacy,
     fetchQuote,
     resolveMarket,
