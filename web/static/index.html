@@ -4113,11 +4113,13 @@
             }
           }
 
-          // —— 普通 K 线：向前续拉 ——
-          const canBackwardPeriod = canLoadHistoryPeriod(currentPeriod);
-          if (type === "backward") {
+          // —— 普通 K 线：更早历史 ——
+          // klinecharts：左缘触发 type=forward（prepend），右缘 type=backward（append）。
+          // 更早数据必须走 forward，否则旧 K 会被拼到「今天」右侧。
+          const canHistoryPeriod = canLoadHistoryPeriod(currentPeriod);
+          if (type === "forward") {
             if (
-              !canBackwardPeriod ||
+              !canHistoryPeriod ||
               chartHistoryExhausted ||
               chartBackwardInflight ||
               chartSettings.cacheMode
@@ -4147,7 +4149,7 @@
               const older = (data.bars || []).filter((b) => Number(b.timestamp) < firstTs);
               const hasMore = !!data.hasMore && !data.exhausted && older.length > 0;
               if (data.exhausted || !hasMore) chartHistoryExhausted = true;
-              callback(older, { forward: false, backward: hasMore });
+              callback(older, { forward: hasMore, backward: false });
               if (older.length) {
                 setStatus(
                   `${symbol} · ${currentPeriod} · 已续拉 ${older.length} 根更早K线 · ${data.source || ""}`
@@ -4156,13 +4158,19 @@
             } catch (e) {
               setStatus(`向前加载失败: ${e.message || e}`);
               callback([], {
-                forward: false,
-                backward: !chartHistoryExhausted,
+                forward: !chartHistoryExhausted,
+                backward: false,
               });
             } finally {
               chartBackwardInflight = false;
               syncLoadHistoryBtn();
             }
+            return;
+          }
+
+          if (type === "backward") {
+            // 右缘：不把历史旧 K append 到右侧
+            callback([], { forward: canHistoryPeriod && !chartHistoryExhausted, backward: false });
             return;
           }
 
@@ -4176,8 +4184,8 @@
               const bars = pendingChartBars;
               pendingChartBars = null;
               callback(bars, {
-                forward: false,
-                backward: canBackwardPeriod && !chartHistoryExhausted,
+                forward: canHistoryPeriod && !chartHistoryExhausted,
+                backward: false,
               });
               syncLoadHistoryBtn();
               return;
@@ -4194,9 +4202,9 @@
             applyChartSettings();
             const bars = data.bars || [];
             if (data.exhausted) chartHistoryExhausted = true;
-            const backward =
-              canBackwardPeriod && data.hasMore !== false && !chartHistoryExhausted;
-            callback(bars, { forward: false, backward });
+            const canForward =
+              canHistoryPeriod && data.hasMore !== false && !chartHistoryExhausted;
+            callback(bars, { forward: canForward, backward: false });
             syncLoadHistoryBtn();
             setStatus(
               `${symbol} · ${currentPeriod} · ${bars.length} 根K线 · 数据源 ${klineStatusTag(data)}`

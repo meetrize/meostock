@@ -783,8 +783,10 @@ export class ChartPanel {
           return;
         }
 
-        // —— 向前续拉更早历史 ——
-        if (type === "backward") {
+        // —— 更早历史 ——
+        // klinecharts：左缘 type=forward（prepend），右缘 type=backward（append）。
+        // 更早数据必须走 forward，否则旧 K 会被拼到「今天」右侧。
+        if (type === "forward") {
           if (
             self.period === "fs" ||
             !canBackwardPeriod(self.period) ||
@@ -819,7 +821,7 @@ export class ChartPanel {
             );
             const hasMore = !!data.hasMore && !data.exhausted && older.length > 0;
             if (data.exhausted || !hasMore) self._historyExhausted = true;
-            callback(older, { forward: false, backward: hasMore });
+            callback(older, { forward: hasMore, backward: false });
             if (older.length) {
               self._status(
                 `${symbol} · ${self.period} · 已续拉 ${older.length} 根更早K线`
@@ -827,12 +829,23 @@ export class ChartPanel {
             }
           } catch (_) {
             callback([], {
-              forward: false,
-              backward: !self._historyExhausted,
+              forward: !self._historyExhausted,
+              backward: false,
             });
           } finally {
             self._backwardInflight = false;
           }
+          return;
+        }
+
+        if (type === "backward") {
+          callback([], {
+            forward:
+              self.period !== "fs" &&
+              canBackwardPeriod(self.period) &&
+              !self._historyExhausted,
+            backward: false,
+          });
           return;
         }
 
@@ -849,8 +862,8 @@ export class ChartPanel {
             self.period === "fs"
               ? { forward: false, backward: false }
               : {
-                  forward: false,
-                  backward: canBackwardPeriod(self.period) && !self._historyExhausted,
+                  forward: canBackwardPeriod(self.period) && !self._historyExhausted,
+                  backward: false,
                 };
           callback(bars, more);
           return;
@@ -873,7 +886,7 @@ export class ChartPanel {
 
           const bars = self._prepareBars(data.bars || []);
           if (data.exhausted) self._historyExhausted = true;
-          const backward =
+          const canForward =
             self.period === "fs"
               ? false
               : canBackwardPeriod(self.period) &&
@@ -883,7 +896,7 @@ export class ChartPanel {
             bars,
             self.period === "fs"
               ? { forward: false, backward: false }
-              : { forward: false, backward }
+              : { forward: canForward, backward: false }
           );
           self._applyLoadedMeta(data, bars);
 
