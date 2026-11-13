@@ -4221,6 +4221,15 @@
                 backward: false,
               });
               syncLoadHistoryBtn();
+              if (pendingFocusDate && currentPeriod !== "fs") {
+                const focus = pendingFocusDate;
+                queueMicrotask(() => {
+                  if (seq !== chartLoadSeq) return;
+                  void focusChartOnDate(focus).then((ok) => {
+                    if (ok) pendingFocusDate = "";
+                  });
+                });
+              }
               return;
             }
             setStatus(`加载 ${symbol} ${currentPeriod} …`);
@@ -4256,6 +4265,12 @@
               try {
                 chart.resize();
               } catch (_) {}
+              if (pendingFocusDate && currentPeriod !== "fs") {
+                const focus = pendingFocusDate;
+                void focusChartOnDate(focus).then((ok) => {
+                  if (ok) pendingFocusDate = "";
+                });
+              }
             });
           } catch (e) {
             setStatus(`加载失败: ${e.message || e}`);
@@ -4314,6 +4329,9 @@
       pollTimer = setInterval(() => refreshRealtime(currentSymbol), ms);
     }
 
+    /** URL 深链目标交易日 YYYY-MM-DD（资讯时间线跳转） */
+    let pendingFocusDate = "";
+
     function readUrlParams() {
       const q = new URLSearchParams(location.search);
       // 兼容 symbol / code / s / ticker
@@ -4325,7 +4343,8 @@
         ""
       ).trim();
       const period = (q.get("period") || "").trim();
-      return { symbol, period };
+      const date = (q.get("date") || q.get("focus") || "").trim();
+      return { symbol, period, date };
     }
 
     function syncUrl(symbol, period, replace = true) {
@@ -4333,11 +4352,95 @@
       url.searchParams.set("symbol", symbol);
       if (period) url.searchParams.set("period", period);
       else url.searchParams.delete("period");
+      if (pendingFocusDate) url.searchParams.set("date", pendingFocusDate);
+      else url.searchParams.delete("date");
+      url.searchParams.delete("focus");
       // 清理旧别名参数，保持 URL 干净
       ["code", "s", "ticker"].forEach((k) => url.searchParams.delete(k));
       const next = `${url.pathname}?${url.searchParams.toString()}${url.hash || ""}`;
-      if (replace) history.replaceState({ symbol, period }, "", next);
-      else history.pushState({ symbol, period }, "", next);
+      if (replace) history.replaceState({ symbol, period, date: pendingFocusDate }, "", next);
+      else history.pushState({ symbol, period, date: pendingFocusDate }, "", next);
+    }
+
+    function barDayKey(ts) {
+      const n = Number(ts);
+      if (!Number.isFinite(n) || n <= 0) return "";
+      const ms = n > 1e12 ? n : n * 1000;
+      try {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Shanghai",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(ms));
+      } catch (_) {
+        const d = new Date(ms);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+    }
+
+    function findBarByDate(list, ymd) {
+      if (!ymd || !Array.isArray(list)) return null;
+      for (let i = 0; i < list.length; i++) {
+        if (barDayKey(list[i]?.timestamp) === ymd) return list[i];
+      }
+      return null;
+    }
+
+    /** 滚动到指定交易日；若不在窗口内则向前续拉再定位 */
+    async function focusChartOnDate(ymd, opts = {}) {
+      const { maxRounds = 8 } = opts;
+      if (!ymd || !chart || currentPeriod === "fs") return false;
+      let rounds = 0;
+      while (rounds < maxRounds) {
+        rounds += 1;
+        const list = chart.getDataList?.() || [];
+        const hit = findBarByDate(list, ymd);
+        if (hit) {
+          const ts = Number(hit.timestamp);
+          try {
+            if (typeof chart.scrollToTimestamp === "function") {
+              chart.scrollToTimestamp(ts);
+            }
+          } catch (_) {}
+          try {
+            if (typeof chart.setCrosshair === "function") {
+              chart.setCrosshair({ x: 0, y: 0, timestamp: ts });
+            } else if (typeof chart.executeAction === "function") {
+              chart.executeAction("onCrosshairChange", { timestamp: ts });
+            }
+          } catch (_) {}
+          setStatus(`${currentSymbol} · ${currentPeriod} · 定位 ${ymd}`);
+          return true;
+        }
+        if (chartHistoryExhausted || chartSettings.cacheMode) break;
+        const firstTs = Number(list[0]?.timestamp);
+        if (!Number.isFinite(firstTs) || firstTs <= 0) break;
+        const firstDay = barDayKey(firstTs);
+        if (firstDay && firstDay <= ymd) break;
+        try {
+          const data = await fetchKlineBefore(currentSymbol, currentPeriod, firstTs, {
+            limit: 500,
+          });
+          const older = (data.bars || []).filter((b) => Number(b.timestamp) < firstTs);
+          if (data.exhausted || !older.length) {
+            chartHistoryExhausted = true;
+            break;
+          }
+          const mkt = resolveMarket(currentSymbol);
+          const merged = dedupeDayLikeBars(older.concat(list), mkt, currentPeriod);
+          pendingChartBars = merged;
+          chart.resetData();
+          await new Promise((r) => queueMicrotask(r));
+        } catch (_) {
+          break;
+        }
+      }
+      setStatus(`${currentSymbol} · ${currentPeriod} · 未找到 ${ymd} 的 K 线`);
+      return false;
     }
 
     function applyPeriodUI(period) {
@@ -4373,8 +4476,10 @@
     }
 
     function bootstrapFromUrl() {
-      const { symbol, period } = readUrlParams();
+      const { symbol, period, date } = readUrlParams();
+      pendingFocusDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
       if (period) applyPeriodUI(period);
+      else if (pendingFocusDate) applyPeriodUI("1d");
       if (symbol) document.getElementById("symbol").value = symbol;
       load({ skipUrlSync: false });
     }

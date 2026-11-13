@@ -28,6 +28,9 @@ const EndOfDayPicker = lazy(() =>
 const QuotesMarket = lazy(() =>
   import('@/pages/QuotesMarket').then((mod) => ({ default: mod.QuotesMarket }))
 );
+const NewsTimeline = lazy(() =>
+  import('@/pages/NewsTimeline').then((mod) => ({ default: mod.NewsTimeline }))
+);
 const FupanReview = lazy(() =>
   import('@/pages/FupanReview').then((mod) => ({ default: mod.FupanReview }))
 );
@@ -65,6 +68,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'quotes',
           element: withSuspense(<QuotesMarket />),
+        },
+        {
+          path: 'news',
+          element: withSuspense(<NewsTimeline />),
         },
         {
           path: 'fupan',

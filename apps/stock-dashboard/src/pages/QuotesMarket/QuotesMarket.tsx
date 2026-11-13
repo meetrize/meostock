@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   Database,
   Layers,
+  Newspaper,
 } from 'lucide-react';
 import { Card, Loading, Empty, useToast } from '@/components/common';
 import { useIsInWatchlist } from '@/hooks';
@@ -1359,6 +1360,19 @@ export function QuotesMarket() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const openNews = (e: React.MouseEvent, row: TopicRow) => {
+    e.stopPropagation();
+    const sym = String(row.klineSymbol || row.code || '');
+    if (!sym) {
+      toast.info('当前行无可打开的资讯标的');
+      return;
+    }
+    const name = String(row.name || '');
+    const qs = new URLSearchParams({ symbol: sym });
+    if (name) qs.set('name', name);
+    window.open(`/dashboard/news?${qs.toString()}`, '_blank', 'noopener,noreferrer');
+  };
+
   /** 用当前筛选排序结果打开多面板（可超一屏，多面板内翻页） */
   const openMultipanelFromPage = () => {
     const codes = sorted
@@ -1595,6 +1609,7 @@ export function QuotesMarket() {
                           </th>
                         );
                       })}
+                      <th className={styles.actionCol} title="资讯" />
                     </tr>
                   </thead>
                   <tbody>
@@ -1633,6 +1648,16 @@ export function QuotesMarket() {
                               {formatCell(col.key, row)}
                             </td>
                           ))}
+                          <td className={styles.actionCol}>
+                            <button
+                              type="button"
+                              className={styles.addBtn}
+                              title="相关资讯"
+                              onClick={(e) => openNews(e, row)}
+                            >
+                              <Newspaper size={14} />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}

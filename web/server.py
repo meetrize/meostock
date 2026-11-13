@@ -85,6 +85,16 @@ except Exception as _ts_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("tushare gateway disabled: %s", _ts_exc)
 
+# feedgen 资讯时间线反代（按标的）
+try:
+    from news.api import router as _news_router
+
+    app.include_router(_news_router)
+except Exception as _news_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("news proxy disabled: %s", _news_exc)
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {
