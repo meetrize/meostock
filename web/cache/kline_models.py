@@ -6,6 +6,11 @@ import time
 from typing import Any
 
 from cache.db import _lock, get_conn
+from cache.kline_time import (
+    DAY_LIKE_PERIODS,
+    canonicalize_bar_ts,
+    collapse_day_like_bars,
+)
 
 
 def touch_access(market: str, symbol: str, period: str) -> None:
@@ -65,6 +70,7 @@ def read_kline_bars(
         }
         for r in rows
     ]
+    bars = collapse_day_like_bars(market, period, bars, symbol=symbol)
     if limit > 0 and len(bars) > limit:
         bars = bars[-limit:]
     return bars
@@ -114,14 +120,25 @@ def _bars_payload(
     bars: list[dict[str, Any]],
     source: str,
 ) -> list[tuple[Any, ...]]:
+    # 先按交易日折叠，避免同日 00:00 / 09:30 各写一根
+    normalized = [
+        {**b, "source": b.get("source") or source}
+        for b in (bars or [])
+        if isinstance(b, dict)
+    ]
+    collapsed = collapse_day_like_bars(market, period, normalized, symbol=symbol)
     payload: list[tuple[Any, ...]] = []
-    for b in bars:
+    seen_ts: set[int] = set()
+    for b in collapsed:
         try:
-            ts = int(b.get("timestamp") or 0)
+            ts = canonicalize_bar_ts(
+                market, period, int(b.get("timestamp") or 0), symbol=symbol
+            )
         except (TypeError, ValueError):
             continue
-        if ts <= 0:
+        if ts <= 0 or ts in seen_ts:
             continue
+        seen_ts.add(ts)
         payload.append(
             (
                 market,
@@ -138,6 +155,89 @@ def _bars_payload(
             )
         )
     return payload
+
+
+def reconcile_day_like_bars(market: str, symbol: str, period: str) -> int:
+    """清理某序列同日重复时间戳，统一到开盘 09:30。返回删除根数。"""
+    if period not in DAY_LIKE_PERIODS:
+        return 0
+    conn = get_conn()
+    with _lock:
+        rows = conn.execute(
+            """
+            SELECT ts, open, high, low, close, volume, amount, source
+            FROM kline_bar
+            WHERE market=? AND symbol=? AND period=?
+            ORDER BY ts ASC
+            """,
+            (market, symbol, period),
+        ).fetchall()
+        if not rows:
+            return 0
+        bars = [
+            {
+                "timestamp": int(r["ts"]),
+                "open": r["open"],
+                "high": r["high"],
+                "low": r["low"],
+                "close": r["close"],
+                "volume": r["volume"],
+                "amount": r["amount"],
+                "source": r["source"],
+            }
+            for r in rows
+        ]
+        collapsed = collapse_day_like_bars(market, period, bars, symbol=symbol)
+        if len(collapsed) == len(bars) and all(
+            int(b["timestamp"])
+            == canonicalize_bar_ts(market, period, int(b["timestamp"]), symbol=symbol)
+            for b in bars
+        ):
+            return 0
+        old_n = len(bars)
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute(
+                "DELETE FROM kline_bar WHERE market=? AND symbol=? AND period=?",
+                (market, symbol, period),
+            )
+            payload = [
+                (
+                    market,
+                    symbol,
+                    period,
+                    int(b["timestamp"]),
+                    b.get("open"),
+                    b.get("high"),
+                    b.get("low"),
+                    b.get("close"),
+                    b.get("volume"),
+                    b.get("amount"),
+                    b.get("source"),
+                )
+                for b in collapsed
+            ]
+            if payload:
+                conn.executemany(
+                    """
+                    INSERT INTO kline_bar(
+                      market, symbol, period, ts, open, high, low, close, volume, amount, source
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    payload,
+                )
+            conn.execute(
+                """
+                UPDATE kline_meta SET bar_count=?
+                WHERE market=? AND symbol=? AND period=?
+                """,
+                (len(payload), market, symbol, period),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        return max(0, old_n - len(collapsed))
 
 
 def replace_kline_bars(
@@ -285,6 +385,12 @@ def upsert_kline_bars(
         except Exception:
             conn.rollback()
             raise
+    # 折叠同日旧时间戳（00:00 vs 09:30），在锁外再清一次该序列
+    if period in DAY_LIKE_PERIODS:
+        reconcile_day_like_bars(market, symbol, period)
+        meta = get_kline_meta(market, symbol, period)
+        if meta:
+            return int(meta.get("bar_count") or len(payload))
     return len(payload)
 
 
@@ -342,6 +448,9 @@ def read_kline_bars_before(
         }
         for r in reversed(rows)
     ]
+    bars = collapse_day_like_bars(market, period, bars, symbol=symbol)
+    if len(bars) > n:
+        bars = bars[-n:]
     return bars
 
 

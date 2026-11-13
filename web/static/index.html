@@ -1518,7 +1518,8 @@
           return;
         }
         const existing = chart.getDataList?.() || list;
-        const merged = older.concat(existing);
+        const mkt = resolveMarket(symbol);
+        const merged = dedupeDayLikeBars(older.concat(existing), mkt, period);
         pendingChartBars = merged;
         try {
           chart.resetData();
@@ -2390,16 +2391,46 @@
       return { bars, name: data.name || sym, symbol: sym };
     }
 
-    function toBars(rows) {
-      return (rows || [])
+    function marketDayTz(market) {
+      const m = String(market || "").toUpperCase();
+      if (m === "US") return "America/New_York";
+      if (m === "HK") return "Asia/Hong_Kong";
+      if (m === "YF") return "America/New_York";
+      return "Asia/Shanghai";
+    }
+
+    /** 日/周/月：同一日历日只留一根，避免 00:00 与 09:30 双 K */
+    function dedupeDayLikeBars(bars, market, period) {
+      const p = String(period || "");
+      if (p !== "1d" && p !== "1w" && p !== "1M") return bars || [];
+      const tz = marketDayTz(market);
+      const map = new Map();
+      for (const b of bars || []) {
+        if (!b || !Number.isFinite(b.timestamp)) continue;
+        const { ymd } = dayRangeInTz(b.timestamp, tz);
+        const parts = partsInTz(b.timestamp, tz);
+        const score =
+          parts.h === 9 && parts.mi === 30 ? 2 : parts.h === 0 && parts.mi === 0 ? 0 : 1;
+        const prev = map.get(ymd);
+        if (!prev || score >= prev._score) {
+          map.set(ymd, { ...b, _score: score });
+        }
+      }
+      return [...map.values()]
+        .map(({ _score, ...rest }) => rest)
+        .sort((a, b) => a.timestamp - b.timestamp);
+    }
+
+    function toBars(rows, market, period) {
+      const parsed = (rows || [])
         .map((b) => {
           let ts = b.timestamp;
           if (ts == null) {
             const raw = b.time || b.date;
             if (!raw) return null;
-            const parsed = Date.parse(String(raw).replace(/-/g, "/"));
-            if (!Number.isFinite(parsed)) return null;
-            ts = parsed;
+            const parsedTs = Date.parse(String(raw).replace(/-/g, "/"));
+            if (!Number.isFinite(parsedTs)) return null;
+            ts = parsedTs;
           }
           // 当日分时可能只有 price / avgPrice（见 stock-sdk cnMinute period=1）
           const close = Number(b.close ?? b.price ?? b.avgPrice);
@@ -2422,6 +2453,7 @@
         })
         .filter((b) => b && Number.isFinite(b.timestamp) && Number.isFinite(b.close))
         .sort((a, b) => a.timestamp - b.timestamp);
+      return dedupeDayLikeBars(parsed, market, period);
     }
 
     /** 分时/交易日：按市场时区拆分与补齐（美股不可再用 A 股 9:30–15:00） */
@@ -2773,9 +2805,10 @@
         throw new Error(data.error || "本地 K 线缓存未命中");
       }
       const mkt = String(data.market || "").toUpperCase();
+      const market = mkt === "YF" ? "YF" : mkt === "FUTURES" ? "FUT" : mkt || "CN";
       const out = {
-        market: mkt === "YF" ? "YF" : mkt === "FUTURES" ? "FUT" : mkt || "CN",
-        bars: data.bars,
+        market,
+        bars: dedupeDayLikeBars(data.bars, market, period),
         source: data.from_cache ? `cache:${data.source || "local"}` : data.source || "cache",
         fromCache: Boolean(data.from_cache),
         stale: Boolean(data.stale),
@@ -2844,7 +2877,7 @@
           throw new Error(`期货 ${fut.symbol} K线为空（主连如 AUM/au0，股指如 IFM）`);
         }
         if (rows.length > 500) rows = rows.slice(-500);
-        return { market: "FUT", bars: toBars(rows), futures: fut };
+        return { market: "FUT", bars: toBars(rows, "FUT", period), futures: fut };
       }
       const market = resolveMarket(symbol);
       const apiSym = toSdkApiSymbol(symbol, market);
@@ -2859,7 +2892,7 @@
           const yf = await fetchYfChartBars(yfSym, yfPeriod);
           return {
             market,
-            bars: yf.bars,
+            bars: dedupeDayLikeBars(yf.bars || [], market, yfPeriod),
             yf: { symbol: yf.symbol, name: yf.name },
             source: "yfinance",
           };
@@ -2882,7 +2915,7 @@
             }
             if (!Array.isArray(rows) || !rows.length) throw new Error("东财 K 线为空");
             if (!isMinute && rows.length > 500) rows = rows.slice(-500);
-            return { market, bars: toBars(rows), source: "eastmoney" };
+            return { market, bars: toBars(rows, market, period), source: "eastmoney" };
           } catch (emErr) {
             throw new Error(
               `${market === "HK" ? "港股" : "美股"} K 线不可用：东财 push2his 断连，Yahoo(${yfSym}) 亦失败（${
@@ -2909,7 +2942,7 @@
         rows = await sdk.kline.cn(apiSym, { period: p, adjust: "qfq" });
       }
       if (!isMinute && Array.isArray(rows) && rows.length > 500) rows = rows.slice(-500);
-      const bars = toBars(rows);
+      const bars = toBars(rows, market, period);
       return { market, bars, source: "stock-sdk" };
     }
 

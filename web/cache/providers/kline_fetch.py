@@ -193,8 +193,10 @@ _EM_KLINE_HOSTS = (
 def fetch_yf_bars(yf_symbol: str, period: str) -> tuple[list[dict[str, Any]], str]:
     """复用 server 侧 Yahoo 逻辑。"""
     import server as srv
+    from cache.kline_time import collapse_day_like_bars
 
     bars = srv._yf_history_bars(yf_symbol, period=period)
+    bars = collapse_day_like_bars("yf", normalize_period(period), bars, symbol=yf_symbol)
     name = ""
     try:
         from yf_catalog import translate_name
@@ -214,10 +216,12 @@ def fetch_yf_bars_before(
 ) -> tuple[list[dict[str, Any]], str]:
     """Yahoo 向前分页：拉 before_ts 之前的一页。"""
     import server as srv
+    from cache.kline_time import collapse_day_like_bars
 
     bars = srv._yf_history_bars_before(
         yf_symbol, period=period, before_ts_ms=before_ts_ms, limit=limit
     )
+    bars = collapse_day_like_bars("yf", normalize_period(period), bars, symbol=yf_symbol)
     name = ""
     try:
         from yf_catalog import translate_name
@@ -763,8 +767,9 @@ def fetch_cn_bars_sina(symbol: str, period: str) -> tuple[list[dict[str, Any]], 
                     tzinfo=ZoneInfo("Asia/Shanghai")
                 )
             else:
+                # 与东财日 K 对齐：上海日历日 09:30，避免同日 00:00/09:30 双根
                 dt = datetime.strptime(day[:10], "%Y-%m-%d").replace(
-                    tzinfo=ZoneInfo("Asia/Shanghai")
+                    hour=9, minute=30, tzinfo=ZoneInfo("Asia/Shanghai")
                 )
             bars.append(
                 {
@@ -882,7 +887,14 @@ def merge_cn_today_daily_bar(
     if qdate is None:
         return bars
     ts = int(
-        datetime(qdate.year, qdate.month, qdate.day, tzinfo=ZoneInfo("Asia/Shanghai")).timestamp()
+        datetime(
+            qdate.year,
+            qdate.month,
+            qdate.day,
+            9,
+            30,
+            tzinfo=ZoneInfo("Asia/Shanghai"),
+        ).timestamp()
         * 1000
     )
     today_bar = {

@@ -157,16 +157,61 @@ export function createKlineData(sdk = new StockSDK()) {
     return `${bare.padStart(4, "0")}.HK`;
   }
 
-  function toBars(rows) {
-    return (rows || [])
+  function marketDayTz(market) {
+    const m = String(market || "").toUpperCase();
+    if (m === "US") return "America/New_York";
+    if (m === "HK") return "Asia/Hong_Kong";
+    if (m === "YF") return "America/New_York";
+    return "Asia/Shanghai";
+  }
+
+  function dayYmdInTz(ts, timeZone) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date(ts));
+    const get = (t) => parts.find((p) => p.type === t)?.value || "0";
+    const y = get("year");
+    const mo = get("month");
+    const d = get("day");
+    const h = Number(get("hour") === "24" ? "0" : get("hour"));
+    const mi = Number(get("minute"));
+    return { ymd: `${y}-${mo}-${d}`, h, mi };
+  }
+
+  /** 日/周/月：同一日历日只留一根，避免 00:00 与 09:30 双 K */
+  function dedupeDayLikeBars(bars, market, period) {
+    const p = String(period || "");
+    if (p !== "1d" && p !== "1w" && p !== "1M") return bars || [];
+    const tz = marketDayTz(market);
+    const map = new Map();
+    for (const b of bars || []) {
+      if (!b || !Number.isFinite(b.timestamp)) continue;
+      const { ymd, h, mi } = dayYmdInTz(b.timestamp, tz);
+      const score = h === 9 && mi === 30 ? 2 : h === 0 && mi === 0 ? 0 : 1;
+      const prev = map.get(ymd);
+      if (!prev || score >= prev._score) map.set(ymd, { ...b, _score: score });
+    }
+    return [...map.values()]
+      .map(({ _score, ...rest }) => rest)
+      .sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  function toBars(rows, market, period) {
+    const parsed = (rows || [])
       .map((b) => {
         let ts = b.timestamp;
         if (ts == null) {
           const raw = b.time || b.date;
           if (!raw) return null;
-          const parsed = Date.parse(String(raw).replace(/-/g, "/"));
-          if (!Number.isFinite(parsed)) return null;
-          ts = parsed;
+          const parsedTs = Date.parse(String(raw).replace(/-/g, "/"));
+          if (!Number.isFinite(parsedTs)) return null;
+          ts = parsedTs;
         }
         const close = Number(b.close ?? b.price ?? b.avgPrice);
         if (!Number.isFinite(close)) return null;
@@ -188,6 +233,7 @@ export function createKlineData(sdk = new StockSDK()) {
       })
       .filter((b) => b && Number.isFinite(b.timestamp) && Number.isFinite(b.close))
       .sort((a, b) => a.timestamp - b.timestamp);
+    return dedupeDayLikeBars(parsed, market, period);
   }
 
   async function fetchYfChartBars(yfSymbol, period) {
@@ -288,9 +334,10 @@ export function createKlineData(sdk = new StockSDK()) {
       throw new Error(data.error || "本地 K 线缓存未命中");
     }
     const mkt = String(data.market || "").toUpperCase();
+    const market = mkt === "YF" ? "YF" : mkt === "FUTURES" ? "FUT" : mkt || "CN";
     const out = {
-      market: mkt === "YF" ? "YF" : mkt === "FUTURES" ? "FUT" : mkt || "CN",
-      bars: data.bars,
+      market,
+      bars: dedupeDayLikeBars(data.bars, market, period),
       source: data.from_cache ? `cache:${data.source || "local"}` : data.source || "cache",
       fromCache: Boolean(data.from_cache),
       stale: Boolean(data.stale),
@@ -350,7 +397,11 @@ export function createKlineData(sdk = new StockSDK()) {
       );
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || "yfinance K线失败");
-      return { market: "YF", bars: data.bars || [], yf: { symbol: code, name: data.name } };
+      return {
+        market: "YF",
+        bars: dedupeDayLikeBars(data.bars || [], "YF", yfPeriod),
+        yf: { symbol: code, name: data.name },
+      };
     }
     const fut = resolveFutures(symbol);
     if (fut) {
@@ -361,7 +412,7 @@ export function createKlineData(sdk = new StockSDK()) {
         throw new Error(`期货 ${fut.symbol} K线为空（主连如 AUM/au0，股指如 IFM）`);
       }
       if (rows.length > 500) rows = rows.slice(-500);
-      return { market: "FUT", bars: toBars(rows), futures: fut };
+      return { market: "FUT", bars: toBars(rows, "FUT", period), futures: fut };
     }
     const market = resolveMarket(symbol);
     const apiSym = toSdkApiSymbol(symbol, market);
@@ -374,7 +425,7 @@ export function createKlineData(sdk = new StockSDK()) {
         const yf = await fetchYfChartBars(yfSym, yfPeriod);
         return {
           market,
-          bars: yf.bars,
+          bars: dedupeDayLikeBars(yf.bars || [], market, yfPeriod),
           yf: { symbol: yf.symbol, name: yf.name },
           source: "yfinance",
         };
@@ -396,7 +447,7 @@ export function createKlineData(sdk = new StockSDK()) {
           }
           if (!Array.isArray(rows) || !rows.length) throw new Error("东财 K 线为空");
           if (!isMinute && rows.length > 500) rows = rows.slice(-500);
-          return { market, bars: toBars(rows), source: "eastmoney" };
+          return { market, bars: toBars(rows, market, period), source: "eastmoney" };
         } catch (_) {
           throw new Error(
             `${market === "HK" ? "港股" : "美股"} K 线不可用：东财 push2his 断连，Yahoo(${yfSym}) 亦失败（${
@@ -436,7 +487,7 @@ export function createKlineData(sdk = new StockSDK()) {
         rows = await sdk.kline.cn(apiSym, { period: p, adjust: "qfq" });
       }
       if (!isMinute && Array.isArray(rows) && rows.length > 500) rows = rows.slice(-500);
-      const bars = toBars(rows);
+      const bars = toBars(rows, market, period);
       if (!bars.length) throw new Error("A股 K 线为空");
       return { market, bars, source: "stock-sdk" };
     } catch (cnErr) {
@@ -447,7 +498,7 @@ export function createKlineData(sdk = new StockSDK()) {
         const yf = await fetchYfChartBars(yfSym, yfPeriod);
         return {
           market,
-          bars: yf.bars,
+          bars: dedupeDayLikeBars(yf.bars || [], market, yfPeriod),
           yf: { symbol: yf.symbol, name: yf.name },
           source: "yfinance",
         };
@@ -488,6 +539,7 @@ export function createKlineData(sdk = new StockSDK()) {
   return {
     sdk,
     toBars,
+    dedupeDayLikeBars,
     fetchKline,
     fetchKlineFast,
     fetchKlineFromCache,
