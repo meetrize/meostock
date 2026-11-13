@@ -1,10 +1,10 @@
 /**
- * 按标的资讯时间线：消息日涨跌 / T+N / 迷你 K 锚点 / 复盘标记
+ * 按标的资讯时间线：按交易日汇总，标题折叠展开
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ExternalLink, LineChart, Newspaper, RefreshCw } from 'lucide-react';
+import { ChevronRight, ExternalLink, LineChart, Newspaper, RefreshCw } from 'lucide-react';
 import { Loading, useToast } from '@/components/common';
 import styles from './NewsTimeline.module.css';
 import {
@@ -54,6 +54,17 @@ type SnapshotQuote = {
   klineSymbol?: string;
 };
 
+type EnrichedItem = {
+  article: NewsArticle;
+  impact: ImpactRow | null;
+};
+
+type DayGroup = {
+  tradeDate: string;
+  impact: ImpactRow | null;
+  items: EnrichedItem[];
+};
+
 const SESSION_LABEL: Record<SessionTag, string> = {
   pre: '盘前',
   session: '盘中',
@@ -95,6 +106,43 @@ function inferMarket(sym: string): string {
   return 'cn';
 }
 
+function formatClock(iso: string | null | undefined, market: MarketKind) {
+  if (!iso) return '—';
+  const tz =
+    market === 'us' ? 'America/New_York' : market === 'hk' ? 'Asia/Hong_Kong' : 'Asia/Shanghai';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: tz,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date(iso));
+}
+
+function formatDayLabel(ymd: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ymd;
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const week = ['日', '一', '二', '三', '四', '五', '六'][dt.getUTCDay()];
+  return `${ymd} 周${week}`;
+}
+
+function groupByTradeDate(rows: EnrichedItem[]): DayGroup[] {
+  const map = new Map<string, DayGroup>();
+  for (const row of rows) {
+    const key = row.impact?.tradeDate || publishedAt(row.article)?.slice(0, 10) || 'unknown';
+    let g = map.get(key);
+    if (!g) {
+      g = { tradeDate: key, impact: row.impact, items: [] };
+      map.set(key, g);
+    }
+    g.items.push(row);
+    // 优先保留带数值的 impact 作为日头展示
+    if (!g.impact?.t0 && row.impact?.t0 != null) g.impact = row.impact;
+    else if (row.impact?.pending && !g.impact?.pending) g.impact = row.impact;
+  }
+  return [...map.values()].sort((a, b) => b.tradeDate.localeCompare(a.tradeDate));
+}
+
 function MiniSpark({
   bars,
   anchorDates,
@@ -113,7 +161,7 @@ function MiniSpark({
   const max = Math.max(...closes);
   const span = max - min || 1;
   const w = 880;
-  const h = 72;
+  const h = 56;
   const pad = 4;
   const points = asc
     .map((b, i) => {
@@ -152,6 +200,56 @@ function MiniSpark({
   );
 }
 
+function PctButtons({
+  impact,
+  symbol,
+}: {
+  impact: ImpactRow | null;
+  symbol: string;
+}) {
+  const renderPct = (
+    label: string,
+    v: number | null | undefined,
+    date?: string,
+    opts?: { live?: boolean; pending?: boolean },
+  ) => {
+    const disabled = v == null || !date;
+    const tip = opts?.live
+      ? `映射日 ${date} 日线未落地，显示相对昨收的最新涨跌`
+      : opts?.pending
+        ? `日线待更新 ${date}`
+        : date
+          ? `跳转 K 线 ${date}`
+          : '无日线';
+    return (
+      <button
+        type="button"
+        className={`${styles.pctBtn} ${pctClass(v)}`}
+        disabled={disabled}
+        title={tip}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (date) openKline(symbol, date);
+        }}
+      >
+        {label} {formatPct(v)}
+      </button>
+    );
+  };
+
+  const t0Label = impact?.t0Live ? '较昨收' : 'T0';
+  return (
+    <div className={styles.pctGroup}>
+      {renderPct(t0Label, impact?.t0, impact?.tradeDate, {
+        live: impact?.t0Live,
+        pending: impact?.pending,
+      })}
+      {renderPct('T+1', impact?.t1, impact?.tradeDate)}
+      {renderPct('T+5', impact?.t5, impact?.tradeDate)}
+    </div>
+  );
+}
+
 export function NewsTimeline() {
   const toast = useToast();
   const [params] = useSearchParams();
@@ -169,6 +267,7 @@ export function NewsTimeline() {
   const [to, setTo] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [marks, setMarks] = useState<Record<string, ReviewMark>>({});
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     if (symbol) setMarks(loadReviewMarks(symbol));
@@ -222,7 +321,7 @@ export function NewsTimeline() {
   const fetchPage = useCallback(
     async (nextCursor: string | null, replace: boolean) => {
       if (!symbol) return;
-      const qs = new URLSearchParams({ symbol, limit: '20' });
+      const qs = new URLSearchParams({ symbol, limit: '40' });
       if (nextCursor) qs.set('cursor', nextCursor);
       if (from) qs.set('from', from);
       if (to) qs.set('to', to);
@@ -242,6 +341,7 @@ export function NewsTimeline() {
     if (!symbol) return;
     setLoading(true);
     setError('');
+    setExpandedId(null);
     try {
       await Promise.all([fetchPage(null, true), loadKlineAndQuote()]);
     } catch (e) {
@@ -287,13 +387,15 @@ export function NewsTimeline() {
     return enriched.filter(({ article }) => article.feed_title === sourceFilter);
   }, [enriched, sourceFilter]);
 
+  const dayGroups = useMemo(() => groupByTradeDate(filtered), [filtered]);
+
   const anchorDates = useMemo(() => {
     const s = new Set<string>();
-    for (const row of filtered) {
-      if (row.impact?.tradeDate) s.add(row.impact.tradeDate);
+    for (const g of dayGroups) {
+      if (g.tradeDate && g.tradeDate !== 'unknown') s.add(g.tradeDate);
     }
     return s;
-  }, [filtered]);
+  }, [dayGroups]);
 
   const displayName = quote?.name || nameParam || symbol;
 
@@ -319,6 +421,10 @@ export function NewsTimeline() {
       else next[String(articleId)] = cur;
       return next;
     });
+  };
+
+  const toggleExpand = (id: number) => {
+    setExpandedId((cur) => (cur === id ? null : id));
   };
 
   if (!symbol) {
@@ -394,7 +500,7 @@ export function NewsTimeline() {
           请确认 feedgen 已启动，且两端 <code>FEEDGEN_SERVICE_TOKEN</code> 一致。
         </div>
       ) : null}
-      {!loading && !error && filtered.length === 0 ? (
+      {!loading && !error && dayGroups.length === 0 ? (
         <div className={styles.emptyHint}>
           feedgen 未匹配到与「{symbol}」相关的资讯。
           <br />
@@ -407,13 +513,15 @@ export function NewsTimeline() {
       ) : null}
 
       <div className={styles.timeline}>
-        {filtered.map(({ article, impact }) => (
-          <ArticleCard
-            key={article.id}
-            article={article}
-            impact={impact}
+        {dayGroups.map((group) => (
+          <DaySection
+            key={group.tradeDate}
+            group={group}
             symbol={symbol}
-            mark={marks[String(article.id)] || ''}
+            market={marketKind}
+            expandedId={expandedId}
+            marks={marks}
+            onToggle={toggleExpand}
             onMark={setMark}
           />
         ))}
@@ -433,143 +541,173 @@ export function NewsTimeline() {
   );
 }
 
-function ArticleCard({
-  article,
-  impact,
+function DaySection({
+  group,
   symbol,
+  market,
+  expandedId,
+  marks,
+  onToggle,
+  onMark,
+}: {
+  group: DayGroup;
+  symbol: string;
+  market: MarketKind;
+  expandedId: number | null;
+  marks: Record<string, ReviewMark>;
+  onToggle: (id: number) => void;
+  onMark: (id: number, m: ReviewMark) => void;
+}) {
+  const impact = group.impact;
+  return (
+    <section className={styles.dayCard}>
+      <header className={styles.dayHead}>
+        <div className={styles.dayMeta}>
+          <span className={styles.dayDate}>{formatDayLabel(group.tradeDate)}</span>
+          <span className={styles.dayCount}>{group.items.length} 条</span>
+          {impact?.pending ? <span className={styles.tag}>待收盘</span> : null}
+          {impact?.mapLabel ? <span className={styles.tag}>{impact.mapLabel}</span> : null}
+        </div>
+        <PctButtons impact={impact} symbol={symbol} />
+      </header>
+      <div className={styles.dayList}>
+        {group.items.map(({ article, impact: itemImpact }) => (
+          <ArticleRow
+            key={article.id}
+            article={article}
+            itemImpact={itemImpact}
+            symbol={symbol}
+            market={market}
+            open={expandedId === article.id}
+            mark={marks[String(article.id)] || ''}
+            onToggle={() => onToggle(article.id)}
+            onMark={onMark}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ArticleRow({
+  article,
+  itemImpact,
+  symbol,
+  market,
+  open,
   mark,
+  onToggle,
   onMark,
 }: {
   article: NewsArticle;
-  impact: ImpactRow | null;
+  itemImpact: ImpactRow | null;
   symbol: string;
+  market: MarketKind;
+  open: boolean;
   mark: ReviewMark;
+  onToggle: () => void;
   onMark: (id: number, m: ReviewMark) => void;
 }) {
-  const when = publishedAt(article);
-  const whenLabel = when
-    ? new Intl.DateTimeFormat('zh-CN', {
-        timeZone: 'Asia/Shanghai',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      }).format(new Date(when))
-    : '—';
-
-  const renderPct = (
-    label: string,
-    v: number | null | undefined,
-    date?: string,
-    opts?: { live?: boolean; pending?: boolean },
-  ) => {
-    const disabled = v == null || !date;
-    const tip = opts?.live
-      ? `映射日 ${date} 日线未落地，显示相对昨收的最新涨跌`
-      : opts?.pending
-        ? `日线待更新 ${date}`
-        : date
-          ? `跳转 K 线 ${date}`
-          : '无日线';
-    return (
-      <button
-        type="button"
-        className={`${styles.pctBtn} ${pctClass(v)}`}
-        disabled={disabled}
-        title={tip}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (date) openKline(symbol, date);
-        }}
-      >
-        {label} {formatPct(v)}
-      </button>
-    );
-  };
-
-  const t0Label = impact?.t0Live ? '较昨收' : 'T0';
+  const summary = displaySummary(article);
+  const clock = formatClock(publishedAt(article), market);
+  const session = itemImpact ? SESSION_LABEL[itemImpact.sessionTag] : '';
 
   return (
-    <article className={styles.card}>
-      <div className={styles.cardTop}>
-        <div className={styles.timeRow}>
-          <span>{whenLabel}</span>
-          {impact ? <span className={styles.tag}>{SESSION_LABEL[impact.sessionTag]}</span> : null}
-          {impact ? (
-            <span className={styles.tag}>
-              {impact.mapLabel} {impact.tradeDate}
+    <div className={styles.row}>
+      <button
+        type="button"
+        className={`${styles.rowMain} ${open ? styles.rowOpen : ''}`}
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <ChevronRight
+          size={14}
+          className={`${styles.chevron} ${open ? styles.chevronOpen : ''}`}
+        />
+        <h3 className={styles.rowTitle}>{displayTitle(article)}</h3>
+        <div className={styles.rowAside}>
+          {session ? <span className={styles.sessionPill}>{session}</span> : null}
+          <span>{clock}</span>
+          {article.feed_title ? (
+            <span className={styles.feedMuted} title={article.feed_title}>
+              {article.feed_title}
             </span>
           ) : null}
-          {impact?.pending ? <span className={styles.tag}>待收盘</span> : null}
-          {article.feed_title ? <span>{article.feed_title}</span> : null}
         </div>
-        <div className={styles.pctGroup}>
-          {renderPct(t0Label, impact?.t0, impact?.tradeDate, {
-            live: impact?.t0Live,
-            pending: impact?.pending,
-          })}
-          {renderPct('T+1', impact?.t1, impact?.tradeDate)}
-          {renderPct('T+5', impact?.t5, impact?.tradeDate)}
-        </div>
-      </div>
-      <h2 className={styles.title}>{displayTitle(article)}</h2>
-      {displaySummary(article) ? <p className={styles.summary}>{displaySummary(article)}</p> : null}
-      {article.finance_instruments?.length ? (
-        <div className={styles.chips}>
-          {article.finance_instruments.map((inst) => {
-            const self =
-              inst.chart_symbol === symbol ||
-              inst.symbol === symbol ||
-              `us${inst.symbol}`.toLowerCase() === symbol.toLowerCase();
-            return (
-              <a
-                key={inst.id}
-                className={`${styles.chip} ${self ? styles.chipSelf : ''}`}
-                href={`/dashboard/news?symbol=${encodeURIComponent(inst.chart_symbol)}&name=${encodeURIComponent(inst.name)}`}
-                onClick={(e) => {
-                  if (self) e.preventDefault();
-                }}
-              >
-                {inst.name}
-              </a>
-            );
-          })}
+      </button>
+      {open ? (
+        <div className={styles.rowBody}>
+          {summary ? <p className={styles.summary}>{summary}</p> : null}
+          {article.finance_instruments?.length ? (
+            <div className={styles.chips}>
+              {article.finance_instruments.map((inst) => {
+                const self =
+                  inst.chart_symbol === symbol ||
+                  inst.symbol === symbol ||
+                  `us${inst.symbol}`.toLowerCase() === symbol.toLowerCase();
+                return (
+                  <a
+                    key={inst.id}
+                    className={`${styles.chip} ${self ? styles.chipSelf : ''}`}
+                    href={`/dashboard/news?symbol=${encodeURIComponent(inst.chart_symbol)}&name=${encodeURIComponent(inst.name)}`}
+                    onClick={(e) => {
+                      if (self) e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                  >
+                    {inst.name}
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
+          <div className={styles.cardFoot}>
+            <div className={styles.links}>
+              {article.url ? (
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  原文 <ExternalLink size={11} />
+                </a>
+              ) : null}
+              {article.reader_url ? (
+                <a
+                  href={article.reader_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  feedgen 阅读
+                </a>
+              ) : null}
+            </div>
+            <div className={styles.marks}>
+              {(
+                [
+                  ['bull', '利好'],
+                  ['bear', '利空'],
+                  ['priced', '已计价'],
+                ] as Array<[ReviewMark, string]>
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`${styles.markBtn} ${mark === key ? styles.markBtnActive : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMark(article.id, key);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       ) : null}
-      <div className={styles.cardFoot}>
-        <div className={styles.links}>
-          {article.url ? (
-            <a href={article.url} target="_blank" rel="noopener noreferrer">
-              原文 <ExternalLink size={12} />
-            </a>
-          ) : null}
-          {article.reader_url ? (
-            <a href={article.reader_url} target="_blank" rel="noopener noreferrer">
-              feedgen 阅读
-            </a>
-          ) : null}
-        </div>
-        <div className={styles.marks}>
-          {(
-            [
-              ['bull', '利好'],
-              ['bear', '利空'],
-              ['priced', '已计价'],
-            ] as Array<[ReviewMark, string]>
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              className={`${styles.markBtn} ${mark === key ? styles.markBtnActive : ''}`}
-              onClick={() => onMark(article.id, key)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </article>
+    </div>
   );
 }
