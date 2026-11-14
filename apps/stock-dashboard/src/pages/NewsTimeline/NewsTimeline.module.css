@@ -309,6 +309,64 @@
   line-height: 1.5;
 }
 
+.summaryHtml {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  max-height: 280px;
+  overflow: auto;
+  word-break: break-word;
+}
+
+.summaryHtml :global(p) {
+  margin: 0 0 0.65em;
+}
+
+.summaryHtml :global(p:last-child) {
+  margin-bottom: 0;
+}
+
+.summaryHtml :global(h1),
+.summaryHtml :global(h2),
+.summaryHtml :global(h3),
+.summaryHtml :global(h4) {
+  margin: 0.6em 0 0.35em;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.summaryHtml :global(a) {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.summaryHtml :global(a:hover) {
+  text-decoration: underline;
+}
+
+.summaryHtml :global(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 6px 0;
+  display: block;
+}
+
+.summaryHtml :global(ul),
+.summaryHtml :global(ol) {
+  margin: 0.4em 0 0.6em;
+  padding-left: 1.25em;
+}
+
+.summaryHtml :global(blockquote) {
+  margin: 0.5em 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-primary);
+  color: var(--text-tertiary);
+}
+
 .chips {
   display: flex;
   flex-wrap: wrap;

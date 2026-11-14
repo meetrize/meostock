@@ -21,6 +21,7 @@ import {
   type ReviewMark,
   type SessionTag,
 } from './newsImpact';
+import { looksLikeHtml, sanitizeArticleHtml } from './sanitizeHtml';
 
 type FinanceInstrument = {
   id: number;
@@ -77,7 +78,28 @@ function displayTitle(a: NewsArticle) {
 }
 
 function displaySummary(a: NewsArticle) {
-  return (a.description_zh || a.description || '').trim();
+  const zh = (a.description_zh || '').trim();
+  const en = (a.description || '').trim();
+  // 中文过短（多为来源备注）且英文是 HTML 正文时，用英文 HTML
+  if (zh && !(looksLikeHtml(en) && !looksLikeHtml(zh) && zh.length < 48)) {
+    return zh;
+  }
+  return en || zh;
+}
+
+function SummaryBody({ text }: { text: string }) {
+  if (!text) return null;
+  if (looksLikeHtml(text)) {
+    const html = sanitizeArticleHtml(text);
+    if (!html.trim()) return null;
+    return (
+      <div
+        className={styles.summaryHtml}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
+  }
+  return <p className={styles.summary}>{text}</p>;
 }
 
 function publishedAt(a: NewsArticle) {
@@ -637,7 +659,7 @@ function ArticleRow({
       </button>
       {open ? (
         <div className={styles.rowBody}>
-          {summary ? <p className={styles.summary}>{summary}</p> : null}
+          {summary ? <SummaryBody text={summary} /> : null}
           {article.finance_instruments?.length ? (
             <div className={styles.chips}>
               {article.finance_instruments.map((inst) => {
