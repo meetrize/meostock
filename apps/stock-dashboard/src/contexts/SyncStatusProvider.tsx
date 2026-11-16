@@ -107,10 +107,8 @@ export function SyncStatusProvider({ children }: { children: ReactNode }) {
     if (finished.length) {
       setCompletedLanes(finished);
       setSoftVersion((v) => v + 1);
-      const labels = finished.map((l) => LANE_META[l].label).join('、');
-      toast.success(`${labels} 同步完成`);
     }
-  }, [toast]);
+  }, []);
 
   const anyActive = useMemo(() => tracks.some((t) => t.active), [tracks]);
 

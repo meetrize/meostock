@@ -133,46 +133,25 @@ export function Dashboard() {
   }, []);
 
   const fetchMarketInsights = useCallback(async () => {
-    // 各接口独立：板块榜偶发断连时，不能拖垮北向 / 大盘主力
-    const [
-      marketFundFlowResult,
-      northboundResult,
-      industryFundFlowResult,
-      conceptFundFlowResult,
-      fundFlowRankResult,
-    ] = await Promise.allSettled([
-      getMarketFundFlow(),
-      getNorthboundFlowSummary(),
-      getSectorFundFlowRank({ indicator: 'today', sectorType: 'industry' }),
-      getSectorFundFlowRank({ indicator: 'today', sectorType: 'concept' }),
-      getFundFlowRank({ indicator: 'today' }),
-    ]);
-
-    if (marketFundFlowResult.status === 'fulfilled') {
-      setMarketFundFlowHistory(marketFundFlowResult.value);
-    } else {
-      console.error('Dashboard marketFundFlow error:', marketFundFlowResult.reason);
-    }
-    if (northboundResult.status === 'fulfilled') {
-      setNorthboundSummary(northboundResult.value);
-    } else {
-      console.error('Dashboard northboundSummary error:', northboundResult.reason);
-    }
-    if (industryFundFlowResult.status === 'fulfilled') {
-      setIndustryFundFlowRanks(industryFundFlowResult.value);
-    } else {
-      console.error('Dashboard industryFundFlow error:', industryFundFlowResult.reason);
-    }
-    if (conceptFundFlowResult.status === 'fulfilled') {
-      setConceptFundFlowRanks(conceptFundFlowResult.value);
-    } else {
-      console.error('Dashboard conceptFundFlow error:', conceptFundFlowResult.reason);
-    }
-    if (fundFlowRankResult.status === 'fulfilled') {
-      setFundFlowRanks(fundFlowRankResult.value);
-    } else {
-      console.error('Dashboard fundFlowRank error:', fundFlowRankResult.reason);
-    }
+    // 各接口独立回填：谁先到谁先显示，避免慢接口拖住大盘主力净流入
+    const tasks = [
+      getMarketFundFlow()
+        .then((value) => setMarketFundFlowHistory(value))
+        .catch((reason) => console.error('Dashboard marketFundFlow error:', reason)),
+      getNorthboundFlowSummary()
+        .then((value) => setNorthboundSummary(value))
+        .catch((reason) => console.error('Dashboard northboundSummary error:', reason)),
+      getSectorFundFlowRank({ indicator: 'today', sectorType: 'industry' })
+        .then((value) => setIndustryFundFlowRanks(value))
+        .catch((reason) => console.error('Dashboard industryFundFlow error:', reason)),
+      getSectorFundFlowRank({ indicator: 'today', sectorType: 'concept' })
+        .then((value) => setConceptFundFlowRanks(value))
+        .catch((reason) => console.error('Dashboard conceptFundFlow error:', reason)),
+      getFundFlowRank({ indicator: 'today' })
+        .then((value) => setFundFlowRanks(value))
+        .catch((reason) => console.error('Dashboard fundFlowRank error:', reason)),
+    ];
+    await Promise.allSettled(tasks);
   }, []);
 
   const refreshAll = useCallback(async () => {
