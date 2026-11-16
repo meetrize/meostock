@@ -137,6 +137,9 @@ export function TopicListWidget({ type }: Props) {
               row.firstTime ?? row.first_time ?? row.lastTime ?? row.last_time;
             const timeText =
               type === 'topic.limitList' ? formatLimitTime(timeRaw) : '';
+            const timeInferred = Boolean(
+              row.firstTimeInferred ?? row.first_time_inferred
+            );
             return (
               <button
                 key={`${code}-${idx}`}
@@ -144,7 +147,9 @@ export function TopicListWidget({ type }: Props) {
                 className={styles.topicRow}
                 title={
                   type === 'topic.limitList' && timeText
-                    ? `首次封板 ${String(timeRaw || timeText)}`
+                    ? timeInferred
+                      ? `首次触及跌停 ${String(timeRaw || timeText)}（分时推断）`
+                      : `首次封板 ${String(timeRaw || timeText)}`
                     : undefined
                 }
                 onClick={() => {

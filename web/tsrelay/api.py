@@ -15,7 +15,12 @@ from cache import models as cache_models
 from tsrelay import store
 from tsrelay.catalog import MARKET_SPECS, catalog_payload, find_nav_leaf
 from tsrelay.client import get_client
-from tsrelay.markets import fetch_market, market_prefer_today, resolve_trade_date
+from tsrelay.markets import (
+    enrich_limit_down_first_times,
+    fetch_market,
+    market_prefer_today,
+    resolve_trade_date,
+)
 from tsrelay.scheduler import set_enabled as schedule_set_enabled
 from tsrelay.scheduler import start_scheduler, status as schedule_status
 from tsrelay.sync_worker import (
@@ -69,6 +74,41 @@ def _trade_key(market_id: str, trade_date: str | None) -> str:
     return str(info.get("trade_date") or "")
 
 
+def _maybe_enrich_limit_cache(
+    market_id: str,
+    td_key: str,
+    snap: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """缓存中的跌停若缺 firstTime，用分时补全并写回，避免每次点同步才生效。"""
+    items = list(snap.get("items") or [])
+    if market_id != "ts:limit" or not items:
+        return items
+    need = any(
+        isinstance(it, dict)
+        and str(it.get("limit") or "").upper() == "D"
+        and not str(it.get("firstTime") or it.get("first_time") or "").strip()
+        for it in items
+    )
+    if not need:
+        return items
+    td = str(snap.get("trade_date") or td_key or "")
+    enriched, filled = enrich_limit_down_first_times(items, td)
+    if filled:
+        try:
+            store.replace_snapshot(
+                market_id,
+                td_key,
+                table_kind=str(snap.get("table") or "topic"),
+                label=str(snap.get("label") or "涨跌停"),
+                columns=list(snap.get("columns") or []),
+                items=enriched,
+                source=str(snap.get("source") or "") or None,
+            )
+        except Exception as e:  # noqa: BLE001
+            _log.warning("limit enrich writeback failed: %s", e)
+    return enriched
+
+
 def _serve_cached(market_id: str, trade_date: str | None, *, force: bool) -> dict[str, Any] | None:
     store.ensure_schema()
     td_key = _trade_key(market_id, trade_date)
@@ -78,6 +118,7 @@ def _serve_cached(market_id: str, trade_date: str | None, *, force: bool) -> dic
     if not snap:
         return None
     quote_source = cache_models.get_quote_source()
+    items = _maybe_enrich_limit_cache(market_id, td_key, snap)
     # local / auto：有切片即返回；network 或 force：返回但仍可后台刷
     out = {
         "ok": True,
@@ -85,8 +126,8 @@ def _serve_cached(market_id: str, trade_date: str | None, *, force: bool) -> dic
         "label": snap.get("label"),
         "table": snap.get("table"),
         "columns": snap.get("columns"),
-        "items": snap.get("items"),
-        "total": snap.get("total"),
+        "items": items,
+        "total": len(items) if items else snap.get("total"),
         "trade_date": snap.get("trade_date") if snap.get("trade_date") != store.CATALOG_TRADE_DATE else trade_date,
         "source": snap.get("source"),
         "cached": True,

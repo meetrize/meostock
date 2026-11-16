@@ -214,6 +214,127 @@ def handle_opt(trade_date: str) -> dict[str, Any]:
     )
 
 
+def _infer_first_limit_down_hhmmss(
+    symbol: str, limit_price: float, trade_date: str
+) -> str | None:
+    """从 1 分钟 K 推断当日首次触及跌停价的时间，返回 HHmmss；失败返回 None。
+
+    Tushare limit_list_d 对跌停(D)不提供 first_time，故用分时补全。
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        from cache.providers.kline_fetch import fetch_cn_bars
+    except Exception as e:  # noqa: BLE001
+        _log.debug("infer limit-down time: kline_fetch unavailable: %s", e)
+        return None
+
+    td = str(trade_date or "").strip()
+    if len(td) != 8 or not td.isdigit():
+        return None
+    try:
+        limit_px = round(float(limit_price), 2)
+    except (TypeError, ValueError):
+        return None
+    if limit_px <= 0:
+        return None
+
+    try:
+        bars, _name, _src = fetch_cn_bars(str(symbol), "1m")
+    except Exception as e:  # noqa: BLE001
+        _log.debug("infer limit-down time fetch %s: %s", symbol, e)
+        return None
+
+    tz = ZoneInfo("Asia/Shanghai")
+    y, mo, d = int(td[:4]), int(td[4:6]), int(td[6:8])
+    for b in bars or []:
+        try:
+            ts = int(b.get("timestamp") or 0)
+            if ts <= 0:
+                continue
+            dt = datetime.fromtimestamp(ts / 1000.0, tz=tz)
+            if dt.year != y or dt.month != mo or dt.day != d:
+                continue
+            low = b.get("low")
+            close = b.get("close")
+            low_v = round(float(low), 2) if low is not None else None
+            close_v = round(float(close), 2) if close is not None else None
+            touched = (low_v is not None and low_v <= limit_px) or (
+                close_v is not None and close_v <= limit_px
+            )
+            if touched:
+                return f"{dt.hour:02d}{dt.minute:02d}{dt.second:02d}"
+        except Exception:
+            continue
+    return None
+
+
+def enrich_limit_down_first_times(
+    items: list[dict[str, Any]],
+    trade_date: str | None,
+    *,
+    max_workers: int = 8,
+) -> tuple[list[dict[str, Any]], int]:
+    """为缺少 firstTime 的跌停(D)行用分时推断补全。返回 (items, 补全条数)。"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    td = str(trade_date or "").strip()
+    if len(td) != 8 or not items:
+        return items, 0
+
+    need_idx: list[int] = []
+    for i, it in enumerate(items):
+        if not isinstance(it, dict):
+            continue
+        if str(it.get("limit") or "").upper() != "D":
+            continue
+        if str(it.get("firstTime") or it.get("first_time") or "").strip():
+            continue
+        close = it.get("close")
+        if close is None:
+            continue
+        need_idx.append(i)
+
+    if not need_idx:
+        return items, 0
+
+    def _job(i: int) -> tuple[int, str | None]:
+        it = items[i]
+        sym = str(it.get("klineSymbol") or it.get("code") or "").strip()
+        if not sym:
+            return i, None
+        return i, _infer_first_limit_down_hhmmss(sym, float(it["close"]), td)
+
+    filled = 0
+    workers = max(1, min(int(max_workers), len(need_idx)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futs = [pool.submit(_job, i) for i in need_idx]
+        for fut in as_completed(futs):
+            try:
+                i, hhmmss = fut.result()
+            except Exception as e:  # noqa: BLE001
+                _log.debug("enrich limit-down future: %s", e)
+                continue
+            if not hhmmss:
+                continue
+            items[i] = {
+                **items[i],
+                "firstTime": hhmmss,
+                "firstTimeInferred": True,
+            }
+            filled += 1
+
+    if filled:
+        _log.info(
+            "limit_list_d: inferred firstTime for %s/%s limit-down rows (%s)",
+            filled,
+            len(need_idx),
+            td,
+        )
+    return items, filled
+
+
 def handle_limit(trade_date: str) -> dict[str, Any]:
     spec = MARKET_SPECS["ts:limit"]
     res = _q(
@@ -242,6 +363,8 @@ def handle_limit(trade_date: str) -> dict[str, Any]:
                 "limitTimes": _f(r.get("limit_times")),
             }
         )
+    # Tushare：跌停无 first_time；用分时首次触及跌停价补全
+    items, _n = enrich_limit_down_first_times(items, trade_date)
     return _ok(
         items,
         trade_date=trade_date,
