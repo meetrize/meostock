@@ -677,9 +677,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  flex: 1 1 0;
-  min-height: 22px;
-  padding: 2px 4px;
+  flex: 0 0 auto;
+  height: 24px;
+  min-height: 24px;
+  box-sizing: border-box;
+  padding: 0 4px;
   border: none;
   background: transparent;
   color: inherit;
@@ -722,10 +724,18 @@
   flex-shrink: 0;
 }
 
+.topicTime {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .topicTag {
   font-size: 10px;
   color: var(--text-tertiary);
-  max-width: 64px;
+  max-width: 48px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
