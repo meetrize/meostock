@@ -2822,7 +2822,9 @@
     }
 
     /**
-     * 首屏按「一日宽度」适配，并滚到最新一根。
+     * 首屏按「一日宽度」适配，右缘对齐最近一日最后一根（含尾盘占位），
+     * 使左缘落在当日开盘（A 股 09:30）。不用 scrollToRealTime：它会停在
+     * 「最后有效价」附近，盘中容易把左缘顶到下午。
      */
     function fitFsViewportOneDay(daySlots) {
       if (!chart) return;
@@ -2835,10 +2837,14 @@
             : fsCache?.daySlots || FS_DAY_SLOTS;
         const space = Math.max(1.5, Math.min(6, (w - 48) / slots));
         chart.setBarSpace(space);
-        if (typeof chart.scrollToRealTime === "function") {
-          chart.scrollToRealTime();
-        } else if (typeof chart.setOffsetRightDistance === "function") {
+        if (typeof chart.setOffsetRightDistance === "function") {
           chart.setOffsetRightDistance(0);
+        }
+        const list = chart.getDataList?.() || [];
+        if (list.length && typeof chart.scrollToDataIndex === "function") {
+          chart.scrollToDataIndex(list.length - 1);
+        } else if (typeof chart.scrollToRealTime === "function") {
+          chart.scrollToRealTime();
         }
       } catch (_) {}
     }
@@ -3089,11 +3095,23 @@
 
     /**
      * 首屏加载：优先本地缓存秒开，脏数据再后台 force 刷新。
-     * （切周期不再每次阻塞拉网，避免美股 Yahoo/东财超时卡顿）
+     * 分时例外：直接 force 打腾讯分钟（~200ms，自开盘），避免本地多日
+     * 5 分钟缓存既慢又把视口卡在下午。
      */
     async function fetchKlineFast(symbol, period) {
       if (chartSettings.cacheMode) {
         return await fetchKlineFromCache(symbol, period, { cacheOnly: true });
+      }
+      if (period === "fs") {
+        try {
+          return await fetchKlineFromCache(symbol, period, { force: true });
+        } catch (_) {
+          try {
+            return await fetchKlineFromCache(symbol, period, { localFirst: true });
+          } catch (cacheErr) {
+            return await fetchKline(symbol, period, { force: true, localFirst: false });
+          }
+        }
       }
       try {
         return await fetchKlineFromCache(symbol, period, { localFirst: true });
@@ -4595,13 +4613,20 @@
         market = resolveMarket(symbol);
       } catch (_) {}
       const c = ensureChart(market);
-      // ticker 仍用于内部，但图上标题已关闭，不显示代码
+      const seq = ++chartLoadSeq;
+      pendingChartBars = null;
+      if (currentPeriod !== "fs") resetFsCache();
+      // 先装空 loader 再改 symbol/period：setSymbol/setPeriod 会 resetData，
+      // 若仍挂着上一只的 loader，会闪出不属于本股票的分时/K 线。
+      c.setDataLoader({
+        getBars({ callback }) {
+          callback([], { forward: false, backward: false });
+        },
+      });
       c.setSymbol({ ticker: symbol, pricePrecision: 2, volumePrecision: 0 });
       c.setPeriod(PERIOD_MAP[currentPeriod]);
       refreshCandleStatus();
-      if (currentPeriod !== "fs") resetFsCache();
-      const seq = ++chartLoadSeq;
-      pendingChartBars = null;
+      applyChartSettings();
       c.setDataLoader({
         async getBars({ type, callback }) {
           // —— 分时：数据一次入图，视口只露出最近一日 ——
@@ -4646,6 +4671,9 @@
                   chart.setBarSpace(
                     Math.max(1.5, Math.min(6, (w - 48) / prepared.daySlots))
                   );
+                  if (typeof chart.setOffsetRightDistance === "function") {
+                    chart.setOffsetRightDistance(0);
+                  }
                 } catch (_) {}
                 callback(allBars, { forward: false, backward: false });
                 setStatus(
@@ -4653,7 +4681,7 @@
                     ? `${fsStatusText(symbol)} · 缓存·刷新中`
                     : chartSettings.cacheMode
                       ? `${fsStatusText(symbol)} · 缓存`
-                      : fsStatusText(symbol)
+                      : `${fsStatusText(symbol)} · ${klineStatusTag(data)}`
                 );
                 if (
                   !chartSettings.cacheMode &&

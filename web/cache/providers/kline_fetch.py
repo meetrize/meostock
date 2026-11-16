@@ -961,12 +961,132 @@ def merge_cn_today_daily_bar(
     return bars
 
 
+def fetch_cn_bars_tencent_minute(symbol: str) -> tuple[list[dict[str, Any]], str]:
+    """腾讯分时 minute/query：当日 1 分钟价量（与首页 qt.gtimg 同源站，通常 ~200–400ms）。
+
+    行格式：``HHMM price volume amount``；成交量可能是手或股（用额/量启发式对齐 SDK）。
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    tc_sym = _cn_sina_symbol(symbol)
+    url = (
+        "https://web.ifzq.gtimg.cn/appstock/app/minute/query?"
+        + urllib.parse.urlencode({"code": tc_sym})
+    )
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _BROWSER_UA,
+            "Referer": "https://gu.qq.com/",
+            "Accept": "application/json,*/*",
+            "Connection": "close",
+        },
+        method="GET",
+    )
+    last_err: Exception | None = None
+    payload: dict[str, Any] | None = None
+    for attempt in range(2):
+        try:
+            with urllib.request.urlopen(req, timeout=6.0) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+            payload = json.loads(raw)
+            break
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            time.sleep(0.15 * (attempt + 1))
+    if payload is None:
+        raise RuntimeError(f"tencent minute failed: {last_err}")
+    if int(payload.get("code") or 0) != 0:
+        raise RuntimeError(f"tencent minute code={payload.get('code')}: {payload.get('msg')}")
+
+    block = (payload.get("data") or {}).get(tc_sym) or {}
+    series = (block.get("data") or {}).get("data") or []
+    day_raw = str((block.get("data") or {}).get("date") or "").strip()
+    if not isinstance(series, list) or not series or len(day_raw) < 8:
+        return [], tc_sym
+
+    y = int(day_raw[0:4])
+    mo = int(day_raw[4:6])
+    d = int(day_raw[6:8])
+    tz = ZoneInfo("Asia/Shanghai")
+
+    qt = (block.get("qt") or {}).get(tc_sym) or []
+    name = str(qt[1]).strip() if len(qt) > 1 and qt[1] else tc_sym
+
+    # 额/量 ≫ 价 → 量多为「手」，换成股（与 stock-sdk Gr 一致）
+    vol_in_hands = False
+    for row in series[:40]:
+        parts = str(row).split()
+        if len(parts) < 4:
+            continue
+        try:
+            px = float(parts[1])
+            vol = float(parts[2])
+            amt = float(parts[3])
+        except (TypeError, ValueError):
+            continue
+        if vol > 0 and px > 0 and amt / vol > px * 50:
+            vol_in_hands = True
+            break
+
+    bars: list[dict[str, Any]] = []
+    for row in series:
+        parts = str(row).split()
+        if len(parts) < 3:
+            continue
+        hm = parts[0]
+        if len(hm) != 4 or not hm.isdigit():
+            continue
+        try:
+            hh = int(hm[0:2])
+            mi = int(hm[2:4])
+            # 盘后 15:01+ 丢掉，保留到 15:00
+            if hh > 15 or (hh == 15 and mi > 0):
+                continue
+            px = float(parts[1])
+            vol = float(parts[2]) if len(parts) > 2 else 0.0
+            amt = float(parts[3]) if len(parts) > 3 else None
+        except (TypeError, ValueError):
+            continue
+        if px <= 0:
+            continue
+        if vol_in_hands:
+            vol *= 100.0
+        dt = datetime(y, mo, d, hh, mi, tzinfo=tz)
+        bars.append(
+            {
+                "timestamp": int(dt.timestamp() * 1000),
+                "open": px,
+                "high": px,
+                "low": px,
+                "close": px,
+                "volume": vol,
+                "amount": amt,
+            }
+        )
+    bars.sort(key=lambda b: b["timestamp"])
+    return bars, name or tc_sym
+
+
 def fetch_cn_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str, str]:
-    """A 股：东财 → 新浪（北交所友好）→ Yahoo；日线再补今日实时 K。返回 (bars, name, source)。"""
+    """A 股：分时/1m 腾讯优先；其余 东财 → 新浪 → Yahoo；日线再补今日实时 K。"""
     errors: list[str] = []
     bars: list[dict[str, Any]] = []
     name = symbol
     source = "eastmoney"
+    period_n = normalize_period(period)
+
+    # 分时 / 1 分钟：腾讯 minute/query 最快且自开盘起，避免东财断连 + 新浪 5 分钟慢路径
+    if period_n == "1m":
+        try:
+            bars, name = fetch_cn_bars_tencent_minute(symbol)
+            if bars:
+                return bars, name, "tencent"
+            errors.append("tencent minute empty")
+        except Exception as e:  # noqa: BLE001
+            errors.append(f"tencent: {e}")
+            bars = []
 
     try:
         bars, name = fetch_cn_bars_eastmoney(symbol, period)
@@ -1006,7 +1126,7 @@ def fetch_cn_bars(symbol: str, period: str) -> tuple[list[dict[str, Any]], str, 
         raise RuntimeError("A股 K 线不可用：" + "；".join(errors))
 
     # 日线：用实时行情补今日 K（解决报价 3.03 但日 K 停在昨收）
-    if normalize_period(period) == "1d":
+    if period_n == "1d":
         spot = fetch_cn_spot(symbol)
         if spot:
             if spot.get("name"):
