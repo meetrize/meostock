@@ -119,6 +119,26 @@
       .trim();
   }
 
+  const SKILL_LABELS = {
+    limit_reason: "涨跌停原因",
+    brief: "一句话解读",
+    levels: "支撑阻力",
+    risk: "风险提示",
+    compare: "对比口径",
+    f10_guide: "F10读法",
+  };
+
+  const TAG_COLORS = [
+    "#1677FF",
+    "#E53935",
+    "#00897B",
+    "#FB8C00",
+    "#8E24AA",
+    "#3949AB",
+    "#00838F",
+    "#6D4C41",
+  ];
+
   function titleOf(text) {
     const line = String(text || "")
       .split(/\n/)
@@ -128,10 +148,53 @@
     return plain || "AI 回复";
   }
 
+  function reportLabelOf(msg) {
+    if (!msg) return "AI报告";
+    if (msg.label) return String(msg.label);
+    const sid = msg.skillId || "";
+    if (sid && SKILL_LABELS[sid]) return SKILL_LABELS[sid];
+    if (sid) {
+      const sk = (state.skills || []).find((s) => s.id === sid);
+      if (sk?.title) return sk.title;
+    }
+    return "AI报告";
+  }
+
+  function shanghaiYmd(ts = Date.now()) {
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(ts));
+    } catch (_) {
+      const d = new Date(ts);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+  }
+
   function isReportWorthy(msg) {
     if (!msg || msg.role !== "assistant") return false;
+    if (msg.error) return false;
+    if (String(msg.content || "").startsWith("加载失败")) return false;
     if (msg.skillId) return true;
     return stripMd(msg.content).length >= REPORT_MIN_LEN;
+  }
+
+  function colorForSkill(skillId, label) {
+    const key = String(skillId || label || "ai");
+    let h = 0;
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return TAG_COLORS[h % TAG_COLORS.length];
+  }
+
+  function notifyChartTags() {
+    try {
+      if (typeof global.placeAiReportTags === "function") {
+        global.placeAiReportTags();
+      }
+    } catch (_) {}
   }
 
   function sameSymbol(a, b) {
@@ -152,18 +215,27 @@
     const displaySym = thread.symbol || symNow || want;
     (thread.messages || []).forEach((msg) => {
       if (!isReportWorthy(msg)) return;
+      const label = reportLabelOf(msg);
       cards.push({
         messageId: msg.id,
         symbol: displaySym,
         updatedAt: msg.ts || thread.updatedAt || 0,
         skillId: msg.skillId || "",
+        label,
+        tradeDate: msg.tradeDate || shanghaiYmd(msg.ts || Date.now()),
         title: titleOf(msg.content),
         summary: stripMd(msg.content).slice(0, 120),
         content: msg.content,
+        color: colorForSkill(msg.skillId, label),
       });
     });
     cards.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     return cards;
+  }
+
+  /** 供 K 线挂标签：按 tradeDate 锚定 */
+  function listChartTags(symbol) {
+    return collectReports(symbol).filter((c) => c.tradeDate && c.content);
   }
 
   function el(id) {
@@ -495,6 +567,10 @@
           m.content = full || m.content || "（空回复）";
           m.streaming = false;
           m.ts = Date.now();
+          m.skillId = skillId || m.skillId || "";
+          m.label = reportLabelOf(m);
+          // 锚定生成当日（上海交易日），过后仍挂在该日 K 线上
+          if (!m.tradeDate) m.tradeDate = shanghaiYmd(m.ts);
         }
       });
     } catch (e) {
@@ -512,6 +588,7 @@
           if (m) {
             m.streaming = false;
             m.content = `加载失败：${e.message || e}`;
+            m.error = true;
           }
         });
       }
@@ -521,6 +598,7 @@
       setComposerEnabled(true);
       renderMessages();
       renderReports();
+      notifyChartTags();
     }
   }
 
@@ -540,6 +618,7 @@
     });
     renderMessages();
     renderReports();
+    notifyChartTags();
   }
 
   function setSymbol(symbol, { period } = {}) {
@@ -549,16 +628,43 @@
       state.symbol = next || state.symbol;
       renderMessages();
       renderReports();
+      notifyChartTags();
       return;
     }
     if (state.streaming) stop();
     state.symbol = next;
     renderMessages();
     renderReports();
+    notifyChartTags();
   }
 
   function setPeriod(period) {
     if (period) state.period = period;
+    notifyChartTags();
+  }
+
+  function openReportFromChart(cardOrId) {
+    let card = null;
+    if (typeof cardOrId === "string") {
+      card = collectReports(liveSymbol()).find((c) => c.messageId === cardOrId);
+    } else if (cardOrId && cardOrId.messageId) {
+      card =
+        collectReports(liveSymbol()).find((c) => c.messageId === cardOrId.messageId) ||
+        {
+          messageId: cardOrId.messageId,
+          title: cardOrId.title || cardOrId.label || "报告",
+          content: cardOrId.content || "",
+          symbol: cardOrId.symbol || liveSymbol(),
+          skillId: cardOrId.skillId || "",
+          label: cardOrId.label || "",
+        };
+    }
+    if (!card || !card.content) return;
+    try {
+      global.SidePanel?.setOpen?.(true);
+      global.SidePanel?.setTab?.("report");
+    } catch (_) {}
+    openReport(card);
   }
 
   function onTab(tabId) {
@@ -598,6 +704,9 @@
     setPeriod,
     onTab,
     refreshReports: renderReports,
+    listChartTags,
+    openReportFromChart,
+    openReport,
     sendMessage,
     stop,
     newChat,

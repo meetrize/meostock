@@ -514,3 +514,89 @@
     position: relative;
   }
 }
+
+.ai-report-tip {
+  position: absolute;
+  z-index: 45;
+  display: none;
+  max-width: min(360px, calc(100% - 16px));
+  max-height: min(420px, calc(100% - 24px));
+  overflow: visible;
+  padding: 0;
+  border-radius: 10px;
+  background: rgba(244, 244, 245, 0.98);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  color: #18181b;
+  font-size: 12px;
+  line-height: 1.55;
+  pointer-events: none;
+  --tip-accent: #1677FF;
+}
+.ai-report-tip.show { display: block; }
+.ai-report-tip .ai-md {
+  padding: 8px 12px 12px;
+  max-height: min(360px, 55vh);
+  overflow: auto;
+}
+.ai-report-tip-hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 6px;
+  border-bottom: 2px solid var(--tip-accent);
+  font-weight: 600;
+  font-size: 12px;
+}
+.ai-report-tip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.ai-report-tip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-report-tip-arrow {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  transform: rotate(45deg);
+  z-index: 1;
+}
+.ai-report-tip[data-placement="right"] .ai-report-tip-arrow {
+  /* 指向左侧标签 */
+  transform: rotate(45deg);
+  border-right: none;
+  border-top: none;
+}
+.ai-report-tip[data-placement="left"] .ai-report-tip-arrow {
+  transform: rotate(225deg);
+  border-right: none;
+  border-top: none;
+}
+.ai-report-tip[data-placement="top"] .ai-report-tip-arrow {
+  transform: rotate(315deg);
+  border-right: none;
+  border-top: none;
+}
+.ai-report-tip[data-placement="bottom"] .ai-report-tip-arrow {
+  transform: rotate(135deg);
+  border-right: none;
+  border-top: none;
+}
+html[data-theme="dark"] .ai-report-tip {
+  background: rgba(39, 39, 42, 0.98);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #fafafa;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+html[data-theme="dark"] .ai-report-tip-arrow {
+  border-left-color: rgba(255, 255, 255, 0.1);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>K线演示 · stock-sdk + KLineChart</title>
   <script src="/static/klinecharts.min.js"></script>
-  <link rel="stylesheet" href="/static/kline-side.css?v=20261116c" />
+  <link rel="stylesheet" href="/static/kline-side.css?v=20261116e" />
   <style>
     :root,
     html[data-theme="light"] {
@@ -1008,6 +1008,7 @@
       <div class="chart-wrap" id="chartWrap">
         <div id="chart"></div>
         <div class="candle-tip" id="candleTip" aria-hidden="true"></div>
+        <div class="ai-report-tip" id="aiReportTip" aria-hidden="true"></div>
       </div>
       <div class="side-splitter" id="sideSplitter" title="拖拽调整宽度"></div>
       <aside class="side-panel" id="sidePanel" aria-label="侧栏">
@@ -1308,8 +1309,8 @@
   </div>
 
   <script src="/static/marked.min.js"></script>
-  <script src="/static/kline-side.js?v=20261116c"></script>
-  <script src="/static/kline-ai.js?v=20261116c"></script>
+  <script src="/static/kline-side.js?v=20261116d"></script>
+  <script src="/static/kline-ai.js?v=20261116d"></script>
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
 
@@ -1317,132 +1318,349 @@
     const sdk = new StockSDK();
 
     // 可点击中文标签（样式见 https://klinecharts.com/guide/styles#overlay）
-    // 内置 simpleAnnotation 文字 ignoreEvent=true，无法点击，故自定义
-    const CN_LABEL_OVERLAY = "cnClickLabel";
-    const CN_LABEL_LINK = "https://klinecharts.com/guide/overlay";
-    let cnLabelOverlayReady = false;
-    let cnLabelOverlayId = null;
+    // —— AI 报告标签（锚定 tradeDate 的 K 线，可多标签叠放）——
+    const AI_REPORT_OVERLAY = "aiReportTag";
+    let aiReportOverlayReady = false;
+    let aiReportOverlayIds = [];
 
-    function ensureCnLabelOverlay() {
-      if (cnLabelOverlayReady) return;
+    function ensureAiReportOverlay() {
+      if (aiReportOverlayReady) return;
       registerOverlay({
-        name: CN_LABEL_OVERLAY,
+        name: AI_REPORT_OVERLAY,
         totalStep: 2,
         needDefaultPointFigure: false,
         createPointFigures: ({ overlay, coordinates }) => {
           if (!coordinates?.length) return [];
           const ext = overlay.extendData || {};
-          const text = String(ext.text || "中文测试");
+          const text = String(ext.label || "AI报告");
+          const color = String(ext.color || "#1677FF");
+          const stack = Math.max(0, Number(ext.stack) || 0);
           const startX = coordinates[0].x;
           const startY = coordinates[0].y - 6;
-          const lineEndY = startY - 48;
-          const labelY = lineEndY - 6;
+          const textSize = 10;
+          const padX = 6;
+          const pillH = 18;
+          // 中文约 1em 宽；与背景分离绘制，避免 text+background 的 em 盒视觉偏下
+          const pillW = Math.max(pillH, text.length * textSize + padX * 2);
+          const lift = 44 + stack * (pillH + 14);
+          const tipY = startY - lift; // 引线顶端 / 三角尖
+          const pillBottom = tipY - 5;
+          const labelCenterY = pillBottom - pillH / 2;
+          const pillTop = pillBottom - pillH;
           return [
             {
               type: "line",
               attrs: {
                 coordinates: [
                   { x: startX, y: startY },
-                  { x: startX, y: lineEndY },
+                  { x: startX, y: tipY },
                 ],
               },
-              styles: { style: "dashed", color: "#1677FF", size: 1, dashedValue: [4, 3] },
+              styles: { style: "dashed", color, size: 1, dashedValue: [4, 3] },
               ignoreEvent: true,
             },
             {
               type: "polygon",
               attrs: {
                 coordinates: [
-                  { x: startX, y: lineEndY },
-                  { x: startX - 4, y: labelY },
-                  { x: startX + 4, y: labelY },
+                  { x: startX, y: tipY },
+                  { x: startX - 3.5, y: pillBottom },
+                  { x: startX + 3.5, y: pillBottom },
                 ],
               },
-              styles: { style: "fill", color: "#1677FF" },
+              styles: { style: "fill", color },
               ignoreEvent: true,
+            },
+            {
+              type: "rect",
+              attrs: {
+                x: startX - pillW / 2,
+                y: pillTop,
+                width: pillW,
+                height: pillH,
+              },
+              styles: {
+                style: "fill",
+                color,
+                borderRadius: 4,
+                borderSize: 0,
+              },
             },
             {
               type: "text",
               attrs: {
                 x: startX,
-                y: labelY,
+                // Canvas 中文在 middle 下仍偏下，光学上移 2px
+                y: labelCenterY - 2,
                 text,
                 align: "center",
-                baseline: "bottom",
+                baseline: "middle",
               },
               styles: {
-                style: "fill",
                 color: "#FFFFFF",
-                size: 13,
+                size: textSize,
                 family: "PingFang SC, Microsoft YaHei, sans-serif",
                 weight: "600",
-                paddingLeft: 8,
-                paddingRight: 8,
-                paddingTop: 4,
-                paddingBottom: 4,
-                borderRadius: 4,
-                backgroundColor: "#1677FF",
+                // 覆盖 overlay 默认 text 背景，否则会再叠一层圆角框
+                backgroundColor: "transparent",
                 borderSize: 0,
+                paddingLeft: 0,
+                paddingRight: 0,
+                paddingTop: 0,
+                paddingBottom: 0,
               },
+              ignoreEvent: true,
             },
           ];
         },
       });
-      cnLabelOverlayReady = true;
+      aiReportOverlayReady = true;
     }
 
-    function placeCnTestLabel(bars) {
-      if (!chart || !bars?.length) return;
-      ensureCnLabelOverlay();
-      // 锚定近期一根较高的 K 线，标签更醒目
-      const slice = bars.slice(-40);
-      let best = slice[Math.floor(slice.length / 2)] || bars[bars.length - 1];
-      for (const b of slice) {
-        if (Number(b.high) > Number(best.high)) best = b;
-      }
-      const point = {
-        timestamp: Number(best.timestamp),
-        value: Number(best.high),
-      };
+    function hideAiReportTip() {
+      const tip = document.getElementById("aiReportTip");
+      if (!tip) return;
+      tip.classList.remove("show");
+      tip.removeAttribute("data-placement");
+      tip.setAttribute("aria-hidden", "true");
+      tip.innerHTML = "";
+    }
+
+    function resolveAiTagAnchor(event, ext) {
+      const wrap = document.getElementById("chartWrap");
+      const stack = Math.max(0, Number(ext?.stack) || 0);
+      const pillH = 18; // 与标签绘制 padY*2+textSize 对齐
+      const lift = 44 + stack * (pillH + 14);
+      // 优先用 overlay 点位转像素，贴近标签文字中心
       try {
-        if (cnLabelOverlayId) {
-          chart.removeOverlay({ id: cnLabelOverlayId });
-          cnLabelOverlayId = null;
+        const pts = event?.overlay?.points;
+        if (chart && pts?.length && typeof chart.convertToPixel === "function") {
+          const px = chart.convertToPixel(pts, { paneId: "candle_pane" });
+          const p = Array.isArray(px) ? px[0] : px;
+          if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+            const tipY = p.y - 6 - lift;
+            const pillBottom = tipY - 5;
+            const labelCenterY = pillBottom - pillH / 2;
+            return {
+              x: p.x,
+              y: labelCenterY,
+              candleY: p.y,
+            };
+          }
         }
       } catch (_) {}
-      const id = chart.createOverlay({
-        name: CN_LABEL_OVERLAY,
-        id: "cn_test_label",
-        paneId: "candle_pane",
-        lock: true,
-        points: [point],
-        extendData: { text: "中文测试", url: CN_LABEL_LINK },
-        styles: {
-          text: {
-            color: "#FFFFFF",
-            backgroundColor: "#1677FF",
-            size: 13,
-            borderRadius: 4,
-            paddingLeft: 8,
-            paddingRight: 8,
-            paddingTop: 4,
-            paddingBottom: 4,
-          },
-        },
-        onClick: (event) => {
-          const url = event?.overlay?.extendData?.url || CN_LABEL_LINK;
-          window.open(url, "_blank", "noopener,noreferrer");
-          setStatus("已打开链接：" + url);
-          return true;
-        },
-        onRightClick: (event) => {
-          // 阻止右键默认删除
-          event?.preventDefault?.();
-          return true;
-        },
-      });
-      cnLabelOverlayId = id || "cn_test_label";
+      const rect = wrap?.getBoundingClientRect();
+      if (!rect) return { x: 80, y: 80, candleY: 120 };
+      return {
+        x: (event?.clientX != null ? event.clientX : rect.left + 80) - rect.left,
+        y: (event?.clientY != null ? event.clientY : rect.top + 80) - rect.top,
+        candleY: 120,
+      };
     }
+
+    function showAiReportTip(ext, event) {
+      const tip = document.getElementById("aiReportTip");
+      const wrap = document.getElementById("chartWrap");
+      if (!tip || !wrap) return;
+      const label = String(ext?.label || "AI报告");
+      const color = String(ext?.color || "#1677FF");
+      const content = ext?.content || "";
+      let bodyHtml = "";
+      try {
+        if (window.marked?.parse) {
+          bodyHtml = window.marked.parse(String(content || ""), { breaks: true, gfm: true });
+        } else {
+          bodyHtml = String(content || "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\n/g, "<br>");
+        }
+      } catch (_) {
+        bodyHtml = String(content || "");
+      }
+      tip.innerHTML = `
+        <div class="ai-report-tip-arrow" style="--tip-accent:${color}"></div>
+        <div class="ai-report-tip-hd" style="border-color:${color}">
+          <span class="ai-report-tip-dot" style="background:${color}"></span>
+          <span class="ai-report-tip-label">${label.replace(/</g, "&lt;")}</span>
+        </div>
+        <div class="ai-md">${bodyHtml}</div>
+      `;
+      tip.style.setProperty("--tip-accent", color);
+      tip.classList.add("show");
+      tip.setAttribute("aria-hidden", "false");
+
+      const rect = wrap.getBoundingClientRect();
+      const anchor = resolveAiTagAnchor(event, ext);
+      // 按标签文案估半宽，箭头只停在标签外侧，不压住文字
+      const labelHalfW = Math.min(90, Math.max(30, String(label).length * 5.5 + 12));
+      const labelHalfH = 10;
+      const gap = 12; // 标签外缘到箭头尖的空隙
+      const tw = tip.offsetWidth || 300;
+      const th = tip.offsetHeight || 140;
+
+      // 默认浮在标签右侧；右侧不够则左侧；再不够则上下
+      let placement = "right";
+      let left = anchor.x + labelHalfW + gap;
+      let top = anchor.y - Math.min(28, th * 0.2);
+      if (left + tw > rect.width - 8) {
+        placement = "left";
+        left = anchor.x - labelHalfW - gap - tw;
+      }
+      if (left < 8) {
+        left = Math.max(8, Math.min(anchor.x - tw / 2, rect.width - tw - 8));
+        placement = top + th < anchor.candleY ? "top" : "bottom";
+        if (placement === "top") top = anchor.y - labelHalfH - gap - th;
+        else top = anchor.y + labelHalfH + gap;
+      }
+      if (top < 8) top = 8;
+      if (top + th > rect.height - 8) top = Math.max(8, rect.height - th - 8);
+      if (left + tw > rect.width - 8) left = Math.max(8, rect.width - tw - 8);
+      if (left < 8) left = 8;
+
+      tip.dataset.placement = placement;
+      // 箭头相对 tip 指向锚点（略缩进，避免盖住标签）
+      const arrow = tip.querySelector(".ai-report-tip-arrow");
+      if (arrow) {
+        arrow.style.left = "";
+        arrow.style.right = "";
+        arrow.style.top = "";
+        arrow.style.bottom = "";
+        if (placement === "right") {
+          arrow.style.top = `${Math.max(14, Math.min(th - 18, anchor.y - top))}px`;
+          arrow.style.left = "-5px";
+        } else if (placement === "left") {
+          arrow.style.top = `${Math.max(14, Math.min(th - 18, anchor.y - top))}px`;
+          arrow.style.right = "-5px";
+        } else if (placement === "top") {
+          arrow.style.left = `${Math.max(14, Math.min(tw - 18, anchor.x - left))}px`;
+          arrow.style.bottom = "-5px";
+        } else {
+          arrow.style.left = `${Math.max(14, Math.min(tw - 18, anchor.x - left))}px`;
+          arrow.style.top = "-5px";
+        }
+      }
+      tip.style.left = `${Math.round(left)}px`;
+      tip.style.top = `${Math.round(top)}px`;
+    }
+
+    function clearAiReportTags() {
+      if (!chart) return;
+      hideAiReportTip();
+      (aiReportOverlayIds || []).forEach((id) => {
+        try {
+          chart.removeOverlay({ id });
+        } catch (_) {}
+      });
+      aiReportOverlayIds = [];
+    }
+
+    function findBarForTradeDate(bars, ymd) {
+      if (!ymd || !Array.isArray(bars) || !bars.length) return null;
+      // 日K：精确匹配；分时：取该日最后一根有价格的
+      let last = null;
+      for (let i = 0; i < bars.length; i++) {
+        const b = bars[i];
+        if (barDayKey(b?.timestamp) !== ymd) continue;
+        last = b;
+        if (currentPeriod === "1d") return b;
+      }
+      return last;
+    }
+
+    function placeAiReportTags(bars) {
+      if (!chart) return;
+      if (currentPeriod !== "1d" && currentPeriod !== "fs") {
+        clearAiReportTags();
+        return;
+      }
+      const list =
+        Array.isArray(bars) && bars.length
+          ? bars
+          : chart.getDataList?.() || [];
+      if (!list.length) {
+        clearAiReportTags();
+        return;
+      }
+      ensureAiReportOverlay();
+      clearAiReportTags();
+      let tags = [];
+      try {
+        tags = window.KlineAI?.listChartTags?.(currentSymbol) || [];
+      } catch (_) {
+        tags = [];
+      }
+      if (!tags.length) return;
+
+      // 同一交易日多标签叠放：按时间升序，越新越高
+      const byDay = new Map();
+      tags.forEach((t) => {
+        const d = t.tradeDate;
+        if (!d) return;
+        if (!byDay.has(d)) byDay.set(d, []);
+        byDay.get(d).push(t);
+      });
+      byDay.forEach((arr) => {
+        arr.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+        arr.forEach((tag, stack) => {
+          const bar = findBarForTradeDate(list, tag.tradeDate);
+          if (!bar || !Number.isFinite(Number(bar.timestamp))) return;
+          const high = Number(bar.high);
+          const close = Number(bar.close);
+          const value = Number.isFinite(high)
+            ? high
+            : Number.isFinite(close)
+              ? close
+              : null;
+          if (value == null) return;
+          const oid = `ai_report_${tag.messageId}`;
+          try {
+            const id = chart.createOverlay({
+              name: AI_REPORT_OVERLAY,
+              id: oid,
+              paneId: "candle_pane",
+              lock: true,
+              points: [{ timestamp: Number(bar.timestamp), value }],
+              extendData: {
+                label: tag.label || "AI报告",
+                color: tag.color || "#1677FF",
+                stack,
+                messageId: tag.messageId,
+                tradeDate: tag.tradeDate,
+                content: tag.content,
+                title: tag.title,
+                skillId: tag.skillId,
+                symbol: tag.symbol,
+              },
+              onClick: (event) => {
+                const ext = event?.overlay?.extendData || {};
+                hideAiReportTip();
+                try {
+                  window.KlineAI?.openReportFromChart?.(ext);
+                } catch (_) {}
+                return true;
+              },
+              onMouseEnter: (event) => {
+                const ext = event?.overlay?.extendData || {};
+                showAiReportTip(ext, event);
+                return false;
+              },
+              onMouseLeave: () => {
+                hideAiReportTip();
+                return false;
+              },
+              onRightClick: (event) => {
+                event?.preventDefault?.();
+                return true;
+              },
+            });
+            aiReportOverlayIds.push(id || oid);
+          } catch (_) {}
+        });
+      });
+    }
+    window.placeAiReportTags = placeAiReportTags;
 
     // 叠加比较线（半透明，与主图蜡烛区分）
     const OVERLAY_COLORS = [
@@ -4676,7 +4894,7 @@
             if (seq !== chartLoadSeq) return;
             refreshCandleStatus();
             refreshCompareOverlays();
-            placeCnTestLabel(period === "fs" ? bars : raw);
+            placeAiReportTags(period === "fs" ? bars : raw);
             try {
               chart.resize();
             } catch (_) {}
@@ -4774,12 +4992,11 @@
                 queueMicrotask(() => {
                   if (seq !== chartLoadSeq) return;
                   refreshCompareOverlays();
-                  placeCnTestLabel(
-                    padFsDayBars(
-                      prepared.byDay.get(prepared.days[prepared.days.length - 1]) || [],
-                      mkt
-                    )
+                  const fsDayBars = padFsDayBars(
+                    prepared.byDay.get(prepared.days[prepared.days.length - 1]) || [],
+                    mkt
                   );
+                  placeAiReportTags(prepared.bars || fsDayBars);
                   try {
                     chart.resize();
                   } catch (_) {}
@@ -4913,7 +5130,7 @@
               if (seq !== chartLoadSeq) return;
               refreshCandleStatus();
               refreshCompareOverlays();
-              placeCnTestLabel(bars);
+              placeAiReportTags(bars);
               try {
                 chart.resize();
               } catch (_) {}
