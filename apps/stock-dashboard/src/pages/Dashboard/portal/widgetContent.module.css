@@ -201,7 +201,7 @@
   flex-direction: column;
 }
 
-/* 首页自选：撑满面板；条目少时均分行高，多时可滚动 */
+/* 首页自选：撑满面板可滚动；行高固定，不足时底部留白 */
 .watchlist {
   height: 100%;
   min-height: 0;
@@ -218,12 +218,14 @@
   cursor: pointer;
 }
 
-/* 首页自选：名称+代码同行，行高更紧凑并均分填满 */
+/* 首页自选：名称+代码同行，固定紧凑行高（不随面板高度拉伸） */
 .watchlist .watchlistItem {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   gap: var(--spacing-sm);
   padding: 2px 0;
-  min-height: 22px;
+  height: 24px;
+  min-height: 24px;
+  box-sizing: border-box;
 }
 
 .watchlistItem:last-child {
@@ -302,6 +304,25 @@
   text-align: right;
 }
 
+/* 市场榜单：撑满面板 */
+.marketRanking {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 4px;
+}
+
+.marketRankingTabs {
+  flex-shrink: 0;
+}
+
+.marketRanking .rankingList {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 .rankingHeader {
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) 72px 72px minmax(64px, 1fr);
@@ -312,6 +333,14 @@
   border-bottom: 1px solid var(--border-secondary);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.marketRanking .rankingHeader {
+  padding-bottom: 2px;
+  margin-bottom: 0;
+  font-size: 10px;
+  gap: 6px;
 }
 
 .rankingHeaderNarrow {
@@ -342,6 +371,65 @@
   grid-template-columns: minmax(0, 1.6fr) 64px 64px;
 }
 
+/* 市场榜单：紧凑行 + 名称代码同行 + 均分填满 */
+.marketRanking .rankingItem {
+  flex: 1 1 0;
+  gap: 6px;
+  padding: 2px 0;
+  min-height: 22px;
+}
+
+.marketRanking .rankingItemMarket {
+  grid-template-columns: minmax(0, 1.6fr) 56px 52px minmax(48px, 0.9fr);
+}
+
+.marketRanking .rankingItemMarketNarrow {
+  grid-template-columns: minmax(0, 1.6fr) 56px 52px;
+}
+
+.marketRanking .rankingHeader {
+  grid-template-columns: minmax(0, 1.6fr) 56px 52px minmax(48px, 0.9fr);
+}
+
+.marketRanking .rankingHeaderNarrow {
+  grid-template-columns: minmax(0, 1.6fr) 56px 52px;
+}
+
+.marketRanking .stockInfo {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.marketRanking .stockName {
+  flex: 0 1 auto;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.marketRanking .stockCode {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.marketRanking .stockPrice,
+.marketRanking .stockChange,
+.marketRanking .stockIndustry {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.marketRanking .stockChange {
+  min-width: 0;
+}
+
+.marketRanking .rankNum {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
 .rankingItem:last-child {
   border-bottom: none;
 }
@@ -359,6 +447,10 @@
   align-items: center;
   gap: var(--spacing-sm);
   min-width: 0;
+}
+
+.marketRanking .rankIdentity {
+  gap: 6px;
 }
 
 .rankNum {
@@ -552,21 +644,23 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 专题名单 */
+/* 专题名单（涨跌停等）：紧凑 + 名称代码同行 + 撑满 */
 .topicList {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  gap: 6px;
+  gap: 2px;
 }
 
 .topicMeta {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-tertiary);
+  flex-shrink: 0;
+  line-height: 1.2;
 }
 
 .topicRows {
@@ -575,32 +669,54 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 
 .topicRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 6px 4px;
+  gap: 6px;
+  flex: 1 1 0;
+  min-height: 22px;
+  padding: 2px 4px;
   border: none;
   background: transparent;
   color: inherit;
   cursor: pointer;
   text-align: left;
-  border-radius: 8px;
+  border-radius: 6px;
+}
+
+.topicList .stockInfo {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.topicList .stockName {
+  flex: 0 1 auto;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.topicList .stockCode {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .topicRow:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(127, 127, 127, 0.06);
 }
 
 .topicRight {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 12px;
+  line-height: 1.25;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -609,7 +725,7 @@
 .topicTag {
   font-size: 10px;
   color: var(--text-tertiary);
-  max-width: 72px;
+  max-width: 64px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

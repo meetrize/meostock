@@ -5,14 +5,12 @@
 import { Empty } from '@/components/common';
 import { formatPercent, getChangeColorClass, normalizeStockCode } from '@/utils/format';
 import { openKlineTool } from '@/utils/multipanel';
-import { estimateVisibleRows } from '../widgetCatalog';
 import { usePortalMarkets } from '../portalMarketsContext';
 import type { PortalWidgetType } from '../types';
 import styles from '../widgetContent.module.css';
 
 interface Props {
   type: 'topic.limitList' | 'topic.topList';
-  gridH: number;
 }
 
 function cell(row: Record<string, unknown>, key: string): string {
@@ -22,11 +20,10 @@ function cell(row: Record<string, unknown>, key: string): string {
   return String(v);
 }
 
-export function TopicListWidget({ type, gridH }: Props) {
+export function TopicListWidget({ type }: Props) {
   const { topics } = usePortalMarkets();
   const topic = topics[type as PortalWidgetType];
-  const limit = estimateVisibleRows(gridH);
-  const items = (topic?.items || []).slice(0, limit);
+  const items = topic?.items || [];
 
   if (!items.length) {
     return (
@@ -54,6 +51,10 @@ export function TopicListWidget({ type, gridH }: Props) {
         {items.map((row, idx) => {
           const code = cell(row, 'code');
           const name = cell(row, 'name');
+          const displayCode =
+            code === '--'
+              ? code
+              : code.replace(/^(sh|sz|bj|hk|us)/i, '') || code;
           const pct = Number(row.pctChg ?? row.changePercent ?? row.pct_chg);
           const limitFlag = cell(row, 'limit');
           const reason = cell(row, 'reason') || cell(row, 'explanation');
@@ -69,7 +70,7 @@ export function TopicListWidget({ type, gridH }: Props) {
             >
               <div className={styles.stockInfo}>
                 <span className={styles.stockName}>{name}</span>
-                <span className={styles.stockCode}>{code}</span>
+                <span className={styles.stockCode}>{displayCode}</span>
               </div>
               <div className={styles.topicRight}>
                 {Number.isFinite(pct) ? (

@@ -54,7 +54,7 @@ export function renderWidget(
     case 'watchlist':
       return <WatchlistWidget />;
     case 'marketRanking':
-      return <MarketRankingWidget gridH={gridH} gridW={gridW} />;
+      return <MarketRankingWidget gridW={gridW} />;
     case 'fundFlowRank':
       return <FundFlowRankWidget gridH={gridH} />;
     case 'hotBoards':
@@ -70,7 +70,7 @@ export function renderWidget(
       return <StripWidget type={type} />;
     case 'topic.limitList':
     case 'topic.topList':
-      return <TopicListWidget type={type} gridH={gridH} />;
+      return <TopicListWidget type={type} />;
     case 'rank.hk':
     case 'rank.cb':
       return <RankListWidget type={type} gridH={gridH} />;

@@ -1,7 +1,6 @@
 import { Loading, Tabs } from '@/components/common';
 import { formatPercent, formatPrice, getChangeColorClass } from '@/utils/format';
 import { useDashboardData } from '../dashboardDataContext';
-import { estimateVisibleRows } from '../widgetCatalog';
 import styles from '../widgetContent.module.css';
 
 const RANKING_TABS = [
@@ -12,11 +11,10 @@ const RANKING_TABS = [
 ];
 
 interface Props {
-  gridH: number;
   gridW: number;
 }
 
-export function MarketRankingWidget({ gridH, gridW }: Props) {
+export function MarketRankingWidget({ gridW }: Props) {
   const {
     rankingTab,
     setRankingTab,
@@ -26,11 +24,10 @@ export function MarketRankingWidget({ gridH, gridW }: Props) {
   } = useDashboardData();
 
   const showIndustry = gridW >= 5;
-  const limit = Math.max(3, estimateVisibleRows(gridH) - 1);
 
   return (
-    <div>
-      <div style={{ marginBottom: 8 }}>
+    <div className={styles.marketRanking}>
+      <div className={styles.marketRankingTabs}>
         <Tabs
           items={RANKING_TABS}
           activeKey={rankingTab}
@@ -47,13 +44,13 @@ export function MarketRankingWidget({ gridH, gridW }: Props) {
               showIndustry ? '' : styles.rankingHeaderNarrow
             }`}
           >
-            <span>序号 / 名称 / 代码</span>
+            <span>名称 / 代码</span>
             <span>最新价</span>
             <span>涨幅</span>
-            {showIndustry && <span>所属行业</span>}
+            {showIndustry && <span>行业</span>}
           </div>
-          {rankingItems.slice(0, limit).map((item, index) => {
-            const pureCode = String(item.code || '').replace(/^(sh|sz|bj)/i, '');
+          {rankingItems.map((item, index) => {
+            const pureCode = String(item.code || '').replace(/^(sh|sz|bj|hk|us)/i, '');
             const industry = rankingIndustries[pureCode] || '--';
             return (
               <div
