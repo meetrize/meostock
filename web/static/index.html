@@ -480,6 +480,9 @@
     html[data-theme="dark"] .candle-tip .tip-sec {
       border-top-color: rgba(255, 255, 255, 0.12);
     }
+    .candle-tip .tip-up { color: #F92855; font-weight: 600; }
+    .candle-tip .tip-down { color: #2DC08E; font-weight: 600; }
+    .candle-tip .tip-flat { color: #888888; font-weight: 600; }
 
     .status {
       position: fixed;
@@ -2445,8 +2448,13 @@
             low,
             close,
             volume: Number(b.volume ?? 0),
-            turnover: Number(b.amount ?? 0),
+            turnover: Number(b.amount ?? b.turnover ?? 0),
           };
+          if (!Number.isFinite(bar.turnover) || bar.turnover <= 0) {
+            // 无成交额时用收盘×量估算，避免 tip 显示 --
+            const est = bar.close * bar.volume;
+            if (Number.isFinite(est) && est > 0) bar.turnover = est;
+          }
           const avg = Number(b.avgPrice);
           if (Number.isFinite(avg)) bar.avgPrice = avg;
           return bar;
@@ -2806,9 +2814,11 @@
       }
       const mkt = String(data.market || "").toUpperCase();
       const market = mkt === "YF" ? "YF" : mkt === "FUTURES" ? "FUT" : mkt || "CN";
+      // 缓存接口字段为 amount；统一成 toBars 的 turnover，便于 tip 成交额
+      const bars = toBars(data.bars, market, period);
       const out = {
         market,
-        bars: dedupeDayLikeBars(data.bars, market, period),
+        bars,
         source: data.from_cache ? `cache:${data.source || "local"}` : data.source || "cache",
         fromCache: Boolean(data.from_cache),
         stale: Boolean(data.stale),
@@ -3641,6 +3651,51 @@
       return Number.isFinite(n) ? n.toFixed(digits) : "--";
     }
 
+    function tipChangeClass(delta) {
+      if (!Number.isFinite(delta) || delta === 0) return "tip-flat";
+      return delta > 0 ? "tip-up" : "tip-down";
+    }
+
+    /** 相对昨收（上一根收盘）的涨跌额 / 涨跌幅 */
+    function tipChangeHtml(close, prevClose) {
+      const c = Number(close);
+      const p = Number(prevClose);
+      if (!Number.isFinite(c) || !Number.isFinite(p) || p === 0) {
+        return `<div>涨跌幅: --</div>`;
+      }
+      const diff = c - p;
+      const pct = (diff / p) * 100;
+      const sign = diff > 0 ? "+" : "";
+      const cls = tipChangeClass(diff);
+      return `<div class="${cls}">涨跌: ${sign}${diff.toFixed(2)} (${sign}${pct.toFixed(2)}%)</div>`;
+    }
+
+    /** 振幅 = (高 - 低) / 昨收 */
+    function tipAmplitudeHtml(high, low, prevClose) {
+      const h = Number(high);
+      const l = Number(low);
+      const p = Number(prevClose);
+      if (!Number.isFinite(h) || !Number.isFinite(l) || !Number.isFinite(p) || p === 0) {
+        return `--`;
+      }
+      return `${(((h - l) / p) * 100).toFixed(2)}%`;
+    }
+
+    /** 成交额：元 → 万 / 亿（优先 amount/turnover；缺失时用收盘×量估算） */
+    function tipAmountLabel(k) {
+      let n = Number(k?.turnover ?? k?.amount);
+      if (!Number.isFinite(n) || n <= 0) {
+        const c = Number(k?.close);
+        const v = Number(k?.volume);
+        // 新浪等源无成交额：成交量多为股，收盘×量≈额（元）
+        if (Number.isFinite(c) && Number.isFinite(v) && c > 0 && v > 0) n = c * v;
+      }
+      if (!Number.isFinite(n) || n <= 0) return "--";
+      if (n >= 1e8) return `${(n / 1e8).toFixed(2)}亿`;
+      if (n >= 1e4) return `${(n / 1e4).toFixed(2)}万`;
+      return n.toFixed(0);
+    }
+
     function formatCandleTipDate(timestamp) {
       const ts = Number(timestamp);
       if (!Number.isFinite(ts)) return "--";
@@ -3738,6 +3793,11 @@
       const volWan = Number.isFinite(Number(k.volume))
         ? (Number(k.volume) / 10000).toFixed(2)
         : "--";
+      const list = chart.getDataList?.() || [];
+      const prevClose = dataIndex > 0 ? list[dataIndex - 1]?.close : null;
+      const changeHtml = tipChangeHtml(k.close, prevClose);
+      const ampLabel = tipAmplitudeHtml(k.high, k.low, prevClose);
+      const amountLabel = tipAmountLabel(k);
 
       let maHtml = "";
       const maInd = findIndicator("MA");
@@ -3782,7 +3842,10 @@
         <div class="tip-date">${dateStr}</div>
         <div>开: ${tipNum(k.open)} 收: ${tipNum(k.close)}</div>
         <div>高: ${tipNum(k.high)} 低: ${tipNum(k.low)}</div>
+        ${changeHtml}
+        <div>振幅: ${ampLabel}</div>
         <div>量: ${volWan}万手</div>
+        <div>额: ${amountLabel}</div>
         ${maHtml}
         ${oscHtml}
       `;

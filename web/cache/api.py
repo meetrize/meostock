@@ -48,6 +48,25 @@ _kline_bg_lock = threading.Lock()
 _kline_bg_inflight: set[tuple[str, str, str]] = set()
 
 
+def _serialize_kline_bar(b: dict[str, Any]) -> dict[str, Any]:
+    """对外 K 线字段：OHLCV + amount（有则带上，供前端成交额 tip）。"""
+    out: dict[str, Any] = {
+        "timestamp": b["timestamp"],
+        "open": b["open"],
+        "high": b["high"],
+        "low": b["low"],
+        "close": b["close"],
+        "volume": b.get("volume") or 0,
+    }
+    amt = b.get("amount")
+    if amt is not None and amt != "":
+        try:
+            out["amount"] = float(amt)
+        except (TypeError, ValueError):
+            pass
+    return out
+
+
 def _refresh_kline_background(norm: dict[str, str], period_n: str) -> None:
     """有旧缓存时的后台拉网落库（不阻塞 HTTP）。"""
     market = norm["market"]
@@ -516,17 +535,7 @@ def cache_kline(
 
         # 本地已有满页更早数据：直接返回
         if len(local_older) >= page_limit:
-            out_bars = [
-                {
-                    "timestamp": b["timestamp"],
-                    "open": b["open"],
-                    "high": b["high"],
-                    "low": b["low"],
-                    "close": b["close"],
-                    "volume": b.get("volume") or 0,
-                }
-                for b in local_older
-            ]
+            out_bars = [_serialize_kline_bar(b) for b in local_older]
             return JSONResponse(
                 {
                     "ok": True,
@@ -596,17 +605,7 @@ def cache_kline(
         )
         if not out_list and local_older:
             out_list = local_older
-        out_bars = [
-            {
-                "timestamp": b["timestamp"],
-                "open": b["open"],
-                "high": b["high"],
-                "low": b["low"],
-                "close": b["close"],
-                "volume": b.get("volume") or 0,
-            }
-            for b in out_list
-        ]
+        out_bars = [_serialize_kline_bar(b) for b in out_list]
         has_more = (not exhausted) and len(out_bars) >= page_limit
         if not out_bars:
             exhausted = True
@@ -667,17 +666,7 @@ def cache_kline(
                 },
                 status_code=404,
             )
-        out_bars = [
-            {
-                "timestamp": b["timestamp"],
-                "open": b["open"],
-                "high": b["high"],
-                "low": b["low"],
-                "close": b["close"],
-                "volume": b.get("volume") or 0,
-            }
-            for b in bars
-        ]
+        out_bars = [_serialize_kline_bar(b) for b in bars]
         return JSONResponse(
             {
                 "ok": True,
@@ -704,17 +693,7 @@ def cache_kline(
         if need_net and allow_net:
             refreshing = _schedule_kline_bg(norm, period_n)
             stale = True
-        out_bars = [
-            {
-                "timestamp": b["timestamp"],
-                "open": b["open"],
-                "high": b["high"],
-                "low": b["low"],
-                "close": b["close"],
-                "volume": b.get("volume") or 0,
-            }
-            for b in bars
-        ]
+        out_bars = [_serialize_kline_bar(b) for b in bars]
         return JSONResponse(
             {
                 "ok": True,
@@ -772,18 +751,8 @@ def cache_kline(
                 )
             stale = True
 
-    # 去掉内部 source 字段，保持与 index.html toBars 一致
-    out_bars = [
-        {
-            "timestamp": b["timestamp"],
-            "open": b["open"],
-            "high": b["high"],
-            "low": b["low"],
-            "close": b["close"],
-            "volume": b.get("volume") or 0,
-        }
-        for b in bars
-    ]
+    # 去掉内部 source 字段，保持与 index.html toBars 一致（含 amount）
+    out_bars = [_serialize_kline_bar(b) for b in bars]
     hist_exhausted = bool(meta and int(meta.get("history_exhausted") or 0))
     # 日/周默认可向后；已耗尽则关闭
     can_backward = period_n in ("1d", "1w", "1M") and not hist_exhausted

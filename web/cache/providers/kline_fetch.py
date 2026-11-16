@@ -771,14 +771,30 @@ def fetch_cn_bars_sina(symbol: str, period: str) -> tuple[list[dict[str, Any]], 
                 dt = datetime.strptime(day[:10], "%Y-%m-%d").replace(
                     hour=9, minute=30, tzinfo=ZoneInfo("Asia/Shanghai")
                 )
+            open_v = float(row["open"])
+            high_v = float(row["high"])
+            low_v = float(row["low"])
+            close_v = float(row["close"])
+            vol_v = float(row.get("volume") or 0)
+            # 新浪日/分钟 K 无成交额字段；成交量单位为股，用收盘价×量估算（元）
+            amt_raw = row.get("amount")
+            try:
+                amt_v = (
+                    float(amt_raw)
+                    if amt_raw not in (None, "", "-")
+                    else (close_v * vol_v if close_v > 0 and vol_v > 0 else None)
+                )
+            except (TypeError, ValueError):
+                amt_v = close_v * vol_v if close_v > 0 and vol_v > 0 else None
             bars.append(
                 {
                     "timestamp": int(dt.timestamp() * 1000),
-                    "open": float(row["open"]),
-                    "high": float(row["high"]),
-                    "low": float(row["low"]),
-                    "close": float(row["close"]),
-                    "volume": float(row.get("volume") or 0),
+                    "open": open_v,
+                    "high": high_v,
+                    "low": low_v,
+                    "close": close_v,
+                    "volume": vol_v,
+                    "amount": amt_v,
                 }
             )
         except Exception:
@@ -824,6 +840,10 @@ def fetch_cn_spot(symbol: str) -> dict[str, Any] | None:
                             qdate = date.fromisoformat(parts[30])
                         except Exception:
                             pass
+                    vol = float(parts[8] or 0)
+                    amt = float(parts[9] or 0) if len(parts) > 9 else 0.0
+                    if amt <= 0 and price > 0 and vol > 0:
+                        amt = price * vol
                     return {
                         "name": parts[0],
                         "open": float(parts[1]) or price,
@@ -831,7 +851,8 @@ def fetch_cn_spot(symbol: str) -> dict[str, Any] | None:
                         "close": price,
                         "high": float(parts[4]) or price,
                         "low": float(parts[5]) or price,
-                        "volume": float(parts[8] or 0),
+                        "volume": vol,
+                        "amount": amt,
                         "date": qdate,
                     }
     except Exception:
@@ -904,12 +925,25 @@ def merge_cn_today_daily_bar(
         "low": float(spot["low"]),
         "close": float(spot["close"]),
         "volume": float(spot.get("volume") or 0),
+        "amount": float(spot["amount"])
+        if spot.get("amount") not in (None, "", 0, 0.0)
+        else (
+            float(spot["close"]) * float(spot.get("volume") or 0)
+            if float(spot.get("volume") or 0) > 0
+            else None
+        ),
     }
     last_ts = int(bars[-1]["timestamp"])
     last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=ZoneInfo("Asia/Shanghai")).date()
     if last_day == qdate:
         # 合并高低：防止盘中回写把盘中极值抹掉
         prev = bars[-1]
+        vol = today_bar["volume"] or float(prev.get("volume") or 0)
+        amt = today_bar.get("amount")
+        if amt in (None, 0, 0.0):
+            amt = prev.get("amount")
+        if amt in (None, 0, 0.0) and today_bar["close"] > 0 and vol > 0:
+            amt = today_bar["close"] * vol
         bars[-1] = {
             "timestamp": ts,
             "open": float(prev.get("open") or today_bar["open"]),
@@ -919,7 +953,8 @@ def merge_cn_today_daily_bar(
                 today_bar["low"],
             ),
             "close": today_bar["close"],
-            "volume": today_bar["volume"] or float(prev.get("volume") or 0),
+            "volume": vol,
+            "amount": amt,
         }
     elif last_day < qdate:
         bars = list(bars) + [today_bar]
