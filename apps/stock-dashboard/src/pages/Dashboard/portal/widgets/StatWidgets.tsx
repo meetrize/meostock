@@ -75,10 +75,20 @@ export function StatNorthboundWidget() {
   );
 }
 
+function openMarketFlowPage() {
+  const base = String(import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+  window.open(`${base}market-flow`, '_blank', 'noopener,noreferrer');
+}
+
 export function StatMainForceWidget() {
-  const { latestMarketFundFlow } = useDashboardData();
+  const { latestMarketFundFlow, marketSummary } = useDashboardData();
   return (
-    <div className={styles.statCard}>
+    <button
+      type="button"
+      className={`${styles.statCard} ${styles.statCardClickable}`}
+      title="新页面查看主力净流入与成交量曲线"
+      onClick={openMarketFlowPage}
+    >
       <div
         className={`${styles.statValueLarge} ${getChangeColorClass(
           latestMarketFundFlow?.mainNetInflow
@@ -87,10 +97,13 @@ export function StatMainForceWidget() {
         {formatYuanAmount(latestMarketFundFlow?.mainNetInflow)}
       </div>
       <div className={styles.statMeta}>
-        <span>{formatPercent(latestMarketFundFlow?.mainNetInflowPercent)}</span>
-        <span>{latestMarketFundFlow?.date ?? '当日'}</span>
+        <span className={getChangeColorClass(latestMarketFundFlow?.mainNetInflowPercent)}>
+          {formatPercent(latestMarketFundFlow?.mainNetInflowPercent)}
+        </span>
+        <span>额 {formatAmount(marketSummary.totalAmount)}</span>
       </div>
-    </div>
+      <div className={styles.statHint}>新开页看曲线</div>
+    </button>
   );
 }
 

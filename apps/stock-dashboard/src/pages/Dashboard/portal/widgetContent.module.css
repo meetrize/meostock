@@ -10,6 +10,107 @@
   overflow: hidden;
 }
 
+.statCardClickable {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  padding: 0;
+}
+
+.statCardClickable:hover {
+  background: rgba(127, 127, 127, 0.06);
+}
+
+.statHint {
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.statModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.statModal {
+  width: min(920px, 100%);
+  height: min(520px, 86vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated, var(--bg-secondary));
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.statModalHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--border-secondary);
+  flex-shrink: 0;
+}
+
+.statModalTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.statModalSub {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.statModalClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.statModalClose:hover {
+  background: rgba(127, 127, 127, 0.12);
+  color: var(--text-primary);
+}
+
+.statModalChart {
+  flex: 1;
+  min-height: 0;
+  padding: 4px 8px 10px;
+}
+
+.statModalEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
 /* 指数面板：标题报价由 chrome slot；正文常驻面积图
  * 层级：点位 > 涨跌幅 > 涨跌额 > 成交额（后两者更小、不省略） */
 .headerQuote {

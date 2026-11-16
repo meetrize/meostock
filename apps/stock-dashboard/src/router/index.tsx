@@ -34,6 +34,9 @@ const NewsTimeline = lazy(() =>
 const FupanReview = lazy(() =>
   import('@/pages/FupanReview').then((mod) => ({ default: mod.FupanReview }))
 );
+const MarketFundFlow = lazy(() =>
+  import('@/pages/MarketFundFlow').then((mod) => ({ default: mod.MarketFundFlow }))
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -76,6 +79,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'fupan',
           element: withSuspense(<FupanReview />),
+        },
+        {
+          path: 'market-flow',
+          element: withSuspense(<MarketFundFlow />),
         },
         {
           path: 'heatmap',

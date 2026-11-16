@@ -35,6 +35,8 @@ export interface DashboardDataValue {
   marketSummary: MarketSummary;
   northboundSnapshot: NorthboundSummaryRows[number] | null;
   latestMarketFundFlow: MarketFundFlowRows[number] | null;
+  /** 大盘主力历史（用于曲线） */
+  marketFundFlowHistory: MarketFundFlowRows;
   strongestBoard: DashboardBoard | undefined;
   boardTab: 'industry' | 'concept';
   setBoardTab: (tab: 'industry' | 'concept') => void;
