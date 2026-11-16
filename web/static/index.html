@@ -4292,6 +4292,57 @@
       }
     }
 
+    const WEEKDAY_CN = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+    const WEEKDAY_EN = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+    /** 十字光标底部日期标签：在日期后追加「周几」 */
+    function applyChartDateFormatter(c) {
+      if (!c || typeof c.setFormatter !== "function") return;
+      c.setFormatter({
+        formatDate: ({ dateTimeFormat, timestamp, template, type }) => {
+          const ts = Number(timestamp);
+          if (!Number.isFinite(ts)) return "--";
+          const tmpl = String(template || "YYYY-MM-DD");
+          const dtf =
+            dateTimeFormat ||
+            new Intl.DateTimeFormat("en-CA", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            });
+          const map = {};
+          try {
+            dtf.formatToParts(new Date(ts)).forEach((p) => {
+              if (p.type === "year") map.YYYY = p.value;
+              else if (p.type === "month") map.MM = p.value;
+              else if (p.type === "day") map.DD = p.value;
+              else if (p.type === "hour") map.HH = p.value === "24" ? "00" : p.value;
+              else if (p.type === "minute") map.mm = p.value;
+              else if (p.type === "second") map.ss = p.value;
+            });
+          } catch (_) {}
+          let text = tmpl.replace(/YYYY|MM|DD|HH|mm|ss/g, (k) => map[k] ?? k);
+          if (type === "crosshair") {
+            try {
+              const tz = dtf.resolvedOptions?.().timeZone;
+              const opts = { weekday: "short" };
+              if (tz) opts.timeZone = tz;
+              const w = new Intl.DateTimeFormat("en-US", opts)
+                .formatToParts(new Date(ts))
+                .find((p) => p.type === "weekday")?.value;
+              const idx = WEEKDAY_EN[w];
+              if (idx != null) text = `${text} ${WEEKDAY_CN[idx]}`;
+            } catch (_) {}
+          }
+          return text;
+        },
+      });
+    }
+
     function ensureChart(market) {
       const tz =
         market === "US" ? "America/New_York" : market === "HK" ? "Asia/Hong_Kong" : "Asia/Shanghai";
@@ -4311,6 +4362,7 @@
         },
       });
       window.__chart = chart;
+      applyChartDateFormatter(chart);
       applyChartSettings();
       requestAnimationFrame(() => {
         try {
