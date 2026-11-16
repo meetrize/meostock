@@ -121,6 +121,7 @@
 
   const SKILL_LABELS = {
     limit_reason: "涨跌停原因",
+    sector_catchup: "板块补涨",
     brief: "一句话解读",
     levels: "支撑阻力",
     risk: "风险提示",

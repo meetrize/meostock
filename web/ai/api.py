@@ -67,15 +67,29 @@ def _normalize_messages(messages: list[ChatMessage], limit: int) -> list[dict[st
 
 
 def _uses_web_search(skill_id: str | None) -> bool:
-    return (skill_id or "").strip() in ("limit_reason",)
+    return (skill_id or "").strip() in ("limit_reason", "sector_catchup")
+
+
+def _skill_runtime(skill_id: str | None) -> dict[str, str]:
+    """按 skill 分流：联网、上下文瘦身、系统提示。"""
+    sid = (skill_id or "").strip()
+    if sid == "limit_reason":
+        return {"web": "1", "ctx": "news", "system": "news"}
+    if sid == "sector_catchup":
+        # 要搜同题材替补，同时保留当前强势股 full K/量价
+        return {"web": "1", "ctx": "full", "system": "base"}
+    return {"web": "0", "ctx": "full", "system": "base"}
 
 
 def _build_upstream_messages(body: ChatBody) -> list[dict[str, str]]:
     skill = get_skill(body.skillId)
     period = body.period or "1d"
-    if body.skillId == "limit_reason":
+    sid = (body.skillId or "").strip()
+    if sid in ("limit_reason", "sector_catchup"):
         period = "1d"
-    news_mode = _uses_web_search(body.skillId)
+    runtime = _skill_runtime(body.skillId)
+    news_mode = runtime["ctx"] == "news"
+    use_news_system = runtime["system"] == "news"
     ctx = body.context if isinstance(body.context, dict) and body.context else None
     if not ctx:
         try:
@@ -83,14 +97,19 @@ def _build_upstream_messages(body: ChatBody) -> list[dict[str, str]]:
         except Exception as e:  # noqa: BLE001
             ctx = {"symbol": body.symbol, "error": str(e)}
 
-    parts = [_SYSTEM_NEWS if news_mode else _SYSTEM_BASE]
+    parts = [_SYSTEM_NEWS if use_news_system else _SYSTEM_BASE]
+    if sid == "sector_catchup":
+        parts.append(
+            "【本 Skill 补充】允许给出条件化观察价位与时机框架，并附失效条件与风险；"
+            "禁止承诺收益或「立即买入/必涨停」喊单口吻。"
+        )
     parts.append(
         "【标的背景 JSON】\n"
         + context_to_prompt_block(ctx, mode="news" if news_mode else "full")
     )
     if skill and skill.get("prompt"):
         parts.append(f"【当前 Skill：{skill.get('title') or skill.get('id')}】\n{skill['prompt']}")
-    if news_mode:
+    if sid == "limit_reason":
         name = ctx.get("name") or ""
         sym = ctx.get("display") or body.symbol
         status = ((ctx.get("day_shape") or {}).get("status") or "")
@@ -98,6 +117,16 @@ def _build_upstream_messages(body: ChatBody) -> list[dict[str, str]]:
         parts.append(
             f"【检索提示】请搜索：{name} {sym} {tag} 原因 site:eastmoney.com OR site:10jqka.com.cn "
             f"OR site:sina.com.cn OR site:cls.cn OR site:stcn.com"
+        )
+    elif sid == "sector_catchup":
+        name = ctx.get("name") or ""
+        sym = ctx.get("display") or body.symbol
+        status = ((ctx.get("day_shape") or {}).get("status") or "")
+        tag = "涨停" if "Up" in str(status) else "异动"
+        parts.append(
+            f"【检索提示】请搜索：{name} {sym} {tag} 板块 同概念 补涨 "
+            f"site:eastmoney.com OR site:10jqka.com.cn OR site:sina.com.cn "
+            f"OR site:cls.cn OR site:stcn.com；并检索同题材未充分涨停的候选股今日涨跌幅。"
         )
 
     system = "\n\n".join(parts)
