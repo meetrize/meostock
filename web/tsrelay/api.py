@@ -15,7 +15,7 @@ from cache import models as cache_models
 from tsrelay import store
 from tsrelay.catalog import MARKET_SPECS, catalog_payload, find_nav_leaf
 from tsrelay.client import get_client
-from tsrelay.markets import fetch_market, resolve_trade_date
+from tsrelay.markets import fetch_market, market_prefer_today, resolve_trade_date
 from tsrelay.scheduler import set_enabled as schedule_set_enabled
 from tsrelay.scheduler import start_scheduler, status as schedule_status
 from tsrelay.sync_worker import (
@@ -65,7 +65,7 @@ def _trade_key(market_id: str, trade_date: str | None) -> str:
         return store.CATALOG_TRADE_DATE
     if trade_date:
         return trade_date
-    info = resolve_trade_date()
+    info = resolve_trade_date(prefer_today=market_prefer_today(market_id))
     return str(info.get("trade_date") or "")
 
 

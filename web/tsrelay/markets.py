@@ -28,8 +28,17 @@ def _q(
     )
 
 
-def resolve_trade_date(preferred: str | None = None) -> dict[str, Any]:
-    """取上一开市日；若 preferred 有值则校验后返回。"""
+def resolve_trade_date(
+    preferred: str | None = None,
+    *,
+    prefer_today: bool = False,
+) -> dict[str, Any]:
+    """解析默认交易日。
+
+    - preferred 有值：直接用
+    - prefer_today：用最近开市日（含今天），供涨跌停等盘中更新专题
+    - 默认：日终专题逻辑——若今天已开市则退到上一开市日，避免盘中空表
+    """
     today = datetime.now().strftime("%Y%m%d")
     start = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
     res = _q(
@@ -45,11 +54,13 @@ def resolve_trade_date(preferred: str | None = None) -> dict[str, Any]:
                 open_days.append(d)
         open_days.sort()
     last = open_days[-1] if open_days else None
-    # 专题多为日终数据：若最近开市日=今天，默认用上一开市日，避免盘中空表
     prev = open_days[-2] if len(open_days) >= 2 else last
     if preferred:
         chosen = preferred
+    elif prefer_today:
+        chosen = last
     elif last == today and prev:
+        # 专题多为日终数据：若最近开市日=今天，默认用上一开市日，避免盘中空表
         chosen = prev
     else:
         chosen = last
@@ -62,6 +73,11 @@ def resolve_trade_date(preferred: str | None = None) -> dict[str, Any]:
         "source": res.source,
         "error": None if chosen else (res.error or "无法解析交易日"),
     }
+
+
+def market_prefer_today(market_id: str) -> bool:
+    """涨跌停等盘中更新专题：默认取最近开市日（含今天）。"""
+    return bool((MARKET_SPECS.get(market_id) or {}).get("prefer_today"))
 
 
 def _fail(msg: str, code: str = "error", **extra: Any) -> dict[str, Any]:
@@ -91,10 +107,10 @@ def _ok(
     }
 
 
-def _need_date(trade_date: str | None) -> str | None:
+def _need_date(trade_date: str | None, *, prefer_today: bool = False) -> str | None:
     if trade_date:
         return None
-    info = resolve_trade_date()
+    info = resolve_trade_date(prefer_today=prefer_today)
     return info.get("trade_date")
 
 
@@ -808,7 +824,8 @@ def fetch_market(market_id: str, trade_date: str | None = None) -> dict[str, Any
     if not spec:
         return _fail(f"未知市场: {market_id}", "unknown_market")
 
-    td = trade_date or _need_date(None)
+    prefer_today = bool(spec.get("prefer_today"))
+    td = trade_date or _need_date(None, prefer_today=prefer_today)
     if not td:
         return _fail("无法确定交易日，请检查 Token / trade_cal", "no_trade_date")
 
@@ -818,7 +835,16 @@ def fetch_market(market_id: str, trade_date: str | None = None) -> dict[str, Any
         return _fail(f"未实现 handler: {handler_name}", "not_implemented")
 
     try:
-        return fn(td)
+        result = fn(td)
+        # 盘中专题若当日尚无数据，回退上一开市日，避免空白面板
+        if prefer_today and result.get("ok") and not (result.get("items") or []):
+            info = resolve_trade_date(prefer_today=False)
+            prev = info.get("trade_date")
+            if prev and prev != td:
+                fallback = fn(prev)
+                if fallback.get("ok") and (fallback.get("items") or []):
+                    return fallback
+        return result
     except Exception as e:  # noqa: BLE001
         _log.exception("fetch_market %s failed", market_id)
         return _fail(str(e), "exception")

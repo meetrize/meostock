@@ -21,40 +21,38 @@ function cell(row: Record<string, unknown>, key: string): string {
   return String(v);
 }
 
-/** Tushare first_time/last_time → 秒数，便于排序；无效返回 -1 */
-function limitTimeSeconds(raw: unknown): number {
+/** 归一 Tushare 时间：支持 9:55:33 / 095533 / 95533 */
+function normalizeLimitTimeDigits(raw: unknown): string {
   const s = String(raw ?? '').trim();
-  if (!s) return -1;
+  if (!s) return '';
   const colon = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if (colon) {
-    return Number(colon[1]) * 3600 + Number(colon[2]) * 60 + Number(colon[3] || 0);
+    const sec = (colon[3] || '00').padStart(2, '0');
+    return `${colon[1].padStart(2, '0')}${colon[2]}${sec}`;
   }
-  const digits = s.replace(/\D/g, '');
-  if (digits.length === 6) {
-    return (
-      Number(digits.slice(0, 2)) * 3600 +
-      Number(digits.slice(2, 4)) * 60 +
-      Number(digits.slice(4, 6))
-    );
-  }
-  if (digits.length === 4) {
-    return Number(digits.slice(0, 2)) * 3600 + Number(digits.slice(2, 4)) * 60;
-  }
-  return -1;
+  let digits = s.replace(/\D/g, '');
+  if (digits.length === 5) digits = `0${digits}`; // 95533 → 095533
+  if (digits.length === 3) digits = `0${digits}00`; // 935 → 093500
+  if (digits.length === 4) digits = `${digits}00`;
+  return digits.length === 6 ? digits : '';
+}
+
+/** Tushare first_time/last_time → 秒数，便于排序；无效返回 -1 */
+function limitTimeSeconds(raw: unknown): number {
+  const digits = normalizeLimitTimeDigits(raw);
+  if (!digits) return -1;
+  return (
+    Number(digits.slice(0, 2)) * 3600 +
+    Number(digits.slice(2, 4)) * 60 +
+    Number(digits.slice(4, 6))
+  );
 }
 
 /** 紧凑显示 HH:MM（去掉秒） */
 function formatLimitTime(raw: unknown): string {
-  const s = String(raw ?? '').trim();
-  if (!s) return '';
-  const colon = s.match(/^(\d{1,2}):(\d{2})/);
-  if (colon) return `${colon[1].padStart(2, '0')}:${colon[2]}`;
-  const digits = s.replace(/\D/g, '');
-  if (digits.length >= 4) {
-    const hhmm = digits.length >= 6 ? digits.slice(0, 4) : digits.slice(0, 4);
-    return `${hhmm.slice(0, 2)}:${hhmm.slice(2, 4)}`;
-  }
-  return s;
+  const digits = normalizeLimitTimeDigits(raw);
+  if (!digits) return '';
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}`;
 }
 
 function limitSortKey(row: Record<string, unknown>): number {

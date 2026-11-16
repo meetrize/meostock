@@ -11,7 +11,7 @@ from typing import Any
 from cache.source_lanes import TUSHARE_MARKETS
 from tsrelay import store
 from tsrelay.catalog import MARKET_SPECS
-from tsrelay.markets import fetch_market, resolve_trade_date
+from tsrelay.markets import fetch_market, market_prefer_today, resolve_trade_date
 
 _log = logging.getLogger("tushare-gateway")
 
@@ -88,7 +88,10 @@ def _catalog_date_key(market_id: str) -> bool:
 
 def _pull_and_store(market_id: str, trade_date: str | None) -> dict[str, Any]:
     store.ensure_schema()
-    td_info = resolve_trade_date(trade_date)
+    td_info = resolve_trade_date(
+        trade_date,
+        prefer_today=market_prefer_today(market_id) if not trade_date else False,
+    )
     td = trade_date or td_info.get("trade_date")
     if _catalog_date_key(market_id):
         td_key = store.CATALOG_TRADE_DATE

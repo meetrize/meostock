@@ -150,6 +150,8 @@ MARKET_SPECS: dict[str, dict[str, Any]] = {
         "label": "涨跌停",
         "table": "topic",
         "handler": "limit",
+        # 盘中持续更新，默认取最近开市日（含今天），不要退到上一交易日
+        "prefer_today": True,
         "columns": [
             _col("code", "代码", "left"),
             _col("name", "名称", "left"),
