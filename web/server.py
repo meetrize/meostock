@@ -95,6 +95,16 @@ except Exception as _news_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("news proxy disabled: %s", _news_exc)
 
+# K 线侧栏 DeepSeek 代理
+try:
+    from ai.api import router as _ai_router
+
+    app.include_router(_ai_router)
+except Exception as _ai_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("ai proxy disabled: %s", _ai_exc)
+
 # 宏观利率（NY Fed 目标/EFFR + 财政部国债曲线；无需 API Key）
 try:
     from macro.api import router as _macro_router

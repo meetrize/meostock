@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>K线演示 · stock-sdk + KLineChart</title>
   <script src="/static/klinecharts.min.js"></script>
+  <link rel="stylesheet" href="/static/kline-side.css" />
   <style>
     :root,
     html[data-theme="light"] {
@@ -1003,9 +1004,86 @@
         <span class="overlay-hint">忽略绝对价格 · 只比走势形态</span>
       </div>
     </div>
-    <div class="chart-wrap" id="chartWrap">
-      <div id="chart"></div>
-      <div class="candle-tip" id="candleTip" aria-hidden="true"></div>
+    <div class="main-split" id="mainSplit" data-side-open="1">
+      <div class="chart-wrap" id="chartWrap">
+        <div id="chart"></div>
+        <div class="candle-tip" id="candleTip" aria-hidden="true"></div>
+      </div>
+      <div class="side-splitter" id="sideSplitter" title="拖拽调整宽度"></div>
+      <aside class="side-panel" id="sidePanel" aria-label="侧栏">
+        <div class="side-body" id="sideBody">
+          <div class="side-hd">
+            <span class="side-hd-title" id="sideHdTitle">AI</span>
+            <div class="side-hd-actions">
+              <button type="button" class="side-icon-btn" id="sideCloseBtn" title="关闭侧栏">×</button>
+            </div>
+          </div>
+
+          <div class="side-tab-pane active" data-tab="ai" id="sideTabAi">
+            <div class="ai-chat">
+              <div class="ai-bubble system-note" id="aiHealthBanner" style="display:none;margin:8px 12px 0;"></div>
+              <div class="ai-msgs" id="aiMsgs"></div>
+              <div class="ai-skills" id="aiSkills"></div>
+              <div class="ai-composer">
+                <div class="ai-composer-row">
+                  <button type="button" class="ai-new" id="aiNewBtn" title="新对话">新对话</button>
+                </div>
+                <div class="ai-composer-row">
+                  <textarea id="aiInput" rows="2" placeholder="问 AI…（Enter 发送，Shift+Enter 换行）"></textarea>
+                  <button type="button" class="ai-send" id="aiSendBtn">发送</button>
+                  <button type="button" class="ai-stop" id="aiStopBtn" style="display:none">停止</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="side-tab-pane" data-tab="report" id="sideTabReport" style="position:relative">
+            <div class="report-list" id="reportList"></div>
+            <div class="report-drawer" id="reportDrawer">
+              <div class="report-drawer-hd">
+                <span class="side-hd-title" id="reportDrawerTitle">报告</span>
+                <button type="button" class="side-link-btn" id="reportAskBtn">继续追问</button>
+                <button type="button" class="side-icon-btn" id="reportDrawerClose" title="关闭">×</button>
+              </div>
+              <div class="report-drawer-bd" id="reportDrawerBody"></div>
+            </div>
+          </div>
+
+          <div class="side-tab-pane" data-tab="news" id="sideTabNews">
+            <div class="side-empty" id="newsPlaceholder">
+              资讯列表即将接入 feedgen（<code>/api/news/by-symbol</code>）。
+            </div>
+          </div>
+
+          <div class="side-tab-pane" data-tab="f10" id="sideTabF10">
+            <div class="f10-wrap">
+              <div class="f10-toolbar">
+                <span id="f10Hint">同花顺 F10</span>
+                <a class="side-link-btn" id="f10OpenBtn" href="#" target="_blank" rel="noopener">新窗口打开</a>
+              </div>
+              <iframe class="f10-frame" id="f10Frame" title="同花顺 F10" referrerpolicy="no-referrer"></iframe>
+            </div>
+          </div>
+        </div>
+        <nav class="side-rail" id="sideRail" aria-label="侧栏标签">
+          <button type="button" class="side-rail-btn active" data-tab="ai" title="AI">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7v1.1A4.5 4.5 0 0 0 2 14.5V16a3 3 0 0 0 3 3h1v1a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1h1a3 3 0 0 0 3-3v-1.5A4.5 4.5 0 0 0 19 10.1V9a7 7 0 0 0-7-7zm-3 11a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm6 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/></svg>
+            <span>AI</span>
+          </button>
+          <button type="button" class="side-rail-btn" data-tab="report" title="AI报告">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 7V3.5L19.5 9H15zM8 13h8v2H8v-2zm0 4h8v2H8v-2zm0-8h5v2H8V9z"/></svg>
+            <span>报告</span>
+          </button>
+          <button type="button" class="side-rail-btn" data-tab="news" title="资讯">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
+            <span>资讯</span>
+          </button>
+          <button type="button" class="side-rail-btn" data-tab="f10" title="F10">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3V5zm2 2v10h14V7H5zm2 2h4v2H7V9zm0 4h10v2H7v-2zm6-4h4v2h-4V9z"/></svg>
+            <span>F10</span>
+          </button>
+        </nav>
+      </aside>
     </div>
   </div>
   <div class="status" id="status">初始化…</div>
@@ -1229,6 +1307,8 @@
     <iframe id="extEmbedFrame" title="扩展页面" referrerpolicy="no-referrer-when-downgrade"></iframe>
   </div>
 
+  <script src="/static/kline-side.js"></script>
+  <script src="/static/kline-ai.js"></script>
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
 
@@ -5024,6 +5104,9 @@
       // 分时 ↔ 其它周期时切换面积图 / 蜡烛图
       if (chart) applyChartSettings();
       syncLoadHistoryBtn();
+      try {
+        window.KlineAI?.setPeriod(period);
+      } catch (_) {}
       return true;
     }
 
@@ -5041,6 +5124,11 @@
       currentSymbol = symbol;
       hideCandleTip();
       if (!skipUrlSync) syncUrl(symbol, currentPeriod, !pushUrl);
+      try {
+        window.SidePanel?.setSymbol(symbol, resolveMarket(symbol));
+        window.KlineAI?.setSymbol(symbol, { period: currentPeriod });
+        window.KlineAI?.setPeriod(currentPeriod);
+      } catch (_) {}
       bindDataLoader(symbol);
       await refreshQuote(symbol);
       startRealtimePoll(symbol);
@@ -5278,6 +5366,39 @@
 
     applyPageTheme(currentTheme);
     syncLoadHistoryBtn();
+
+    try {
+      window.KlineAI?.init();
+      window.SidePanel?.init({
+        getSymbol: () => currentSymbol,
+        getMarket: () => {
+          try {
+            return resolveMarket(currentSymbol);
+          } catch (_) {
+            return "CN";
+          }
+        },
+        onLayoutChange: () => {
+          if (!chart) return;
+          try {
+            chart.resize();
+          } catch (_) {}
+        },
+        onTabChange: (tabId) => {
+          try {
+            window.KlineAI?.onTab(tabId);
+          } catch (_) {}
+        },
+        onSymbolChange: (symbol) => {
+          try {
+            window.KlineAI?.setSymbol(symbol, { period: currentPeriod });
+          } catch (_) {}
+        },
+      });
+    } catch (e) {
+      console.warn("side panel init failed", e);
+    }
+
     bootstrapFromUrl();
   </script>
 </body>
