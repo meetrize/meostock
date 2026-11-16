@@ -59,6 +59,7 @@ export const SPARK_PANELS = [
   yf('spark.hg', 'yf:METALS', 'HG=F', '铜', 'metals'),
   yf('spark.ng', 'yf:METALS', 'NG=F', '天然气', 'metals'),
 
+  yf('spark.dxy', 'yf:CURRENCIES', 'DX-Y.NYB', '美元指数', 'fx'),
   yf('spark.usdcny', 'yf:CURRENCIES', 'USDCNY=X', '美元人民币', 'fx'),
   yf('spark.eurusd', 'yf:CURRENCIES', 'EURUSD=X', '欧元美元', 'fx'),
   yf('spark.jpy', 'yf:CURRENCIES', 'JPY=X', '美元日元', 'fx'),
@@ -72,6 +73,7 @@ export const SPARK_PANELS = [
   yf('spark.bnb', 'yf:CRYPTOCURRENCIES', 'BNB-USD', 'BNB', 'crypto'),
 
   yf('spark.irx', 'yf:RATES', '^IRX', '美债3月', 'rates'),
+  yf('spark.fvx', 'yf:RATES', '^FVX', '美债5年', 'rates'),
   yf('spark.tnx', 'yf:RATES', '^TNX', '美债10年', 'rates'),
   yf('spark.tyx', 'yf:RATES', '^TYX', '美债30年', 'rates'),
 ] as const satisfies readonly SparkPanelDef[];

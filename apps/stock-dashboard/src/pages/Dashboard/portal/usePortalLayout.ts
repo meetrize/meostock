@@ -100,15 +100,48 @@ function parseState(raw: string | null): PortalPersistedState | null {
   }
 }
 
+/** 旧布局升级时自动补上宏观利率面板（不覆盖用户已有） */
+function ensureMacroRates(state: PortalPersistedState): PortalPersistedState {
+  const catalog = WIDGET_CATALOG['macro.rates'];
+  if (!catalog) return state;
+  let changed = false;
+  const presets = state.presets.map((preset) => {
+    if (preset.widgets.some((w) => w.type === 'macro.rates')) return preset;
+    changed = true;
+    const id = 'macro-rates';
+    const w = catalog.defaultLayout.w;
+    const h = catalog.defaultLayout.h;
+    const pos = findDropPosition(preset.layout, w, h);
+    const layoutItem = applyCatalogConstraints('macro.rates', {
+      i: id,
+      x: pos.x,
+      y: pos.y,
+      w,
+      h,
+    });
+    return {
+      ...preset,
+      widgets: [...preset.widgets, { id, type: 'macro.rates' as const }],
+      layout: [...preset.layout, layoutItem],
+    };
+  });
+  return changed ? { ...state, presets } : state;
+}
+
 function loadState(): PortalPersistedState {
   try {
     const parsed = parseState(localStorage.getItem(PORTAL_STORAGE_KEY));
-    if (parsed) return parsed;
+    if (parsed) {
+      const ensured = ensureMacroRates(parsed);
+      if (ensured !== parsed) saveState(ensured);
+      return ensured;
+    }
     for (const key of PORTAL_LEGACY_STORAGE_KEYS) {
       const legacy = parseState(localStorage.getItem(key));
       if (legacy) {
-        saveState(legacy);
-        return legacy;
+        const ensured = ensureMacroRates(legacy);
+        saveState(ensured);
+        return ensured;
       }
     }
   } catch {

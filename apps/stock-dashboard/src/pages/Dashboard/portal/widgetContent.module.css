@@ -571,3 +571,120 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 宏观利率面板 */
+.macroRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.macroGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 6px;
+}
+
+.macroCard {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.macroLabel {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.macroValue {
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.macroAsOf {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.macroPolicy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+}
+
+.macroPolicyMain {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.macroPolicyName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.macroProxy {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.macroPolicyActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.macroLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.macroLinkBtn:hover {
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.macroHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+}
+
+.macroEmpty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}

@@ -95,6 +95,16 @@ except Exception as _news_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("news proxy disabled: %s", _news_exc)
 
+# 宏观利率（NY Fed 目标/EFFR + 财政部国债曲线；无需 API Key）
+try:
+    from macro.api import router as _macro_router
+
+    app.include_router(_macro_router)
+except Exception as _macro_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("macro rates disabled: %s", _macro_exc)
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {

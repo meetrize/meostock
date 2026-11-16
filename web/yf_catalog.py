@@ -98,6 +98,7 @@ YF_NAME_ZH: dict[str, str] = {
     "XNIUSD": "镍（暂无免费行情）",
     "XPBUSD": "铅（暂无免费行情）",
     # CURRENCIES（Yahoo 多为 XXX=X 表示兑美元，或 EURUSD=X）
+    "DX-Y.NYB": "美元指数",
     "EURUSD=X": "欧元/美元",
     "JPY=X": "美元/日元",
     "GBPUSD=X": "英镑/美元",
@@ -250,6 +251,7 @@ YF_CATALOG: dict[str, list[dict[str, str]]] = {
         {"symbol": "NG=F", "exchange": "NYM", "name": "天然气 NGAS（XNGUSD≈）"},
     ],
     "CURRENCIES": [
+        {"symbol": "DX-Y.NYB", "exchange": "NYB"},
         {"symbol": "USDCNY=X", "exchange": "CCY"},
         {"symbol": "CNY=X", "exchange": "CCY"},
         {"symbol": "EURUSD=X", "exchange": "CCY"},

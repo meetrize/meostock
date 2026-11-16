@@ -18,6 +18,7 @@ import { StripWidget } from './StripWidget';
 import { TopicListWidget } from './TopicListWidget';
 import { RankListWidget } from './RankListWidget';
 import { StatMarginWidget } from './StatMarginWidget';
+import { MacroRatesWidget } from './MacroRatesWidget';
 import { SparkPanelWidget } from './SparkPanelWidget';
 import { isSparkWidgetType } from '../sparkCatalog';
 
@@ -48,6 +49,8 @@ export function renderWidget(
       return <StatStrongestBoardWidget />;
     case 'stat.margin':
       return <StatMarginWidget />;
+    case 'macro.rates':
+      return <MacroRatesWidget />;
     case 'watchlist':
       return <WatchlistWidget gridH={gridH} />;
     case 'marketRanking':

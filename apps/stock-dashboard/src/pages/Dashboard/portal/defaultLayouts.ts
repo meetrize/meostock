@@ -1,5 +1,5 @@
 /**
- * 默认看盘布局 v8：指数/spark 默认 h=3（标题报价 + 面积图）
+ * 默认看盘布局 v9：指数/spark + 宏观利率条 + 利率/外汇条带
  */
 
 import { MAIN_INDEX_PANELS } from './indexCatalog';
@@ -56,6 +56,12 @@ export function createDefaultWatchPreset(): PortalPreset {
   const afterFutY =
     futStartY + Math.ceil(DEFAULT_FUTURES_SPARK_TYPES.length / 6) * sparkH;
 
+  const macroH = 5;
+  const stripH = 3;
+  const macroY = afterFutY;
+  const stripY = macroY + macroH;
+  const listsY = stripY + stripH;
+
   const parts = [
     ...indexParts,
     item('stat-breadth', 'stat.breadth', 0, statsY, 2, 2),
@@ -66,12 +72,15 @@ export function createDefaultWatchPreset(): PortalPreset {
     item('stat-strongestBoard', 'stat.strongestBoard', 10, statsY, 2, 2),
     ...globalParts,
     ...futParts,
-    item('watchlist', 'watchlist', 0, afterFutY, 6, 10),
-    item('hotBoards', 'hotBoards', 6, afterFutY, 6, 10),
-    item('topic-limit', 'topic.limitList', 0, afterFutY + 10, 6, 10),
-    item('marketRanking', 'marketRanking', 6, afterFutY + 10, 6, 12),
-    item('boardFundFlow', 'boardFundFlow', 0, afterFutY + 22, 6, 12),
-    item('fundFlowRank', 'fundFlowRank', 6, afterFutY + 22, 6, 10),
+    item('macro-rates', 'macro.rates', 0, macroY, 12, macroH),
+    item('strip-rates', 'strip.rates', 0, stripY, 6, stripH),
+    item('strip-fx', 'strip.fx', 6, stripY, 6, stripH),
+    item('watchlist', 'watchlist', 0, listsY, 6, 10),
+    item('hotBoards', 'hotBoards', 6, listsY, 6, 10),
+    item('topic-limit', 'topic.limitList', 0, listsY + 10, 6, 10),
+    item('marketRanking', 'marketRanking', 6, listsY + 10, 6, 12),
+    item('boardFundFlow', 'boardFundFlow', 0, listsY + 22, 6, 12),
+    item('fundFlowRank', 'fundFlowRank', 6, listsY + 22, 6, 10),
   ];
 
   return {

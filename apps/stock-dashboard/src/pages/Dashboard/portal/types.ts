@@ -27,6 +27,7 @@ export type PortalWidgetType =
   | 'strip.fx'
   | 'strip.crypto'
   | 'strip.rates'
+  | 'macro.rates'
   | 'topic.limitList'
   | 'topic.topList'
   | 'rank.hk'
@@ -81,10 +82,11 @@ export interface PortalPersistedState {
 }
 
 /** v8：标题常驻报价 + 正文常驻面积曲线（取消价格/曲线切换） */
-export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v8';
+export const PORTAL_STORAGE_KEY = 'stock-dashboard:overview-portal:v9';
 
 /** 升级时尝试迁移的旧 key */
 export const PORTAL_LEGACY_STORAGE_KEYS = [
+  'stock-dashboard:overview-portal:v8',
   'stock-dashboard:overview-portal:v7',
 ] as const;
 

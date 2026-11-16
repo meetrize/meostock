@@ -46,6 +46,7 @@ export const METALS_CURATED: CuratedQuote[] = [
 ];
 
 export const FX_CURATED: CuratedQuote[] = [
+  { market: 'yf:CURRENCIES', code: 'DX-Y.NYB', name: '美元指数' },
   { market: 'yf:CURRENCIES', code: 'USDCNY=X', name: '美元人民币' },
   { market: 'yf:CURRENCIES', code: 'EURUSD=X', name: '欧元美元' },
   { market: 'yf:CURRENCIES', code: 'JPY=X', name: '美元日元' },
@@ -63,6 +64,7 @@ export const CRYPTO_CURATED: CuratedQuote[] = [
 
 export const RATES_CURATED: CuratedQuote[] = [
   { market: 'yf:RATES', code: '^IRX', name: '美债3月' },
+  { market: 'yf:RATES', code: '^FVX', name: '美债5年' },
   { market: 'yf:RATES', code: '^TNX', name: '美债10年' },
   { market: 'yf:RATES', code: '^TYX', name: '美债30年' },
 ];
