@@ -21,7 +21,7 @@
   align-items: center;
   gap: var(--spacing-md);
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .sidebarToggle {
@@ -246,6 +246,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  flex-shrink: 0;
 }
 
 /* 主题切换按钮 */

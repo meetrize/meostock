@@ -33,6 +33,7 @@ import { useIsInWatchlist, useTheme } from '@/hooks';
 import type { SearchHistoryItem } from '@/types';
 import type { AppSearchResult } from '@/services/sdk';
 import { SyncIndicator } from './SyncIndicator';
+import { WorldClocks } from './WorldClocks';
 import styles from './Header.module.css';
 
 function getHistoryRoute(item: SearchHistoryItem): string | null {
@@ -356,6 +357,8 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
           )}
         </div>
       </div>
+
+      <WorldClocks />
 
       <div className={styles.right}>
         <SyncIndicator />
