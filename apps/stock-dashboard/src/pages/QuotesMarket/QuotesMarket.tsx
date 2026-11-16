@@ -799,16 +799,17 @@ async function loadMarketRows(
 }
 
 function watchlistCodeOf(row: QuoteRow, market: MarketId): string | null {
-  // 自选页主要吃 A 股 FullQuote；港美也可存代码，yfinance/期货暂不支持
+  // 自选统一存带市场前缀的 klineSymbol（sh/sz/bj/hk/us）；yfinance/期货暂不支持
   if (String(market).startsWith('yf:') || market === 'futures') return null;
   if (market === 'cn' || market === 'fund' || market === 'index') {
     return normalizeStockCode(row.klineSymbol) || row.code;
   }
   if (market === 'hk') {
-    const c = row.code.replace(/\D/g, '') || row.code;
-    return c.padStart(5, '0');
+    return normalizeStockCode(row.klineSymbol) || normalizeStockCode(`hk${row.code}`);
   }
-  if (market === 'us') return row.code;
+  if (market === 'us') {
+    return normalizeStockCode(row.klineSymbol) || normalizeStockCode(`us${row.code}`);
+  }
   return null;
 }
 
@@ -1393,7 +1394,7 @@ export function QuotesMarket() {
     }
     const code = watchlistCodeOf(row as unknown as QuoteRow, market);
     if (!code) {
-      toast.info('当前市场暂不支持加入自选（自选主要面向 A 股）');
+      toast.info('当前市场暂不支持加入自选');
       return;
     }
     if (isInWatchlist(code)) {

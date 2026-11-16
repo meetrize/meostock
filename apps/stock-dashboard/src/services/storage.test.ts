@@ -49,6 +49,13 @@ describe('addToWatchlist', () => {
     addToWatchlist('sh600519');
     expect(getWatchlistGroups()[0].codes).toEqual(['sh600519']);
   });
+
+  it('normalizes US and HK tickers with market prefix', () => {
+    addToWatchlist('AAPL');
+    addToWatchlist('usAAPL');
+    addToWatchlist('00700');
+    expect(getWatchlistGroups()[0].codes).toEqual(['usAAPL', 'hk00700']);
+  });
 });
 
 describe('getAlertRules', () => {

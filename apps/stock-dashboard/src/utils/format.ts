@@ -192,8 +192,15 @@ export function getChangeColorClass(value: number | null | undefined): string {
   return value > 0 ? 'text-rise' : 'text-fall';
 }
 
+const US_EXCHANGE_SUFFIX = /\.(OQ|N|A|O|P|OB|PK|OTC)$/i;
+
+function stripUsExchangeSuffix(ticker: string): string {
+  return ticker.replace(US_EXCHANGE_SUFFIX, '');
+}
+
 /**
  * 解析股票代码，返回市场和代码
+ * 支持 A 股 sh/sz/bj、港股 hk、美股 us（含裸 ticker）
  */
 export function parseStockCode(code: string): { market: string; symbol: string } {
   const trimmed = code.trim();
@@ -215,6 +222,22 @@ export function parseStockCode(code: string): { market: string; symbol: string }
     };
   }
 
+  const usPrefixMatch = trimmed.match(/^us\.?([a-z][a-z0-9.\-]{0,9})$/i);
+  if (usPrefixMatch) {
+    return {
+      market: 'us',
+      symbol: stripUsExchangeSuffix(usPrefixMatch[1]).toUpperCase(),
+    };
+  }
+
+  const hkPrefixMatch = trimmed.match(/^hk\.?(\d{1,5})$/i);
+  if (hkPrefixMatch) {
+    return {
+      market: 'hk',
+      symbol: hkPrefixMatch[1].padStart(5, '0'),
+    };
+  }
+
   const numericMatch = trimmed.match(/^\d{6}$/);
   if (numericMatch) {
     // 根据代码推断市场（仅 6 位 A 股）
@@ -233,11 +256,35 @@ export function parseStockCode(code: string): { market: string; symbol: string }
     }
   }
 
+  // 1–5 位数字：港股（自选里常存 00700）
+  if (/^\d{1,5}$/.test(trimmed)) {
+    return { market: 'hk', symbol: trimmed.padStart(5, '0') };
+  }
+
+  // 裸美股 ticker：AAPL / BRK.B / AAPL.OQ
+  if (/^[a-z][a-z0-9.\-]{0,9}$/i.test(trimmed)) {
+    return {
+      market: 'us',
+      symbol: stripUsExchangeSuffix(trimmed).toUpperCase(),
+    };
+  }
+
   return { market: '', symbol: trimmed };
+}
+
+/** 缓存 / 行情接口市场：cn | hk | us */
+export type QuoteCacheMarket = 'cn' | 'hk' | 'us';
+
+export function inferQuoteCacheMarket(code: string): QuoteCacheMarket {
+  const { market } = parseStockCode(code);
+  if (market === 'us') return 'us';
+  if (market === 'hk') return 'hk';
+  return 'cn';
 }
 
 /**
  * 标准化股票代码（带市场前缀）
+ * A 股 sh/sz/bj；港股 hk00700；美股 usAAPL
  */
 export function normalizeStockCode(code: string): string {
   const trimmed = code.trim();

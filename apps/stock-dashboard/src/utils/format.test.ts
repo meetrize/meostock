@@ -30,9 +30,16 @@ describe('parseStockCode', () => {
     expect(parseStockCode('920002').market).toBe('bj');
   });
 
+  it('parses US and HK codes', () => {
+    expect(parseStockCode('AAPL')).toEqual({ market: 'us', symbol: 'AAPL' });
+    expect(parseStockCode('usAAPL')).toEqual({ market: 'us', symbol: 'AAPL' });
+    expect(parseStockCode('AAPL.OQ')).toEqual({ market: 'us', symbol: 'AAPL' });
+    expect(parseStockCode('00700')).toEqual({ market: 'hk', symbol: '00700' });
+    expect(parseStockCode('hk700')).toEqual({ market: 'hk', symbol: '00700' });
+  });
+
   it('leaves the market empty for unrecognized input', () => {
     expect(parseStockCode('')).toEqual({ market: '', symbol: '' });
-    expect(parseStockCode('AAPL')).toEqual({ market: '', symbol: 'AAPL' });
   });
 });
 
@@ -40,10 +47,11 @@ describe('normalizeStockCode', () => {
   it('normalizes to a lowercase market prefix', () => {
     expect(normalizeStockCode(' 600519 ')).toBe('sh600519');
     expect(normalizeStockCode('SZ000001')).toBe('sz000001');
+    expect(normalizeStockCode(' AAPL ')).toBe('usAAPL');
+    expect(normalizeStockCode('00700')).toBe('hk00700');
   });
 
   it('keeps unrecognized input trimmed', () => {
-    expect(normalizeStockCode(' AAPL ')).toBe('AAPL');
     expect(normalizeStockCode('   ')).toBe('');
   });
 });

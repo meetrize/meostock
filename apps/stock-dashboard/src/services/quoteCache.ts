@@ -1,11 +1,22 @@
 /**
  * 同源行情缓存封装（三期）：优先 /api/cache/snapshot，按 quoteSource 回退 sdk。
+ * 自选等混合列表按代码推断 cn/hk/us，分别打对应市场快照。
  */
 
 import type { FullQuote } from 'stock-sdk';
 import { getSettings } from '@/services/storage';
-import { getAllAShareQuotes, getAllQuotesByCodes, getFullQuotes } from '@/services/sdk';
-import { normalizeStockCode } from '@/utils/format';
+import {
+  getAllAShareQuotes,
+  getAllQuotesByCodes,
+  getFullQuotes,
+  getHkQuotes,
+  getUsQuotes,
+} from '@/services/sdk';
+import {
+  inferQuoteCacheMarket,
+  normalizeStockCode,
+  type QuoteCacheMarket,
+} from '@/utils/format';
 import type { QuoteSource } from '@/types';
 
 export type { QuoteSource };
@@ -72,8 +83,165 @@ async function fetchSnapshotItems(
   };
 }
 
+function groupCodesByCacheMarket(codes: string[]): Record<QuoteCacheMarket, string[]> {
+  const groups: Record<QuoteCacheMarket, string[]> = { cn: [], hk: [], us: [] };
+  for (const code of codes) {
+    groups[inferQuoteCacheMarket(code)].push(code);
+  }
+  return groups;
+}
+
+/** SDK 港美接口要裸码：usAAPL→AAPL，hk00700→00700 */
+function toSdkBareCode(code: string, market: QuoteCacheMarket): string {
+  const n = normalizeStockCode(code) || code;
+  if (market === 'us') return n.replace(/^us/i, '');
+  if (market === 'hk') {
+    const digits = n.replace(/^hk/i, '').replace(/\D/g, '') || n;
+    return digits.padStart(5, '0');
+  }
+  return n;
+}
+
+function indexQuoteIntoMap(map: Map<string, FullQuote>, q: FullQuote): void {
+  if (!q?.code) return;
+  const raw = String(q.code);
+  const n = normalizeStockCode(raw) || raw;
+  map.set(n, q);
+  map.set(raw, q);
+  map.set(raw.toLowerCase(), q);
+  map.set(n.toLowerCase(), q);
+
+  const bare = n.replace(/^(sh|sz|bj|hk|us)/i, '');
+  if (bare && !map.has(bare)) map.set(bare, q);
+  if (bare) {
+    const upper = bare.toUpperCase();
+    const lower = bare.toLowerCase();
+    if (!map.has(upper)) map.set(upper, q);
+    if (!map.has(lower)) map.set(lower, q);
+  }
+}
+
+function lookupQuote(map: Map<string, FullQuote>, code: string): FullQuote | undefined {
+  const normalized = normalizeStockCode(code) || code;
+  return (
+    map.get(code) ||
+    map.get(normalized) ||
+    map.get(code.toLowerCase()) ||
+    map.get(normalized.toLowerCase()) ||
+    map.get(normalized.replace(/^(sh|sz|bj|hk|us)/i, '')) ||
+    map.get(normalized.replace(/^(sh|sz|bj|hk|us)/i, '').toUpperCase())
+  );
+}
+
+async function fetchLiveQuotesForMarket(
+  market: QuoteCacheMarket,
+  codes: string[],
+  options?: { batchSize?: number; concurrency?: number }
+): Promise<FullQuote[]> {
+  if (!codes.length) return [];
+
+  if (market === 'us') {
+    const bare = codes.map((c) => toSdkBareCode(c, 'us'));
+    const quotes = await getUsQuotes(bare);
+    return quotes.map((q) => {
+      const ticker = String(q.code || '').replace(US_EXCHANGE_SUFFIX_RE, '');
+      const normalized = normalizeStockCode(`us${ticker}`) || `us${ticker}`;
+      return { ...(q as unknown as FullQuote), code: normalized };
+    });
+  }
+
+  if (market === 'hk') {
+    const bare = codes.map((c) => toSdkBareCode(c, 'hk'));
+    const quotes = await getHkQuotes(bare);
+    return quotes.map((q) => {
+      const digits = String(q.code || '').replace(/\D/g, '') || String(q.code || '');
+      const padded = digits.padStart(5, '0');
+      const normalized = normalizeStockCode(`hk${padded}`) || `hk${padded}`;
+      return { ...(q as unknown as FullQuote), code: normalized };
+    });
+  }
+
+  return getAllQuotesByCodes(codes, {
+    batchSize: options?.batchSize,
+    concurrency: options?.concurrency,
+  });
+}
+
+const US_EXCHANGE_SUFFIX_RE = /\.(OQ|N|A|O|P|OB|PK|OTC)$/i;
+
+async function fetchQuotesMultiMarket(
+  list: string[],
+  options?: {
+    source?: QuoteSource;
+    force?: boolean;
+    batchSize?: number;
+    concurrency?: number;
+  }
+): Promise<FullQuote[]> {
+  const source = resolveSource(options?.source);
+  const groups = groupCodesByCacheMarket(list);
+
+  if (source === 'network') {
+    const parts = await Promise.all(
+      (Object.keys(groups) as QuoteCacheMarket[]).map((market) =>
+        fetchLiveQuotesForMarket(market, groups[market], options)
+      )
+    );
+    return alignQuotesToRequestedCodes(list, parts.flat());
+  }
+
+  const map = new Map<string, FullQuote>();
+  const missingByMarket: Record<QuoteCacheMarket, string[]> = { cn: [], hk: [], us: [] };
+
+  await Promise.all(
+    (Object.keys(groups) as QuoteCacheMarket[]).map(async (market) => {
+      const codes = groups[market];
+      if (!codes.length) return;
+      try {
+        const { items } = await fetchSnapshotItems(market, {
+          codes,
+          force: options?.force && source === 'auto',
+        });
+        items.forEach((q) => indexQuoteIntoMap(map, q));
+      } catch {
+        // 该市场缓存失败：整组进 missing，auto/network 再走 sdk
+        if (source === 'local') return;
+        missingByMarket[market].push(...codes);
+        return;
+      }
+      for (const code of codes) {
+        if (!lookupQuote(map, code)) {
+          missingByMarket[market].push(code);
+        }
+      }
+    })
+  );
+
+  if (source !== 'local') {
+    const liveParts = await Promise.all(
+      (Object.keys(missingByMarket) as QuoteCacheMarket[]).map((market) =>
+        missingByMarket[market].length
+          ? fetchLiveQuotesForMarket(market, missingByMarket[market], options)
+          : Promise.resolve([] as FullQuote[])
+      )
+    );
+    liveParts.flat().forEach((q) => indexQuoteIntoMap(map, q));
+  }
+
+  const uniqueQuotes: FullQuote[] = [];
+  const seen = new Set<string>();
+  for (const q of map.values()) {
+    const key = normalizeStockCode(q.code) || q.code;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueQuotes.push(q);
+  }
+  return alignQuotesToRequestedCodes(list, uniqueQuotes);
+}
+
 /**
  * 按代码取行情：auto 先缓存再 sdk；local 只缓存；network 只 sdk。
+ * 自动按 cn/hk/us 分市场请求，避免美股代码打到 A 股快照。
  */
 export async function getQuotesByCodesPreferCache(
   codes: string[],
@@ -86,67 +254,12 @@ export async function getQuotesByCodesPreferCache(
 ): Promise<FullQuote[]> {
   const list = codes.map((c) => normalizeStockCode(c) || c).filter(Boolean);
   if (!list.length) return [];
-
-  const source = resolveSource(options?.source);
-
-  if (source === 'network') {
-    return getAllQuotesByCodes(list, {
-      batchSize: options?.batchSize,
-      concurrency: options?.concurrency,
-    });
-  }
-
-  try {
-    const { items } = await fetchSnapshotItems('cn', {
-      codes: list,
-      force: options?.force && source === 'auto',
-    });
-    // 按请求顺序对齐；缺的在 auto 下用 sdk 补
-    const map = new Map<string, FullQuote>();
-    items.forEach((q) => {
-      if (!q?.code) return;
-      const n = normalizeStockCode(q.code) || q.code;
-      map.set(n, q);
-      map.set(q.code, q);
-      map.set(q.code.toLowerCase(), q);
-      // 纯数字仅在无冲突时挂上，避免指数/个股同号互相覆盖
-      const digits = n.replace(/^(sh|sz|bj)/i, '');
-      if (digits && !map.has(digits)) map.set(digits, q);
-    });
-
-    const ordered: FullQuote[] = [];
-    const missing: string[] = [];
-    for (const code of list) {
-      const normalized = normalizeStockCode(code) || code;
-      let hit = map.get(code) || map.get(normalized);
-      if (!hit && !/^(sh|sz|bj)/i.test(code)) {
-        hit = map.get(code.replace(/^(sh|sz|bj)/i, ''));
-      }
-      if (hit) ordered.push({ ...hit, code: normalized });
-      else missing.push(code);
-    }
-
-    if (source === 'local' || missing.length === 0) {
-      return ordered;
-    }
-
-    const live = await getAllQuotesByCodes(missing, {
-      batchSize: options?.batchSize,
-      concurrency: options?.concurrency,
-    });
-    return ordered.concat(live);
-  } catch {
-    if (source === 'local') return [];
-    return getAllQuotesByCodes(list, {
-      batchSize: options?.batchSize,
-      concurrency: options?.concurrency,
-    });
-  }
+  return fetchQuotesMultiMarket(list, options);
 }
 
 /**
- * 按代码取完整行情：优先本地 snapshot，否则 getFullQuotes。
- * ``market`` 默认 cn；总览指数等请传 ``index``，避免 sh000001 被 cn 表里的 000001（平安银行）误匹配。
+ * 按代码取完整行情：优先本地 snapshot，否则按市场回退 SDK。
+ * ``market`` 为 ``index`` 时整表走指数快照；其余情况按代码自动分 cn/hk/us。
  */
 export async function getFullQuotesPreferCache(
   codes: string[],
@@ -155,37 +268,67 @@ export async function getFullQuotesPreferCache(
   const list = codes.map((c) => normalizeStockCode(c) || c).filter(Boolean);
   if (!list.length) return [];
   const source = resolveSource(options?.source);
-  const market = (options?.market || 'cn').toLowerCase();
+  const marketOpt = (options?.market || '').toLowerCase();
 
-  if (source === 'network') {
+  // 总览指数：固定 index 表，避免 sh000001 被 cn 个股误匹配
+  if (marketOpt === 'index') {
+    if (source === 'network') {
+      return alignQuotesToRequestedCodes(
+        list,
+        await getFullQuotes(list, options?.useSdkCache !== false)
+      );
+    }
+    try {
+      const { items } = await fetchSnapshotItems('index', { codes: list });
+      if (items.length > 0) {
+        const out = alignQuotesToRequestedCodes(list, items);
+        if (source === 'local' || out.length === list.length) return out;
+      }
+      if (source === 'local') return items;
+    } catch {
+      if (source === 'local') return [];
+    }
     return alignQuotesToRequestedCodes(
       list,
       await getFullQuotes(list, options?.useSdkCache !== false)
     );
   }
 
-  try {
-    const { items } = await fetchSnapshotItems(market, { codes: list });
-    if (items.length > 0) {
-      const out = alignQuotesToRequestedCodes(list, items);
-      if (source === 'local' || out.length === list.length) return out;
+  // 显式单市场（如 portal 只拉 hk）仍支持；未指定则按代码拆分
+  if (marketOpt === 'cn' || marketOpt === 'hk' || marketOpt === 'us') {
+    if (source === 'network') {
+      return alignQuotesToRequestedCodes(
+        list,
+        await fetchLiveQuotesForMarket(marketOpt, list)
+      );
     }
-    if (source === 'local') return items;
-  } catch {
-    if (source === 'local') return [];
+    try {
+      const { items } = await fetchSnapshotItems(marketOpt, { codes: list });
+      if (items.length > 0) {
+        const out = alignQuotesToRequestedCodes(list, items);
+        if (source === 'local' || out.length === list.length) return out;
+        if (source === 'auto') {
+          const missing = list.filter((c) => !out.some((q) => q.code === c));
+          const live = await fetchLiveQuotesForMarket(marketOpt, missing);
+          return alignQuotesToRequestedCodes(list, out.concat(live));
+        }
+      }
+      if (source === 'local') return items;
+    } catch {
+      if (source === 'local') return [];
+    }
+    return alignQuotesToRequestedCodes(list, await fetchLiveQuotesForMarket(marketOpt, list));
   }
-  return alignQuotesToRequestedCodes(
-    list,
-    await getFullQuotes(list, options?.useSdkCache !== false)
-  );
+
+  return fetchQuotesMultiMarket(list, { source: options?.source });
 }
 
 function quoteDigits(code: string): string {
-  return (normalizeStockCode(code) || code).replace(/^(sh|sz|bj)/i, '').toLowerCase();
+  return (normalizeStockCode(code) || code).replace(/^(sh|sz|bj|hk|us)/i, '').toLowerCase();
 }
 
 function quoteMarket(code: string): string {
-  const m = (normalizeStockCode(code) || code).match(/^(sh|sz|bj)/i);
+  const m = (normalizeStockCode(code) || code).match(/^(sh|sz|bj|hk|us)/i);
   return m ? m[1].toLowerCase() : '';
 }
 
@@ -208,12 +351,9 @@ function alignQuotesToRequestedCodes(
     if (!q?.code) continue;
     const raw = String(q.code);
     const n = normalizeStockCode(raw) || raw;
-    map.set(n, q);
-    map.set(raw, q);
-    map.set(raw.toLowerCase(), q);
+    indexQuoteIntoMap(map, { ...q, code: n });
     const digits = quoteDigits(raw);
     if (!digits) continue;
-    if (!map.has(digits)) map.set(digits, q);
     const list = byDigits.get(digits) || [];
     list.push(q);
     byDigits.set(digits, list);
@@ -222,7 +362,7 @@ function alignQuotesToRequestedCodes(
   const out: FullQuote[] = [];
   for (const code of requested) {
     const normalized = normalizeStockCode(code) || code;
-    let hit = map.get(code) || map.get(normalized);
+    let hit = lookupQuote(map, code);
 
     if (!hit) {
       const digits = quoteDigits(normalized);
@@ -237,7 +377,7 @@ function alignQuotesToRequestedCodes(
           (reqMarket
             ? candidates.find((q) => quoteMarket(String(q.code)) === reqMarket)
             : undefined) ||
-          candidates.find((q) => !/^(sh|sz|bj)/i.test(String(q.code))) ||
+          candidates.find((q) => !/^(sh|sz|bj|hk|us)/i.test(String(q.code))) ||
           (!reqMarket ? map.get(digits) : undefined);
       } else if (!reqMarket) {
         hit = map.get(digits);

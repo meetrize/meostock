@@ -2,7 +2,7 @@
  * 自选管理页
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -154,6 +154,7 @@ export function Watchlist() {
   const [draggedCode, setDraggedCode] = useState<string | null>(null);
   const [dragPreviewCodes, setDragPreviewCodes] = useState<string[] | null>(null);
   const [quotesError, setQuotesError] = useState(false);
+  const [quotesReady, setQuotesReady] = useState(false);
 
   // 当前分组
   const activeGroup =
@@ -191,9 +192,12 @@ export function Watchlist() {
     return !group || group.codes.length === 0;
   }, [groups, activeGroupId]);
 
-  // 加载行情
+  // 加载行情（cn/hk/us 混合自选由 quoteCache 分市场拉取）
   const fetchQuotes = useCallback(async () => {
     if (normalizedActiveCodes.length === 0) {
+      setQuotes(new Map());
+      setQuotesReady(true);
+      setQuotesError(false);
       return;
     }
 
@@ -201,14 +205,15 @@ export function Watchlist() {
       const data = await getQuotesByCodesPreferCache(normalizedActiveCodes);
       const map = new Map<string, FullQuote>();
 
-      // 使用标准化后的代码作为 key
+      // 使用标准化后的代码作为 key（含 usAAPL / hk00700）
       data.forEach((q) => {
         if (q && q.code) {
           const normalized = normalizeStockCode(q.code);
           map.set(normalized, q);
-          // 同时保存原始格式
           map.set(q.code, q);
           map.set(q.code.toLowerCase(), q);
+          const bare = normalized.replace(/^(sh|sz|bj|hk|us)/i, '');
+          if (bare && !map.has(bare)) map.set(bare, q);
         }
       });
 
@@ -257,16 +262,32 @@ export function Watchlist() {
     } catch (error) {
       console.error('Fetch quotes error:', error);
       setQuotesError(true);
+    } finally {
+      setQuotesReady(true);
     }
   }, [normalizedActiveCodes, toast]);
+
+  const activeCodesKey = normalizedActiveCodes.join(',');
+  useEffect(() => {
+    setQuotesReady(false);
+  }, [activeCodesKey]);
 
   // 轮询（优化：从 5s 改为 10s，减少 API 请求）
   usePolling(fetchQuotes, {
     interval: getRefreshInterval('list'),
     enabled: normalizedActiveCodes.length > 0,
     immediate: true,
-    refreshKey: normalizedActiveCodes.join(','),
+    refreshKey: activeCodesKey,
   });
+
+  // 空分组也要结束 loading，否则切回有票分组前会卡在「加载中」
+  useEffect(() => {
+    if (normalizedActiveCodes.length === 0) {
+      setQuotesReady(true);
+      setQuotes(new Map());
+      setQuotesError(false);
+    }
+  }, [normalizedActiveCodes.length]);
 
   // 创建分组
   const handleCreateGroup = () => {
@@ -397,7 +418,11 @@ export function Watchlist() {
 
     codes.forEach((code) => {
       const normalized = normalizeStockCode(code);
-      if (/^(sh|sz|bj)\d{6}$/i.test(normalized)) {
+      if (
+        /^(sh|sz|bj)\d{6}$/i.test(normalized) ||
+        /^hk\d{5}$/i.test(normalized) ||
+        /^us[a-z][a-z0-9.\-]{0,9}$/i.test(normalized)
+      ) {
         validCodes.add(normalized);
       } else {
         invalidCodes.add(code);
@@ -405,7 +430,7 @@ export function Watchlist() {
     });
 
     if (validCodes.size === 0) {
-      toast.warning('未识别到有效的 A 股代码');
+      toast.warning('未识别到有效的股票代码（支持 A 股 / 港股 / 美股）');
       return;
     }
 
@@ -474,14 +499,23 @@ export function Watchlist() {
     });
   }, []);
 
-  // 排序后的股票列表
+  // 排序后的股票列表：行情缺失时仍保留占位行，避免美股等「有自选但看不见」
   const sortedStocks = useMemo(() => {
     const orderedCodes = dragPreviewCodes ?? normalizedActiveCodes;
-    const stockList = orderedCodes
-      .map((code) => {
-        return quotes.get(code) || quotes.get(code.toLowerCase());
-      })
-      .filter((q): q is FullQuote => !!q);
+    const stockList = orderedCodes.map((code) => {
+      const hit = quotes.get(code) || quotes.get(code.toLowerCase());
+      if (hit) return hit;
+      const bare = code.replace(/^(sh|sz|bj|hk|us)/i, '') || code;
+      return {
+        code,
+        name: bare,
+        price: 0,
+        change: 0,
+        changePercent: 0,
+        volume: 0,
+        amount: 0,
+      } as FullQuote;
+    });
 
     if (sortField === 'default') {
       return stockList; // 保持原始顺序
@@ -640,7 +674,7 @@ export function Watchlist() {
             </div>
           }
         >
-          {!isEmptyGroup && quotes.size === 0 ? (
+          {!isEmptyGroup && !quotesReady ? (
             quotesError ? (
               <Empty title="行情加载失败" description="网络异常，将按刷新间隔自动重试" />
             ) : (
@@ -865,9 +899,11 @@ export function Watchlist() {
                   <p className={styles.modalHint}>
                     输入股票代码，支持以下格式：
                     <br />
-                    • 纯代码：000001, 600000
+                    • A 股：000001, sh600000
                     <br />
-                    • 带市场：sh600000, sz000001
+                    • 港股：00700, hk00700
+                    <br />
+                    • 美股：AAPL, usAAPL
                     <br />
                     • 多个代码用逗号、空格或换行分隔
                   </p>
