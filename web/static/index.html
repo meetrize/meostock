@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>K线演示 · stock-sdk + KLineChart</title>
   <script src="/static/klinecharts.min.js"></script>
-  <link rel="stylesheet" href="/static/kline-side.css" />
+  <link rel="stylesheet" href="/static/kline-side.css?v=20261116c" />
   <style>
     :root,
     html[data-theme="light"] {
@@ -1307,8 +1307,9 @@
     <iframe id="extEmbedFrame" title="扩展页面" referrerpolicy="no-referrer-when-downgrade"></iframe>
   </div>
 
-  <script src="/static/kline-side.js"></script>
-  <script src="/static/kline-ai.js"></script>
+  <script src="/static/marked.min.js"></script>
+  <script src="/static/kline-side.js?v=20261116c"></script>
+  <script src="/static/kline-ai.js?v=20261116c"></script>
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
 
@@ -5368,7 +5369,9 @@
     syncLoadHistoryBtn();
 
     try {
-      window.KlineAI?.init();
+      window.KlineAI?.init({
+        getSymbol: () => currentSymbol,
+      });
       window.SidePanel?.init({
         getSymbol: () => currentSymbol,
         getMarket: () => {
@@ -5386,12 +5389,14 @@
         },
         onTabChange: (tabId) => {
           try {
+            window.KlineAI?.setSymbol(currentSymbol, { period: currentPeriod });
             window.KlineAI?.onTab(tabId);
           } catch (_) {}
         },
         onSymbolChange: (symbol) => {
           try {
             window.KlineAI?.setSymbol(symbol, { period: currentPeriod });
+            window.KlineAI?.refreshReports?.();
           } catch (_) {}
         },
       });

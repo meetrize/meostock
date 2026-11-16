@@ -12,6 +12,7 @@
     health: null,
     abort: null,
     streaming: false,
+    getSymbol: null,
   };
 
   function uid() {
@@ -34,28 +35,78 @@
     } catch (_) {}
   }
 
+  /** A 股统一成 6 位代码；其它标的小写去空白，避免 sh605378 / 605378 分裂 */
   function threadKey(symbol) {
-    return String(symbol || "").trim().toLowerCase() || "_";
+    const s = String(symbol || "").trim().toLowerCase();
+    if (!s) return "_";
+    const m = s.match(/^(?:sh|sz|bj)?(\d{6})$/);
+    if (m) return m[1];
+    return s.replace(/^yf:/, "yf:").replace(/^fut:/, "fut:");
+  }
+
+  function liveSymbol() {
+    try {
+      if (typeof state.getSymbol === "function") {
+        const s = String(state.getSymbol() || "").trim();
+        if (s) return s;
+      }
+    } catch (_) {}
+    try {
+      const s = String(global.SidePanel?.getState?.()?.symbol || "").trim();
+      if (s) return s;
+    } catch (_) {}
+    return String(state.symbol || "").trim();
   }
 
   function getThread(symbol) {
     const all = loadThreads();
     const key = threadKey(symbol);
-    if (!all[key]) {
-      all[key] = { id: key, symbol, updatedAt: Date.now(), messages: [] };
-      saveThreads(all);
-    }
-    return all[key];
+    // 合并旧 key（带 sh/sz 前缀）到规范 key，避免报告散落
+    const aliases = Object.keys(all).filter(
+      (k) => k !== key && threadKey(k) === key
+    );
+    const existed = !!all[key];
+    let t = all[key] || {
+      id: key,
+      symbol: symbol || key,
+      updatedAt: Date.now(),
+      messages: [],
+    };
+    if (!Array.isArray(t.messages)) t.messages = [];
+    aliases.forEach((ak) => {
+      const old = all[ak];
+      if (!old) return;
+      const seen = new Set(t.messages.map((m) => m && m.id).filter(Boolean));
+      (old.messages || []).forEach((m) => {
+        if (m && m.id && !seen.has(m.id)) {
+          t.messages.push(m);
+          seen.add(m.id);
+        }
+      });
+      delete all[ak];
+    });
+    t.id = key;
+    t.symbol = symbol || t.symbol || key;
+    all[key] = t;
+    if (aliases.length || !existed) saveThreads(all);
+    return t;
   }
 
   function updateThread(symbol, mutator) {
     const all = loadThreads();
     const key = threadKey(symbol);
-    const t = all[key] || { id: key, symbol, updatedAt: Date.now(), messages: [] };
+    // 先走 getThread 合并别名
+    const merged = getThread(symbol);
+    const t = all[key] || merged;
     mutator(t);
     t.updatedAt = Date.now();
     t.symbol = symbol;
+    t.id = key;
     all[key] = t;
+    // 清掉同标的旧别名
+    Object.keys(all).forEach((k) => {
+      if (k !== key && threadKey(k) === key) delete all[k];
+    });
     saveThreads(all);
     return t;
   }
@@ -83,21 +134,32 @@
     return stripMd(msg.content).length >= REPORT_MIN_LEN;
   }
 
-  function collectReports() {
-    const all = loadThreads();
+  function sameSymbol(a, b) {
+    return threadKey(a) === threadKey(b);
+  }
+
+  /** 仅收集「当前 K 线标的」线程里的报告（按规范代码匹配） */
+  function collectReports(symbol) {
+    const symNow = String(symbol || liveSymbol() || "").trim();
+    const want = threadKey(symNow);
     const cards = [];
-    Object.values(all).forEach((thread) => {
-      (thread.messages || []).forEach((msg) => {
-        if (!isReportWorthy(msg)) return;
-        cards.push({
-          messageId: msg.id,
-          symbol: thread.symbol || thread.id,
-          updatedAt: msg.ts || thread.updatedAt || 0,
-          skillId: msg.skillId || "",
-          title: titleOf(msg.content),
-          summary: stripMd(msg.content).slice(0, 120),
-          content: msg.content,
-        });
+    if (!want || want === "_") return cards;
+    // 确保别名已合并到规范 key
+    getThread(symNow);
+    const all = loadThreads();
+    const thread = all[want];
+    if (!thread) return cards;
+    const displaySym = thread.symbol || symNow || want;
+    (thread.messages || []).forEach((msg) => {
+      if (!isReportWorthy(msg)) return;
+      cards.push({
+        messageId: msg.id,
+        symbol: displaySym,
+        updatedAt: msg.ts || thread.updatedAt || 0,
+        skillId: msg.skillId || "",
+        title: titleOf(msg.content),
+        summary: stripMd(msg.content).slice(0, 120),
+        content: msg.content,
       });
     });
     cards.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -140,8 +202,11 @@
       const div = document.createElement("div");
       div.className = `ai-bubble ${msg.role === "user" ? "user" : "assistant"}`;
       div.dataset.id = msg.id;
-      div.textContent = msg.content || "";
-      if (msg.streaming) div.classList.add("streaming-caret");
+      if (msg.role === "assistant") {
+        fillMarkdown(div, msg.content || "", { streaming: !!msg.streaming });
+      } else {
+        div.textContent = msg.content || "";
+      }
       box.appendChild(div);
     });
     box.scrollTop = box.scrollHeight;
@@ -186,12 +251,16 @@
   function renderReports() {
     const list = el("reportList");
     if (!list) return;
-    const cards = collectReports();
+    const sym = liveSymbol();
+    if (sym) state.symbol = sym;
+    const cards = collectReports(sym);
     list.innerHTML = "";
     if (!cards.length) {
       const empty = document.createElement("div");
       empty.className = "side-empty";
-      empty.textContent = "暂无报告。在 AI 对话中得到较长回复后会自动出现在这里。";
+      empty.textContent = sym
+        ? `暂无与 ${sym} 相关的报告。在 AI 对话中得到较长回复后会出现在这里。`
+        : "暂无报告。加载股票并在 AI 对话后会出现在这里。";
       list.appendChild(empty);
       return;
     }
@@ -217,6 +286,51 @@
       .replace(/"/g, "&quot;");
   }
 
+  function sanitizeHtml(html) {
+    try {
+      const doc = new DOMParser().parseFromString(
+        `<div class="ai-md-root">${html}</div>`,
+        "text/html"
+      );
+      const root = doc.body.querySelector(".ai-md-root") || doc.body;
+      root
+        .querySelectorAll("script,iframe,object,embed,link,meta,style,form")
+        .forEach((n) => n.remove());
+      root.querySelectorAll("*").forEach((node) => {
+        [...node.attributes].forEach((attr) => {
+          const name = attr.name || "";
+          const val = attr.value || "";
+          if (/^on/i.test(name) || (name === "href" && /^\s*javascript:/i.test(val))) {
+            node.removeAttribute(name);
+          }
+        });
+      });
+      return root.innerHTML;
+    } catch (_) {
+      return escapeHtml(html);
+    }
+  }
+
+  function renderMarkdown(text) {
+    const raw = String(text || "");
+    if (!raw) return "";
+    try {
+      if (global.marked && typeof global.marked.parse === "function") {
+        if (global.marked.setOptions) {
+          global.marked.setOptions({ gfm: true, breaks: true });
+        }
+        return sanitizeHtml(global.marked.parse(raw));
+      }
+    } catch (_) {}
+    return escapeHtml(raw).replace(/\n/g, "<br>");
+  }
+
+  function fillMarkdown(node, text, { streaming = false } = {}) {
+    if (!node) return;
+    node.innerHTML = `<div class="ai-md">${renderMarkdown(text)}</div>`;
+    node.classList.toggle("streaming-caret", !!streaming);
+  }
+
   function formatTime(ts) {
     if (!ts) return "";
     try {
@@ -232,7 +346,7 @@
     const title = el("reportDrawerTitle");
     if (!drawer || !body) return;
     if (title) title.textContent = card.title || "报告";
-    body.textContent = card.content || "";
+    fillMarkdown(body, card.content || "");
     drawer.classList.add("show");
     const askBtn = el("reportAskBtn");
     if (askBtn) {
@@ -366,8 +480,7 @@
             });
             const node = el("aiMsgs")?.querySelector(`[data-id="${asstMsg.id}"]`);
             if (node) {
-              node.textContent = full;
-              node.classList.add("streaming-caret");
+              fillMarkdown(node, full, { streaming: true });
               el("aiMsgs").scrollTop = el("aiMsgs").scrollHeight;
             } else {
               renderMessages();
@@ -432,20 +545,16 @@
   function setSymbol(symbol, { period } = {}) {
     const next = String(symbol || "").trim();
     if (period) state.period = period;
-    if (next === state.symbol) {
+    if (sameSymbol(next, state.symbol)) {
+      state.symbol = next || state.symbol;
       renderMessages();
+      renderReports();
       return;
     }
     if (state.streaming) stop();
     state.symbol = next;
     renderMessages();
-    const box = el("aiMsgs");
-    if (box && next) {
-      const note = document.createElement("div");
-      note.className = "ai-bubble system-note";
-      note.textContent = `已切换到 ${next}`;
-      // soft hint only once visually via messages empty state; skip injecting into storage
-    }
+    renderReports();
   }
 
   function setPeriod(period) {
@@ -453,13 +562,18 @@
   }
 
   function onTab(tabId) {
+    const sym = liveSymbol();
+    if (sym) state.symbol = sym;
     if (tabId === "report") renderReports();
     if (tabId === "ai") renderMessages();
   }
 
-  function init() {
+  function init(opts = {}) {
+    if (typeof opts.getSymbol === "function") state.getSymbol = opts.getSymbol;
     void refreshHealth();
     void refreshSkills();
+    const sym = liveSymbol();
+    if (sym) state.symbol = sym;
     renderMessages();
     renderReports();
     setComposerEnabled(true);
