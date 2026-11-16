@@ -12,6 +12,15 @@ export const DEFAULT_SETTINGS = {
   axisReverse: false,
   grid: true,
   hideYAxis: false,
+  /** 日 K 状态着色（与 index.html 对齐） */
+  statusLimitUp: true,
+  statusLimitDown: true,
+  statusOneWordUp: true,
+  statusOneWordDown: true,
+  colorLimitUp: "#F5C518",
+  colorLimitDown: "#7C3AED",
+  colorOneWordUp: "#FF9800",
+  colorOneWordDown: "#5B21B6",
 };
 
 /** 与 index.html #setCandleType 对齐 */

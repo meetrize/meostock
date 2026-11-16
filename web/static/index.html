@@ -483,6 +483,7 @@
     .candle-tip .tip-up { color: #F92855; font-weight: 600; }
     .candle-tip .tip-down { color: #2DC08E; font-weight: 600; }
     .candle-tip .tip-flat { color: #888888; font-weight: 600; }
+    .candle-tip .tip-status { font-weight: 650; margin-top: 2px; }
 
     .status {
       position: fixed;
@@ -574,6 +575,46 @@
       background: var(--input-bg);
       color: var(--text);
       font-size: 12px;
+    }
+    .setting-section-title {
+      margin: 16px 4px 4px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--text);
+    }
+    .setting-status {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 32px;
+      padding: 4px;
+    }
+    .setting-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 32px;
+      font-size: 13px;
+    }
+    .setting-status-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .setting-status-controls input[type="color"] {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: transparent;
+      cursor: pointer;
+    }
+    @media (max-width: 560px) {
+      .setting-status { grid-template-columns: 1fr; }
     }
     .switch {
       position: relative;
@@ -1101,6 +1142,41 @@
             </select>
           </div>
         </div>
+        <div class="setting-section-title">K 线状态颜色（仅日线）</div>
+        <div class="setting-grid setting-status" id="settingStatusGrid">
+          <div class="setting-status-row">
+            <span>收盘涨停</span>
+            <div class="setting-status-controls">
+              <input type="color" id="setColorLimitUp" value="#F5C518" title="涨停颜色" />
+              <label class="switch"><input type="checkbox" id="setStatusLimitUp" /><span class="slider"></span></label>
+            </div>
+          </div>
+          <div class="setting-status-row">
+            <span>收盘跌停</span>
+            <div class="setting-status-controls">
+              <input type="color" id="setColorLimitDown" value="#7C3AED" title="跌停颜色" />
+              <label class="switch"><input type="checkbox" id="setStatusLimitDown" /><span class="slider"></span></label>
+            </div>
+          </div>
+          <div class="setting-status-row">
+            <span>一字涨停</span>
+            <div class="setting-status-controls">
+              <input type="color" id="setColorOneWordUp" value="#FF9800" title="一字涨停颜色" />
+              <label class="switch"><input type="checkbox" id="setStatusOneWordUp" /><span class="slider"></span></label>
+            </div>
+          </div>
+          <div class="setting-status-row">
+            <span>一字跌停</span>
+            <div class="setting-status-controls">
+              <input type="color" id="setColorOneWordDown" value="#5B21B6" title="一字跌停颜色" />
+              <label class="switch"><input type="checkbox" id="setStatusOneWordDown" /><span class="slider"></span></label>
+            </div>
+          </div>
+        </div>
+        <p class="ext-hint" style="margin-top:8px">
+          按板块涨跌幅（主板10% / 创业科创20% / 北交所30% / ST 5%）判定收盘价是否触及涨跌停价；一字板优先于普通涨跌停色。
+          后续可加：触及未收板、炸板、地天/天地板、放量、跳空缺口。
+        </p>
         <p class="ext-hint" style="margin-top:12px">
           默认拉实时 K 线；开启「缓存模式」后只读本机 SQLite，不请求网络。
           「实时更新频率」控制行情与 K 线轮询间隔（Yahoo 标的不低于 60 秒）。
@@ -1408,6 +1484,15 @@
       cacheMode: false,
       /** 实时轮询秒数；0=关闭。默认 15 */
       refreshInterval: 15,
+      /** 日 K 状态着色 */
+      statusLimitUp: true,
+      statusLimitDown: true,
+      statusOneWordUp: true,
+      statusOneWordDown: true,
+      colorLimitUp: "#F5C518",
+      colorLimitDown: "#7C3AED",
+      colorOneWordUp: "#FF9800",
+      colorOneWordDown: "#5B21B6",
     };
     const DEFAULT_EXT_MENU = [
       { name: "雪球", url: "https://www.xueqiu.com/S/!!!!XXXXXX" },
@@ -2057,6 +2142,17 @@
       document.getElementById("setRefreshInterval").value = String(
         normalizeRefreshInterval(s.refreshInterval)
       );
+      document.getElementById("setStatusLimitUp").checked = !!s.statusLimitUp;
+      document.getElementById("setStatusLimitDown").checked = !!s.statusLimitDown;
+      document.getElementById("setStatusOneWordUp").checked = !!s.statusOneWordUp;
+      document.getElementById("setStatusOneWordDown").checked = !!s.statusOneWordDown;
+      document.getElementById("setColorLimitUp").value = s.colorLimitUp || DEFAULT_SETTINGS.colorLimitUp;
+      document.getElementById("setColorLimitDown").value =
+        s.colorLimitDown || DEFAULT_SETTINGS.colorLimitDown;
+      document.getElementById("setColorOneWordUp").value =
+        s.colorOneWordUp || DEFAULT_SETTINGS.colorOneWordUp;
+      document.getElementById("setColorOneWordDown").value =
+        s.colorOneWordDown || DEFAULT_SETTINGS.colorOneWordDown;
     }
 
     function readSettingForm() {
@@ -2075,9 +2171,21 @@
         refreshInterval: normalizeRefreshInterval(
           document.getElementById("setRefreshInterval").value
         ),
+        statusLimitUp: document.getElementById("setStatusLimitUp").checked,
+        statusLimitDown: document.getElementById("setStatusLimitDown").checked,
+        statusOneWordUp: document.getElementById("setStatusOneWordUp").checked,
+        statusOneWordDown: document.getElementById("setStatusOneWordDown").checked,
+        colorLimitUp: document.getElementById("setColorLimitUp").value || DEFAULT_SETTINGS.colorLimitUp,
+        colorLimitDown:
+          document.getElementById("setColorLimitDown").value || DEFAULT_SETTINGS.colorLimitDown,
+        colorOneWordUp:
+          document.getElementById("setColorOneWordUp").value || DEFAULT_SETTINGS.colorOneWordUp,
+        colorOneWordDown:
+          document.getElementById("setColorOneWordDown").value || DEFAULT_SETTINGS.colorOneWordDown,
       };
       saveChartSettings();
       applyChartSettings();
+      refreshCandleStatus();
       // 切换缓存/实时后按新模式重载当前标的
       if (prevCacheMode !== !!chartSettings.cacheMode && currentSymbol) {
         bindDataLoader(currentSymbol);
@@ -2103,6 +2211,7 @@
       saveChartSettings();
       syncSettingForm();
       applyChartSettings();
+      refreshCandleStatus();
       if (prevCacheMode !== !!chartSettings.cacheMode && currentSymbol) {
         bindDataLoader(currentSymbol);
       }
@@ -3616,6 +3725,8 @@
       priceEl.textContent = Number(q.price).toFixed(2);
       changeEl.textContent = `${sign}${change.toFixed(2)} (${sign}${pct.toFixed(2)}%)`;
       document.title = `${q.name || code} ${Number(q.price).toFixed(2)} · K线`;
+      // 名称到位后刷新 ST 等涨跌幅档位着色
+      refreshCandleStatus();
     }
 
     function createInd(name, isStack, paneId) {
@@ -3838,11 +3949,17 @@
         }
       }
 
+      const statusLabel = candleStatusLabel(k, prevClose, k.timestamp);
+      const statusHtml = statusLabel
+        ? `<div class="tip-status">状态: ${statusLabel}</div>`
+        : "";
+
       tip.innerHTML = `
         <div class="tip-date">${dateStr}</div>
         <div>开: ${tipNum(k.open)} 收: ${tipNum(k.close)}</div>
         <div>高: ${tipNum(k.high)} 低: ${tipNum(k.low)}</div>
         ${changeHtml}
+        ${statusHtml}
         <div>振幅: ${ampLabel}</div>
         <div>量: ${volWan}万手</div>
         <div>额: ${amountLabel}</div>
@@ -3866,6 +3983,313 @@
       if (top + th > wr.height - 8) top = Math.max(8, wr.height - th - 8);
       tip.style.left = `${Math.round(Math.max(8, left))}px`;
       tip.style.top = `${Math.round(Math.max(8, top))}px`;
+    }
+
+    // —— 日 K 涨跌停 / 一字板状态着色 ——
+    const CANDLE_STATUS_NAME = "CANDLE_STATUS";
+    const CYB_20PCT_SINCE = Date.parse("2020-08-24T00:00:00+08:00");
+    let candleStatusReady = false;
+    let candleStatusId = null;
+    let candleStatusCalcVer = 1;
+
+    function extractAshareCode(symbol) {
+      const s = String(symbol || "").trim().toLowerCase();
+      const m = s.match(/(\d{6})/);
+      return m ? m[1] : "";
+    }
+
+    /** 仅 A 股个股参与涨跌停着色（指数等跳过） */
+    function isAshareStockSymbol(symbol, market) {
+      const mkt = String(market || resolveMarket(symbol) || "").toUpperCase();
+      if (mkt !== "CN") return false;
+      const s = String(symbol || "").trim().toLowerCase();
+      const code = extractAshareCode(s);
+      if (!code || code.length !== 6) return false;
+      if (code.startsWith("399")) return false; // 深证指数
+      if (s.startsWith("sh") && code.startsWith("000")) return false; // 上证指数
+      // 沪深京个股：60/68/00/30/北交所 4/8 开头
+      return /^(60|68|00|30|4|8)/.test(code);
+    }
+
+    function isBjStock(symbol, code) {
+      const s = String(symbol || "").trim().toLowerCase();
+      if (s.startsWith("bj")) return true;
+      const c = code || extractAshareCode(s);
+      return /^(4|8)\d{5}$/.test(c);
+    }
+
+    /** 涨跌幅档位：ST 5% / 北交所 30% / 科创 20% / 创业板 20%(改革后) / 主板 10% */
+    function resolveCnLimitRate(symbol, name, timestamp) {
+      const nm = String(name || "");
+      if (/ST/i.test(nm)) return 0.05;
+      const code = extractAshareCode(symbol);
+      if (isBjStock(symbol, code)) return 0.3;
+      if (/^688|^689/.test(code)) return 0.2;
+      if (/^300|^301/.test(code)) {
+        const ts = Number(timestamp);
+        if (Number.isFinite(ts) && ts < CYB_20PCT_SINCE) return 0.1;
+        return 0.2;
+      }
+      return 0.1;
+    }
+
+    function roundLimitPrice(prevClose, rate) {
+      const p = Number(prevClose);
+      const r = Number(rate);
+      if (!Number.isFinite(p) || p <= 0 || !Number.isFinite(r)) return null;
+      return Math.round(p * (1 + r) * 100) / 100;
+    }
+
+    function priceEqFen(a, b) {
+      const x = Number(a);
+      const y = Number(b);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+      return Math.round(x * 100) === Math.round(y * 100);
+    }
+
+    function isOneWordBar(k) {
+      return (
+        priceEqFen(k.open, k.close) &&
+        priceEqFen(k.open, k.high) &&
+        priceEqFen(k.open, k.low)
+      );
+    }
+
+    /**
+     * @returns {'oneWordUp'|'limitUp'|'oneWordDown'|'limitDown'|null}
+     */
+    function classifyCandleStatus(k, prevClose, timestamp, symbol = currentSymbol, name = currentName) {
+      if (!k || !isAshareStockSymbol(symbol)) return null;
+      const prev = Number(prevClose);
+      if (!Number.isFinite(prev) || prev <= 0) return null;
+      const close = Number(k.close);
+      if (!Number.isFinite(close)) return null;
+      const rate = resolveCnLimitRate(symbol, name, timestamp ?? k.timestamp);
+      const limitUp = roundLimitPrice(prev, rate);
+      const limitDown = roundLimitPrice(prev, -rate);
+      if (limitUp == null || limitDown == null) return null;
+      const hitUp = close + 1e-8 >= limitUp;
+      const hitDown = close - 1e-8 <= limitDown;
+      if (hitUp) return isOneWordBar(k) ? "oneWordUp" : "limitUp";
+      if (hitDown) return isOneWordBar(k) ? "oneWordDown" : "limitDown";
+      return null;
+    }
+
+    function candleStatusLabel(k, prevClose, timestamp) {
+      if (currentPeriod !== "1d") return "";
+      const kind = classifyCandleStatus(k, prevClose, timestamp);
+      if (kind === "oneWordUp") return "一字涨停";
+      if (kind === "limitUp") return "涨停";
+      if (kind === "oneWordDown") return "一字跌停";
+      if (kind === "limitDown") return "跌停";
+      return "";
+    }
+
+    function resolveStatusDrawColor(kind, s = chartSettings) {
+      if (!kind) return null;
+      if (kind === "oneWordUp") {
+        if (s.statusOneWordUp) return s.colorOneWordUp || DEFAULT_SETTINGS.colorOneWordUp;
+        if (s.statusLimitUp) return s.colorLimitUp || DEFAULT_SETTINGS.colorLimitUp;
+        return null;
+      }
+      if (kind === "oneWordDown") {
+        if (s.statusOneWordDown) return s.colorOneWordDown || DEFAULT_SETTINGS.colorOneWordDown;
+        if (s.statusLimitDown) return s.colorLimitDown || DEFAULT_SETTINGS.colorLimitDown;
+        return null;
+      }
+      if (kind === "limitUp" && s.statusLimitUp) {
+        return s.colorLimitUp || DEFAULT_SETTINGS.colorLimitUp;
+      }
+      if (kind === "limitDown" && s.statusLimitDown) {
+        return s.colorLimitDown || DEFAULT_SETTINGS.colorLimitDown;
+      }
+      return null;
+    }
+
+    function buildCandleStatusExtendData() {
+      return {
+        symbol: currentSymbol,
+        name: currentName,
+        period: currentPeriod,
+        market: resolveMarket(currentSymbol),
+        settings: {
+          statusLimitUp: !!chartSettings.statusLimitUp,
+          statusLimitDown: !!chartSettings.statusLimitDown,
+          statusOneWordUp: !!chartSettings.statusOneWordUp,
+          statusOneWordDown: !!chartSettings.statusOneWordDown,
+          colorLimitUp: chartSettings.colorLimitUp || DEFAULT_SETTINGS.colorLimitUp,
+          colorLimitDown: chartSettings.colorLimitDown || DEFAULT_SETTINGS.colorLimitDown,
+          colorOneWordUp: chartSettings.colorOneWordUp || DEFAULT_SETTINGS.colorOneWordUp,
+          colorOneWordDown: chartSettings.colorOneWordDown || DEFAULT_SETTINGS.colorOneWordDown,
+        },
+      };
+    }
+
+    function ensureCandleStatusIndicator() {
+      if (candleStatusReady) return;
+      registerIndicator({
+        name: CANDLE_STATUS_NAME,
+        shortName: "",
+        series: "price",
+        precision: 2,
+        figures: [],
+        calcParams: [1],
+        createTooltipDataSource: () => ({
+          name: "",
+          calcParamsText: "",
+          values: [],
+          features: [],
+        }),
+        calc: (dataList, indicator) => {
+          const pack = indicator.extendData || {};
+          const symbol = pack.symbol || "";
+          const name = pack.name || "";
+          const period = pack.period || "";
+          const market = pack.market || "";
+          const s = { ...DEFAULT_SETTINGS, ...(pack.settings || {}) };
+          if (period !== "1d" || !isAshareStockSymbol(symbol, market)) {
+            return (dataList || []).map(() => ({}));
+          }
+          return (dataList || []).map((bar, i) => {
+            const prev = i > 0 ? dataList[i - 1]?.close : null;
+            const kind = classifyCandleStatus(bar, prev, bar?.timestamp, symbol, name);
+            const color = resolveStatusDrawColor(kind, s);
+            if (!color) return {};
+            return { kind, color };
+          });
+        },
+        draw: ({ ctx, chart: c, indicator, xAxis, yAxis }) => {
+          if (!ctx || !c || !xAxis || !yAxis) return false;
+          const result = indicator?.result || [];
+          if (!result.length) return false;
+          const dataList = c.getDataList?.() || [];
+          const range = c.getVisibleRange?.() || { from: 0, to: dataList.length };
+          const barSpace = c.getBarSpace?.() || {};
+          const halfGap =
+            Number(barSpace.halfGapBar) ||
+            (Number(barSpace.gapBar) ? Number(barSpace.gapBar) / 2 : 3);
+          const candleType = chartSettings.candleType || "candle_solid";
+          if (candleType === "area") return false;
+
+          const from = Math.max(0, Math.floor(Number(range.from) || 0));
+          const to = Math.min(
+            dataList.length - 1,
+            Math.ceil(Number(range.to) || dataList.length - 1)
+          );
+
+          for (let i = from; i <= to; i++) {
+            const tag = result[i];
+            const color = tag?.color;
+            if (!color) continue;
+            const k = dataList[i];
+            if (!k || !Number.isFinite(Number(k.close))) continue;
+            const o = Number(k.open);
+            const h = Number(k.high);
+            const l = Number(k.low);
+            const cl = Number(k.close);
+            if (![o, h, l, cl].every(Number.isFinite)) continue;
+
+            const x = xAxis.convertToPixel(i);
+            if (!Number.isFinite(x)) continue;
+            const yO = yAxis.convertToPixel(o);
+            const yC = yAxis.convertToPixel(cl);
+            const yH = yAxis.convertToPixel(h);
+            const yL = yAxis.convertToPixel(l);
+            if (![yO, yC, yH, yL].every(Number.isFinite)) continue;
+
+            const bodyTop = Math.min(yO, yC);
+            const bodyBottom = Math.max(yO, yC);
+            const bodyH = Math.max(1, bodyBottom - bodyTop);
+            const wickX = Math.round(x) + 0.5;
+            const left = Math.round(x - halfGap);
+            const width = Math.max(1, Math.round(halfGap * 2));
+
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 1;
+            // 影线
+            ctx.beginPath();
+            ctx.moveTo(wickX, yH);
+            ctx.lineTo(wickX, yL);
+            ctx.stroke();
+            // 实体：默认实心覆盖；空心类型画描边
+            const strokeOnly =
+              candleType === "candle_stroke" ||
+              (candleType === "candle_up_stroke" && cl >= o) ||
+              (candleType === "candle_down_stroke" && cl < o);
+            if (strokeOnly || candleType === "ohlc") {
+              if (candleType === "ohlc") {
+                ctx.beginPath();
+                ctx.moveTo(left, yO);
+                ctx.lineTo(wickX, yO);
+                ctx.moveTo(wickX, yC);
+                ctx.lineTo(left + width, yC);
+                ctx.moveTo(wickX, yH);
+                ctx.lineTo(wickX, yL);
+                ctx.stroke();
+              } else {
+                ctx.strokeRect(left + 0.5, bodyTop + 0.5, Math.max(1, width - 1), bodyH);
+              }
+            } else {
+              ctx.fillRect(left, bodyTop, width, bodyH);
+            }
+            ctx.restore();
+          }
+          return false;
+        },
+      });
+      candleStatusReady = true;
+    }
+
+    function refreshCandleStatus() {
+      if (!chart) return;
+      ensureCandleStatusIndicator();
+      const extendData = buildCandleStatusExtendData();
+      candleStatusCalcVer += 1;
+      const calcParams = [candleStatusCalcVer];
+      try {
+        if (candleStatusId) {
+          chart.overrideIndicator({
+            id: candleStatusId,
+            calcParams,
+            extendData,
+            visible: true,
+          });
+        } else {
+          const existing = (chart.getIndicators?.() || []).find(
+            (ind) => ind.name === CANDLE_STATUS_NAME
+          );
+          if (existing?.id) {
+            candleStatusId = existing.id;
+            chart.overrideIndicator({
+              id: candleStatusId,
+              calcParams,
+              extendData,
+              visible: true,
+            });
+          } else {
+            const id = chart.createIndicator(
+              {
+                name: CANDLE_STATUS_NAME,
+                paneId: "candle_pane",
+                calcParams,
+                extendData,
+                createTooltipDataSource: () => ({
+                  name: "",
+                  calcParamsText: "",
+                  values: [],
+                  features: [],
+                }),
+              },
+              true
+            );
+            candleStatusId = id || candleStatusId;
+          }
+        }
+      } catch (e) {
+        console.error("refreshCandleStatus", e);
+      }
     }
 
     function ensureChart(market) {
@@ -3894,10 +4318,11 @@
         } catch (_) {}
       });
 
-      // 默认主图 MA + 副图 VOL / MACD
+      // 默认主图 MA + 涨跌停着色 + 副图 VOL / MACD
       mainIndicators = ["MA"];
       subIndicators = {};
       createInd("MA", true, "candle_pane");
+      refreshCandleStatus();
       const volPane = createInd("VOL", false);
       if (volPane) subIndicators.VOL = volPane;
       const macdPane = createInd("MACD", false);
@@ -4098,6 +4523,7 @@
           setStatus(statusText);
           queueMicrotask(() => {
             if (seq !== chartLoadSeq) return;
+            refreshCandleStatus();
             refreshCompareOverlays();
             placeCnTestLabel(period === "fs" ? bars : raw);
             try {
@@ -4120,6 +4546,7 @@
       // ticker 仍用于内部，但图上标题已关闭，不显示代码
       c.setSymbol({ ticker: symbol, pricePrecision: 2, volumePrecision: 0 });
       c.setPeriod(PERIOD_MAP[currentPeriod]);
+      refreshCandleStatus();
       if (currentPeriod !== "fs") resetFsCache();
       const seq = ++chartLoadSeq;
       pendingChartBars = null;
@@ -4323,6 +4750,7 @@
             }
             queueMicrotask(() => {
               if (seq !== chartLoadSeq) return;
+              refreshCandleStatus();
               refreshCompareOverlays();
               placeCnTestLabel(bars);
               try {
@@ -4733,7 +5161,14 @@
     };
     document.getElementById("settingReset").addEventListener("click", resetChartSettings);
     document.getElementById("settingModal").addEventListener("change", (e) => {
-      if (e.target.closest(".setting-grid")) readSettingForm();
+      if (e.target.closest(".setting-grid") || e.target.closest(".setting-status")) {
+        readSettingForm();
+      }
+    });
+    document.getElementById("settingModal").addEventListener("input", (e) => {
+      if (e.target?.type === "color" && e.target.closest(".setting-status")) {
+        readSettingForm();
+      }
     });
     document.getElementById("maConfirm").addEventListener("click", confirmMaSetting);
     document.querySelectorAll("[data-close]").forEach((btn) => {
