@@ -5,10 +5,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-WEB_HOST="${WEB_HOST:-127.0.0.1}"
+WEB_HOST="${WEB_HOST:-0.0.0.0}"
 WEB_PORT="${WEB_PORT:-8765}"
 DAPAN_PORT="${DAPAN_PORT:-8766}"
-BASE="http://${WEB_HOST}:${WEB_PORT}"
+# 展示用：0.0.0.0 时改用本机回环，避免打印无效 URL
+SHOW_HOST="127.0.0.1"
+if [[ "${WEB_HOST}" != "0.0.0.0" && "${WEB_HOST}" != "::" ]]; then
+  SHOW_HOST="${WEB_HOST}"
+fi
+BASE="http://${SHOW_HOST}:${WEB_PORT}"
 
 print_banner() {
   cat <<EOF
@@ -43,8 +48,10 @@ print_banner() {
     period                       1m 5m 15m 1h 1d 1w
 
   ── 环境变量（可选）────────────────────────────────────────
-    WEB_PORT=8765  DAPAN_PORT=8766
+    WEB_HOST=0.0.0.0（默认，局域网可访问）  WEB_PORT=8765
+    DAPAN_PORT=8766
     复制 .env.example → .env 可配置 TUSHARE_TOKEN 等
+    公网 frp: http://117.72.44.160:53076/
 
   Ctrl+C 可同时停止全部服务
 ══════════════════════════════════════════════════════════════

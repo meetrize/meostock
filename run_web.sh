@@ -104,17 +104,28 @@ if [[ -f "${ROOT}/.env" ]]; then
   set +a
 fi
 
+# 默认 0.0.0.0：本机 + 局域网可访问；需要仅本机时设 WEB_HOST=127.0.0.1
+WEB_HOST="${WEB_HOST:-0.0.0.0}"
+WEB_PORT="${WEB_PORT:-8765}"
+LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
+
 export PYTHONPATH="${ROOT}/web:${PYTHONPATH:-}"
 cd "${ROOT}/web"
 echo ""
-echo "服务已就绪（Ctrl+C 停止全部）："
-echo "  K 线:     http://127.0.0.1:8765/"
-echo "  看板:     http://127.0.0.1:8765/dashboard/"
-echo "  行情:     http://127.0.0.1:8765/dashboard/quotes"
-echo "  大盘云图: http://127.0.0.1:8765/dapan/"
-echo "  涨停复盘: http://127.0.0.1:8765/fupan"
-echo "  插件中转: http://127.0.0.1:8765/xnge/"
-echo "  示例:     http://127.0.0.1:8765/?symbol=600036&period=1d"
+echo "服务已就绪（Ctrl+C 停止全部）· 监听 ${WEB_HOST}:${WEB_PORT}"
+echo "  本机:"
+echo "    K 线:     http://127.0.0.1:${WEB_PORT}/"
+echo "    看板:     http://127.0.0.1:${WEB_PORT}/dashboard/"
+echo "    行情:     http://127.0.0.1:${WEB_PORT}/dashboard/quotes"
+echo "    大盘云图: http://127.0.0.1:${WEB_PORT}/dapan/"
+echo "    涨停复盘: http://127.0.0.1:${WEB_PORT}/fupan"
+echo "    插件中转: http://127.0.0.1:${WEB_PORT}/xnge/"
+if [[ -n "${LAN_IP}" ]]; then
+  echo "  局域网:"
+  echo "    http://${LAN_IP}:${WEB_PORT}/"
+  echo "    http://${LAN_IP}:${WEB_PORT}/dashboard/quotes"
+fi
+echo "  公网(frp): http://117.72.44.160:53076/"
 echo ""
 # 不用 exec，以便 EXIT trap 能停掉大盘云图子进程
-python -m uvicorn server:app --host 127.0.0.1 --port 8765
+python -m uvicorn server:app --host "${WEB_HOST}" --port "${WEB_PORT}"
