@@ -2,9 +2,9 @@
  * Tushare 专题短名单
  */
 
-import { useNavigate } from 'react-router-dom';
 import { Empty } from '@/components/common';
-import { formatPercent, getChangeColorClass } from '@/utils/format';
+import { formatPercent, getChangeColorClass, normalizeStockCode } from '@/utils/format';
+import { openKlineTool } from '@/utils/multipanel';
 import { estimateVisibleRows } from '../widgetCatalog';
 import { usePortalMarkets } from '../portalMarketsContext';
 import type { PortalWidgetType } from '../types';
@@ -23,7 +23,6 @@ function cell(row: Record<string, unknown>, key: string): string {
 }
 
 export function TopicListWidget({ type, gridH }: Props) {
-  const navigate = useNavigate();
   const { topics } = usePortalMarkets();
   const topic = topics[type as PortalWidgetType];
   const limit = estimateVisibleRows(gridH);
@@ -64,7 +63,8 @@ export function TopicListWidget({ type, gridH }: Props) {
               type="button"
               className={styles.topicRow}
               onClick={() => {
-                if (code && code !== '--') navigate(`/s/${code}`);
+                if (!code || code === '--') return;
+                openKlineTool(normalizeStockCode(code) || code);
               }}
             >
               <div className={styles.stockInfo}>

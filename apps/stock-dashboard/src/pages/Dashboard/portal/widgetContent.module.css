@@ -201,6 +201,13 @@
   flex-direction: column;
 }
 
+/* 首页自选：撑满面板；条目少时均分行高，多时可滚动 */
+.watchlist {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
 .watchlistItem {
   display: grid;
   grid-template-columns: 1fr auto auto;
@@ -209,6 +216,14 @@
   padding: 6px 0;
   border-bottom: 1px solid var(--border-secondary);
   cursor: pointer;
+}
+
+/* 首页自选：名称+代码同行，行高更紧凑并均分填满 */
+.watchlist .watchlistItem {
+  flex: 1 1 0;
+  gap: var(--spacing-sm);
+  padding: 2px 0;
+  min-height: 22px;
 }
 
 .watchlistItem:last-child {
@@ -230,6 +245,12 @@
   min-width: 0;
 }
 
+.watchlist .stockInfo {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .stockName {
   font-size: var(--font-size-sm);
   color: var(--text-primary);
@@ -238,10 +259,32 @@
   white-space: nowrap;
 }
 
+.watchlist .stockName {
+  flex: 0 1 auto;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
 .stockCode {
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   color: var(--text-tertiary);
+}
+
+.watchlist .stockCode {
+  flex: 0 0 auto;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.watchlist .stockPrice,
+.watchlist .stockChange {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.watchlist .stockChange {
+  min-width: 52px;
 }
 
 .stockPrice {

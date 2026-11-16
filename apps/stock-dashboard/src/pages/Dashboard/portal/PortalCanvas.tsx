@@ -11,6 +11,7 @@ import { WidgetChrome } from './WidgetChrome';
 import { renderWidget } from './widgets';
 import { getIndexCodeByType, isIndexWidgetType } from './indexCatalog';
 import { getSparkPanel, isSparkWidgetType } from './sparkCatalog';
+import { openKlineTool } from '@/utils/multipanel';
 import {
   PORTAL_COLS,
   PORTAL_GUTTER,
@@ -29,17 +30,12 @@ function isCompactWidgetType(type: string): boolean {
   );
 }
 
-function openIndexKline(code: string) {
-  const symbol = encodeURIComponent(code);
-  window.open(`/?symbol=${symbol}&period=1d`, '_blank', 'noopener,noreferrer');
-}
-
 function titleClickFor(type: string): (() => void) | undefined {
   if (isIndexWidgetType(type)) {
-    return () => openIndexKline(getIndexCodeByType(type));
+    return () => openKlineTool(getIndexCodeByType(type));
   }
   if (isSparkWidgetType(type)) {
-    return () => openIndexKline(getSparkPanel(type).klineSymbol);
+    return () => openKlineTool(getSparkPanel(type).klineSymbol);
   }
   return undefined;
 }

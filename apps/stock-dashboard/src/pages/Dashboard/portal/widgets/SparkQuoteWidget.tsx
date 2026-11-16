@@ -15,6 +15,7 @@ import {
   getChangeColorClass,
   normalizeStockCode,
 } from '@/utils/format';
+import { openKlineTool } from '@/utils/multipanel';
 import type { QuoteSource } from '@/types';
 import { useWidgetHeaderSlot } from '../widgetHeaderSlotContext';
 import styles from '../widgetContent.module.css';
@@ -46,8 +47,7 @@ function sameCode(a: string, b: string): boolean {
 }
 
 function openDailyKline(symbol: string) {
-  const s = encodeURIComponent(symbol);
-  window.open(`/?symbol=${s}&period=1d`, '_blank', 'noopener,noreferrer');
+  openKlineTool(symbol);
 }
 
 async function fetchDailyBars(

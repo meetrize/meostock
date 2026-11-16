@@ -52,7 +52,7 @@ export function renderWidget(
     case 'macro.rates':
       return <MacroRatesWidget />;
     case 'watchlist':
-      return <WatchlistWidget gridH={gridH} />;
+      return <WatchlistWidget />;
     case 'marketRanking':
       return <MarketRankingWidget gridH={gridH} gridW={gridW} />;
     case 'fundFlowRank':

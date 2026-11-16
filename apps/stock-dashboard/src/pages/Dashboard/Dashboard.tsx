@@ -21,6 +21,7 @@ import {
 import { selectAllCodes, watchlistStore } from '@/services/watchlistStore';
 import { isLimitDown, isLimitUp } from '@/services/analysis';
 import { normalizeStockCode } from '@/utils/format';
+import { openKlineTool } from '@/utils/multipanel';
 import type { FullQuote } from 'stock-sdk';
 import {
   DashboardDataContext,
@@ -216,13 +217,10 @@ export function Dashboard() {
     if (mobile && editing) setEditing(false);
   }, [mobile, editing]);
 
-  const handleStockClick = useCallback(
-    (code: string) => {
-      const route = normalizeStockCode(code) || code;
-      navigate(`/s/${route}`);
-    },
-    [navigate]
-  );
+  const handleStockClick = useCallback((code: string) => {
+    const symbol = normalizeStockCode(code) || code;
+    openKlineTool(symbol);
+  }, []);
 
   const handleBoardClick = useCallback(
     (code: string, type: 'industry' | 'concept') => {

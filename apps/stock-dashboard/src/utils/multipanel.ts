@@ -1,6 +1,14 @@
 /**
- * 打开多面板 K 线页（/multipanel）
+ * 打开多面板 / 单标的 K 线工具
  */
+
+/** 打开根路径 K 线工具（与行情页、详情页一致：/?symbol=&period=1d） */
+export function openKlineTool(symbol: string, period = '1d'): void {
+  const sym = String(symbol || '').trim();
+  if (!sym) return;
+  const qs = new URLSearchParams({ symbol: sym, period });
+  window.open(`/?${qs.toString()}`, '_blank', 'noopener,noreferrer');
+}
 
 /** 按标的数量选常用布局 */
 export function pickMultipanelLayout(count: number): string {
