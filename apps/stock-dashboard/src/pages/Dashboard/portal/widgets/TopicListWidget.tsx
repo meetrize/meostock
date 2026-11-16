@@ -3,10 +3,12 @@
  */
 
 import { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Empty } from '@/components/common';
 import { formatPercent, getChangeColorClass, normalizeStockCode } from '@/utils/format';
 import { openKlineTool } from '@/utils/multipanel';
 import { usePortalMarkets } from '../portalMarketsContext';
+import { useWidgetHeaderSlot } from '../widgetHeaderSlotContext';
 import type { PortalWidgetType } from '../types';
 import styles from '../widgetContent.module.css';
 
@@ -63,6 +65,7 @@ function limitSortKey(row: Record<string, unknown>): number {
 }
 
 export function TopicListWidget({ type }: Props) {
+  const headerSlot = useWidgetHeaderSlot();
   const { topics } = usePortalMarkets();
   const topic = topics[type as PortalWidgetType];
   const rawItems = topic?.items || [];
@@ -80,80 +83,100 @@ export function TopicListWidget({ type }: Props) {
     });
   }, [rawItems, type]);
 
+  const headerMeta = useMemo(() => {
+    if (!topic?.tradeDate) return null;
+    const parts = [topic.tradeDate];
+    if (type === 'topic.limitList') parts.push('按首次封板');
+    if (topic.syncing) parts.push('同步中');
+    return parts.join(' · ');
+  }, [topic?.tradeDate, topic?.syncing, type]);
+
+  const headerPortal =
+    headerSlot && headerMeta
+      ? createPortal(
+          <span className={styles.topicHeaderMeta} title={headerMeta}>
+            {headerMeta}
+          </span>,
+          headerSlot
+        )
+      : null;
+
   if (!items.length) {
     return (
-      <Empty
-        title={topic?.error ? '加载失败' : '暂无数据'}
-        description={
-          topic?.error ||
-          (topic?.tradeDate
-            ? `${topic.tradeDate} 无记录，可稍后同步 Tushare`
-            : '可在顶栏同步 Tushare 轨')
-        }
-      />
+      <>
+        {headerPortal}
+        <Empty
+          title={topic?.error ? '加载失败' : '暂无数据'}
+          description={
+            topic?.error ||
+            (topic?.tradeDate
+              ? `${topic.tradeDate} 无记录，可稍后同步 Tushare`
+              : '可在顶栏同步 Tushare 轨')
+          }
+        />
+      </>
     );
   }
 
   return (
-    <div className={styles.topicList}>
-      {topic?.tradeDate && (
-        <div className={styles.topicMeta}>
-          <span>
-            {topic.tradeDate}
-            {type === 'topic.limitList' ? ' · 按首次封板' : ''}
-          </span>
-          {topic.syncing && <span>同步中</span>}
+    <>
+      {headerPortal}
+      <div className={styles.topicList}>
+        <div className={styles.topicRows}>
+          {items.map((row, idx) => {
+            const code = cell(row, 'code');
+            const name = cell(row, 'name');
+            const displayCode =
+              code === '--'
+                ? code
+                : code.replace(/^(sh|sz|bj|hk|us)/i, '') || code;
+            const pct = Number(row.pctChg ?? row.changePercent ?? row.pct_chg);
+            const limitFlag = cell(row, 'limit');
+            const reason = cell(row, 'reason') || cell(row, 'explanation');
+            const timeRaw =
+              row.firstTime ?? row.first_time ?? row.lastTime ?? row.last_time;
+            const timeText =
+              type === 'topic.limitList' ? formatLimitTime(timeRaw) : '';
+            return (
+              <button
+                key={`${code}-${idx}`}
+                type="button"
+                className={styles.topicRow}
+                title={
+                  type === 'topic.limitList' && timeText
+                    ? `首次封板 ${String(timeRaw || timeText)}`
+                    : undefined
+                }
+                onClick={() => {
+                  if (!code || code === '--') return;
+                  openKlineTool(normalizeStockCode(code) || code);
+                }}
+              >
+                <div className={styles.stockInfo}>
+                  <span className={styles.stockName}>{name}</span>
+                  <span className={styles.stockCode}>{displayCode}</span>
+                </div>
+                <div className={styles.topicRight}>
+                  {timeText ? (
+                    <span className={styles.topicTime}>{timeText}</span>
+                  ) : null}
+                  {Number.isFinite(pct) ? (
+                    <span className={getChangeColorClass(pct)}>
+                      {formatPercent(pct)}
+                    </span>
+                  ) : null}
+                  {limitFlag !== '--' && (
+                    <span className={styles.topicTag}>{limitFlag}</span>
+                  )}
+                  {type === 'topic.topList' && reason !== '--' && (
+                    <span className={styles.topicTag}>{reason}</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
-      )}
-      <div className={styles.topicRows}>
-        {items.map((row, idx) => {
-          const code = cell(row, 'code');
-          const name = cell(row, 'name');
-          const displayCode =
-            code === '--'
-              ? code
-              : code.replace(/^(sh|sz|bj|hk|us)/i, '') || code;
-          const pct = Number(row.pctChg ?? row.changePercent ?? row.pct_chg);
-          const limitFlag = cell(row, 'limit');
-          const reason = cell(row, 'reason') || cell(row, 'explanation');
-          const timeRaw = row.firstTime ?? row.first_time ?? row.lastTime ?? row.last_time;
-          const timeText =
-            type === 'topic.limitList' ? formatLimitTime(timeRaw) : '';
-          return (
-            <button
-              key={`${code}-${idx}`}
-              type="button"
-              className={styles.topicRow}
-              title={
-                type === 'topic.limitList' && timeText
-                  ? `首次封板 ${String(timeRaw || timeText)}`
-                  : undefined
-              }
-              onClick={() => {
-                if (!code || code === '--') return;
-                openKlineTool(normalizeStockCode(code) || code);
-              }}
-            >
-              <div className={styles.stockInfo}>
-                <span className={styles.stockName}>{name}</span>
-                <span className={styles.stockCode}>{displayCode}</span>
-              </div>
-              <div className={styles.topicRight}>
-                {timeText ? <span className={styles.topicTime}>{timeText}</span> : null}
-                {Number.isFinite(pct) ? (
-                  <span className={getChangeColorClass(pct)}>{formatPercent(pct)}</span>
-                ) : null}
-                {limitFlag !== '--' && (
-                  <span className={styles.topicTag}>{limitFlag}</span>
-                )}
-                {type === 'topic.topList' && reason !== '--' && (
-                  <span className={styles.topicTag}>{reason}</span>
-                )}
-              </div>
-            </button>
-          );
-        })}
       </div>
-    </div>
+    </>
   );
 }

@@ -644,23 +644,27 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 标题栏副信息：交易日 / 排序说明 */
+.topicHeaderMeta {
+  margin-right: auto;
+  padding-left: 2px;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
 /* 专题名单（涨跌停等）：紧凑 + 名称代码同行 + 撑满 */
 .topicList {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  gap: 2px;
-}
-
-.topicMeta {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 10px;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-  line-height: 1.2;
+  gap: 0;
 }
 
 .topicRows {
