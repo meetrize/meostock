@@ -294,7 +294,7 @@ export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
   'topic.limitList': {
     type: 'topic.limitList',
     name: '涨跌停名单',
-    description: 'Tushare 涨停/跌停明细',
+    description: '盘中实时涨跌停 / 收盘 Tushare',
     group: 'sentiment',
     lane: 'tushare',
     defaultLayout: { ...LIST_LAYOUT, h: 10 },

@@ -15,6 +15,7 @@ from cache import models as cache_models
 from tsrelay import store
 from tsrelay.catalog import MARKET_SPECS, catalog_payload, find_nav_leaf
 from tsrelay.client import get_client
+from tsrelay.live_limit import fetch_live_limit, shanghai_ymd, use_live_limit_now
 from tsrelay.markets import (
     enrich_limit_down_first_times,
     fetch_market,
@@ -43,6 +44,37 @@ def _disabled() -> JSONResponse:
         {"ok": False, "error": "Tushare 网关已关闭 (TUSHARE_ENABLED=0)", "error_code": "disabled"},
         status_code=503,
     )
+
+
+def _limit_calendar() -> dict[str, Any]:
+    return resolve_trade_date(prefer_today=True)
+
+
+def _limit_live_response(*, force: bool = False, trade_date: str | None = None) -> dict[str, Any]:
+    td = (trade_date or shanghai_ymd()).strip()
+    return fetch_live_limit(td, force=force)
+
+
+def _maybe_live_limit_fallback(
+    market_id: str,
+    payload: dict[str, Any] | None,
+    *,
+    force: bool = False,
+) -> dict[str, Any] | None:
+    """收盘后 Tushare 当日仍空时，回退选股宝当日实时池（不回昨天）。"""
+    if market_id != "ts:limit" or not payload:
+        return None
+    if payload.get("items"):
+        return None
+    cal = _limit_calendar()
+    last_open = str(cal.get("last_open") or "")
+    today = shanghai_ymd()
+    if not last_open or last_open != today:
+        return None
+    live = _limit_live_response(force=force, trade_date=today)
+    if live.get("ok") and (live.get("items") or []):
+        return live
+    return None
 
 
 class SyncBody(BaseModel):
@@ -109,6 +141,29 @@ def _maybe_enrich_limit_cache(
     return enriched
 
 
+def _limit_cache_matches_trade_date(
+    market_id: str,
+    td_key: str,
+    items: list[dict[str, Any]],
+) -> bool:
+    """涨跌停缓存须与请求交易日一致；旧缓存无行级日期时视为不可信（曾回退昨天）。"""
+    if market_id != "ts:limit":
+        return True
+    if not items:
+        return True
+    saw_row_td = False
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        row_td = str(it.get("tradeDate") or it.get("trade_date") or "").strip()
+        if not row_td:
+            continue
+        saw_row_td = True
+        if row_td != td_key:
+            return False
+    return saw_row_td
+
+
 def _serve_cached(market_id: str, trade_date: str | None, *, force: bool) -> dict[str, Any] | None:
     store.ensure_schema()
     td_key = _trade_key(market_id, trade_date)
@@ -119,6 +174,8 @@ def _serve_cached(market_id: str, trade_date: str | None, *, force: bool) -> dic
         return None
     quote_source = cache_models.get_quote_source()
     items = _maybe_enrich_limit_cache(market_id, td_key, snap)
+    if not _limit_cache_matches_trade_date(market_id, td_key, items):
+        return None
     # local / auto：有切片即返回；network 或 force：返回但仍可后台刷
     out = {
         "ok": True,
@@ -213,34 +270,65 @@ def market(
     quote_source = cache_models.get_quote_source()
     force_b = bool(force)
 
+    # 涨跌停：盘中强制选股宝实时池（不读会被空表污染的 Tushare 当日缓存）
+    if id == "ts:limit":
+        cal = _limit_calendar()
+        if use_live_limit_now(last_open=str(cal.get("last_open") or "")):
+            live_lim = _limit_live_response(
+                force=force_b,
+                trade_date=trade_date or str(cal.get("trade_date") or shanghai_ymd()),
+            )
+            status = 200 if live_lim.get("ok") else 502
+            return JSONResponse(live_lim, status_code=status)
+
     # 1) 读缓存
     cached = _serve_cached(id, trade_date, force=force_b)
     if cached and quote_source == "local":
-        return JSONResponse(cached)
+        fb = _maybe_live_limit_fallback(id, cached, force=force_b)
+        return JSONResponse(fb or cached)
     if cached and not force_b and quote_source == "auto":
+        # 涨跌停等盘中专题：缓存超过 5 分钟或空表时后台重拉，避免一直停在「当日尚无/旧切片」
+        if market_prefer_today(id) and get_client().configured():
+            synced_at = float(cached.get("synced_at") or 0)
+            age = time.time() - synced_at if synced_at else 1e9
+            empty = not (cached.get("items") or [])
+            if empty:
+                fb = _maybe_live_limit_fallback(id, cached, force=force_b)
+                if fb:
+                    return JSONResponse(fb)
+            if age >= 300 or empty:
+                start_worker()
+                start_sync(id, trade_date=trade_date, force=True)
+                return JSONResponse({**cached, "syncing": True, "stale": True})
         return JSONResponse(cached)
 
     # 2) local 且无缓存
     if quote_source == "local":
-        return JSONResponse(
-            {
-                "ok": True,
-                "id": id,
-                "items": [],
-                "total": 0,
-                "columns": (MARKET_SPECS.get(id) or {}).get("columns") or [],
-                "table": (MARKET_SPECS.get(id) or {}).get("table") or "topic",
-                "label": (MARKET_SPECS.get(id) or {}).get("label") or id,
-                "cached": False,
-                "error": None,
-                "hint": "本地无缓存，请切换自动/网络或点击同步",
-                "trade_date": trade_date,
-            }
-        )
+        empty_local = {
+            "ok": True,
+            "id": id,
+            "items": [],
+            "total": 0,
+            "columns": (MARKET_SPECS.get(id) or {}).get("columns") or [],
+            "table": (MARKET_SPECS.get(id) or {}).get("table") or "topic",
+            "label": (MARKET_SPECS.get(id) or {}).get("label") or id,
+            "cached": False,
+            "error": None,
+            "hint": "本地无缓存，请切换自动/网络或点击同步",
+            "trade_date": trade_date,
+        }
+        fb = _maybe_live_limit_fallback(id, empty_local, force=force_b)
+        return JSONResponse(fb or empty_local)
 
     if not get_client().configured():
         if cached:
-            return JSONResponse({**cached, "stale": True})
+            fb = _maybe_live_limit_fallback(id, cached, force=force_b)
+            return JSONResponse(fb or {**cached, "stale": True})
+        # Token 未配时涨跌停仍可走实时池
+        if id == "ts:limit":
+            live_lim = _limit_live_response(force=force_b, trade_date=trade_date)
+            if live_lim.get("ok") and (live_lim.get("items") or []):
+                return JSONResponse(live_lim)
         return JSONResponse(
             {
                 "ok": False,
@@ -253,6 +341,10 @@ def market(
 
     # 3) 有缓存但 network/force：先返回缓存，后台刷新
     if cached and (force_b or quote_source == "network"):
+        if not (cached.get("items") or []):
+            fb = _maybe_live_limit_fallback(id, cached, force=force_b)
+            if fb:
+                return JSONResponse(fb)
         start_worker()
         start_sync(id, trade_date=trade_date, force=True)
         return JSONResponse({**cached, "syncing": True, "stale": True})
@@ -262,10 +354,22 @@ def market(
         live = _pull_and_store(id, trade_date)
     except Exception as e:  # noqa: BLE001
         _log.exception("market live %s", id)
+        if id == "ts:limit":
+            fb = _maybe_live_limit_fallback(
+                id,
+                {"ok": False, "items": [], "trade_date": trade_date},
+                force=True,
+            )
+            if fb:
+                return JSONResponse(fb)
         return JSONResponse(
             {"ok": False, "id": id, "error": str(e), "items": [], "error_code": "exception"},
             status_code=502,
         )
+    if not (live.get("items") or []):
+        fb = _maybe_live_limit_fallback(id, live, force=force_b)
+        if fb:
+            return JSONResponse(fb)
     status = 200 if live.get("ok") else 502
     return JSONResponse(
         {

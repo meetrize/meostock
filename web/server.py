@@ -1553,34 +1553,73 @@ def xnge_proxy(path: str, request: Request) -> Response:
     return _proxy_xnge_html(path, query)
 
 
-@app.get("/api/zt/limit-up")
-def zt_limit_up() -> JSONResponse:
-    """代理选股宝涨停池（与犀利 fupan.js 同源）。"""
-    url = f"{XUANGUBAO_POOL}?{urllib.parse.urlencode({'pool_name': 'limit_up'})}"
+def _xuangubao_pool(pool_name: str) -> JSONResponse:
     try:
-        raw = _http_get_text(
-            url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (compatible; mootdx-fupan/0.1)",
-                "Accept": "application/json",
-                "Referer": "https://xuangubao.cn/",
-            },
-        )
-        payload = json.loads(raw)
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
-    items = payload.get("data") if isinstance(payload, dict) else None
-    if not isinstance(items, list):
-        return JSONResponse(
-            {"ok": False, "error": "unexpected upstream payload", "upstream": payload},
-            status_code=502,
-        )
+        items = _xuangubao_pool_items(pool_name)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as e:
+        return JSONResponse({"ok": False, "error": str(e), "pool": pool_name}, status_code=502)
     return JSONResponse(
         {
             "ok": True,
             "source": "xuangubao",
+            "pool": pool_name,
             "total": len(items),
             "items": items,
+        }
+    )
+
+
+@app.get("/api/zt/limit-up")
+def zt_limit_up() -> JSONResponse:
+    """代理选股宝涨停池（与犀利 fupan.js 同源）。"""
+    return _xuangubao_pool("limit_up")
+
+
+def _xuangubao_pool_items(pool_name: str) -> list[Any]:
+    url = f"{XUANGUBAO_POOL}?{urllib.parse.urlencode({'pool_name': pool_name})}"
+    raw = _http_get_text(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (compatible; mootdx-fupan/0.1)",
+            "Accept": "application/json",
+            "Referer": "https://xuangubao.cn/",
+        },
+    )
+    payload = json.loads(raw)
+    items = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(items, list):
+        raise ValueError(f"unexpected upstream payload for {pool_name}")
+    return items
+
+
+@app.get("/api/zt/limit-pool")
+def zt_limit_pool(
+    pool: str = Query("both", description="up | down | both"),
+) -> JSONResponse:
+    """调试用：选股宝涨停/跌停池；首页主路径仍走 /api/tushare/market?id=ts:limit。"""
+    key = (pool or "both").strip().lower()
+    if key in ("up", "limit_up"):
+        return _xuangubao_pool("limit_up")
+    if key in ("down", "limit_down", "dt"):
+        return _xuangubao_pool("limit_down")
+    if key != "both":
+        return JSONResponse(
+            {"ok": False, "error": "pool 须为 up | down | both", "error_code": "bad_pool"},
+            status_code=400,
+        )
+    try:
+        up_items = _xuangubao_pool_items("limit_up")
+        down_items = _xuangubao_pool_items("limit_down")
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+    return JSONResponse(
+        {
+            "ok": True,
+            "source": "xuangubao",
+            "pool": "both",
+            "total": len(up_items) + len(down_items),
+            "limit_up": up_items,
+            "limit_down": down_items,
         }
     )
 

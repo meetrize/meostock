@@ -86,10 +86,15 @@ export function TopicListWidget({ type }: Props) {
   const headerMeta = useMemo(() => {
     if (!topic?.tradeDate) return null;
     const parts = [topic.tradeDate];
-    if (type === 'topic.limitList') parts.push('按首次封板');
+    if (type === 'topic.limitList') {
+      parts.push('按首次封板');
+      const src = String(topic.source || '').toLowerCase();
+      if (src.includes('xuangubao')) parts.push('实时');
+      else if (src) parts.push('Tushare');
+    }
     if (topic.syncing) parts.push('同步中');
     return parts.join(' · ');
-  }, [topic?.tradeDate, topic?.syncing, type]);
+  }, [topic?.tradeDate, topic?.syncing, topic?.source, type]);
 
   const headerPortal =
     headerSlot && headerMeta

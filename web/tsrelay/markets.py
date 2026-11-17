@@ -345,7 +345,12 @@ def handle_limit(trade_date: str) -> dict[str, Any]:
     if not res.ok:
         return _fail(res.error or "limit_list_d 失败", res.error_code or "error")
     items = []
+    want_td = str(trade_date or "").strip()
     for r in res.as_records():
+        # 部分环境下按非交易日/当日未出库查询可能串回上一交易日，按行日期过滤
+        row_td = _s(r.get("trade_date"))
+        if want_td and row_td and row_td != want_td:
+            continue
         ts = _s(r.get("ts_code"))
         disp, kline = ts_code_to_display(ts)
         items.append(
@@ -361,6 +366,7 @@ def handle_limit(trade_date: str) -> dict[str, Any]:
                 "lastTime": _s(r.get("last_time")),
                 "openTimes": _f(r.get("open_times")),
                 "limitTimes": _f(r.get("limit_times")),
+                "tradeDate": want_td or row_td,
             }
         )
     # Tushare：跌停无 first_time；用分时首次触及跌停价补全
@@ -958,16 +964,9 @@ def fetch_market(market_id: str, trade_date: str | None = None) -> dict[str, Any
         return _fail(f"未实现 handler: {handler_name}", "not_implemented")
 
     try:
-        result = fn(td)
-        # 盘中专题若当日尚无数据，回退上一开市日，避免空白面板
-        if prefer_today and result.get("ok") and not (result.get("items") or []):
-            info = resolve_trade_date(prefer_today=False)
-            prev = info.get("trade_date")
-            if prev and prev != td:
-                fallback = fn(prev)
-                if fallback.get("ok") and (fallback.get("items") or []):
-                    return fallback
-        return result
+        # 涨跌停等 prefer_today 专题：当日无数据就返回空表，禁止回退上一交易日
+        # （否则首页会把昨天的涨跌停当成今天展示，且可能落在今天的缓存键下）
+        return fn(td)
     except Exception as e:  # noqa: BLE001
         _log.exception("fetch_market %s failed", market_id)
         return _fail(str(e), "exception")

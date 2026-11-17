@@ -115,6 +115,12 @@ def _pull_and_store(market_id: str, trade_date: str | None) -> dict[str, Any]:
     table_kind = str(live.get("table") or "topic")
     label = str(live.get("label") or MARKET_SPECS.get(market_id, {}).get("label") or market_id)
     source = live.get("source")
+    # 以接口返回的实际交易日落库，避免「请求今天、内容是昨天」挂错缓存键
+    if not _catalog_date_key(market_id):
+        actual_td = str(live.get("trade_date") or td or "").strip()
+        if actual_td:
+            td_key = actual_td
+            td = actual_td
     # 允许空表落库防穿透
     store.replace_snapshot(
         market_id,
