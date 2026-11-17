@@ -2,7 +2,16 @@
  * 行情浏览：左侧市场类型，右侧可排序分页列表，点击行打开 K 线
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronLeft,
@@ -63,6 +72,20 @@ import styles from './QuotesMarket.module.css';
 
 /** 身份列默认不可隐藏 */
 const LOCKED_COLUMN_KEYS = new Set(['code', 'name']);
+
+/** 表格操作列：加入自选（仅列设置控制显隐，不参与数据列渲染） */
+const ACTION_WATCHLIST_KEY = '_watchlist';
+const ACTION_WATCHLIST_COL: TushareCol = {
+  key: ACTION_WATCHLIST_KEY,
+  label: '加入自选',
+  align: 'left',
+};
+
+function withActionColumns(defaults: TushareCol[]): TushareCol[] {
+  if (!defaults.length) return defaults;
+  if (defaults.some((col) => col.key === ACTION_WATCHLIST_KEY)) return defaults;
+  return [ACTION_WATCHLIST_COL, ...defaults];
+}
 
 function quotesColumnStorageKey(marketId: string): string {
   return `quotes:${marketId}`;
@@ -1054,6 +1077,203 @@ function quoteToTopic(row: QuoteRow): TopicRow {
   return { ...row };
 }
 
+/** 概念标签：单行展示，放不下时省略号弹出剩余 */
+function ConceptTagsCell({
+  tags,
+  activeFilters,
+  onTagClick,
+}: {
+  tags: string[];
+  activeFilters: string[];
+  onTagClick: (name: string, e: ReactMouseEvent) => void;
+}) {
+  const cellRef = useRef<HTMLSpanElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [visibleCount, setVisibleCount] = useState(tags.length);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const tagClass = useCallback(
+    (tag: string) =>
+      `${styles.conceptTag}${activeFilters.includes(tag) ? ` ${styles.conceptTagActive}` : ''}`,
+    [activeFilters]
+  );
+
+  const updateVisible = useCallback(() => {
+    const cell = cellRef.current;
+    const measure = measureRef.current;
+    if (!cell || !measure || tags.length === 0) {
+      setVisibleCount(tags.length);
+      return;
+    }
+    const avail = cell.clientWidth;
+    if (avail <= 0) {
+      setVisibleCount(tags.length);
+      return;
+    }
+    const kids = Array.from(measure.children) as HTMLElement[];
+    const gap = 4;
+    const moreW = 28;
+    let used = 0;
+    let count = 0;
+    for (let i = 0; i < kids.length; i++) {
+      const w = kids[i].offsetWidth;
+      const isLast = i === kids.length - 1;
+      const budget = isLast ? avail : avail - moreW - gap;
+      const next = used + (count > 0 ? gap : 0) + w;
+      if (next <= budget) {
+        used = next;
+        count += 1;
+      } else {
+        break;
+      }
+    }
+    if (count >= tags.length) {
+      setVisibleCount(tags.length);
+      return;
+    }
+    // 至少一个都塞不下时，只显示省略号
+    setVisibleCount(count);
+  }, [tags]);
+
+  useLayoutEffect(() => {
+    updateVisible();
+  }, [updateVisible, tags, activeFilters]);
+
+  useEffect(() => {
+    const cell = cellRef.current;
+    if (!cell || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => updateVisible());
+    ro.observe(cell);
+    return () => ro.disconnect();
+  }, [updateVisible]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t)) return;
+      if (moreBtnRef.current?.contains(t)) return;
+      setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  const openMenu = (e: ReactMouseEvent) => {
+    e.stopPropagation();
+    const btn = moreBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const width = 220;
+    const maxH = Math.min(280, window.innerHeight - 16);
+    const left = Math.min(
+      Math.max(8, rect.left),
+      Math.max(8, window.innerWidth - width - 8)
+    );
+    let top = rect.bottom + 4;
+    if (top + maxH > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - maxH - 4);
+    }
+    setMenuPos({ top, left });
+    setMenuOpen((v) => !v);
+  };
+
+  if (!tags.length) return <>--</>;
+
+  const visible = tags.slice(0, visibleCount);
+  const rest = tags.slice(visibleCount);
+  const showMore = rest.length > 0;
+
+  return (
+    <>
+      <span className={styles.conceptCell} ref={cellRef}>
+        <span className={styles.conceptMeasure} ref={measureRef} aria-hidden>
+          {tags.map((tag) => (
+            <span key={tag} className={styles.conceptTag}>
+              {tag}
+            </span>
+          ))}
+        </span>
+        <span className={styles.conceptRow}>
+          {visible.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className={tagClass(tag)}
+              title={`按「${tag}」过滤`}
+              onClick={(e) => onTagClick(tag, e)}
+            >
+              {tag}
+            </button>
+          ))}
+          {showMore && (
+            <button
+              type="button"
+              ref={moreBtnRef}
+              className={styles.conceptMoreBtn}
+              title={`还有 ${rest.length} 个概念`}
+              aria-label={`还有 ${rest.length} 个概念`}
+              aria-expanded={menuOpen}
+              onClick={openMenu}
+            >
+              …
+            </button>
+          )}
+        </span>
+      </span>
+      {menuOpen &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className={styles.conceptOverflowMenu}
+            style={{ top: menuPos.top, left: menuPos.left }}
+            role="menu"
+            aria-label="更多概念"
+          >
+            <div className={styles.conceptOverflowTitle}>
+              概念（{tags.length}）
+              {activeFilters.length > 0 ? ` · 已选 ${activeFilters.length}` : ''}
+            </div>
+            <div className={styles.conceptOverflowList}>
+              {tags.map((tag) => {
+                const selected = activeFilters.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    role="menuitem"
+                    className={`${styles.conceptTag}${
+                      selected ? ` ${styles.conceptTagActive}` : ''
+                    }`}
+                    title={selected ? `已在过滤：${tag}` : `按「${tag}」过滤`}
+                    aria-pressed={selected}
+                    onClick={(e) => {
+                      onTagClick(tag, e);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
 export function QuotesMarket() {
   const toast = useToast();
   const isInWatchlist = useIsInWatchlist();
@@ -1069,9 +1289,11 @@ export function QuotesMarket() {
   const markets = useMemo(() => flattenNav(navTree), [navTree]);
   const [market, setMarket] = useState<MarketId>('cn');
   const [rows, setRows] = useState<TopicRow[]>([]);
-  const [baseColumns, setBaseColumns] = useState<TushareCol[]>(CN_COLUMNS);
+  const [baseColumns, setBaseColumns] = useState<TushareCol[]>(() =>
+    withActionColumns(CN_COLUMNS)
+  );
   const [columnPrefs, setColumnPrefs] = useState<ColumnConfig[]>(() =>
-    mergeQuotesColumnPrefs('cn', CN_COLUMNS)
+    mergeQuotesColumnPrefs('cn', withActionColumns(CN_COLUMNS))
   );
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [pageFullscreen, setPageFullscreen] = useState(false);
@@ -1111,14 +1333,20 @@ export function QuotesMarket() {
   const displayColumns = useMemo(() => {
     const byKey = new Map(baseColumns.map((col) => [col.key, col]));
     return columnPrefs
-      .filter((pref) => pref.visible)
+      .filter((pref) => pref.visible && pref.key !== ACTION_WATCHLIST_KEY)
       .map((pref) => byKey.get(pref.key))
       .filter((col): col is TushareCol => Boolean(col));
   }, [baseColumns, columnPrefs]);
 
+  const showWatchlistCol = useMemo(
+    () => columnPrefs.some((pref) => pref.key === ACTION_WATCHLIST_KEY && pref.visible),
+    [columnPrefs]
+  );
+
   const applyMarketColumns = useCallback((marketId: MarketId, defaults: TushareCol[]) => {
-    setBaseColumns(defaults);
-    setColumnPrefs(mergeQuotesColumnPrefs(marketId, defaults));
+    const cols = withActionColumns(defaults);
+    setBaseColumns(cols);
+    setColumnPrefs(mergeQuotesColumnPrefs(marketId, cols));
   }, []);
 
   const persistColumnPrefs = useCallback(
@@ -1493,7 +1721,7 @@ export function QuotesMarket() {
     setPage(1);
   }, []);
 
-  const handleConceptTagClick = useCallback((name: string, e: React.MouseEvent) => {
+  const handleConceptTagClick = useCallback((name: string, e: ReactMouseEvent) => {
     e.stopPropagation();
     const n = name.trim();
     if (!n) return;
@@ -2100,7 +2328,7 @@ export function QuotesMarket() {
                 <table className={styles.table}>
                   <thead>
                     <tr>
-                      <th className={styles.actionCol} />
+                      {showWatchlistCol && <th className={styles.actionCol} title="加入自选" />}
                       {displayColumns.map((col) => {
                         const active = sortKey === col.key;
                         return (
@@ -2139,48 +2367,33 @@ export function QuotesMarket() {
                           onClick={() => openKline(row)}
                           title="打开 K 线图"
                         >
-                          <td className={styles.actionCol}>
-                            <button
-                              type="button"
-                              className={`${styles.addBtn} ${starred ? styles.added : ''}`}
-                              title={
-                                wlCode
-                                  ? starred
-                                    ? '移出自选'
-                                    : '加入自选'
-                                  : '当前市场暂不支持自选'
-                              }
-                              onClick={(e) => handleToggleWatchlist(e, row)}
-                            >
-                              {starred ? <Check size={14} /> : <Plus size={14} />}
-                            </button>
-                          </td>
+                          {showWatchlistCol && (
+                            <td className={styles.actionCol}>
+                              <button
+                                type="button"
+                                className={`${styles.addBtn} ${starred ? styles.added : ''}`}
+                                title={
+                                  wlCode
+                                    ? starred
+                                      ? '移出自选'
+                                      : '加入自选'
+                                    : '当前市场暂不支持自选'
+                                }
+                                onClick={(e) => handleToggleWatchlist(e, row)}
+                              >
+                                {starred ? <Check size={14} /> : <Plus size={14} />}
+                              </button>
+                            </td>
+                          )}
                           {displayColumns.map((col) => {
                             if (col.key === 'concept') {
-                              const tags = parseConcepts(row);
                               return (
                                 <td key={col.key} className={styles.left}>
-                                  {!tags.length ? (
-                                    '--'
-                                  ) : (
-                                    <span className={styles.conceptCell}>
-                                      {tags.map((tag) => (
-                                        <button
-                                          key={tag}
-                                          type="button"
-                                          className={`${styles.conceptTag}${
-                                            conceptFilters.includes(tag)
-                                              ? ` ${styles.conceptTagActive}`
-                                              : ''
-                                          }`}
-                                          title={`按「${tag}」过滤`}
-                                          onClick={(e) => handleConceptTagClick(tag, e)}
-                                        >
-                                          {tag}
-                                        </button>
-                                      ))}
-                                    </span>
-                                  )}
+                                  <ConceptTagsCell
+                                    tags={parseConcepts(row)}
+                                    activeFilters={conceptFilters}
+                                    onTagClick={handleConceptTagClick}
+                                  />
                                 </td>
                               );
                             }
