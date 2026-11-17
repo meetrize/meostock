@@ -151,7 +151,29 @@ type TopicRow = Record<string, unknown> & {
   klineSymbol?: string;
 };
 
-const PAGE_SIZE = 20;
+/** 分页常用条数 */
+const PAGE_SIZE_OPTIONS = [20, 25, 50, 100, 200] as const;
+const DEFAULT_PAGE_SIZE = 50;
+const PAGE_SIZE_STORAGE_KEY = 'ui.quotesPageSize';
+
+function readPageSize(): number {
+  try {
+    const raw = localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+    const n = raw ? Number(raw) : DEFAULT_PAGE_SIZE;
+    if (PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number])) return n;
+  } catch {
+    /* ignore */
+  }
+  return DEFAULT_PAGE_SIZE;
+}
+
+function writePageSize(size: number): void {
+  try {
+    localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** 非美股默认：涨幅降序 */
 const DEFAULT_SORT: SortState = { key: 'changePercent', dir: -1 };
@@ -1048,6 +1070,7 @@ export function QuotesMarket() {
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT.key);
   const [sortDir, setSortDir] = useState<1 | -1>(DEFAULT_SORT.dir);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(readPageSize);
   const [query, setQuery] = useState('');
   /** 刷新后下一次补行情跳过服务端日 K 缓存 */
   const forceQuotesRef = useRef(false);
@@ -1253,7 +1276,7 @@ export function QuotesMarket() {
           setProgress({ done: enriched.length, total: enriched.length });
         } else {
           setLoadHint('列表已就绪，正在加载行情…');
-          setProgress({ done: 0, total: Math.min(PAGE_SIZE, enriched.length) });
+          setProgress({ done: 0, total: Math.min(pageSize, enriched.length) });
         }
       } catch (e) {
         if (!soft) {
@@ -1350,9 +1373,16 @@ export function QuotesMarket() {
     return list;
   }, [filtered, sortKey, sortDir]);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const pageRows = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageRows = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const handlePageSizeChange = useCallback((next: number) => {
+    if (!PAGE_SIZE_OPTIONS.includes(next as (typeof PAGE_SIZE_OPTIONS)[number])) return;
+    setPageSize(next);
+    writePageSize(next);
+    setPage(1);
+  }, []);
 
   const pageNeedRows = useMemo(() => {
     if (!isLegacyMarket(market) || market === 'cn' || market === 'hk' || market === 'us') {
@@ -1630,6 +1660,7 @@ export function QuotesMarket() {
       <div className={styles.main}>
         <Card
           title={`${activeLabel}行情`}
+          padding="sm"
           extra={
             <div className={styles.toolbar}>
               {showTradeDate && (
@@ -1897,12 +1928,28 @@ export function QuotesMarket() {
                   disabled={currentPage <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={14} />
                   上一页
                 </button>
                 <span className={styles.pageInfo}>
-                  第 {currentPage} / {totalPages} 页 · 每页 {PAGE_SIZE} 条
+                  第 {currentPage} / {totalPages} 页
                 </span>
+                <label className={styles.pageSizeBox}>
+                  <span>每页</span>
+                  <select
+                    className={styles.pageSizeSelect}
+                    value={pageSize}
+                    onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                    title="每页显示条数"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                  <span>条</span>
+                </label>
                 <button
                   type="button"
                   className={styles.pageBtn}
@@ -1910,7 +1957,7 @@ export function QuotesMarket() {
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 >
                   下一页
-                  <ChevronRight size={16} />
+                  <ChevronRight size={14} />
                 </button>
               </div>
             </>
