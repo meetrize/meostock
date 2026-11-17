@@ -169,3 +169,30 @@ CREATE TABLE IF NOT EXISTS board_sync_meta (
   progress_total INTEGER NOT NULL DEFAULT 0,
   detail_json TEXT
 );
+
+-- 通用定时任务
+CREATE TABLE IF NOT EXISTS scheduled_job (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  job_type TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  interval_minutes INTEGER NOT NULL DEFAULT 360,
+  last_run_at REAL,
+  next_run_at REAL,
+  last_status TEXT,
+  last_error TEXT,
+  last_result_json TEXT,
+  updated_at REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS scheduled_job_run (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  job_id TEXT NOT NULL,
+  started_at REAL NOT NULL,
+  finished_at REAL,
+  status TEXT NOT NULL,
+  message TEXT,
+  detail_json TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_scheduled_job_run_job ON scheduled_job_run (job_id, started_at DESC);

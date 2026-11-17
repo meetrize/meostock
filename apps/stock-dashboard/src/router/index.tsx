@@ -37,6 +37,9 @@ const FupanReview = lazy(() =>
 const MarketFundFlow = lazy(() =>
   import('@/pages/MarketFundFlow').then((mod) => ({ default: mod.MarketFundFlow }))
 );
+const Scheduler = lazy(() =>
+  import('@/pages/Scheduler').then((mod) => ({ default: mod.Scheduler }))
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -111,6 +114,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'eod-picker',
           element: withSuspense(<EndOfDayPicker />),
+        },
+        {
+          path: 'scheduler',
+          element: withSuspense(<Scheduler />),
         },
         {
           path: 'settings',

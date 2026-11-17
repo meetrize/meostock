@@ -1,0 +1,214 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+}
+
+.desc {
+  margin: 6px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  max-width: 720px;
+  line-height: 1.5;
+}
+
+.refreshBtn,
+.actionBtn,
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.refreshBtn:hover,
+.actionBtn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--text-primary);
+}
+
+.primaryBtn {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--border-primary));
+  color: var(--text-primary);
+}
+
+.primaryBtn:disabled,
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progressBar {
+  padding: 10px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.progressText {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.progressTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.jobList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.jobCard {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-tertiary) 55%, transparent);
+}
+
+.jobMain {
+  min-width: 0;
+  flex: 1;
+}
+
+.jobName {
+  margin: 0 0 6px;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.jobMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.jobError {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--color-fall, #ef4444);
+}
+
+.jobHint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+.jobActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.intervalBox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.intervalInput {
+  width: 64px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.runTable {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: 11px;
+}
+
+.runHead,
+.runRow {
+  display: grid;
+  grid-template-columns: 1.2fr 0.7fr 1.2fr 1.2fr 2fr;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border-secondary);
+  color: var(--text-secondary);
+}
+
+.runHead {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.runMsg {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .jobCard {
+    flex-direction: column;
+  }
+
+  .runHead,
+  .runRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}

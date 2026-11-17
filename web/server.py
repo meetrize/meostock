@@ -58,6 +58,32 @@ except Exception as _cache_exc:  # noqa: BLE001 — 缓存可选，失败不阻�
 
     logging.getLogger("uvicorn.error").warning("quote cache disabled: %s", _cache_exc)
 
+# 通用定时任务（同花顺概念同步等）
+try:
+    from scheduler.api import router as _scheduler_router
+    from scheduler.runner import start_scheduler as _start_job_scheduler
+
+    app.include_router(_scheduler_router)
+
+    @app.on_event("startup")
+    def _scheduler_startup() -> None:
+        if os.environ.get("JOB_SCHEDULER_ENABLED", "1").strip() in ("0", "false", "False"):
+            return
+        try:
+            from cache.db import init_db as _init_db
+
+            _init_db()
+            _start_job_scheduler()
+        except Exception as exc:  # noqa: BLE001
+            import logging
+
+            logging.getLogger("uvicorn.error").warning("job scheduler disabled: %s", exc)
+
+except Exception as _sched_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("scheduler module disabled: %s", _sched_exc)
+
 # Tushare 双中继网关（行情页专题 / 新市场 + 本地缓存/定时）
 try:
     from tsrelay.api import router as _tushare_router

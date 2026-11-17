@@ -15,6 +15,7 @@ import {
   Flame,
   Cloud,
   ExternalLink,
+  Clock,
 } from 'lucide-react';
 import { Logo } from '@/components/common';
 import styles from './Sidebar.module.css';
@@ -43,6 +44,7 @@ const navItems: NavItem[] = [
   { path: '/watchlist', label: '自选', icon: <Star size={18} /> },
   { path: '/scanner', label: '扫描', icon: <TrendingUp size={18} /> },
   { path: '/eod-picker', label: '尾盘选股', icon: <TrendingUp size={18} /> },
+  { path: '/scheduler', label: '定时任务', icon: <Clock size={18} /> },
 ];
 
 const bottomItems: NavItem[] = [
