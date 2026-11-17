@@ -868,6 +868,46 @@ export async function getStockIndustries(codes: string[]): Promise<Record<string
   });
 }
 
+/**
+ * 批量查询所属概念（与板块页同源：东财概念榜成分反查）
+ * 返回纯数字代码 → 概念名数组（热门在前）
+ */
+export async function getStockConcepts(
+  codes?: string[]
+): Promise<Record<string, string[]>> {
+  const unique = codes
+    ? [
+        ...new Set(
+          codes
+            .map((c) => normalizeStockCode(c).replace(/^(sh|sz|bj)/i, ''))
+            .filter(Boolean)
+        ),
+      ]
+    : [];
+
+  const cacheKey = getCacheKey(
+    'getStockConcepts',
+    unique.length ? unique.slice().sort() : 'all'
+  );
+  return withCache(cacheKey, 10 * 60 * 1000, async () => {
+    // 全表映射体积可控；分批查 URL 过长，统一拉全表再本地过滤
+    const res = await fetch('/api/stock-concepts');
+    if (!res.ok) return {};
+    const payload = (await res.json()) as {
+      ok?: boolean;
+      concepts?: Record<string, string[]>;
+    };
+    if (!payload.ok || !payload.concepts) return {};
+    if (!unique.length) return payload.concepts;
+    const out: Record<string, string[]> = {};
+    for (const code of unique) {
+      const names = payload.concepts[code];
+      if (names?.length) out[code] = names;
+    }
+    return out;
+  });
+}
+
 // ========== 其他 API ==========
 
 /**

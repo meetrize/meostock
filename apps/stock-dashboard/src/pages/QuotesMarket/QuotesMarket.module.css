@@ -335,6 +335,16 @@
   font-family: var(--font-mono);
 }
 
+.conceptCell {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  color: var(--text-secondary);
+}
+
 .actionCol {
   width: 36px;
   text-align: center;

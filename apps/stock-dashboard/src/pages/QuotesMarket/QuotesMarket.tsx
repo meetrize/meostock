@@ -29,6 +29,7 @@ import {
   getAllHKQuotes,
   getAllUSQuotes,
   getDomesticFuturesSpotMap,
+  getStockConcepts,
 } from '@/services/sdk';
 import { useAppSettings, useSyncStatus } from '@/contexts';
 import {
@@ -86,6 +87,8 @@ interface QuoteRow {
   turnoverRate: number | null;
   volumeRatio: number | null;
   amplitude: number | null;
+  /** A 股所属概念（板块模块同源，热门在前） */
+  concept?: string | null;
 }
 
 type SortKey = string;
@@ -109,6 +112,7 @@ const US_SORT_STORAGE_KEY = 'ui.quotesUsSort';
 const QUOTE_SORT_KEYS = new Set<string>([
   'code',
   'name',
+  'concept',
   'price',
   'change',
   'changePercent',
@@ -288,6 +292,34 @@ const COLUMNS: TushareCol[] = [
   { key: 'volumeRatio', label: '量比', align: 'right' },
   { key: 'amplitude', label: '振幅', align: 'right' },
 ];
+
+/** A 股：名称后增加概念列（板块模块同源） */
+const CN_COLUMNS: TushareCol[] = [
+  { key: 'code', label: '代码', align: 'left' },
+  { key: 'name', label: '名称', align: 'left' },
+  { key: 'concept', label: '概念', align: 'left' },
+  { key: 'changePercent', label: '涨幅', align: 'right' },
+  { key: 'price', label: '现价', align: 'right' },
+  { key: 'change', label: '涨跌', align: 'right' },
+  { key: 'volume', label: '成交量', align: 'right' },
+  { key: 'amount', label: '成交额', align: 'right' },
+  { key: 'turnoverRate', label: '换手率', align: 'right' },
+  { key: 'pe', label: '市盈率', align: 'right' },
+  { key: 'pb', label: '市净率', align: 'right' },
+  { key: 'totalMarketCap', label: '总市值', align: 'right' },
+  { key: 'circulatingMarketCap', label: '流通市值', align: 'right' },
+  { key: 'open', label: '今开', align: 'right' },
+  { key: 'prevClose', label: '昨收', align: 'right' },
+  { key: 'high', label: '最高', align: 'right' },
+  { key: 'low', label: '最低', align: 'right' },
+  { key: 'volumeRatio', label: '量比', align: 'right' },
+  { key: 'amplitude', label: '振幅', align: 'right' },
+];
+
+function formatConceptNames(names: string[] | undefined | null, max = 3): string {
+  if (!names?.length) return '';
+  return names.slice(0, max).join('、');
+}
 
 function isLegacyMarket(m: MarketId): boolean {
   return !isTushareMarketId(m);
@@ -840,6 +872,15 @@ function formatCell(key: SortKey, row: TopicRow): ReactNode {
       return String(row.code ?? '--');
     case 'name':
       return String(row.name ?? '--');
+    case 'concept': {
+      const text = String(row.concept ?? '').trim();
+      if (!text) return '--';
+      return (
+        <span className={styles.conceptCell} title={text}>
+          {text}
+        </span>
+      );
+    }
     case 'changePercent':
     case 'pctChg':
     case 'pctChange': {
@@ -1062,7 +1103,7 @@ export function QuotesMarket() {
       // 本地 cache / sdk 原路径
       const fullSnap = m === 'cn' || m === 'hk' || m === 'us';
       if (!soft) {
-        setActiveColumns(COLUMNS);
+        setActiveColumns(m === 'cn' ? CN_COLUMNS : COLUMNS);
         setTableKind('quote');
         setLoadHint(
           force
@@ -1081,19 +1122,32 @@ export function QuotesMarket() {
           },
           force
         );
-        setRows(next.map(quoteToTopic));
+        let enriched = next;
+        if (m === 'cn') {
+          try {
+            const conceptMap = await getStockConcepts();
+            enriched = next.map((row) => {
+              const pure = String(row.code || '').replace(/^(sh|sz|bj)/i, '');
+              const text = formatConceptNames(conceptMap[pure] || conceptMap[row.code]);
+              return { ...row, concept: text || null };
+            });
+          } catch (conceptErr) {
+            console.warn('[QuotesMarket] stock concepts failed', conceptErr);
+          }
+        }
+        setRows(enriched.map(quoteToTopic));
         setCacheMeta(meta);
         if (!soft) setPage(1);
         if (fullSnap) {
           setLoadHint(
             meta.stale || meta.syncing
-              ? `${label}已显示缓存（${next.length} 只），后台同步中…`
-              : `${label}行情加载完成（${next.length} 只）`
+              ? `${label}已显示缓存（${enriched.length} 只），后台同步中…`
+              : `${label}行情加载完成（${enriched.length} 只）`
           );
-          setProgress({ done: next.length, total: next.length });
+          setProgress({ done: enriched.length, total: enriched.length });
         } else {
           setLoadHint('列表已就绪，正在加载行情…');
-          setProgress({ done: 0, total: Math.min(PAGE_SIZE, next.length) });
+          setProgress({ done: 0, total: Math.min(PAGE_SIZE, enriched.length) });
         }
       } catch (e) {
         if (!soft) {

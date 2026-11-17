@@ -1128,6 +1128,177 @@ def stock_industries(
     return JSONResponse({"ok": True, "industries": industries})
 
 
+# 与板块页同一套东财概念榜 → 成分股反查；进程内缓存，供行情「概念」列
+_CONCEPT_MAP_TTL = 30 * 60
+_CONCEPT_MAP_LOCK = threading.Lock()
+_CONCEPT_MAP_STATE: dict[str, Any] = {
+    "ts": 0.0,
+    "map": {},
+    "board_count": 0,
+    "building": False,
+}
+
+
+def _em_clist_diff(params: dict[str, str]) -> list[dict[str, Any]]:
+    qs = urllib.parse.urlencode(params)
+    mirrors = (
+        EM_CLIST,
+        "https://79.push2.eastmoney.com/api/qt/clist/get",
+        "https://17.push2.eastmoney.com/api/qt/clist/get",
+        "https://29.push2.eastmoney.com/api/qt/clist/get",
+    )
+    last_err: Exception | None = None
+    for base in mirrors:
+        try:
+            data = _http_get_json(f"{base}?{qs}")
+            return _normalize_diff((((data or {}).get("data") or {}).get("diff")))
+        except _http_errors() as e:
+            last_err = e
+    raise RuntimeError(str(last_err) if last_err else "eastmoney clist failed")
+
+
+def _em_board_constituent_codes(board_code: str) -> list[str]:
+    """板块成分代码（纯数字）。"""
+    bk = str(board_code or "").strip()
+    if not bk:
+        return []
+    out: list[str] = []
+    for pn in range(1, 6):
+        rows = _em_clist_diff(
+            {
+                "pn": str(pn),
+                "pz": "100",
+                "po": "1",
+                "np": "1",
+                "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+                "fltt": "2",
+                "invt": "2",
+                "fid": "f3",
+                "fs": f"b:{bk} f:!50",
+                "fields": "f12",
+            }
+        )
+        if not rows:
+            break
+        for row in rows:
+            code = str(row.get("f12") or "").strip()
+            if code:
+                out.append(code)
+        if len(rows) < 100:
+            break
+    return out
+
+
+def _build_concept_stock_map() -> tuple[dict[str, list[str]], int]:
+    """用板块模块同源东财概念榜建 code→概念名列表（热门概念在前）。"""
+    boards = _em_board_list("concept")
+    if not boards:
+        return {}, 0
+    mapping: dict[str, list[str]] = {}
+
+    def _one(board: dict[str, Any]) -> tuple[str, list[str]]:
+        name = str(board.get("name") or "").strip()
+        code = str(board.get("code") or "").strip()
+        if not name or not code:
+            return name, []
+        return name, _em_board_constituent_codes(code)
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        futs = [pool.submit(_one, b) for b in boards]
+        for fut in as_completed(futs):
+            try:
+                name, codes = fut.result()
+            except Exception:  # noqa: BLE001
+                continue
+            if not name:
+                continue
+            for c in codes:
+                bucket = mapping.setdefault(c, [])
+                if name not in bucket:
+                    bucket.append(name)
+    return mapping, len(boards)
+
+
+def _ensure_concept_stock_map(*, force: bool = False) -> dict[str, Any]:
+    now = time.time()
+    with _CONCEPT_MAP_LOCK:
+        age = now - float(_CONCEPT_MAP_STATE.get("ts") or 0)
+        cached = _CONCEPT_MAP_STATE.get("map") or {}
+        if not force and cached and age < _CONCEPT_MAP_TTL:
+            return {
+                "map": cached,
+                "board_count": int(_CONCEPT_MAP_STATE.get("board_count") or 0),
+                "synced_at": float(_CONCEPT_MAP_STATE.get("ts") or 0),
+                "cached": True,
+            }
+        if _CONCEPT_MAP_STATE.get("building"):
+            return {
+                "map": cached,
+                "board_count": int(_CONCEPT_MAP_STATE.get("board_count") or 0),
+                "synced_at": float(_CONCEPT_MAP_STATE.get("ts") or 0),
+                "cached": True,
+                "building": True,
+            }
+        _CONCEPT_MAP_STATE["building"] = True
+
+    try:
+        mapping, board_count = _build_concept_stock_map()
+        with _CONCEPT_MAP_LOCK:
+            if mapping:
+                _CONCEPT_MAP_STATE["map"] = mapping
+                _CONCEPT_MAP_STATE["board_count"] = board_count
+                _CONCEPT_MAP_STATE["ts"] = time.time()
+            _CONCEPT_MAP_STATE["building"] = False
+            return {
+                "map": _CONCEPT_MAP_STATE.get("map") or {},
+                "board_count": int(_CONCEPT_MAP_STATE.get("board_count") or 0),
+                "synced_at": float(_CONCEPT_MAP_STATE.get("ts") or 0),
+                "cached": False,
+            }
+    except Exception:
+        with _CONCEPT_MAP_LOCK:
+            _CONCEPT_MAP_STATE["building"] = False
+        raise
+
+
+@app.get("/api/stock-concepts")
+def stock_concepts(
+    codes: str = Query("", description="逗号分隔股票代码；空则返回全表映射"),
+    force: int = Query(0, description="1=强制重建概念映射"),
+) -> JSONResponse:
+    """股票所属概念（与 /dashboard/boards 概念板块同源：东财概念榜成分反查）。"""
+    try:
+        snap = _ensure_concept_stock_map(force=bool(force))
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+
+    full_map: dict[str, list[str]] = snap.get("map") or {}
+    parts = [p.strip() for p in (codes or "").split(",") if p.strip()]
+    if not parts:
+        concepts = full_map
+    else:
+        concepts = {}
+        for raw in parts:
+            pure = re.sub(r"^(sh|sz|bj)", "", raw, flags=re.I)
+            if not pure:
+                continue
+            names = full_map.get(pure) or full_map.get(raw)
+            if names:
+                concepts[pure] = names
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "source": "eastmoney",
+            "board_count": snap.get("board_count") or 0,
+            "synced_at": snap.get("synced_at"),
+            "cached": bool(snap.get("cached")),
+            "building": bool(snap.get("building")),
+            "total": len(concepts),
+            "concepts": concepts,
+        }
+    )
+
 @app.get("/api/symbols")
 def symbol_list(
     market: str = Query("cn", description="cn|hk|us|fund|index"),
