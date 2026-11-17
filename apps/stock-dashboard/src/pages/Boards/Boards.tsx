@@ -18,8 +18,8 @@ import styles from './Boards.module.css';
 
 // 板块类型
 const BOARD_TYPES = [
-  { key: 'industry', label: '行业板块', icon: <Building2 size={14} /> },
   { key: 'concept', label: '概念板块', icon: <Lightbulb size={14} /> },
+  { key: 'industry', label: '行业板块', icon: <Building2 size={14} /> },
 ];
 
 export function Boards() {
@@ -28,8 +28,8 @@ export function Boards() {
   // 使用共享的板块数据（优化：避免重复请求）
   const { industryList, conceptList, loading } = useBoardData();
 
-  // 本地 UI 状态
-  const [boardType, setBoardType] = useState<'industry' | 'concept'>('industry');
+  // 本地 UI 状态：默认打开概念板块
+  const [boardType, setBoardType] = useState<'industry' | 'concept'>('concept');
   const [searchKeyword, setSearchKeyword] = useState('');
 
   // 过滤后的数据
