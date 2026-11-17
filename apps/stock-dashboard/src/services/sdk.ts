@@ -563,10 +563,46 @@ export async function getConceptList(source: BoardDataSource = 'eastmoney') {
   return withCache(key, DEFAULT_TTL.boardList, () => loadBoardList('concept', source));
 }
 
+function mapDbConstituents(
+  items: BoardDetailDb['items']
+): ConceptBoardConstituent[] {
+  return (items || []).map((row) =>
+    normalizeConstituentUnits({
+      rank: row.rank,
+      code: row.code,
+      name: row.name,
+      price: row.price,
+      changePercent: row.changePercent,
+      amount: row.amount ?? null,
+      turnoverRate: row.turnoverRate ?? null,
+      pe: row.pe ?? null,
+    } as ConceptBoardConstituent)
+  );
+}
+
+function isDbBoardCode(code: string): boolean {
+  const c = decodeURIComponent(String(code || '').trim());
+  return c.startsWith('ths:') || /^BK\d+/i.test(c);
+}
+
 /**
- * 获取行业成分股
+ * 获取行业成分股（BK 优先本库）
  */
 export async function getIndustryConstituents(symbol: string) {
+  const code = String(symbol || '').trim();
+  if (isDbBoardCode(code)) {
+    const key = getCacheKey('getIndustryConstituentsDb', code);
+    return withCache(key, DEFAULT_TTL.constituents, async () => {
+      try {
+        const detail = await getBoardDetailFromDb('industry', decodeURIComponent(code));
+        const mapped = mapDbConstituents(detail.items);
+        if (mapped.length > 0) return mapped;
+      } catch {
+        /* fallback sdk */
+      }
+      return (await sdk.board.industry.constituents(symbol)).map(normalizeConstituentUnits);
+    });
+  }
   const key = getCacheKey('getIndustryConstituents', symbol);
   return withCache(key, DEFAULT_TTL.constituents, async () =>
     (await sdk.board.industry.constituents(symbol)).map(normalizeConstituentUnits)
@@ -574,29 +610,26 @@ export async function getIndustryConstituents(symbol: string) {
 }
 
 /**
- * 获取概念成分股
+ * 获取概念成分股（ths:/BK 优先本库）
  */
 export async function getConceptConstituents(
   symbol: string
 ): Promise<ConceptBoardConstituent[]> {
   const code = String(symbol || '').trim();
-  // 同花顺 / 库内概念：走本机聚合接口
-  if (code.startsWith('ths:') || code.startsWith('ths%3A')) {
+  if (isDbBoardCode(code)) {
     const key = getCacheKey('getConceptConstituentsDb', code);
     return withCache(key, DEFAULT_TTL.constituents, async () => {
-      const detail = await getBoardDetailFromDb('concept', decodeURIComponent(code));
-      return (detail.items || []).map((row) =>
-        normalizeConstituentUnits({
-          rank: row.rank,
-          code: row.code,
-          name: row.name,
-          price: row.price,
-          changePercent: row.changePercent,
-          amount: row.amount ?? null,
-          turnoverRate: row.turnoverRate ?? null,
-          pe: row.pe ?? null,
-        } as ConceptBoardConstituent)
-      );
+      try {
+        const detail = await getBoardDetailFromDb('concept', decodeURIComponent(code));
+        const mapped = mapDbConstituents(detail.items);
+        if (mapped.length > 0) return mapped;
+      } catch {
+        /* fallback sdk */
+      }
+      if (code.startsWith('ths:') || code.startsWith('ths%3A')) {
+        throw new Error('同花顺概念库内成份为空');
+      }
+      return (await sdk.board.concept.constituents(symbol)).map(normalizeConstituentUnits);
     });
   }
   const key = getCacheKey('getConceptConstituents', symbol);

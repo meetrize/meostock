@@ -336,7 +336,7 @@ def save_board_catalog(rows: list[dict[str, Any]]) -> int:
     return len(rows)
 
 
-def fetch_em_stock_boards(code: str) -> list[dict[str, Any]]:
+def fetch_em_stock_boards(code: str, *, raise_on_error: bool = False) -> list[dict[str, Any]]:
     pure = pure_a_share_code(code)
     if not pure:
         return []
@@ -351,7 +351,9 @@ def fetch_em_stock_boards(code: str) -> list[dict[str, Any]]:
             timeout=12.0,
             headers={"Referer": "https://emweb.securities.eastmoney.com/"},
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
+        if raise_on_error:
+            raise
         return []
     out: list[dict[str, Any]] = []
     for row in data.get("ssbk") or []:
@@ -405,11 +407,102 @@ def fetch_em_stock_boards(code: str) -> list[dict[str, Any]]:
     return out
 
 
+def _ths_concept_name_ok(name: str) -> bool:
+    n = str(name or "").strip()
+    if len(n) < 2 or len(n) > 40:
+        return False
+    if "展开" in n or "&nbsp" in n or n.isdigit():
+        return False
+    return True
+
+
+def _parse_ths_concept_html(text: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def _add(cid: str, name: str) -> None:
+        name = str(name or "").strip()
+        if not _ths_concept_name_ok(name):
+            return
+        key = concept_name_key(name)
+        if key in seen:
+            return
+        seen.add(key)
+        board = f"ths:{cid}" if cid else None
+        out.append(
+            {
+                "name": name,
+                "source": "ths",
+                "kind": "concept",
+                "boardCode": board,
+            }
+        )
+
+    # F10：<a ... cid="308582" tag="光刻胶">光刻胶</a>
+    for cid, name in re.findall(
+        r'cid="(\d+)"[^>]*\btag="([^"]+)"',
+        text or "",
+    ):
+        _add(cid, name)
+    # 兼容旧链
+    for cid, name in re.findall(
+        r"/gn/detail/code/(\d+)/[^>]*>([^<]+)<",
+        text or "",
+    ):
+        _add(cid, name)
+    if out:
+        return out
+    # 表格 gnName（clid 为指数代码，仅有名称）
+    for name in re.findall(
+        r'class="gnName"[^>]*>\s*([^<]+?)\s*<',
+        text or "",
+    ):
+        _add("", name)
+    return out
+
+
+def _fetch_ths_stock_concepts_html(pure: str) -> list[dict[str, Any]] | None:
+    """F10 概念页兜底。失败返回 None；成功返回 list（可空）。"""
+    url = f"https://basic.10jqka.com.cn/{urllib.parse.quote(pure)}/concept.html"
+    try:
+        raw = _http_get_bytes(
+            url,
+            timeout=15.0,
+            headers={
+                "Referer": "https://basic.10jqka.com.cn/",
+                "Accept": "text/html,*/*",
+            },
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    text = ""
+    for enc in ("gbk", "utf-8"):
+        try:
+            text = raw.decode(enc)
+            break
+        except UnicodeDecodeError:
+            continue
+    if not text:
+        text = raw.decode("utf-8", errors="replace")
+    if len(text) < 200:
+        return None
+    return _parse_ths_concept_html(text)
+
+
 def fetch_ths_stock_concepts(code: str) -> list[dict[str, Any]]:
+    """同花顺个股概念：优先 stockph JSON，空则解析 F10 concept.html。"""
+    items, _ok = fetch_ths_stock_concepts_result(code)
+    return items
+
+
+def fetch_ths_stock_concepts_result(code: str) -> tuple[list[dict[str, Any]], bool]:
+    """返回 (concepts, ok)。ok=False 表示拉取失败，调用方不应清空已有 ths 标注。"""
     pure = pure_a_share_code(code)
     if not pure:
-        return []
+        return [], False
     url = f"https://basic.10jqka.com.cn/api/stockph/concept.php?code={urllib.parse.quote(pure)}"
+    out: list[dict[str, Any]] = []
+    api_ok = False
     try:
         data = _http_get_json(
             url,
@@ -419,27 +512,36 @@ def fetch_ths_stock_concepts(code: str) -> list[dict[str, Any]]:
                 "Accept": "application/json,*/*",
             },
         )
+        status = data.get("status_code")
+        if status is None or int(status) == 0:
+            api_ok = True
+            for row in data.get("data") or []:
+                if not isinstance(row, dict):
+                    continue
+                name = str(row.get("name") or "").strip()
+                if not _ths_concept_name_ok(name):
+                    continue
+                cid = str(row.get("cid") or row.get("plateid") or "").strip()
+                out.append(
+                    {
+                        "name": name,
+                        "source": "ths",
+                        "kind": "concept",
+                        "boardCode": f"ths:{cid}" if cid else None,
+                    }
+                )
     except Exception:  # noqa: BLE001
-        return []
-    status = data.get("status_code")
-    if status is not None and int(status) != 0:
-        return []
-    out: list[dict[str, Any]] = []
-    for row in data.get("data") or []:
-        if not isinstance(row, dict):
-            continue
-        name = str(row.get("name") or "").strip()
-        if not name:
-            continue
-        out.append(
-            {
-                "name": name,
-                "source": "ths",
-                "kind": "concept",
-                "boardCode": str(row.get("plateid") or row.get("cid") or "").strip() or None,
-            }
-        )
-    return out
+        api_ok = False
+        out = []
+    if out:
+        return out, True
+    html_items = _fetch_ths_stock_concepts_html(pure)
+    if html_items is None:
+        # API 明确空且 HTML 失败：对北交所等视为失败，避免误删
+        return [], bool(api_ok and out == [] and not pure.startswith(("92", "8", "4")))
+    if html_items:
+        return html_items, True
+    return [], api_ok
 
 
 def merge_named_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -887,24 +989,271 @@ def list_bj_codes() -> list[str]:
 
 
 def _source_sql_clause(source: str | None) -> tuple[str, list[Any]]:
-    """sources_json 含某源；source=None/all 不过滤。"""
+    """sources_json 过滤：仅保留含该平台来源的成份（含双源「东财+同花顺」）。"""
     if source in (None, "", "all"):
         return "", []
     return "AND instr(lower(sources_json), ?) > 0", [str(source).lower()]
 
 
+def upsert_stock_concept_source(
+    code: str,
+    *,
+    name: str,
+    source: str = "ths",
+    kind: str = "concept",
+) -> bool:
+    """合并写入个股概念来源。已有东财同名概念时追加 ths → 东财+同花顺。"""
+    pure = pure_a_share_code(code)
+    name = str(name or "").strip()
+    source = str(source or "").strip().lower()
+    if not pure or not name or not source:
+        return False
+    key = concept_name_key(name)
+    init_db()
+    now = time.time()
+    conn = get_conn()
+    with _lock:
+        row = conn.execute(
+            """
+            SELECT sources_json, name FROM stock_board_map
+            WHERE code = ? AND name_key = ? AND kind = ?
+            """,
+            (pure, key, kind),
+        ).fetchone()
+        if row:
+            try:
+                sources = json.loads(row["sources_json"] or "[]")
+            except json.JSONDecodeError:
+                sources = []
+            if not isinstance(sources, list):
+                sources = []
+            sources = [str(s).lower() for s in sources if str(s).strip()]
+            if source not in sources:
+                sources.append(source)
+            # 稳定顺序：eastmoney, ths, 其它
+            order = {"eastmoney": 0, "ths": 1}
+            sources = sorted(set(sources), key=lambda s: (order.get(s, 9), s))
+            cur_name = str(row["name"] or name)
+            if len(name) > len(cur_name):
+                cur_name = name
+            conn.execute(
+                """
+                UPDATE stock_board_map
+                SET name = ?, sources_json = ?, updated_at = ?
+                WHERE code = ? AND name_key = ? AND kind = ?
+                """,
+                (
+                    cur_name,
+                    json.dumps(sources, ensure_ascii=False),
+                    now,
+                    pure,
+                    key,
+                    kind,
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO stock_board_map(code, name_key, name, kind, sources_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    pure,
+                    key,
+                    name,
+                    kind,
+                    json.dumps([source], ensure_ascii=False),
+                    now,
+                ),
+            )
+        conn.commit()
+    return True
+
+
+def remove_stock_concept_source(
+    code: str,
+    *,
+    name: str = "",
+    name_key: str = "",
+    source: str = "ths",
+    kind: str = "concept",
+) -> bool:
+    """从个股概念中移除某一来源；sources 空则删行。"""
+    pure = pure_a_share_code(code)
+    source = str(source or "").strip().lower()
+    key = str(name_key or "").strip() or concept_name_key(name)
+    if not pure or not source or not key:
+        return False
+    init_db()
+    now = time.time()
+    conn = get_conn()
+    with _lock:
+        row = conn.execute(
+            """
+            SELECT sources_json FROM stock_board_map
+            WHERE code = ? AND name_key = ? AND kind = ?
+            """,
+            (pure, key, kind),
+        ).fetchone()
+        if not row:
+            return False
+        try:
+            sources = json.loads(row["sources_json"] or "[]")
+        except json.JSONDecodeError:
+            sources = []
+        if not isinstance(sources, list):
+            sources = []
+        sources = [str(s).lower() for s in sources if str(s).strip()]
+        if source not in sources:
+            return False
+        sources = [s for s in sources if s != source]
+        if sources:
+            conn.execute(
+                """
+                UPDATE stock_board_map
+                SET sources_json = ?, updated_at = ?
+                WHERE code = ? AND name_key = ? AND kind = ?
+                """,
+                (json.dumps(sources, ensure_ascii=False), now, pure, key, kind),
+            )
+        else:
+            conn.execute(
+                """
+                DELETE FROM stock_board_map
+                WHERE code = ? AND name_key = ? AND kind = ?
+                """,
+                (pure, key, kind),
+            )
+        conn.commit()
+    return True
+
+
+def reconcile_stock_board_source(
+    code: str,
+    boards: list[dict[str, Any]],
+    *,
+    source: str = "ths",
+    kind: str = "concept",
+) -> dict[str, int]:
+    """严格对齐：该股在指定 kind 下的 source 集合 = boards（多删少补）。"""
+    pure = pure_a_share_code(code)
+    source = str(source or "").strip().lower()
+    kind = str(kind or "concept").strip().lower() or "concept"
+    if not pure or not source:
+        return {"added": 0, "removed": 0, "kept": 0}
+    desired: dict[str, str] = {}
+    for row in boards or []:
+        name = str((row or {}).get("name") or "").strip()
+        if source == "ths" and not _ths_concept_name_ok(name):
+            continue
+        if not name or len(name) < 2:
+            continue
+        row_kind = str((row or {}).get("kind") or kind).strip().lower() or kind
+        if row_kind != kind:
+            continue
+        desired[concept_name_key(name)] = name
+
+    init_db()
+    conn = get_conn()
+    with _lock:
+        rows = conn.execute(
+            """
+            SELECT name_key, name, sources_json FROM stock_board_map
+            WHERE code = ? AND kind = ?
+            """,
+            (pure, kind),
+        ).fetchall()
+
+    removed = 0
+    kept = 0
+    current: set[str] = set()
+    for row in rows:
+        try:
+            sources = json.loads(row["sources_json"] or "[]")
+        except json.JSONDecodeError:
+            sources = []
+        if not isinstance(sources, list):
+            sources = []
+        sources_l = [str(s).lower() for s in sources if str(s).strip()]
+        if source not in sources_l:
+            continue
+        key = str(row["name_key"] or "")
+        current.add(key)
+        if key not in desired:
+            if remove_stock_concept_source(
+                pure, name_key=key, source=source, kind=kind
+            ):
+                removed += 1
+        else:
+            kept += 1
+
+    added = 0
+    for key, name in desired.items():
+        if upsert_stock_concept_source(pure, name=name, source=source, kind=kind):
+            if key not in current:
+                added += 1
+    return {"added": added, "removed": removed, "kept": kept}
+
+
+def reconcile_stock_ths_concepts(
+    code: str,
+    concepts: list[dict[str, Any]],
+    *,
+    kind: str = "concept",
+) -> dict[str, int]:
+    """严格对齐：该股同花顺概念集合 = concepts（多删少补）。"""
+    return reconcile_stock_board_source(
+        code, concepts, source="ths", kind=kind
+    )
+
+
+def reconcile_stock_em_boards(code: str, boards: list[dict[str, Any]]) -> dict[str, int]:
+    """严格对齐东财行业/概念/地域（按 kind 分别多删少补）。"""
+    totals = {"added": 0, "removed": 0, "kept": 0}
+    by_kind: dict[str, list[dict[str, Any]]] = {}
+    for row in boards or []:
+        kind = str((row or {}).get("kind") or "concept").strip().lower() or "concept"
+        if kind not in ("concept", "industry", "region"):
+            kind = "concept"
+        by_kind.setdefault(kind, []).append(row)
+    for kind in ("concept", "industry", "region"):
+        stats = reconcile_stock_board_source(
+            code, by_kind.get(kind) or [], source="eastmoney", kind=kind
+        )
+        for k in totals:
+            totals[k] += int(stats.get(k) or 0)
+    return totals
+
+
+def fetch_em_stock_boards_result(code: str) -> tuple[list[dict[str, Any]], bool]:
+    """返回 (boards, ok)。HTTP 失败时 ok=False，避免误清空东财标注。"""
+    try:
+        return fetch_em_stock_boards(code, raise_on_error=True), True
+    except Exception:  # noqa: BLE001
+        return [], False
+
+
 def aggregate_concept_stats_from_db(
     *,
     source: str | None = "ths",
+    kind: str = "concept",
 ) -> dict[str, dict[str, Any]]:
-    """按概念 name_key 聚合成份行情（本库 quote_snapshot）。
+    """按 name_key 聚合成份行情（本库 quote_snapshot）。
 
     返回 name_key -> {changePercent, riseCount, fallCount, leadingStock, ...}
     效率：一次 SQL，适合板块列表批量补字段。
+
+    source=ths/eastmoney 时只统计 sources_json 含该平台的成份（含双源）。
+    kind=concept|industry|region；industry 含 region。
     """
     init_db()
     conn = get_conn()
     src_sql, src_params = _source_sql_clause(source)
+    kind = str(kind or "concept").strip().lower() or "concept"
+    if kind in ("industry", "region", "board"):
+        kind_sql = "AND m.kind IN ('industry', 'region')"
+    else:
+        kind_sql = "AND m.kind = 'concept'"
     with _lock:
         # 基础聚合
         rows = conn.execute(
@@ -921,7 +1270,7 @@ def aggregate_concept_stats_from_db(
             FROM stock_board_map m
             JOIN quote_snapshot q
               ON q.market = 'cn' AND q.code = m.code
-            WHERE m.kind = 'concept' {src_sql}
+            WHERE 1=1 {kind_sql} {src_sql}
             GROUP BY m.name_key
             """,
             src_params,
@@ -940,7 +1289,7 @@ def aggregate_concept_stats_from_db(
               FROM stock_board_map m
               JOIN quote_snapshot q
                 ON q.market = 'cn' AND q.code = m.code
-              WHERE m.kind = 'concept' {src_sql}
+              WHERE 1=1 {kind_sql} {src_sql}
             ) t
             WHERE rn = 1
             """,
@@ -992,12 +1341,13 @@ def enrich_board_items_from_db(
     items: list[dict[str, Any]],
     *,
     source: str | None = "ths",
+    kind: str = "concept",
     only_missing: bool = True,
 ) -> list[dict[str, Any]]:
     """把本库聚合行情填到板块列表项（按 name_key 对齐）。"""
     if not items:
         return items
-    stats = aggregate_concept_stats_from_db(source=source)
+    stats = aggregate_concept_stats_from_db(source=source, kind=kind)
     if not stats:
         return items
     for item in items:
@@ -1037,23 +1387,33 @@ def get_concept_board_from_db(
     code: str,
     *,
     source: str = "ths",
+    kind: str = "concept",
 ) -> dict[str, Any] | None:
-    """按 ths:ID / 名称 取概念元信息 + 聚合行情。"""
+    """按 ths:ID / BK代码 / 名称 取板块元信息 + 聚合行情。"""
     raw = str(code or "").strip()
     if not raw:
         return None
+    kind = str(kind or "concept").strip().lower() or "concept"
+    if kind in ("industry", "region", "board"):
+        kind_filter = ("industry", "region")
+        kind_sql = "kind IN ('industry', 'region')"
+    else:
+        kind_filter = ("concept",)
+        kind_sql = "kind = 'concept'"
+    src = str(source or "auto").strip().lower() or "auto"
     init_db()
     conn = get_conn()
     name = ""
     board_code = raw
     name_key = ""
+    resolved_source = src if src not in ("auto", "all") else None
     with _lock:
-        if raw.startswith("ths:") or raw.isdigit():
+        if raw.startswith("ths:") or (raw.isdigit() and kind == "concept"):
             cid = raw.replace("ths:", "")
             row = conn.execute(
-                """
-                SELECT code, name, name_key FROM board_catalog
-                WHERE source = 'ths' AND kind = 'concept'
+                f"""
+                SELECT code, name, name_key, source FROM board_catalog
+                WHERE source = 'ths' AND {kind_sql}
                   AND (code = ? OR code = ?)
                 LIMIT 1
                 """,
@@ -1063,24 +1423,70 @@ def get_concept_board_from_db(
                 board_code = str(row["code"])
                 name = str(row["name"])
                 name_key = str(row["name_key"])
-        if not name_key:
-            name_key = concept_name_key(raw)
+                resolved_source = "ths"
+        elif raw.upper().startswith("BK"):
             row = conn.execute(
-                """
-                SELECT code, name, name_key FROM board_catalog
-                WHERE kind = 'concept' AND name_key = ?
-                ORDER BY CASE source WHEN 'ths' THEN 0 ELSE 1 END
+                f"""
+                SELECT code, name, name_key, source FROM board_catalog
+                WHERE source = 'eastmoney' AND {kind_sql} AND code = ?
                 LIMIT 1
                 """,
-                (name_key,),
+                (raw.upper() if raw.startswith("BK") else raw,),
             ).fetchone()
+            if not row:
+                row = conn.execute(
+                    f"""
+                    SELECT code, name, name_key, source FROM board_catalog
+                    WHERE source = 'eastmoney' AND {kind_sql} AND upper(code) = ?
+                    LIMIT 1
+                    """,
+                    (raw.upper(),),
+                ).fetchone()
             if row:
                 board_code = str(row["code"])
                 name = str(row["name"])
                 name_key = str(row["name_key"])
+                resolved_source = "eastmoney"
+        if not name_key:
+            name_key = concept_name_key(raw)
+            order_sql = (
+                "CASE source WHEN 'eastmoney' THEN 0 WHEN 'ths' THEN 1 ELSE 2 END"
+                if src in ("eastmoney", "auto", "all")
+                else "CASE source WHEN 'ths' THEN 0 ELSE 1 END"
+            )
+            if src in ("eastmoney", "ths"):
+                row = conn.execute(
+                    f"""
+                    SELECT code, name, name_key, source FROM board_catalog
+                    WHERE {kind_sql} AND name_key = ? AND source = ?
+                    LIMIT 1
+                    """,
+                    (name_key, src),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    f"""
+                    SELECT code, name, name_key, source FROM board_catalog
+                    WHERE {kind_sql} AND name_key = ?
+                    ORDER BY {order_sql}
+                    LIMIT 1
+                    """,
+                    (name_key,),
+                ).fetchone()
+            if row:
+                board_code = str(row["code"])
+                name = str(row["name"])
+                name_key = str(row["name_key"])
+                resolved_source = str(row["source"] or resolved_source or "eastmoney")
     if not name_key:
         return None
-    stats = aggregate_concept_stats_from_db(source=source).get(name_key) or {}
+    stats_source = resolved_source or ("ths" if raw.startswith("ths:") else "eastmoney")
+    if src in ("ths", "eastmoney"):
+        stats_source = src
+    stats = (
+        aggregate_concept_stats_from_db(source=stats_source, kind=kind).get(name_key)
+        or {}
+    )
     return {
         "rank": 0,
         "code": board_code,
@@ -1095,10 +1501,11 @@ def get_concept_board_from_db(
         "leadingStock": stats.get("leadingStock"),
         "leadingStockChangePercent": stats.get("leadingStockChangePercent"),
         "memberCount": stats.get("memberCount"),
-        "source": source,
-        "sources": [source],
+        "source": stats_source,
+        "sources": [stats_source],
         "statsSource": stats.get("statsSource") or "db_aggregate",
         "nameKey": name_key,
+        "kind": kind_filter[0],
     }
 
 
@@ -1106,15 +1513,26 @@ def get_concept_constituents_from_db(
     code: str,
     *,
     source: str = "ths",
+    kind: str = "concept",
 ) -> dict[str, Any]:
-    """同花顺/库内概念成份：map ∩ 本库行情。"""
-    meta = get_concept_board_from_db(code, source=source)
+    """库内板块成份：按 name_key 对齐；只含该平台来源（含双源）。"""
+    kind = str(kind or "concept").strip().lower() or "concept"
+    meta = get_concept_board_from_db(code, source=source, kind=kind)
     if not meta:
         return {"board": None, "items": []}
     name_key = str(meta.get("nameKey") or concept_name_key(str(meta.get("name") or "")))
     init_db()
     conn = get_conn()
-    src_sql, src_params = _source_sql_clause(source)
+    filter_src = str(meta.get("source") or source)
+    if source in ("ths", "eastmoney"):
+        filter_src = source
+    elif filter_src in ("auto", "", "all"):
+        filter_src = "ths" if str(code).startswith("ths:") else "eastmoney"
+    src_sql, src_params = _source_sql_clause(filter_src)
+    if kind in ("industry", "region", "board"):
+        kind_sql = "AND m.kind IN ('industry', 'region')"
+    else:
+        kind_sql = "AND m.kind = 'concept'"
     with _lock:
         rows = conn.execute(
             f"""
@@ -1126,17 +1544,24 @@ def get_concept_constituents_from_db(
               q.amount AS amount,
               q.turnover_rate AS turnover_rate,
               q.pe AS pe,
-              q.total_market_cap AS total_market_cap
+              q.total_market_cap AS total_market_cap,
+              m.sources_json AS sources_json
             FROM stock_board_map m
             LEFT JOIN quote_snapshot q
               ON q.market = 'cn' AND q.code = m.code
-            WHERE m.kind = 'concept' AND m.name_key = ? {src_sql}
+            WHERE m.name_key = ? {kind_sql} {src_sql}
             ORDER BY q.change_percent DESC NULLS LAST, m.code
             """,
             [name_key, *src_params],
         ).fetchall()
     items = []
     for i, r in enumerate(rows, start=1):
+        try:
+            sources = json.loads(r["sources_json"] or "[]")
+        except json.JSONDecodeError:
+            sources = []
+        if not isinstance(sources, list):
+            sources = []
         items.append(
             {
                 "rank": i,
@@ -1160,6 +1585,7 @@ def get_concept_constituents_from_db(
                     if r["total_market_cap"] is not None
                     else None
                 ),
+                "sources": sources,
             }
         )
     return {"board": meta, "items": items}

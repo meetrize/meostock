@@ -1245,18 +1245,24 @@ def board_list(
             status_code=400,
         )
 
-    # 库目录作回退/补源；行情仍优先实时接口，避免涨跌榜被入库快照锁死
+    # 优先读库（定时同步）；库空再打实时接口
     db_items: list[dict[str, Any]] = []
+    db_em_items: list[dict[str, Any]] = []
     db_ths_items: list[dict[str, Any]] = []
     try:
         from cache import board_concepts as bcm
 
         db_kind = "industry" if board_type == "industry" else "concept"
-        db_src = "all" if src == "all" else src
-        if db_src in ("eastmoney", "ths", "all"):
-            db_items = bcm.get_catalog_from_db(kind=db_kind, source=db_src) or []
+        if src in ("eastmoney", "all", "sina"):
+            db_em_items = bcm.get_catalog_from_db(kind=db_kind, source="eastmoney") or []
         if src in ("ths", "all") and board_type == "concept":
             db_ths_items = bcm.get_catalog_from_db(kind="concept", source="ths") or []
+        if src == "all":
+            db_items = bcm.get_catalog_from_db(kind=db_kind, source="all") or []
+        elif src == "eastmoney":
+            db_items = db_em_items
+        elif src == "ths":
+            db_items = db_ths_items
     except Exception:  # noqa: BLE001
         pass
 
@@ -1264,6 +1270,31 @@ def board_list(
     ths_error: str | None = None
     em_items: list[dict[str, Any]] = []
     ths_items: list[dict[str, Any]] = []
+
+    # 东财：库有目录则直接返回（可再用本库成份聚合补缺字段）
+    if src == "eastmoney" and db_em_items:
+        items = list(db_em_items)
+        try:
+            from cache import board_concepts as bcm
+
+            items = bcm.enrich_board_items_from_db(
+                items,
+                source="eastmoney",
+                kind="industry" if board_type == "industry" else "concept",
+                only_missing=True,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        return JSONResponse(
+            {
+                "ok": True,
+                "type": board_type,
+                "items": items,
+                "source": "db:eastmoney",
+                "fromDb": True,
+                "statsSource": "db_aggregate",
+            }
+        )
 
     if src in ("eastmoney", "all", "sina"):
         try:
@@ -1273,14 +1304,14 @@ def board_list(
 
     ths_from_db = False
     if src in ("ths", "all") and board_type == "concept":
-        try:
-            ths_items = _ths_concept_board_list()
-        except Exception as e:  # noqa: BLE001
-            ths_error = str(e) or type(e).__name__
-        if not ths_items and db_ths_items:
+        if db_ths_items:
             ths_items = db_ths_items
             ths_from_db = True
-            ths_error = None
+        else:
+            try:
+                ths_items = _ths_concept_board_list()
+            except Exception as e:  # noqa: BLE001
+                ths_error = str(e) or type(e).__name__
 
     if src == "ths":
         items = ths_items or db_items
@@ -1289,7 +1320,7 @@ def board_list(
                 from cache import board_concepts as bcm
 
                 items = bcm.enrich_board_items_from_db(
-                    items, source="ths", only_missing=True
+                    items, source="ths", kind="concept", only_missing=True
                 )
             except Exception:  # noqa: BLE001
                 pass
@@ -1299,8 +1330,8 @@ def board_list(
                     "ok": True,
                     "type": board_type,
                     "items": items,
-                    "source": "db:ths" if (ths_from_db or not ths_items) else "ths+db",
-                    "fromDb": bool(ths_from_db or not ths_items),
+                    "source": "db:ths" if ths_from_db else "ths+db",
+                    "fromDb": bool(ths_from_db),
                     "statsSource": "db_aggregate",
                 }
             )
@@ -1310,17 +1341,25 @@ def board_list(
         )
 
     if src == "all":
-        merged = _merge_board_rows([*em_items, *ths_items])
+        # 合并优先用库；库缺一侧再补实时
+        use_em = db_em_items or em_items
+        use_ths = db_ths_items if board_type == "concept" else []
+        if board_type == "concept" and not use_ths and ths_items:
+            use_ths = ths_items
+        if not use_em and em_items:
+            use_em = em_items
+        merged = _merge_board_rows([*use_em, *use_ths]) if (use_em or use_ths) else []
         if merged:
             return JSONResponse(
                 {
                     "ok": True,
                     "type": board_type,
                     "items": merged,
-                    "source": "all",
+                    "source": "db:all" if (db_em_items or db_ths_items) else "all",
+                    "fromDb": bool(db_em_items or db_ths_items),
                     "sources": {
-                        "eastmoney": len(em_items),
-                        "ths": len(ths_items),
+                        "eastmoney": len(use_em),
+                        "ths": len(use_ths),
                     },
                     "errors": {
                         k: v
@@ -1343,10 +1382,9 @@ def board_list(
                     "fromDb": True,
                 }
             )
-        # fall through to sina if both empty
 
     if em_items and src in ("eastmoney", "all", "sina"):
-        if src == "eastmoney" or (src == "all" and not ths_items):
+        if src == "eastmoney" or (src == "all" and not ths_items and not db_ths_items):
             return JSONResponse(
                 {
                     "ok": True,
@@ -1415,35 +1453,36 @@ def board_detail(
     code: str = Query(..., description="如 ths:308582 或 BK1716"),
     source: str = Query("auto", description="auto|ths|eastmoney|all"),
 ) -> JSONResponse:
-    """板块详情：同花顺代码走本库成份聚合；东财代码仍可由前端走 SDK。"""
+    """板块详情：东财/同花顺均走本库成份聚合。"""
     board_type = (type or "concept").lower().strip()
     raw = (code or "").strip()
     src = (source or "auto").lower().strip()
-    if board_type != "concept":
+    if board_type not in ("concept", "industry"):
         return JSONResponse(
-            {"ok": False, "error": "目前仅支持 concept 的库内详情"},
+            {"ok": False, "error": "type must be concept|industry"},
             status_code=400,
         )
-    use_ths = src == "ths" or raw.startswith("ths:") or (src == "auto" and raw.startswith("ths:"))
-    if not use_ths and src != "all":
-        return JSONResponse(
-            {
-                "ok": False,
-                "error": "eastmoney 详情请使用 stock-sdk 成分接口",
-                "code": raw,
-            },
-            status_code=400,
-        )
+    if src == "auto":
+        if raw.startswith("ths:"):
+            use_src = "ths"
+        elif raw.upper().startswith("BK"):
+            use_src = "eastmoney"
+        else:
+            use_src = "eastmoney"
+    elif src == "all":
+        use_src = "ths" if raw.startswith("ths:") else "eastmoney"
+    else:
+        use_src = src
     try:
         from cache import board_concepts as bcm
 
         data = bcm.get_concept_constituents_from_db(
-            raw, source="ths" if use_ths or src == "auto" else src
+            raw, source=use_src, kind=board_type
         )
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
     if not data.get("board"):
-        return JSONResponse({"ok": False, "error": "concept not found"}, status_code=404)
+        return JSONResponse({"ok": False, "error": "board not found"}, status_code=404)
     return JSONResponse(
         {
             "ok": True,
@@ -1459,10 +1498,10 @@ def board_detail(
 @app.get("/api/board/constituents")
 def board_constituents(
     type: str = Query("concept", description="concept|industry"),
-    code: str = Query(..., description="ths:ID 或概念名"),
-    source: str = Query("ths", description="ths|all"),
+    code: str = Query(..., description="ths:ID / BK代码 / 概念名"),
+    source: str = Query("auto", description="auto|ths|eastmoney|all"),
 ) -> JSONResponse:
-    """库内概念成份股（对照本库行情）。"""
+    """库内板块成份股（对照本库行情）。"""
     return board_detail(type=type, code=code, source=source)
 
 

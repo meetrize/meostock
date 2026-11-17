@@ -8,6 +8,8 @@ import time
 from typing import Any
 
 from scheduler import jobs as jobs_mod
+from scheduler.em_board_sync import get_progress as em_progress
+from scheduler.em_board_sync import run_em_board_sync
 from scheduler.ths_concept_sync import get_progress as ths_progress
 from scheduler.ths_concept_sync import run_ths_concept_sync
 
@@ -22,9 +24,13 @@ _running_job_id: str | None = None
 def _register_handlers() -> None:
     def ths_handler() -> dict[str, Any]:
         # 阻塞执行，便于写回完整结果
-        return run_ths_concept_sync(delay=0.35)
+        return run_ths_concept_sync(delay=0.05, workers=6)
+
+    def em_handler() -> dict[str, Any]:
+        return run_em_board_sync(delay=0.05, workers=6)
 
     jobs_mod.register_handler("ths_concept_sync", ths_handler)
+    jobs_mod.register_handler("em_board_sync", em_handler)
 
 
 def _tick() -> None:
@@ -98,4 +104,5 @@ def runtime_status() -> dict[str, Any]:
         "scheduler_alive": bool(_thread and _thread.is_alive()),
         "running_job_id": _running_job_id,
         "ths_concept_sync": ths_progress(),
+        "em_board_sync": em_progress(),
     }

@@ -77,6 +77,7 @@ export function BoardDetail() {
   const isIndustry = type === 'industry';
   const decodedCode = useMemo(() => (code ? decodeURIComponent(code) : ''), [code]);
   const isThsBoard = decodedCode.startsWith('ths:');
+  const isDbBoard = isThsBoard || /^BK\d+/i.test(decodedCode);
   const [dbBoardInfo, setDbBoardInfo] = useState<BoardListItem | null>(null);
 
   const boardInfo = useMemo(() => {
@@ -92,8 +93,11 @@ export function BoardDetail() {
   const fetchConstituents = useCallback(async () => {
     if (!decodedCode) return;
     try {
-      if (isThsBoard) {
-        const detail = await getBoardDetailFromDb('concept', decodedCode);
+      if (isDbBoard) {
+        const detail = await getBoardDetailFromDb(
+          isIndustry ? 'industry' : 'concept',
+          decodedCode
+        );
         setDbBoardInfo(detail.board);
         setConstituents(
           (detail.items || []).map((row) => ({
@@ -116,7 +120,7 @@ export function BoardDetail() {
     } catch (error) {
       console.error('Fetch constituents error:', error);
     }
-  }, [decodedCode, isIndustry, isThsBoard]);
+  }, [decodedCode, isIndustry, isDbBoard]);
 
   // 加载 K 线
   const fetchKline = useCallback(async () => {

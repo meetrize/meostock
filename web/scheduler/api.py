@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from cache.db import init_db
 from scheduler import jobs as jobs_mod
 from scheduler import runner as runner_mod
+from scheduler.em_board_sync import get_progress as em_progress
 from scheduler.ths_concept_sync import get_progress as ths_progress
 
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
@@ -80,3 +81,8 @@ def scheduler_runs(
 @router.get("/ths-concept/progress")
 def ths_concept_progress() -> JSONResponse:
     return JSONResponse({"ok": True, **ths_progress()})
+
+
+@router.get("/em-board/progress")
+def em_board_progress() -> JSONResponse:
+    return JSONResponse({"ok": True, **em_progress()})

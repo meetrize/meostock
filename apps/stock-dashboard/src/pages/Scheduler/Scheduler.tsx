@@ -1,8 +1,8 @@
 /**
- * 定时任务：同花顺概念同步等
+ * 定时任务：同花顺概念 / 东财板块概念同步等
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Play, RefreshCw, ToggleLeft, ToggleRight } from 'lucide-react';
 import { Card, Loading, Empty, useToast } from '@/components/common';
@@ -30,7 +30,7 @@ type JobRun = {
   message?: string | null;
 };
 
-type ThsProgress = {
+type SyncProgress = {
   active?: boolean;
   phase?: string;
   done?: number;
@@ -38,6 +38,8 @@ type ThsProgress = {
   ok_count?: number;
   failed?: number;
   tagged?: number;
+  removed?: number;
+  skipped?: number;
   message?: string;
 };
 
@@ -50,27 +52,43 @@ function fmtTime(ts?: number | null): string {
   }
 }
 
+function jobProgressKey(jobType: string): string | null {
+  if (jobType === 'ths_concept_sync') return 'ths';
+  if (jobType === 'em_board_sync') return 'em';
+  return null;
+}
+
 export function Scheduler() {
   const toast = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [runs, setRuns] = useState<JobRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [progress, setProgress] = useState<ThsProgress | null>(null);
+  const [thsProgress, setThsProgress] = useState<SyncProgress | null>(null);
+  const [emProgress, setEmProgress] = useState<SyncProgress | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const activeProgress = useMemo(() => {
+    if (emProgress?.active) return emProgress;
+    if (thsProgress?.active) return thsProgress;
+    return thsProgress?.message ? thsProgress : emProgress;
+  }, [emProgress, thsProgress]);
 
   const load = useCallback(async () => {
     try {
-      const [jRes, rRes, pRes] = await Promise.all([
+      const [jRes, rRes, thsRes, emRes] = await Promise.all([
         fetch('/api/scheduler/jobs'),
         fetch('/api/scheduler/runs?limit=30'),
         fetch('/api/scheduler/ths-concept/progress'),
+        fetch('/api/scheduler/em-board/progress'),
       ]);
       const jData = await jRes.json().catch(() => ({}));
       const rData = await rRes.json().catch(() => ({}));
-      const pData = await pRes.json().catch(() => ({}));
+      const thsData = await thsRes.json().catch(() => ({}));
+      const emData = await emRes.json().catch(() => ({}));
       if (jData?.ok && Array.isArray(jData.jobs)) setJobs(jData.jobs);
       if (rData?.ok && Array.isArray(rData.runs)) setRuns(rData.runs);
-      if (pData?.ok) setProgress(pData);
+      if (thsData?.ok) setThsProgress(thsData);
+      if (emData?.ok) setEmProgress(emData);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -120,6 +138,13 @@ export function Scheduler() {
     }
   };
 
+  const progressFor = (jobType: string): SyncProgress | null => {
+    const key = jobProgressKey(jobType);
+    if (key === 'ths') return thsProgress;
+    if (key === 'em') return emProgress;
+    return null;
+  };
+
   return (
     <div className={styles.page}>
       <div className={styles.header}>
@@ -129,29 +154,32 @@ export function Scheduler() {
             定时任务
           </h2>
           <p className={styles.desc}>
-            独立调度模块。同花顺概念同步会翻遍概念目录与成分页，对照本库股票写入概念标注。
+            东财/同花顺板块概念定时入库后，打开板块页优先读库，避免实时请求拖慢加载。
           </p>
         </div>
         <button type="button" className={styles.refreshBtn} onClick={() => void load()}>
-          <RefreshCw size={14} className={progress?.active ? styles.spin : undefined} />
+          <RefreshCw size={14} className={activeProgress?.active ? styles.spin : undefined} />
           刷新
         </button>
       </div>
 
-      {progress?.active && (
+      {activeProgress?.active && (
         <div className={styles.progressBar}>
           <div className={styles.progressText}>
-            {progress.message || '同步中…'}
-            {progress.total ? ` · ${progress.done ?? 0}/${progress.total}` : ''}
-            {typeof progress.tagged === 'number' ? ` · 标注 ${progress.tagged}` : ''}
+            {activeProgress.message || '同步中…'}
+            {activeProgress.total ? ` · ${activeProgress.done ?? 0}/${activeProgress.total}` : ''}
+            {typeof activeProgress.tagged === 'number' ? ` · 标注 ${activeProgress.tagged}` : ''}
           </div>
           <div className={styles.progressTrack}>
             <div
               className={styles.progressFill}
               style={{
                 width: `${
-                  progress.total
-                    ? Math.min(100, Math.round(((progress.done || 0) / progress.total) * 100))
+                  activeProgress.total
+                    ? Math.min(
+                        100,
+                        Math.round(((activeProgress.done || 0) / activeProgress.total) * 100)
+                      )
                     : 8
                 }%`,
               }}
@@ -168,7 +196,8 @@ export function Scheduler() {
         ) : (
           <div className={styles.jobList}>
             {jobs.map((job, index) => {
-              const running = progress?.active && job.job_type === 'ths_concept_sync';
+              const p = progressFor(job.job_type);
+              const running = Boolean(p?.active);
               return (
                 <motion.div
                   key={job.id}
@@ -193,7 +222,12 @@ export function Scheduler() {
                     ) : null}
                     {job.job_type === 'ths_concept_sync' ? (
                       <div className={styles.jobHint}>
-                        来源 q.10jqka.com.cn/gn → 概念详情翻页成分 → 标注本库股票（ths）。未登录时深分页可能被拦截。
+                        按同花顺个股概念严格对齐成份；列表/详情读库。
+                      </div>
+                    ) : null}
+                    {job.job_type === 'em_board_sync' ? (
+                      <div className={styles.jobHint}>
+                        东财行业+概念目录入库，并按 F10 严格对齐个股板块标注；打开板块页优先读库。
                       </div>
                     ) : null}
                   </div>

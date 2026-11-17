@@ -24,6 +24,13 @@ DEFAULT_JOBS: list[dict[str, Any]] = [
         "enabled": 0,
         "interval_minutes": 360,
     },
+    {
+        "id": "em_board_sync",
+        "name": "东财板块/概念同步",
+        "job_type": "em_board_sync",
+        "enabled": 0,
+        "interval_minutes": 360,
+    },
 ]
 
 
