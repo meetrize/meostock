@@ -324,6 +324,16 @@ img {
   border-radius: var(--radius-sm);
 }
 
+/* 页面全屏：隐藏应用侧栏 / 顶栏 / 页脚（由业务页设置 html[data-page-fullscreen]） */
+html[data-page-fullscreen='1'] [data-app-chrome] {
+  display: none !important;
+}
+
+html[data-page-fullscreen='1'] {
+  --sidebar-width: 0px;
+  --header-height: 0px;
+}
+
 /* 响应式断点 */
 @media (max-width: 768px) {
   :root {

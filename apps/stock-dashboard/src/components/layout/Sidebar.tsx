@@ -95,6 +95,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
   return (
     <aside
       className={`${styles.sidebar}${collapsed ? ` ${styles.collapsed}` : ''}`}
+      data-app-chrome="sidebar"
       aria-hidden={collapsed}
     >
       <div className={styles.logo}>

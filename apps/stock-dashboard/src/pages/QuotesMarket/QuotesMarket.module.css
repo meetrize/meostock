@@ -5,6 +5,76 @@
   min-height: calc(100vh - var(--header-height) - var(--spacing-md) * 2);
 }
 
+/* 页面全屏：覆盖顶栏/应用侧栏，只留表格 */
+.pageFullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  grid-template-columns: 1fr;
+  gap: 0;
+  min-height: 100vh;
+  height: 100vh;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--bg-primary, #0b1220);
+}
+
+.pageFullscreen .main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.fullscreenBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-bottom: 6px;
+}
+
+.fullscreenTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.fullscreenCard {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Card.body（全屏时无 header，唯一直接子节点） */
+.fullscreenCard > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pageFullscreen .panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pageFullscreen .tableWrap {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+}
+
+.pageFullscreen .pager {
+  flex-shrink: 0;
+}
+
 .sidebar {
   display: flex;
   flex-direction: column;

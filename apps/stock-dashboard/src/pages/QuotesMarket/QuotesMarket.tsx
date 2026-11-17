@@ -18,6 +18,8 @@ import {
   Newspaper,
   Columns3,
   RotateCcw,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { Card, Loading, Empty, useToast } from '@/components/common';
 import { useIsInWatchlist } from '@/hooks';
@@ -1057,6 +1059,7 @@ export function QuotesMarket() {
     mergeQuotesColumnPrefs('cn', CN_COLUMNS)
   );
   const [showColumnPanel, setShowColumnPanel] = useState(false);
+  const [pageFullscreen, setPageFullscreen] = useState(false);
   const [tableKind, setTableKind] = useState<'quote' | 'topic'>('quote');
   const [tradeDate, setTradeDate] = useState('');
   const [tradeDateInput, setTradeDateInput] = useState('');
@@ -1296,6 +1299,25 @@ export function QuotesMarket() {
     // 仅市场切换触发；交易日由手动应用
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [market]);
+
+  useEffect(() => {
+    if (!pageFullscreen) {
+      delete document.documentElement.dataset.pageFullscreen;
+      return;
+    }
+    document.documentElement.dataset.pageFullscreen = '1';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPageFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      delete document.documentElement.dataset.pageFullscreen;
+    };
+  }, [pageFullscreen]);
 
   // 后台同步完成后 softReload 当前市场（无蒙层）
   useEffect(() => {
@@ -1612,56 +1634,74 @@ export function QuotesMarket() {
   };
 
   return (
-    <div className={styles.page}>
-      <aside className={styles.sidebar}>
-        <div className={styles.sidebarHeader}>
-          <h3>行情分类</h3>
-          <button
-            type="button"
-            className={styles.syncAllBtn}
-            onClick={() => void handleSyncCurrentLane()}
-            disabled={nodeSyncing || marketLane === 'placeholder'}
-            title={`同步本轨：${LANE_META[marketLane].title}（进度见顶栏）`}
-          >
-            <Layers size={13} />
-            同步本轨
-          </button>
-        </div>
-        <div className={styles.navScroll}>
-          {navTree.map((g) => (
-            <div key={g.id} className={styles.groupBlock}>
-              <div className={styles.groupLabel}>{g.label}</div>
-              {(g.children || []).map((m) => {
-                const lane = laneOf(m.id);
-                const meta = LANE_META[lane];
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    className={`${styles.marketItem} ${market === m.id ? styles.active : ''}`}
-                    onClick={() => selectMarket(m.id)}
-                    title={`${meta.title} · ${m.id}`}
-                  >
-                    <span
-                      className={styles.laneBadge}
-                      style={{ background: meta.colorVar }}
-                      aria-hidden
-                    />
-                    <span className={styles.marketLabel}>{m.label}</span>
-                    <span className={styles.laneTag}>{meta.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </aside>
+    <div className={`${styles.page}${pageFullscreen ? ` ${styles.pageFullscreen}` : ''}`}>
+      {!pageFullscreen && (
+        <aside className={styles.sidebar}>
+          <div className={styles.sidebarHeader}>
+            <h3>行情分类</h3>
+            <button
+              type="button"
+              className={styles.syncAllBtn}
+              onClick={() => void handleSyncCurrentLane()}
+              disabled={nodeSyncing || marketLane === 'placeholder'}
+              title={`同步本轨：${LANE_META[marketLane].title}（进度见顶栏）`}
+            >
+              <Layers size={13} />
+              同步本轨
+            </button>
+          </div>
+          <div className={styles.navScroll}>
+            {navTree.map((g) => (
+              <div key={g.id} className={styles.groupBlock}>
+                <div className={styles.groupLabel}>{g.label}</div>
+                {(g.children || []).map((m) => {
+                  const lane = laneOf(m.id);
+                  const meta = LANE_META[lane];
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={`${styles.marketItem} ${market === m.id ? styles.active : ''}`}
+                      onClick={() => selectMarket(m.id)}
+                      title={`${meta.title} · ${m.id}`}
+                    >
+                      <span
+                        className={styles.laneBadge}
+                        style={{ background: meta.colorVar }}
+                        aria-hidden
+                      />
+                      <span className={styles.marketLabel}>{m.label}</span>
+                      <span className={styles.laneTag}>{meta.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </aside>
+      )}
 
       <div className={styles.main}>
+        {pageFullscreen && (
+          <div className={styles.fullscreenBar}>
+            <span className={styles.fullscreenTitle}>{activeLabel}行情</span>
+            <button
+              type="button"
+              className={styles.refreshBtn}
+              onClick={() => setPageFullscreen(false)}
+              title="退出页面全屏（Esc）"
+            >
+              <Minimize2 size={14} />
+              退出全屏
+            </button>
+          </div>
+        )}
         <Card
-          title={`${activeLabel}行情`}
+          title={pageFullscreen ? undefined : `${activeLabel}行情`}
           padding="sm"
+          className={pageFullscreen ? styles.fullscreenCard : undefined}
           extra={
+            pageFullscreen ? undefined : (
             <div className={styles.toolbar}>
               {showTradeDate && (
                 <div className={styles.tradeDateBox}>
@@ -1736,6 +1776,15 @@ export function QuotesMarket() {
                 <Columns3 size={14} />
                 列设置
               </button>
+              <button
+                type="button"
+                className={styles.refreshBtn}
+                onClick={() => setPageFullscreen(true)}
+                title="页面全屏：只显示表格"
+              >
+                <Maximize2 size={14} />
+                全屏
+              </button>
               <span className={styles.count}>共 {sorted.length} 条</span>
               {cacheMeta && (
                 <span
@@ -1751,6 +1800,7 @@ export function QuotesMarket() {
                 </span>
               )}
             </div>
+            )
           }
         >
           <div className={styles.panel}>
@@ -1768,7 +1818,7 @@ export function QuotesMarket() {
                 </div>
               </div>
             )}
-          {showColumnPanel && baseColumns.length > 0 && (
+          {showColumnPanel && !pageFullscreen && baseColumns.length > 0 && (
             <div className={styles.columnPanel}>
               <div className={styles.columnPanelHeader}>
                 <span>自定义「{activeLabel}」列（仅本市场生效）</span>

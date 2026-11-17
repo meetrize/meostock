@@ -236,7 +236,7 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
   const dropdownClosing = dropdownRendered && !showDropdown;
 
   return (
-    <header className={styles.header}>
+    <header className={styles.header} data-app-chrome="header">
       <div className={styles.left}>
         <button
           type="button"

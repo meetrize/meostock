@@ -66,6 +66,7 @@ export function Layout() {
         </div>
         <footer
           className={`${styles.footer}${tightContent ? ` ${styles.footerTight}` : ''}`}
+          data-app-chrome="footer"
         >
           <span>数据来源：</span>
           <a
