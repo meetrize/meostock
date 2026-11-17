@@ -16,6 +16,8 @@ import {
   Database,
   Layers,
   Newspaper,
+  Columns3,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, Loading, Empty, useToast } from '@/components/common';
 import { useIsInWatchlist } from '@/hooks';
@@ -31,6 +33,7 @@ import {
   getDomesticFuturesSpotMap,
   getStockConcepts,
 } from '@/services/sdk';
+import { getTableColumns, saveTableColumns } from '@/services/storage';
 import { useAppSettings, useSyncStatus } from '@/contexts';
 import {
   formatPrice,
@@ -51,7 +54,54 @@ import {
   type TushareNavGroup,
 } from '@/services/tushare';
 import { LANE_META, laneOf } from '@/services/sourceLanes';
+import type { ColumnConfig } from '@/types';
 import styles from './QuotesMarket.module.css';
+
+/** 身份列默认不可隐藏 */
+const LOCKED_COLUMN_KEYS = new Set(['code', 'name']);
+
+function quotesColumnStorageKey(marketId: string): string {
+  return `quotes:${marketId}`;
+}
+
+function defaultsToPrefs(defaults: TushareCol[]): ColumnConfig[] {
+  return defaults.map((col) => ({
+    key: col.key,
+    label: col.label,
+    visible: true,
+  }));
+}
+
+/** 按市场合并已存列偏好（顺序 + 显隐）；新列默认显示并追加到末尾 */
+function mergeQuotesColumnPrefs(
+  marketId: string,
+  defaults: TushareCol[]
+): ColumnConfig[] {
+  if (!defaults.length) return [];
+  const stored = getTableColumns(quotesColumnStorageKey(marketId));
+  if (!stored?.length) return defaultsToPrefs(defaults);
+
+  const byKey = new Map(defaults.map((col) => [col.key, col]));
+  const next: ColumnConfig[] = [];
+  const seen = new Set<string>();
+
+  for (const item of stored) {
+    const base = byKey.get(item.key);
+    if (!base) continue;
+    const locked = LOCKED_COLUMN_KEYS.has(base.key);
+    next.push({
+      key: base.key,
+      label: base.label,
+      visible: locked ? true : item.visible !== false,
+    });
+    seen.add(base.key);
+  }
+  for (const col of defaults) {
+    if (seen.has(col.key)) continue;
+    next.push({ key: col.key, label: col.label, visible: true });
+  }
+  return next;
+}
 
 /** 原 cache/sdk 市场 + Tushare 节点（ts:*） */
 type MarketId = string;
@@ -980,7 +1030,11 @@ export function QuotesMarket() {
   const markets = useMemo(() => flattenNav(navTree), [navTree]);
   const [market, setMarket] = useState<MarketId>('cn');
   const [rows, setRows] = useState<TopicRow[]>([]);
-  const [activeColumns, setActiveColumns] = useState<TushareCol[]>(COLUMNS);
+  const [baseColumns, setBaseColumns] = useState<TushareCol[]>(CN_COLUMNS);
+  const [columnPrefs, setColumnPrefs] = useState<ColumnConfig[]>(() =>
+    mergeQuotesColumnPrefs('cn', CN_COLUMNS)
+  );
+  const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [tableKind, setTableKind] = useState<'quote' | 'topic'>('quote');
   const [tradeDate, setTradeDate] = useState('');
   const [tradeDateInput, setTradeDateInput] = useState('');
@@ -1002,6 +1056,58 @@ export function QuotesMarket() {
   const marketLane = laneOf(market);
   const laneTrack = tracks.find((t) => t.lane === marketLane);
   const nodeSyncing = Boolean(laneTrack?.active);
+
+  const displayColumns = useMemo(() => {
+    const byKey = new Map(baseColumns.map((col) => [col.key, col]));
+    return columnPrefs
+      .filter((pref) => pref.visible)
+      .map((pref) => byKey.get(pref.key))
+      .filter((col): col is TushareCol => Boolean(col));
+  }, [baseColumns, columnPrefs]);
+
+  const applyMarketColumns = useCallback((marketId: MarketId, defaults: TushareCol[]) => {
+    setBaseColumns(defaults);
+    setColumnPrefs(mergeQuotesColumnPrefs(marketId, defaults));
+  }, []);
+
+  const persistColumnPrefs = useCallback(
+    (marketId: MarketId, next: ColumnConfig[]) => {
+      setColumnPrefs(next);
+      saveTableColumns(quotesColumnStorageKey(marketId), next);
+    },
+    []
+  );
+
+  const handleToggleColumn = useCallback(
+    (columnKey: string) => {
+      if (LOCKED_COLUMN_KEYS.has(columnKey)) return;
+      const next = columnPrefs.map((col) =>
+        col.key === columnKey ? { ...col, visible: !col.visible } : col
+      );
+      if (!next.some((col) => col.visible)) return;
+      persistColumnPrefs(market, next);
+    },
+    [columnPrefs, market, persistColumnPrefs]
+  );
+
+  const handleMoveColumn = useCallback(
+    (columnKey: string, direction: -1 | 1) => {
+      const index = columnPrefs.findIndex((col) => col.key === columnKey);
+      if (index < 0) return;
+      const target = index + direction;
+      if (target < 0 || target >= columnPrefs.length) return;
+      const next = [...columnPrefs];
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      persistColumnPrefs(market, next);
+    },
+    [columnPrefs, market, persistColumnPrefs]
+  );
+
+  const handleResetColumns = useCallback(() => {
+    const next = defaultsToPrefs(baseColumns);
+    persistColumnPrefs(market, next);
+  }, [baseColumns, market, persistColumnPrefs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1036,7 +1142,7 @@ export function QuotesMarket() {
       if (def?.kind === 'placeholder' || m.startsWith('ts:ph:')) {
         setRows([]);
         setTableKind('topic');
-        setActiveColumns([]);
+        applyMarketColumns(m, []);
         setPlaceholderHint(def?.hint || '一期占位，后续迭代开通');
         setLoadHint(label);
         setLoading(false);
@@ -1053,7 +1159,7 @@ export function QuotesMarket() {
             if (!soft) {
               setRows([]);
               setError(data.error || '加载失败');
-              setActiveColumns(COLUMNS);
+              applyMarketColumns(m, COLUMNS);
               setTableKind('topic');
             }
             return;
@@ -1061,7 +1167,7 @@ export function QuotesMarket() {
           if (data.placeholder) {
             setRows([]);
             setPlaceholderHint(data.hint || '一期占位');
-            setActiveColumns([]);
+            applyMarketColumns(m, []);
             setTableKind('topic');
             setLoadHint(label);
             return;
@@ -1071,7 +1177,7 @@ export function QuotesMarket() {
             setTradeDateInput(data.trade_date);
           }
           const cols = (data.columns && data.columns.length ? data.columns : COLUMNS) as TushareCol[];
-          setActiveColumns(cols);
+          applyMarketColumns(m, cols);
           setTableKind((data.table as 'quote' | 'topic') || 'topic');
           setRows((data.items || []) as TopicRow[]);
           setCacheMeta({
@@ -1103,7 +1209,7 @@ export function QuotesMarket() {
       // 本地 cache / sdk 原路径
       const fullSnap = m === 'cn' || m === 'hk' || m === 'us';
       if (!soft) {
-        setActiveColumns(m === 'cn' ? CN_COLUMNS : COLUMNS);
+        applyMarketColumns(m, m === 'cn' ? CN_COLUMNS : COLUMNS);
         setTableKind('quote');
         setLoadHint(
           force
@@ -1159,7 +1265,7 @@ export function QuotesMarket() {
         if (!soft) setLoading(false);
       }
     },
-    [markets, tradeDate, tradeDateInput]
+    [markets, tradeDate, tradeDateInput, applyMarketColumns]
   );
 
   useEffect(() => {
@@ -1589,6 +1695,16 @@ export function QuotesMarket() {
                 />
                 刷新
               </button>
+              <button
+                type="button"
+                className={`${styles.refreshBtn} ${showColumnPanel ? styles.refreshBtnActive : ''}`}
+                onClick={() => setShowColumnPanel((prev) => !prev)}
+                disabled={!baseColumns.length}
+                title="自定义当前市场表格列（显隐 / 顺序）"
+              >
+                <Columns3 size={14} />
+                列设置
+              </button>
               <span className={styles.count}>共 {sorted.length} 条</span>
               {cacheMeta && (
                 <span
@@ -1621,6 +1737,60 @@ export function QuotesMarket() {
                 </div>
               </div>
             )}
+          {showColumnPanel && baseColumns.length > 0 && (
+            <div className={styles.columnPanel}>
+              <div className={styles.columnPanelHeader}>
+                <span>自定义「{activeLabel}」列（仅本市场生效）</span>
+                <button
+                  type="button"
+                  className={styles.columnResetBtn}
+                  onClick={handleResetColumns}
+                  title="恢复默认列"
+                >
+                  <RotateCcw size={12} />
+                  重置
+                </button>
+              </div>
+              <div className={styles.columnOptions}>
+                {columnPrefs.map((column, index) => {
+                  const locked = LOCKED_COLUMN_KEYS.has(column.key);
+                  return (
+                    <div key={column.key} className={styles.columnOption}>
+                      <label className={styles.columnCheck}>
+                        <input
+                          type="checkbox"
+                          checked={column.visible}
+                          disabled={locked}
+                          onChange={() => handleToggleColumn(column.key)}
+                        />
+                        <span>{column.label}</span>
+                      </label>
+                      <div className={styles.columnOrderBtns}>
+                        <button
+                          type="button"
+                          className={styles.columnOrderBtn}
+                          disabled={index === 0}
+                          onClick={() => handleMoveColumn(column.key, -1)}
+                          title="前移"
+                        >
+                          <ArrowUp size={12} />
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.columnOrderBtn}
+                          disabled={index === columnPrefs.length - 1}
+                          onClick={() => handleMoveColumn(column.key, 1)}
+                          title="后移"
+                        >
+                          <ArrowDown size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {error ? (
             <Empty title="加载失败" description={error} />
           ) : placeholderHint ? (
@@ -1641,7 +1811,7 @@ export function QuotesMarket() {
                   <thead>
                     <tr>
                       <th className={styles.actionCol} />
-                      {activeColumns.map((col) => {
+                      {displayColumns.map((col) => {
                         const active = sortKey === col.key;
                         return (
                           <th
@@ -1695,7 +1865,7 @@ export function QuotesMarket() {
                               {starred ? <Check size={14} /> : <Plus size={14} />}
                             </button>
                           </td>
-                          {activeColumns.map((col) => (
+                          {displayColumns.map((col) => (
                             <td
                               key={col.key}
                               className={col.align === 'left' ? styles.left : styles.right}
