@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ChevronLeft,
   ChevronRight,
@@ -20,6 +21,7 @@ import {
   RotateCcw,
   Maximize2,
   Minimize2,
+  X,
 } from 'lucide-react';
 import { Card, Loading, Empty, useToast } from '@/components/common';
 import { useIsInWatchlist } from '@/hooks';
@@ -139,8 +141,10 @@ interface QuoteRow {
   turnoverRate: number | null;
   volumeRatio: number | null;
   amplitude: number | null;
-  /** A 股所属概念（板块模块同源，热门在前） */
+  /** A 股所属概念（拼接文本，便于排序） */
   concept?: string | null;
+  /** A 股所属概念列表（板块模块同源，热门在前） */
+  concepts?: string[] | null;
 }
 
 type SortKey = string;
@@ -390,9 +394,25 @@ const CN_COLUMNS: TushareCol[] = [
   { key: 'amplitude', label: '振幅', align: 'right' },
 ];
 
-function formatConceptNames(names: string[] | undefined | null, max = 3): string {
+function formatConceptNames(names: string[] | undefined | null): string {
   if (!names?.length) return '';
-  return names.slice(0, max).join('、');
+  return names.join('、');
+}
+
+function parseConcepts(row: TopicRow): string[] {
+  const arr = row.concepts;
+  if (Array.isArray(arr) && arr.length) {
+    return arr.map((x) => String(x).trim()).filter(Boolean);
+  }
+  const text = String(row.concept ?? '').trim();
+  if (!text) return [];
+  return text.split(/[、,，]/).map((s) => s.trim()).filter(Boolean);
+}
+
+function rowMatchesConceptFilters(row: TopicRow, filters: string[]): boolean {
+  if (!filters.length) return true;
+  const set = new Set(parseConcepts(row));
+  return filters.every((f) => set.has(f));
 }
 
 function isLegacyMarket(m: MarketId): boolean {
@@ -948,12 +968,7 @@ function formatCell(key: SortKey, row: TopicRow): ReactNode {
       return String(row.name ?? '--');
     case 'concept': {
       const text = String(row.concept ?? '').trim();
-      if (!text) return '--';
-      return (
-        <span className={styles.conceptCell} title={text}>
-          {text}
-        </span>
-      );
+      return text || '--';
     }
     case 'changePercent':
     case 'pctChg':
@@ -1060,6 +1075,16 @@ export function QuotesMarket() {
   );
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [pageFullscreen, setPageFullscreen] = useState(false);
+  /** A 股概念 AND 过滤 */
+  const [conceptFilters, setConceptFilters] = useState<string[]>([]);
+  const [showConceptPicker, setShowConceptPicker] = useState(false);
+  const [conceptPickerQuery, setConceptPickerQuery] = useState('');
+  const [conceptPickerPos, setConceptPickerPos] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const conceptAddBtnRef = useRef<HTMLButtonElement>(null);
+  const conceptPickerRef = useRef<HTMLDivElement>(null);
   const [tableKind, setTableKind] = useState<'quote' | 'topic'>('quote');
   const [tradeDate, setTradeDate] = useState('');
   const [tradeDateInput, setTradeDateInput] = useState('');
@@ -1260,8 +1285,13 @@ export function QuotesMarket() {
             const conceptMap = await getStockConcepts();
             enriched = next.map((row) => {
               const pure = String(row.code || '').replace(/^(sh|sz|bj)/i, '');
-              const text = formatConceptNames(conceptMap[pure] || conceptMap[row.code]);
-              return { ...row, concept: text || null };
+              const names = conceptMap[pure] || conceptMap[row.code] || [];
+              const text = formatConceptNames(names);
+              return {
+                ...row,
+                concepts: names.length ? names : null,
+                concept: text || null,
+              };
             });
           } catch (conceptErr) {
             console.warn('[QuotesMarket] stock concepts failed', conceptErr);
@@ -1307,7 +1337,13 @@ export function QuotesMarket() {
     }
     document.documentElement.dataset.pageFullscreen = '1';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPageFullscreen(false);
+      if (e.key === 'Escape') {
+        if (showConceptPicker) {
+          setShowConceptPicker(false);
+          return;
+        }
+        setPageFullscreen(false);
+      }
     };
     window.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
@@ -1317,7 +1353,45 @@ export function QuotesMarket() {
       document.body.style.overflow = prevOverflow;
       delete document.documentElement.dataset.pageFullscreen;
     };
-  }, [pageFullscreen]);
+  }, [pageFullscreen, showConceptPicker]);
+
+  const updateConceptPickerPos = useCallback(() => {
+    const btn = conceptAddBtnRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const width = 240;
+    const maxH = Math.min(320, window.innerHeight - 16);
+    const gap = 4;
+    const left = Math.min(
+      Math.max(8, rect.left),
+      Math.max(8, window.innerWidth - width - 8)
+    );
+    let top = rect.bottom + gap;
+    if (top + maxH > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - maxH - gap);
+    }
+    setConceptPickerPos({ top, left });
+  }, []);
+
+  useEffect(() => {
+    if (!showConceptPicker) return;
+    updateConceptPickerPos();
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (conceptPickerRef.current?.contains(t)) return;
+      if (conceptAddBtnRef.current?.contains(t)) return;
+      setShowConceptPicker(false);
+    };
+    const onReposition = () => updateConceptPickerPos();
+    document.addEventListener('mousedown', onDoc);
+    window.addEventListener('resize', onReposition);
+    window.addEventListener('scroll', onReposition, true);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      window.removeEventListener('resize', onReposition);
+      window.removeEventListener('scroll', onReposition, true);
+    };
+  }, [showConceptPicker, updateConceptPickerPos]);
 
   // 后台同步完成后 softReload 当前市场（无蒙层）
   useEffect(() => {
@@ -1380,14 +1454,54 @@ export function QuotesMarket() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
     return rows.filter((r) => {
+      if (!rowMatchesConceptFilters(r, conceptFilters)) return false;
+      if (!q) return true;
       const code = String(r.code ?? '').toLowerCase();
       const name = String(r.name ?? '').toLowerCase();
       const kline = String(r.klineSymbol ?? '').toLowerCase();
       return code.includes(q) || name.includes(q) || kline.includes(q);
     });
-  }, [rows, query]);
+  }, [rows, query, conceptFilters]);
+
+  const allConcepts = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of rows) {
+      for (const c of parseConcepts(r)) set.add(c);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+  }, [rows]);
+
+  const pickerConcepts = useMemo(() => {
+    const q = conceptPickerQuery.trim().toLowerCase();
+    const list = allConcepts.filter((c) => !conceptFilters.includes(c));
+    if (!q) return list;
+    return list.filter((c) => c.toLowerCase().includes(q));
+  }, [allConcepts, conceptFilters, conceptPickerQuery]);
+
+  const addConceptFilter = useCallback((name: string) => {
+    const n = name.trim();
+    if (!n) return;
+    setConceptFilters((prev) => (prev.includes(n) ? prev : [...prev, n]));
+    setShowConceptPicker(false);
+    setConceptPickerQuery('');
+    setPage(1);
+  }, []);
+
+  const removeConceptFilter = useCallback((name: string) => {
+    setConceptFilters((prev) => prev.filter((x) => x !== name));
+    setPage(1);
+  }, []);
+
+  const handleConceptTagClick = useCallback((name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const n = name.trim();
+    if (!n) return;
+    // 单元格点击：以该概念作为过滤（替换当前组合）
+    setConceptFilters([n]);
+    setShowConceptPicker(false);
+    setPage(1);
+  }, []);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -1560,7 +1674,96 @@ export function QuotesMarket() {
       setSortKey(other.key);
       setSortDir(other.dir);
     }
+    setConceptFilters([]);
+    setShowConceptPicker(false);
+    setConceptPickerQuery('');
     setMarket(next);
+  };
+
+  const renderConceptFilterBar = () => {
+    if (market !== 'cn') return null;
+    return (
+      <div className={styles.conceptFilterBar}>
+        {conceptFilters.map((name) => (
+          <span key={name} className={styles.conceptFilterChip} title={`概念过滤：${name}`}>
+            {name}
+            <button
+              type="button"
+              className={styles.conceptFilterClose}
+              onClick={() => removeConceptFilter(name)}
+              title="移除该概念过滤"
+              aria-label={`移除 ${name}`}
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <div className={styles.conceptAddWrap}>
+          <button
+            type="button"
+            ref={conceptAddBtnRef}
+            className={styles.conceptAddBtn}
+            onClick={() => {
+              setShowConceptPicker((v) => {
+                const next = !v;
+                if (next) {
+                  // 下一帧再量位置，确保按钮已渲染
+                  requestAnimationFrame(() => updateConceptPickerPos());
+                }
+                return next;
+              });
+            }}
+            title="添加概念组合过滤（同时满足）"
+            aria-label="添加概念过滤"
+            aria-expanded={showConceptPicker}
+          >
+            <Plus size={14} />
+          </button>
+          {showConceptPicker &&
+            createPortal(
+              <div
+                ref={conceptPickerRef}
+                className={styles.conceptPicker}
+                role="listbox"
+                aria-label="选择概念"
+                style={{ top: conceptPickerPos.top, left: conceptPickerPos.left }}
+              >
+                <input
+                  className={styles.conceptPickerSearch}
+                  value={conceptPickerQuery}
+                  onChange={(e) => setConceptPickerQuery(e.target.value)}
+                  placeholder="搜索概念"
+                  autoFocus
+                />
+                <div className={styles.conceptPickerList}>
+                  {pickerConcepts.length === 0 ? (
+                    <div className={styles.conceptPickerEmpty}>
+                      {allConcepts.length === 0 ? '暂无概念数据' : '无匹配概念'}
+                    </div>
+                  ) : (
+                    pickerConcepts.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className={styles.conceptPickerItem}
+                        onClick={() => addConceptFilter(name)}
+                      >
+                        {name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>,
+              document.body
+            )}
+        </div>
+        {conceptFilters.length > 0 && (
+          <span className={styles.conceptFilterHint}>
+            {conceptFilters.length > 1 ? '同时满足' : '已过滤'}
+          </span>
+        )}
+      </div>
+    );
   };
 
   const openKline = (row: TopicRow) => {
@@ -1684,7 +1887,10 @@ export function QuotesMarket() {
       <div className={styles.main}>
         {pageFullscreen && (
           <div className={styles.fullscreenBar}>
-            <span className={styles.fullscreenTitle}>{activeLabel}行情</span>
+            <div className={styles.fullscreenBarLeft}>
+              <span className={styles.fullscreenTitle}>{activeLabel}行情</span>
+              {renderConceptFilterBar()}
+            </div>
             <button
               type="button"
               className={styles.refreshBtn}
@@ -1731,6 +1937,7 @@ export function QuotesMarket() {
                 }}
                 placeholder="搜索代码/名称"
               />
+              {renderConceptFilterBar()}
               <button
                 type="button"
                 className={styles.refreshBtn}
@@ -1880,9 +2087,11 @@ export function QuotesMarket() {
             <Empty
               title="暂无数据"
               description={
-                showTradeDate
-                  ? '该交易日可能无事件，或可换日期重试'
-                  : '换一个市场或清空搜索试试'
+                conceptFilters.length
+                  ? '当前概念过滤无匹配股票，可关闭过滤标签后重试'
+                  : showTradeDate
+                    ? '该交易日可能无事件，或可换日期重试'
+                    : '换一个市场或清空搜索试试'
               }
             />
           ) : (
@@ -1946,14 +2155,44 @@ export function QuotesMarket() {
                               {starred ? <Check size={14} /> : <Plus size={14} />}
                             </button>
                           </td>
-                          {displayColumns.map((col) => (
-                            <td
-                              key={col.key}
-                              className={col.align === 'left' ? styles.left : styles.right}
-                            >
-                              {formatCell(col.key, row)}
-                            </td>
-                          ))}
+                          {displayColumns.map((col) => {
+                            if (col.key === 'concept') {
+                              const tags = parseConcepts(row);
+                              return (
+                                <td key={col.key} className={styles.left}>
+                                  {!tags.length ? (
+                                    '--'
+                                  ) : (
+                                    <span className={styles.conceptCell}>
+                                      {tags.map((tag) => (
+                                        <button
+                                          key={tag}
+                                          type="button"
+                                          className={`${styles.conceptTag}${
+                                            conceptFilters.includes(tag)
+                                              ? ` ${styles.conceptTagActive}`
+                                              : ''
+                                          }`}
+                                          title={`按「${tag}」过滤`}
+                                          onClick={(e) => handleConceptTagClick(tag, e)}
+                                        >
+                                          {tag}
+                                        </button>
+                                      ))}
+                                    </span>
+                                  )}
+                                </td>
+                              );
+                            }
+                            return (
+                              <td
+                                key={col.key}
+                                className={col.align === 'left' ? styles.left : styles.right}
+                              >
+                                {formatCell(col.key, row)}
+                              </td>
+                            );
+                          })}
                           <td className={styles.actionCol}>
                             <button
                               type="button"
