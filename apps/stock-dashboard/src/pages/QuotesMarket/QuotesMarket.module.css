@@ -465,9 +465,11 @@
 }
 
 .table {
-  width: max-content;
+  width: 100%;
   min-width: 100%;
+  table-layout: auto;
   border-collapse: collapse;
+  border-spacing: 0;
   font-size: var(--font-size-xs);
 }
 
@@ -480,10 +482,17 @@
 
 .table th,
 .table td {
-  padding: 4px 6px;
+  padding: 3px 2px;
   border-bottom: 1px solid var(--border-secondary);
   white-space: nowrap;
   line-height: 1.25;
+}
+
+/* 非概念列：尽量按内容收缩 */
+.table th:not(.conceptCol),
+.table td:not(.conceptCol) {
+  width: 1%;
+  white-space: nowrap;
 }
 
 .table th {
@@ -501,7 +510,7 @@
 .thInner {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .thIconMuted {
@@ -518,11 +527,22 @@
   font-family: var(--font-mono);
 }
 
+/* 概念列吃掉剩余宽度 */
+.conceptCol {
+  width: 99%;
+  min-width: 160px;
+  max-width: none;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  white-space: nowrap;
+}
+
 .conceptCell {
   position: relative;
   display: block;
-  width: 180px;
-  max-width: 180px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
   vertical-align: middle;
 }
 
@@ -551,9 +571,9 @@
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  max-width: 120px;
+  max-width: 140px;
   height: 20px;
-  padding: 0 6px;
+  padding: 0 5px;
   border: 1px solid var(--border-primary);
   border-radius: 4px;
   background: color-mix(in srgb, var(--color-accent) 8%, transparent);
@@ -773,10 +793,10 @@
 }
 
 .actionCol {
-  width: 28px;
+  width: 1%;
   text-align: center;
-  padding-left: 4px !important;
-  padding-right: 2px !important;
+  padding-left: 1px !important;
+  padding-right: 1px !important;
 }
 
 .addBtn {

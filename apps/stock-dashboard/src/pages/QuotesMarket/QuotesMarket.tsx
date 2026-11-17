@@ -2331,10 +2331,15 @@ export function QuotesMarket() {
                       {showWatchlistCol && <th className={styles.actionCol} title="加入自选" />}
                       {displayColumns.map((col) => {
                         const active = sortKey === col.key;
+                        const alignCls = col.align === 'left' ? styles.left : styles.right;
                         return (
                           <th
                             key={col.key}
-                            className={col.align === 'left' ? styles.left : styles.right}
+                            className={
+                              col.key === 'concept'
+                                ? `${alignCls} ${styles.conceptCol}`
+                                : alignCls
+                            }
                             onClick={() => handleSort(col.key)}
                           >
                             <span className={styles.thInner}>
@@ -2388,7 +2393,10 @@ export function QuotesMarket() {
                           {displayColumns.map((col) => {
                             if (col.key === 'concept') {
                               return (
-                                <td key={col.key} className={styles.left}>
+                                <td
+                                  key={col.key}
+                                  className={`${styles.left} ${styles.conceptCol}`}
+                                >
                                   <ConceptTagsCell
                                     tags={parseConcepts(row)}
                                     activeFilters={conceptFilters}
