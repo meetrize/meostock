@@ -1283,24 +1283,25 @@ def board_list(
             ths_error = None
 
     if src == "ths":
-        if ths_items:
+        items = ths_items or db_items
+        if items and board_type == "concept":
+            try:
+                from cache import board_concepts as bcm
+
+                items = bcm.enrich_board_items_from_db(
+                    items, source="ths", only_missing=True
+                )
+            except Exception:  # noqa: BLE001
+                pass
+        if items:
             return JSONResponse(
                 {
                     "ok": True,
                     "type": board_type,
-                    "items": ths_items,
-                    "source": "db:ths" if ths_from_db else "ths",
-                    "fromDb": ths_from_db,
-                }
-            )
-        if db_items:
-            return JSONResponse(
-                {
-                    "ok": True,
-                    "type": board_type,
-                    "items": db_items,
-                    "source": "db:ths",
-                    "fromDb": True,
+                    "items": items,
+                    "source": "db:ths" if (ths_from_db or not ths_items) else "ths+db",
+                    "fromDb": bool(ths_from_db or not ths_items),
+                    "statsSource": "db_aggregate",
                 }
             )
         return JSONResponse(
@@ -1406,6 +1407,63 @@ def board_list(
             },
             status_code=502,
         )
+
+
+@app.get("/api/board/detail")
+def board_detail(
+    type: str = Query("concept", description="concept|industry"),
+    code: str = Query(..., description="如 ths:308582 或 BK1716"),
+    source: str = Query("auto", description="auto|ths|eastmoney|all"),
+) -> JSONResponse:
+    """板块详情：同花顺代码走本库成份聚合；东财代码仍可由前端走 SDK。"""
+    board_type = (type or "concept").lower().strip()
+    raw = (code or "").strip()
+    src = (source or "auto").lower().strip()
+    if board_type != "concept":
+        return JSONResponse(
+            {"ok": False, "error": "目前仅支持 concept 的库内详情"},
+            status_code=400,
+        )
+    use_ths = src == "ths" or raw.startswith("ths:") or (src == "auto" and raw.startswith("ths:"))
+    if not use_ths and src != "all":
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "eastmoney 详情请使用 stock-sdk 成分接口",
+                "code": raw,
+            },
+            status_code=400,
+        )
+    try:
+        from cache import board_concepts as bcm
+
+        data = bcm.get_concept_constituents_from_db(
+            raw, source="ths" if use_ths or src == "auto" else src
+        )
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    if not data.get("board"):
+        return JSONResponse({"ok": False, "error": "concept not found"}, status_code=404)
+    return JSONResponse(
+        {
+            "ok": True,
+            "type": board_type,
+            "source": "db_aggregate",
+            "board": data["board"],
+            "items": data.get("items") or [],
+            "count": len(data.get("items") or []),
+        }
+    )
+
+
+@app.get("/api/board/constituents")
+def board_constituents(
+    type: str = Query("concept", description="concept|industry"),
+    code: str = Query(..., description="ths:ID 或概念名"),
+    source: str = Query("ths", description="ths|all"),
+) -> JSONResponse:
+    """库内概念成份股（对照本库行情）。"""
+    return board_detail(type=type, code=code, source=source)
 
 
 @app.get("/api/stock-industries")

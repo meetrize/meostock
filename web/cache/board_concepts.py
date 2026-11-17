@@ -886,6 +886,285 @@ def list_bj_codes() -> list[str]:
     ]
 
 
+def _source_sql_clause(source: str | None) -> tuple[str, list[Any]]:
+    """sources_json 含某源；source=None/all 不过滤。"""
+    if source in (None, "", "all"):
+        return "", []
+    return "AND instr(lower(sources_json), ?) > 0", [str(source).lower()]
+
+
+def aggregate_concept_stats_from_db(
+    *,
+    source: str | None = "ths",
+) -> dict[str, dict[str, Any]]:
+    """按概念 name_key 聚合成份行情（本库 quote_snapshot）。
+
+    返回 name_key -> {changePercent, riseCount, fallCount, leadingStock, ...}
+    效率：一次 SQL，适合板块列表批量补字段。
+    """
+    init_db()
+    conn = get_conn()
+    src_sql, src_params = _source_sql_clause(source)
+    with _lock:
+        # 基础聚合
+        rows = conn.execute(
+            f"""
+            SELECT
+              m.name_key AS name_key,
+              MAX(m.name) AS name,
+              COUNT(*) AS member_count,
+              AVG(q.change_percent) AS avg_change_percent,
+              SUM(CASE WHEN q.change_percent > 0 THEN 1 ELSE 0 END) AS rise_count,
+              SUM(CASE WHEN q.change_percent < 0 THEN 1 ELSE 0 END) AS fall_count,
+              SUM(q.total_market_cap) AS total_market_cap,
+              AVG(q.turnover_rate) AS avg_turnover_rate
+            FROM stock_board_map m
+            JOIN quote_snapshot q
+              ON q.market = 'cn' AND q.code = m.code
+            WHERE m.kind = 'concept' {src_sql}
+            GROUP BY m.name_key
+            """,
+            src_params,
+        ).fetchall()
+        leaders = conn.execute(
+            f"""
+            SELECT name_key, stock_name, change_percent FROM (
+              SELECT
+                m.name_key AS name_key,
+                q.name AS stock_name,
+                q.change_percent AS change_percent,
+                ROW_NUMBER() OVER (
+                  PARTITION BY m.name_key
+                  ORDER BY q.change_percent DESC NULLS LAST
+                ) AS rn
+              FROM stock_board_map m
+              JOIN quote_snapshot q
+                ON q.market = 'cn' AND q.code = m.code
+              WHERE m.kind = 'concept' {src_sql}
+            ) t
+            WHERE rn = 1
+            """,
+            src_params,
+        ).fetchall()
+    lead_map = {
+        str(r["name_key"]): {
+            "leadingStock": str(r["stock_name"] or "") or None,
+            "leadingStockChangePercent": (
+                float(r["change_percent"])
+                if r["change_percent"] is not None
+                else None
+            ),
+        }
+        for r in leaders
+    }
+    out: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        key = str(r["name_key"])
+        lead = lead_map.get(key) or {}
+        out[key] = {
+            "name": str(r["name"] or ""),
+            "memberCount": int(r["member_count"] or 0),
+            "changePercent": (
+                float(r["avg_change_percent"])
+                if r["avg_change_percent"] is not None
+                else None
+            ),
+            "riseCount": int(r["rise_count"] or 0),
+            "fallCount": int(r["fall_count"] or 0),
+            "totalMarketCap": (
+                float(r["total_market_cap"])
+                if r["total_market_cap"] is not None
+                else None
+            ),
+            "turnoverRate": (
+                float(r["avg_turnover_rate"])
+                if r["avg_turnover_rate"] is not None
+                else None
+            ),
+            "leadingStock": lead.get("leadingStock"),
+            "leadingStockChangePercent": lead.get("leadingStockChangePercent"),
+            "statsSource": "db_aggregate",
+        }
+    return out
+
+
+def enrich_board_items_from_db(
+    items: list[dict[str, Any]],
+    *,
+    source: str | None = "ths",
+    only_missing: bool = True,
+) -> list[dict[str, Any]]:
+    """把本库聚合行情填到板块列表项（按 name_key 对齐）。"""
+    if not items:
+        return items
+    stats = aggregate_concept_stats_from_db(source=source)
+    if not stats:
+        return items
+    for item in items:
+        key = concept_name_key(str(item.get("name") or ""))
+        st = stats.get(key)
+        if not st:
+            continue
+        for field in (
+            "changePercent",
+            "riseCount",
+            "fallCount",
+            "totalMarketCap",
+            "turnoverRate",
+            "leadingStock",
+            "leadingStockChangePercent",
+        ):
+            if only_missing and item.get(field) is not None:
+                continue
+            if st.get(field) is not None:
+                item[field] = st.get(field)
+        item["memberCount"] = st.get("memberCount")
+        item["statsSource"] = st.get("statsSource")
+    # 有聚合涨跌时按涨跌幅重排
+    items.sort(
+        key=lambda x: (
+            x.get("changePercent") is not None,
+            x.get("changePercent") if x.get("changePercent") is not None else -1e18,
+        ),
+        reverse=True,
+    )
+    for i, row in enumerate(items, start=1):
+        row["rank"] = i
+    return items
+
+
+def get_concept_board_from_db(
+    code: str,
+    *,
+    source: str = "ths",
+) -> dict[str, Any] | None:
+    """按 ths:ID / 名称 取概念元信息 + 聚合行情。"""
+    raw = str(code or "").strip()
+    if not raw:
+        return None
+    init_db()
+    conn = get_conn()
+    name = ""
+    board_code = raw
+    name_key = ""
+    with _lock:
+        if raw.startswith("ths:") or raw.isdigit():
+            cid = raw.replace("ths:", "")
+            row = conn.execute(
+                """
+                SELECT code, name, name_key FROM board_catalog
+                WHERE source = 'ths' AND kind = 'concept'
+                  AND (code = ? OR code = ?)
+                LIMIT 1
+                """,
+                (f"ths:{cid}", cid),
+            ).fetchone()
+            if row:
+                board_code = str(row["code"])
+                name = str(row["name"])
+                name_key = str(row["name_key"])
+        if not name_key:
+            name_key = concept_name_key(raw)
+            row = conn.execute(
+                """
+                SELECT code, name, name_key FROM board_catalog
+                WHERE kind = 'concept' AND name_key = ?
+                ORDER BY CASE source WHEN 'ths' THEN 0 ELSE 1 END
+                LIMIT 1
+                """,
+                (name_key,),
+            ).fetchone()
+            if row:
+                board_code = str(row["code"])
+                name = str(row["name"])
+                name_key = str(row["name_key"])
+    if not name_key:
+        return None
+    stats = aggregate_concept_stats_from_db(source=source).get(name_key) or {}
+    return {
+        "rank": 0,
+        "code": board_code,
+        "name": name or stats.get("name") or raw,
+        "price": None,
+        "change": None,
+        "changePercent": stats.get("changePercent"),
+        "totalMarketCap": stats.get("totalMarketCap"),
+        "turnoverRate": stats.get("turnoverRate"),
+        "riseCount": stats.get("riseCount"),
+        "fallCount": stats.get("fallCount"),
+        "leadingStock": stats.get("leadingStock"),
+        "leadingStockChangePercent": stats.get("leadingStockChangePercent"),
+        "memberCount": stats.get("memberCount"),
+        "source": source,
+        "sources": [source],
+        "statsSource": stats.get("statsSource") or "db_aggregate",
+        "nameKey": name_key,
+    }
+
+
+def get_concept_constituents_from_db(
+    code: str,
+    *,
+    source: str = "ths",
+) -> dict[str, Any]:
+    """同花顺/库内概念成份：map ∩ 本库行情。"""
+    meta = get_concept_board_from_db(code, source=source)
+    if not meta:
+        return {"board": None, "items": []}
+    name_key = str(meta.get("nameKey") or concept_name_key(str(meta.get("name") or "")))
+    init_db()
+    conn = get_conn()
+    src_sql, src_params = _source_sql_clause(source)
+    with _lock:
+        rows = conn.execute(
+            f"""
+            SELECT
+              m.code AS code,
+              q.name AS name,
+              q.price AS price,
+              q.change_percent AS change_percent,
+              q.amount AS amount,
+              q.turnover_rate AS turnover_rate,
+              q.pe AS pe,
+              q.total_market_cap AS total_market_cap
+            FROM stock_board_map m
+            LEFT JOIN quote_snapshot q
+              ON q.market = 'cn' AND q.code = m.code
+            WHERE m.kind = 'concept' AND m.name_key = ? {src_sql}
+            ORDER BY q.change_percent DESC NULLS LAST, m.code
+            """,
+            [name_key, *src_params],
+        ).fetchall()
+    items = []
+    for i, r in enumerate(rows, start=1):
+        items.append(
+            {
+                "rank": i,
+                "code": str(r["code"]),
+                "name": str(r["name"] or r["code"]),
+                "price": float(r["price"]) if r["price"] is not None else None,
+                "changePercent": (
+                    float(r["change_percent"])
+                    if r["change_percent"] is not None
+                    else None
+                ),
+                "amount": float(r["amount"]) if r["amount"] is not None else None,
+                "turnoverRate": (
+                    float(r["turnover_rate"])
+                    if r["turnover_rate"] is not None
+                    else None
+                ),
+                "pe": float(r["pe"]) if r["pe"] is not None else None,
+                "totalMarketCap": (
+                    float(r["total_market_cap"])
+                    if r["total_market_cap"] is not None
+                    else None
+                ),
+            }
+        )
+    return {"board": meta, "items": items}
+
+
 def _run_codes_sync(codes: list[str], *, label: str = "codes") -> None:
     try:
         uniq: list[str] = []

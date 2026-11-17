@@ -9,7 +9,11 @@
 
 import { StockSDK } from 'stock-sdk';
 import { MemoryCache } from 'stock-sdk/cache';
-import type { DividendDetail, SearchResult as SDKSearchResult } from 'stock-sdk';
+import type {
+  ConceptBoardConstituent,
+  DividendDetail,
+  SearchResult as SDKSearchResult,
+} from 'stock-sdk';
 import { normalizeStockCode } from '@/utils/format';
 
 export type SearchEntityType = 'stock' | 'industry' | 'concept' | 'unsupported';
@@ -572,11 +576,65 @@ export async function getIndustryConstituents(symbol: string) {
 /**
  * 获取概念成分股
  */
-export async function getConceptConstituents(symbol: string) {
+export async function getConceptConstituents(
+  symbol: string
+): Promise<ConceptBoardConstituent[]> {
+  const code = String(symbol || '').trim();
+  // 同花顺 / 库内概念：走本机聚合接口
+  if (code.startsWith('ths:') || code.startsWith('ths%3A')) {
+    const key = getCacheKey('getConceptConstituentsDb', code);
+    return withCache(key, DEFAULT_TTL.constituents, async () => {
+      const detail = await getBoardDetailFromDb('concept', decodeURIComponent(code));
+      return (detail.items || []).map((row) =>
+        normalizeConstituentUnits({
+          rank: row.rank,
+          code: row.code,
+          name: row.name,
+          price: row.price,
+          changePercent: row.changePercent,
+          amount: row.amount ?? null,
+          turnoverRate: row.turnoverRate ?? null,
+          pe: row.pe ?? null,
+        } as ConceptBoardConstituent)
+      );
+    });
+  }
   const key = getCacheKey('getConceptConstituents', symbol);
   return withCache(key, DEFAULT_TTL.constituents, async () =>
     (await sdk.board.concept.constituents(symbol)).map(normalizeConstituentUnits)
   );
+}
+
+export type BoardDetailDb = {
+  board: BoardListItem & { memberCount?: number; nameKey?: string; statsSource?: string };
+  items: Array<{
+    rank: number;
+    code: string;
+    name: string;
+    price: number | null;
+    changePercent: number | null;
+    amount?: number | null;
+    turnoverRate?: number | null;
+    pe?: number | null;
+  }>;
+};
+
+/** 本库概念详情（同花顺成份聚合） */
+export async function getBoardDetailFromDb(
+  type: 'concept' | 'industry',
+  code: string
+): Promise<BoardDetailDb> {
+  const res = await fetch(
+    `/api/board/detail?type=${encodeURIComponent(type)}&code=${encodeURIComponent(code)}&source=auto`
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.ok || !data.board) {
+    throw new Error(data?.error || `board detail ${res.status}`);
+  }
+  return {
+    board: data.board as BoardDetailDb['board'],
+    items: (data.items || []) as BoardDetailDb['items'],
+  };
 }
 
 /**

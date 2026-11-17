@@ -158,11 +158,9 @@ export function Boards() {
 
   const handleBoardClick = (item: BoardListItem) => {
     const code = String(item.code || '');
-    if (code.startsWith('ths:')) {
-      // 同花顺板块详情成分暂未接入
-      return;
-    }
-    navigate(`/boards/${boardType}/${code}`);
+    if (!code) return;
+    // 同花顺：进入本库聚合详情页；东财：原详情页
+    navigate(`/boards/${boardType}/${encodeURIComponent(code)}`);
   };
 
   return (
@@ -241,7 +239,7 @@ export function Boards() {
                   onClick={() => handleBoardClick(item)}
                   title={
                     thsOnly
-                      ? '同花顺板块（详情成分暂未接入）'
+                      ? '同花顺概念（行情由本库成份股聚合）'
                       : undefined
                   }
                 >

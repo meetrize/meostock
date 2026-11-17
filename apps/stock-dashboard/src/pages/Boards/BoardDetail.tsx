@@ -15,6 +15,8 @@ import {
   getIndustrySpot,
   getConceptSpot,
   getSectorFundFlowHistory,
+  getBoardDetailFromDb,
+  type BoardListItem,
 } from '@/services/sdk';
 import { watchlistActions } from '@/services/watchlistStore';
 import { useBoardData, useAppSettings } from '@/contexts';
@@ -73,65 +75,99 @@ export function BoardDetail() {
   const [klinePeriod, setKlinePeriod] = useState('daily');
 
   const isIndustry = type === 'industry';
+  const decodedCode = useMemo(() => (code ? decodeURIComponent(code) : ''), [code]);
+  const isThsBoard = decodedCode.startsWith('ths:');
+  const [dbBoardInfo, setDbBoardInfo] = useState<BoardListItem | null>(null);
+
   const boardInfo = useMemo(() => {
-    if (!code) return null;
+    if (!decodedCode) return null;
+    if (dbBoardInfo) return dbBoardInfo;
     const list = isIndustry ? industryList : conceptList;
-    return list.find((item) => item.code === code) ?? null;
-  }, [code, conceptList, industryList, isIndustry]);
+    return (
+      list.find((item) => item.code === decodedCode || item.code === code) ?? null
+    );
+  }, [code, decodedCode, conceptList, industryList, isIndustry, dbBoardInfo]);
 
   // 加载成分股
   const fetchConstituents = useCallback(async () => {
-    if (!code) return;
+    if (!decodedCode) return;
     try {
+      if (isThsBoard) {
+        const detail = await getBoardDetailFromDb('concept', decodedCode);
+        setDbBoardInfo(detail.board);
+        setConstituents(
+          (detail.items || []).map((row) => ({
+            rank: row.rank,
+            code: row.code,
+            name: row.name,
+            price: row.price ?? 0,
+            changePercent: row.changePercent ?? 0,
+            amount: row.amount ?? 0,
+            turnoverRate: row.turnoverRate ?? 0,
+            pe: row.pe ?? null,
+          })) as (IndustryBoardConstituent | ConceptBoardConstituent)[]
+        );
+        return;
+      }
       const data = isIndustry
-        ? await getIndustryConstituents(code)
-        : await getConceptConstituents(code);
+        ? await getIndustryConstituents(decodedCode)
+        : await getConceptConstituents(decodedCode);
       setConstituents(data);
     } catch (error) {
       console.error('Fetch constituents error:', error);
     }
-  }, [code, isIndustry]);
+  }, [decodedCode, isIndustry, isThsBoard]);
 
   // 加载 K 线
   const fetchKline = useCallback(async () => {
-    if (!code) return;
+    if (!decodedCode || isThsBoard) {
+      setKlineData([]);
+      return;
+    }
     try {
       const data = isIndustry
-        ? await getIndustryKline(code, { period: klinePeriod as 'daily' | 'weekly' | 'monthly' })
-        : await getConceptKline(code, { period: klinePeriod as 'daily' | 'weekly' | 'monthly' });
+        ? await getIndustryKline(decodedCode, { period: klinePeriod as 'daily' | 'weekly' | 'monthly' })
+        : await getConceptKline(decodedCode, { period: klinePeriod as 'daily' | 'weekly' | 'monthly' });
       // 只保留最近 60 条 K 线数据
       setKlineData(data.slice(-60));
     } catch (error) {
       console.error('Fetch kline error:', error);
     }
-  }, [code, isIndustry, klinePeriod]);
+  }, [decodedCode, isIndustry, isThsBoard, klinePeriod]);
 
   // 加载 Spot 指标
   const fetchSpot = useCallback(async () => {
-    if (!code) return;
+    if (!decodedCode || isThsBoard) {
+      setSpotData([]);
+      return;
+    }
     try {
       const data = isIndustry
-        ? await getIndustrySpot(code)
-        : await getConceptSpot(code);
+        ? await getIndustrySpot(decodedCode)
+        : await getConceptSpot(decodedCode);
       setSpotData(data);
     } catch (error) {
       console.error('Fetch spot error:', error);
     }
-  }, [code, isIndustry]);
+  }, [decodedCode, isIndustry, isThsBoard]);
 
   const fetchFundFlowHistory = useCallback(async () => {
-    if (!code) return;
+    if (!decodedCode || isThsBoard) {
+      setFundFlowHistory([]);
+      return;
+    }
     try {
-      const data = await getSectorFundFlowHistory(code, { period: 'daily' });
+      const data = await getSectorFundFlowHistory(decodedCode, { period: 'daily' });
       setFundFlowHistory(data.slice(-30));
     } catch (error) {
       console.error('Fetch board fund flow error:', error);
     }
-  }, [code]);
+  }, [decodedCode, isThsBoard]);
 
   // 初始加载（只在板块代码变化时触发）
   const loadAll = useEffectEvent(async () => {
     setLoading(true);
+    setDbBoardInfo(null);
     await Promise.all([
       fetchConstituents(),
       fetchSpot(),
@@ -311,14 +347,14 @@ export function BoardDetail() {
   // 检查是否已加自选
   const checkIsAdded = useIsInWatchlist();
 
-  if (loading || boardLoading) {
+  if (loading || (!isThsBoard && boardLoading)) {
     return <Loading fullScreen text="加载板块数据..." />;
   }
 
   if (!boardInfo) {
     return (
       <div className={styles.notFound}>
-        <p>未找到板块 {code}</p>
+        <p>未找到板块 {decodedCode || code}</p>
         <Button onClick={() => navigate(-1)}>返回</Button>
       </div>
     );
@@ -339,7 +375,11 @@ export function BoardDetail() {
         <div className={styles.boardHeader}>
           <h1 className={styles.boardName}>{boardInfo.name}</h1>
           <span className={styles.boardType}>
-            {isIndustry ? '行业板块' : '概念板块'}
+            {isThsBoard
+              ? '同花顺概念（本库聚合）'
+              : isIndustry
+                ? '行业板块'
+                : '概念板块'}
           </span>
         </div>
 
@@ -368,30 +408,32 @@ export function BoardDetail() {
       </motion.header>
 
       <div className={styles.content}>
-        {/* K线图 */}
-        <Card
-          title="K线走势"
-          extra={
-            <Tabs
-              items={KLINE_PERIODS}
-              activeKey={klinePeriod}
-              onChange={setKlinePeriod}
-              size="sm"
-            />
-          }
-        >
-          <div className={styles.chartContainer}>
-            {klineData.length > 0 ? (
-              <LazyEChart
-                option={klineChartOption}
-                style={{ height: '100%', width: '100%' }}
-                notMerge
+        {/* K线图（同花顺库内聚合暂无板块指数 K） */}
+        {!isThsBoard && (
+          <Card
+            title="K线走势"
+            extra={
+              <Tabs
+                items={KLINE_PERIODS}
+                activeKey={klinePeriod}
+                onChange={setKlinePeriod}
+                size="sm"
               />
-            ) : (
-              <Empty title="暂无K线数据" />
-            )}
-          </div>
-        </Card>
+            }
+          >
+            <div className={styles.chartContainer}>
+              {klineData.length > 0 ? (
+                <LazyEChart
+                  option={klineChartOption}
+                  style={{ height: '100%', width: '100%' }}
+                  notMerge
+                />
+              ) : (
+                <Empty title="暂无K线数据" />
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* Spot 指标 */}
         {spotData.length > 0 && (
