@@ -45,6 +45,8 @@ import {
   getAllUSQuotes,
   getDomesticFuturesSpotMap,
   getStockConcepts,
+  getCodesByConceptNames,
+  type StockConceptItem,
 } from '@/services/sdk';
 import { getTableColumns, saveTableColumns } from '@/services/storage';
 import { useAppSettings, useSyncStatus } from '@/contexts';
@@ -166,8 +168,10 @@ interface QuoteRow {
   amplitude: number | null;
   /** A 股所属概念（拼接文本，便于排序） */
   concept?: string | null;
-  /** A 股所属概念列表（板块模块同源，热门在前） */
+  /** A 股所属概念名（去重后） */
   concepts?: string[] | null;
+  /** A 股概念详情（含多源 sources） */
+  conceptItems?: StockConceptItem[] | null;
 }
 
 type SortKey = string;
@@ -422,20 +426,46 @@ function formatConceptNames(names: string[] | undefined | null): string {
   return names.join('、');
 }
 
-function parseConcepts(row: TopicRow): string[] {
+function parseConceptItems(row: TopicRow): StockConceptItem[] {
+  const items = row.conceptItems;
+  if (Array.isArray(items) && items.length) {
+    return items.filter((x) => x && String(x.name || '').trim());
+  }
   const arr = row.concepts;
   if (Array.isArray(arr) && arr.length) {
-    return arr.map((x) => String(x).trim()).filter(Boolean);
+    return arr
+      .map((x) => String(x).trim())
+      .filter(Boolean)
+      .map((name) => ({ name, sources: ['eastmoney'] }));
   }
   const text = String(row.concept ?? '').trim();
   if (!text) return [];
-  return text.split(/[、,，]/).map((s) => s.trim()).filter(Boolean);
+  return text
+    .split(/[、,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((name) => ({ name, sources: ['eastmoney'] }));
 }
 
-function rowMatchesConceptFilters(row: TopicRow, filters: string[]): boolean {
-  if (!filters.length) return true;
-  const set = new Set(parseConcepts(row));
-  return filters.every((f) => set.has(f));
+function parseConcepts(row: TopicRow): string[] {
+  return parseConceptItems(row).map((x) => x.name);
+}
+
+function conceptSourceClass(sources: string[] | undefined): string {
+  const set = new Set((sources || []).map((s) => String(s).toLowerCase()));
+  const hasEm = set.has('eastmoney');
+  const hasThs = set.has('ths');
+  if (hasEm && hasThs) return styles.conceptTagBoth;
+  if (hasThs) return styles.conceptTagThs;
+  return styles.conceptTagEm;
+}
+
+function conceptSourceLabel(sources: string[] | undefined): string {
+  const set = new Set((sources || []).map((s) => String(s).toLowerCase()));
+  const parts: string[] = [];
+  if (set.has('eastmoney')) parts.push('东财');
+  if (set.has('ths')) parts.push('同花顺');
+  return parts.length ? parts.join('+') : '未知来源';
 }
 
 function isLegacyMarket(m: MarketId): boolean {
@@ -1077,13 +1107,13 @@ function quoteToTopic(row: QuoteRow): TopicRow {
   return { ...row };
 }
 
-/** 概念标签：单行展示，放不下时省略号弹出剩余 */
+/** 概念标签：单行展示，放不下时省略号弹出剩余；颜色区分来源 */
 function ConceptTagsCell({
-  tags,
+  items,
   activeFilters,
   onTagClick,
 }: {
-  tags: string[];
+  items: StockConceptItem[];
   activeFilters: string[];
   onTagClick: (name: string, e: ReactMouseEvent) => void;
 }) {
@@ -1091,26 +1121,28 @@ function ConceptTagsCell({
   const measureRef = useRef<HTMLSpanElement>(null);
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [visibleCount, setVisibleCount] = useState(tags.length);
+  const [visibleCount, setVisibleCount] = useState(items.length);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
   const tagClass = useCallback(
-    (tag: string) =>
-      `${styles.conceptTag}${activeFilters.includes(tag) ? ` ${styles.conceptTagActive}` : ''}`,
+    (item: StockConceptItem) =>
+      `${styles.conceptTag} ${conceptSourceClass(item.sources)}${
+        activeFilters.includes(item.name) ? ` ${styles.conceptTagActive}` : ''
+      }`,
     [activeFilters]
   );
 
   const updateVisible = useCallback(() => {
     const cell = cellRef.current;
     const measure = measureRef.current;
-    if (!cell || !measure || tags.length === 0) {
-      setVisibleCount(tags.length);
+    if (!cell || !measure || items.length === 0) {
+      setVisibleCount(items.length);
       return;
     }
     const avail = cell.clientWidth;
     if (avail <= 0) {
-      setVisibleCount(tags.length);
+      setVisibleCount(items.length);
       return;
     }
     const kids = Array.from(measure.children) as HTMLElement[];
@@ -1130,17 +1162,16 @@ function ConceptTagsCell({
         break;
       }
     }
-    if (count >= tags.length) {
-      setVisibleCount(tags.length);
+    if (count >= items.length) {
+      setVisibleCount(items.length);
       return;
     }
-    // 至少一个都塞不下时，只显示省略号
     setVisibleCount(count);
-  }, [tags]);
+  }, [items]);
 
   useLayoutEffect(() => {
     updateVisible();
-  }, [updateVisible, tags, activeFilters]);
+  }, [updateVisible, items, activeFilters]);
 
   useEffect(() => {
     const cell = cellRef.current;
@@ -1174,7 +1205,7 @@ function ConceptTagsCell({
     const btn = moreBtnRef.current;
     if (!btn) return;
     const rect = btn.getBoundingClientRect();
-    const width = 220;
+    const width = 260;
     const maxH = Math.min(280, window.innerHeight - 16);
     const left = Math.min(
       Math.max(8, rect.left),
@@ -1188,32 +1219,32 @@ function ConceptTagsCell({
     setMenuOpen((v) => !v);
   };
 
-  if (!tags.length) return <>--</>;
+  if (!items.length) return <>--</>;
 
-  const visible = tags.slice(0, visibleCount);
-  const rest = tags.slice(visibleCount);
-  const showMore = rest.length > 0;
+  const visible = items.slice(0, visibleCount);
+  const restCount = Math.max(0, items.length - visibleCount);
+  const showMore = restCount > 0;
 
   return (
     <>
       <span className={styles.conceptCell} ref={cellRef}>
         <span className={styles.conceptMeasure} ref={measureRef} aria-hidden>
-          {tags.map((tag) => (
-            <span key={tag} className={styles.conceptTag}>
-              {tag}
+          {items.map((item) => (
+            <span key={item.name} className={`${styles.conceptTag} ${conceptSourceClass(item.sources)}`}>
+              {item.name}
             </span>
           ))}
         </span>
         <span className={styles.conceptRow}>
-          {visible.map((tag) => (
+          {visible.map((item) => (
             <button
-              key={tag}
+              key={item.name}
               type="button"
-              className={tagClass(tag)}
-              title={`按「${tag}」过滤`}
-              onClick={(e) => onTagClick(tag, e)}
+              className={tagClass(item)}
+              title={`${item.name} · ${conceptSourceLabel(item.sources)}`}
+              onClick={(e) => onTagClick(item.name, e)}
             >
-              {tag}
+              {item.name}
             </button>
           ))}
           {showMore && (
@@ -1221,8 +1252,8 @@ function ConceptTagsCell({
               type="button"
               ref={moreBtnRef}
               className={styles.conceptMoreBtn}
-              title={`还有 ${rest.length} 个概念`}
-              aria-label={`还有 ${rest.length} 个概念`}
+              title={`还有 ${restCount} 个概念`}
+              aria-label={`还有 ${restCount} 个概念`}
               aria-expanded={menuOpen}
               onClick={openMenu}
             >
@@ -1241,28 +1272,31 @@ function ConceptTagsCell({
             aria-label="更多概念"
           >
             <div className={styles.conceptOverflowTitle}>
-              概念（{tags.length}）
+              概念（{items.length}）
               {activeFilters.length > 0 ? ` · 已选 ${activeFilters.length}` : ''}
+              <span className={styles.conceptLegend}>
+                <i className={styles.conceptTagEm} />东财
+                <i className={styles.conceptTagThs} />同花顺
+                <i className={styles.conceptTagBoth} />双源
+              </span>
             </div>
             <div className={styles.conceptOverflowList}>
-              {tags.map((tag) => {
-                const selected = activeFilters.includes(tag);
+              {items.map((item) => {
+                const selected = activeFilters.includes(item.name);
                 return (
                   <button
-                    key={tag}
+                    key={item.name}
                     type="button"
                     role="menuitem"
-                    className={`${styles.conceptTag}${
-                      selected ? ` ${styles.conceptTagActive}` : ''
-                    }`}
-                    title={selected ? `已在过滤：${tag}` : `按「${tag}」过滤`}
+                    className={`${tagClass(item)}`}
+                    title={`${item.name} · ${conceptSourceLabel(item.sources)}`}
                     aria-pressed={selected}
                     onClick={(e) => {
-                      onTagClick(tag, e);
+                      onTagClick(item.name, e);
                       setMenuOpen(false);
                     }}
                   >
-                    {tag}
+                    {item.name}
                   </button>
                 );
               })}
@@ -1507,37 +1541,38 @@ export function QuotesMarket() {
           },
           force
         );
-        let enriched = next;
-        if (m === 'cn') {
-          try {
-            const conceptMap = await getStockConcepts();
-            enriched = next.map((row) => {
-              const pure = String(row.code || '').replace(/^(sh|sz|bj)/i, '');
-              const names = conceptMap[pure] || conceptMap[row.code] || [];
-              const text = formatConceptNames(names);
+        // 先展示行情；概念由当前页 effect 按需补齐（避免全表打爆接口）
+        setRows((prev) => {
+          const prevBy = new Map(
+            prev.map((r) => [String(r.code || '').replace(/^(sh|sz|bj)/i, ''), r])
+          );
+          return next.map((row) => {
+            const topic = quoteToTopic(row);
+            const pure = String(topic.code || '').replace(/^(sh|sz|bj)/i, '');
+            const old = prevBy.get(pure);
+            if (old?.conceptItems && Array.isArray(old.conceptItems) && old.conceptItems.length) {
               return {
-                ...row,
-                concepts: names.length ? names : null,
-                concept: text || null,
+                ...topic,
+                conceptItems: old.conceptItems,
+                concepts: old.concepts ?? null,
+                concept: old.concept ?? null,
               };
-            });
-          } catch (conceptErr) {
-            console.warn('[QuotesMarket] stock concepts failed', conceptErr);
-          }
-        }
-        setRows(enriched.map(quoteToTopic));
+            }
+            return topic;
+          });
+        });
         setCacheMeta(meta);
         if (!soft) setPage(1);
         if (fullSnap) {
           setLoadHint(
             meta.stale || meta.syncing
-              ? `${label}已显示缓存（${enriched.length} 只），后台同步中…`
-              : `${label}行情加载完成（${enriched.length} 只）`
+              ? `${label}已显示缓存（${next.length} 只），后台同步中…`
+              : `${label}行情加载完成（${next.length} 只）`
           );
-          setProgress({ done: enriched.length, total: enriched.length });
+          setProgress({ done: next.length, total: next.length });
         } else {
           setLoadHint('列表已就绪，正在加载行情…');
-          setProgress({ done: 0, total: Math.min(pageSize, enriched.length) });
+          setProgress({ done: 0, total: Math.min(pageSize, next.length) });
         }
       } catch (e) {
         if (!soft) {
@@ -1549,7 +1584,7 @@ export function QuotesMarket() {
         if (!soft) setLoading(false);
       }
     },
-    [markets, tradeDate, tradeDateInput, applyMarketColumns]
+    [markets, tradeDate, tradeDateInput, applyMarketColumns, pageSize]
   );
 
   useEffect(() => {
@@ -1680,17 +1715,47 @@ export function QuotesMarket() {
   const overlayMeta =
     overlayTotal > 0 ? `${overlayDone} / ${overlayTotal}（${progressPct}%）` : '准备中…';
 
+  // 概念过滤：读库反查成分，避免「仅当前页补过概念」导致命中偏少
+  const [conceptFilterCodes, setConceptFilterCodes] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (market !== 'cn' || !conceptFilters.length) {
+      setConceptFilterCodes(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const codes = await getCodesByConceptNames(conceptFilters, {
+          category: 'concept',
+          match: 'and',
+        });
+        if (cancelled) return;
+        setConceptFilterCodes(new Set(codes));
+      } catch {
+        if (!cancelled) setConceptFilterCodes(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [market, conceptFilters]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    // 概念过滤未拿到库反查结果前不落回「仅当前页标签」，避免只显示几条的假结果
+    if (conceptFilters.length && !conceptFilterCodes) return [];
     return rows.filter((r) => {
-      if (!rowMatchesConceptFilters(r, conceptFilters)) return false;
+      if (conceptFilters.length && conceptFilterCodes) {
+        const pure = String(r.code ?? '').replace(/^(sh|sz|bj)/i, '');
+        if (!conceptFilterCodes.has(pure)) return false;
+      }
       if (!q) return true;
       const code = String(r.code ?? '').toLowerCase();
       const name = String(r.name ?? '').toLowerCase();
       const kline = String(r.klineSymbol ?? '').toLowerCase();
       return code.includes(q) || name.includes(q) || kline.includes(q);
     });
-  }, [rows, query, conceptFilters]);
+  }, [rows, query, conceptFilters, conceptFilterCodes]);
 
   const allConcepts = useMemo(() => {
     const set = new Set<string>();
@@ -1740,6 +1805,46 @@ export function QuotesMarket() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pageRows = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // 仅给当前页补概念（东财+同花顺），翻页再补
+  const pageConceptKey = pageRows
+    .map((r) => String(r.code || '').replace(/^(sh|sz|bj)/i, ''))
+    .join(',');
+  useEffect(() => {
+    if (market !== 'cn' || !pageRows.length) return;
+    const need = pageRows
+      .filter((r) => parseConceptItems(r).length === 0)
+      .map((r) => String(r.code || '').replace(/^(sh|sz|bj)/i, ''))
+      .filter(Boolean);
+    if (!need.length) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const conceptMap = await getStockConcepts(need);
+        if (cancelled || !Object.keys(conceptMap).length) return;
+        setRows((prev) =>
+          prev.map((row) => {
+            const pure = String(row.code || '').replace(/^(sh|sz|bj)/i, '');
+            const items = conceptMap[pure];
+            if (!items?.length) return row;
+            const names = items.map((x) => x.name);
+            return {
+              ...row,
+              conceptItems: items,
+              concepts: names,
+              concept: formatConceptNames(names) || null,
+            };
+          })
+        );
+      } catch (conceptErr) {
+        console.warn('[QuotesMarket] page concepts failed', conceptErr);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 按页码/代码集合触发
+  }, [market, currentPage, pageSize, pageConceptKey]);
 
   const handlePageSizeChange = useCallback((next: number) => {
     if (!PAGE_SIZE_OPTIONS.includes(next as (typeof PAGE_SIZE_OPTIONS)[number])) return;
@@ -1987,7 +2092,11 @@ export function QuotesMarket() {
         </div>
         {conceptFilters.length > 0 && (
           <span className={styles.conceptFilterHint}>
-            {conceptFilters.length > 1 ? '同时满足' : '已过滤'}
+            {!conceptFilterCodes
+              ? '查询成分中…'
+              : conceptFilters.length > 1
+                ? `同时满足 · ${conceptFilterCodes.size} 只`
+                : `已过滤 · ${conceptFilterCodes.size} 只`}
           </span>
         )}
       </div>
@@ -2398,7 +2507,7 @@ export function QuotesMarket() {
                                   className={`${styles.left} ${styles.conceptCol}`}
                                 >
                                   <ConceptTagsCell
-                                    tags={parseConcepts(row)}
+                                    items={parseConceptItems(row)}
                                     activeFilters={conceptFilters}
                                     onTagClick={handleConceptTagClick}
                                   />

@@ -470,7 +470,9 @@ function normalizeConstituentUnits<T extends { amount: number | null }>(row: T):
   };
 }
 
-type BoardListItem = {
+export type BoardDataSource = 'eastmoney' | 'ths' | 'all' | 'sina';
+
+export type BoardListItem = {
   rank: number;
   code: string;
   name: string;
@@ -483,13 +485,26 @@ type BoardListItem = {
   fallCount: number | null;
   leadingStock: string | null;
   leadingStockChangePercent: number | null;
+  source?: BoardDataSource | string;
+  sources?: string[];
 };
 
-/** 本机代理：东财优先，失败回退新浪，避免 push2 不通时首页板块空白 */
+export type StockConceptSource = 'eastmoney' | 'ths' | string;
+
+export type StockConceptItem = {
+  name: string;
+  sources: StockConceptSource[];
+  kinds?: string[];
+};
+
+/** 本机代理：支持 source=eastmoney|ths|all */
 async function fetchBoardListFromServer(
-  type: 'industry' | 'concept'
+  type: 'industry' | 'concept',
+  source: BoardDataSource = 'eastmoney'
 ): Promise<BoardListItem[]> {
-  const res = await fetch(`/api/board/list?type=${type}`);
+  const res = await fetch(
+    `/api/board/list?type=${encodeURIComponent(type)}&source=${encodeURIComponent(source)}`
+  );
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data?.ok || !Array.isArray(data.items)) {
     throw new Error(data?.error || `board list ${res.status}`);
@@ -497,10 +512,13 @@ async function fetchBoardListFromServer(
   return data.items as BoardListItem[];
 }
 
-async function loadBoardList(type: 'industry' | 'concept') {
+async function loadBoardList(
+  type: 'industry' | 'concept',
+  source: BoardDataSource = 'eastmoney'
+) {
   // 优先本机代理：东财不通时服务端秒级回退新浪；避免浏览器直连 push2 长时间重试导致面板空白
   try {
-    const items = await fetchBoardListFromServer(type);
+    const items = await fetchBoardListFromServer(type, source);
     if (items.length > 0) {
       return items.map((item) =>
         normalizeBoardUnits({
@@ -511,7 +529,11 @@ async function loadBoardList(type: 'industry' | 'concept') {
       );
     }
   } catch (error) {
-    console.warn(`[sdk] /api/board/list ${type} failed, fallback stock-sdk`, error);
+    console.warn(`[sdk] /api/board/list ${type} source=${source} failed`, error);
+  }
+
+  if (source === 'ths' || source === 'all') {
+    return [];
   }
 
   const rows =
@@ -524,17 +546,17 @@ async function loadBoardList(type: 'industry' | 'concept') {
 /**
  * 获取行业板块列表
  */
-export async function getIndustryList() {
-  const key = getCacheKey('getIndustryList');
-  return withCache(key, DEFAULT_TTL.boardList, () => loadBoardList('industry'));
+export async function getIndustryList(source: BoardDataSource = 'eastmoney') {
+  const key = getCacheKey('getIndustryList', source);
+  return withCache(key, DEFAULT_TTL.boardList, () => loadBoardList('industry', source));
 }
 
 /**
- * 获取概念板块列表
+ * 获取概念板块列表（source: eastmoney | ths | all）
  */
-export async function getConceptList() {
-  const key = getCacheKey('getConceptList');
-  return withCache(key, DEFAULT_TTL.boardList, () => loadBoardList('concept'));
+export async function getConceptList(source: BoardDataSource = 'eastmoney') {
+  const key = getCacheKey('getConceptList', source);
+  return withCache(key, DEFAULT_TTL.boardList, () => loadBoardList('concept', source));
 }
 
 /**
@@ -868,44 +890,193 @@ export async function getStockIndustries(codes: string[]): Promise<Record<string
   });
 }
 
+function mapConceptPayload(
+  concepts: Record<string, StockConceptItem[] | string[]> | undefined
+): Record<string, StockConceptItem[]> {
+  const mapped: Record<string, StockConceptItem[]> = {};
+  if (!concepts) return mapped;
+  for (const [code, items] of Object.entries(concepts)) {
+    if (!items?.length) continue;
+    if (typeof items[0] === 'string') {
+      mapped[code] = (items as string[]).map((name) => ({
+        name,
+        sources: ['eastmoney'],
+      }));
+    } else {
+      mapped[code] = items as StockConceptItem[];
+    }
+  }
+  return mapped;
+}
+
 /**
- * 批量查询所属概念（与板块页同源：东财概念榜成分反查）
- * 返回纯数字代码 → 概念名数组（热门在前）
+ * 按个股批量查询所属概念（优先读库；缺失再联网）。category 默认概念。
  */
 export async function getStockConcepts(
-  codes?: string[]
-): Promise<Record<string, string[]>> {
-  const unique = codes
-    ? [
-        ...new Set(
-          codes
-            .map((c) => normalizeStockCode(c).replace(/^(sh|sz|bj)/i, ''))
-            .filter(Boolean)
-        ),
-      ]
-    : [];
+  codes: string[],
+  category: 'concept' | 'board' | 'all' = 'concept'
+): Promise<Record<string, StockConceptItem[]>> {
+  const unique = [
+    ...new Set(
+      codes
+        .map((c) => normalizeStockCode(c).replace(/^(sh|sz|bj)/i, ''))
+        .filter(Boolean)
+    ),
+  ];
+  if (!unique.length) return {};
 
-  const cacheKey = getCacheKey(
-    'getStockConcepts',
-    unique.length ? unique.slice().sort() : 'all'
-  );
-  return withCache(cacheKey, 10 * 60 * 1000, async () => {
-    // 全表映射体积可控；分批查 URL 过长，统一拉全表再本地过滤
-    const res = await fetch('/api/stock-concepts');
+  const out: Record<string, StockConceptItem[]> = {};
+  const chunkSize = 40;
+
+  const fetchChunk = async (
+    chunk: string[]
+  ): Promise<Record<string, StockConceptItem[]>> => {
+    // 1) 优先本地库
+    try {
+      const dbRes = await fetch(
+        `/api/cache/board-concepts/stock?category=${encodeURIComponent(category)}&codes=${encodeURIComponent(chunk.join(','))}`
+      );
+      if (dbRes.ok) {
+        const dbPayload = (await dbRes.json()) as {
+          ok?: boolean;
+          concepts?: Record<string, StockConceptItem[]>;
+          boards?: Record<string, StockConceptItem[]>;
+          items?: Record<string, StockConceptItem[]>;
+        };
+        if (dbPayload.ok) {
+          const fromDb =
+            category === 'board'
+              ? dbPayload.boards
+              : category === 'all'
+                ? dbPayload.items
+                : dbPayload.concepts;
+          const mapped = mapConceptPayload(fromDb);
+          const missing = chunk.filter((c) => !mapped[c]?.length);
+          if (!missing.length) return mapped;
+          // 库缺的再走统一接口补齐
+          const liveRes = await fetch(
+            `/api/stock-concepts?category=${encodeURIComponent(category)}&codes=${encodeURIComponent(missing.join(','))}`
+          );
+          if (liveRes.ok) {
+            const livePayload = (await liveRes.json()) as {
+              ok?: boolean;
+              concepts?: Record<string, StockConceptItem[] | string[]>;
+              boards?: Record<string, StockConceptItem[] | string[]>;
+              items?: Record<string, StockConceptItem[] | string[]>;
+            };
+            const liveBucket =
+              category === 'board'
+                ? livePayload.boards
+                : category === 'all'
+                  ? livePayload.items
+                  : livePayload.concepts;
+            Object.assign(mapped, mapConceptPayload(liveBucket));
+          }
+          return mapped;
+        }
+      }
+    } catch {
+      /* fall through */
+    }
+
+    const res = await fetch(
+      `/api/stock-concepts?category=${encodeURIComponent(category)}&codes=${encodeURIComponent(chunk.join(','))}`
+    );
     if (!res.ok) return {};
     const payload = (await res.json()) as {
       ok?: boolean;
-      concepts?: Record<string, string[]>;
+      concepts?: Record<string, StockConceptItem[] | string[]>;
+      boards?: Record<string, StockConceptItem[] | string[]>;
+      items?: Record<string, StockConceptItem[] | string[]>;
     };
-    if (!payload.ok || !payload.concepts) return {};
-    if (!unique.length) return payload.concepts;
-    const out: Record<string, string[]> = {};
-    for (const code of unique) {
-      const names = payload.concepts[code];
-      if (names?.length) out[code] = names;
+    if (!payload.ok) return {};
+    const bucket =
+      category === 'board'
+        ? payload.boards
+        : category === 'all'
+          ? payload.items
+          : payload.concepts;
+    return mapConceptPayload(bucket);
+  };
+
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize);
+    const cacheKey = getCacheKey(
+      'getStockConceptsChunk',
+      `${category}:${chunk.slice().sort().join(',')}`
+    );
+    let part = await withCache(cacheKey, 10 * 60 * 1000, () => fetchChunk(chunk));
+    if (!Object.keys(part).length) {
+      part = await fetchChunk(chunk);
     }
-    return out;
-  });
+    Object.assign(out, part);
+  }
+  return out;
+}
+
+export type BoardConceptSyncProgress = {
+  active: boolean;
+  phase?: string;
+  done?: number;
+  total?: number;
+  ok_count?: number;
+  failed?: number;
+  message?: string;
+  synced_at?: number | null;
+  last_error?: string | null;
+};
+
+/** 启动板块/概念全量入库同步 */
+export async function startBoardConceptsSync(force = false): Promise<BoardConceptSyncProgress> {
+  const res = await fetch(
+    `/api/cache/board-concepts/sync?force=${force ? 1 : 0}`,
+    { method: 'POST' }
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `sync ${res.status}`);
+  return data as BoardConceptSyncProgress;
+}
+
+export async function getBoardConceptsSyncProgress(): Promise<BoardConceptSyncProgress> {
+  const res = await fetch('/api/cache/board-concepts/sync/progress');
+  const data = await res.json().catch(() => ({}));
+  return (data || {}) as BoardConceptSyncProgress;
+}
+
+export async function getBoardConceptsStats(): Promise<{
+  catalog?: number;
+  stocks?: number;
+  concept_rows?: number;
+  board_rows?: number;
+}> {
+  const res = await fetch('/api/cache/board-concepts/stats');
+  const data = await res.json().catch(() => ({}));
+  return data || {};
+}
+
+/** 按概念名反查成分股代码（读库，用于行情概念过滤） */
+export async function getCodesByConceptNames(
+  names: string[],
+  options?: { category?: 'concept' | 'board' | 'all'; match?: 'and' | 'or' }
+): Promise<string[]> {
+  const uniq = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+  if (!uniq.length) return [];
+  const category = options?.category ?? 'concept';
+  const match = options?.match ?? 'and';
+  const res = await fetch(
+    `/api/cache/board-concepts/by-name?category=${encodeURIComponent(category)}&match=${encodeURIComponent(match)}&names=${encodeURIComponent(uniq.join(','))}`
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.ok || !Array.isArray(data.codes)) return [];
+  return data.codes as string[];
+}
+
+/** 补同步北交所个股概念/板块 */
+export async function startBoardConceptsBjSync(): Promise<BoardConceptSyncProgress & { codes?: number }> {
+  const res = await fetch('/api/cache/board-concepts/sync-bj', { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `sync-bj ${res.status}`);
+  return data as BoardConceptSyncProgress & { codes?: number };
 }
 
 // ========== 其他 API ==========

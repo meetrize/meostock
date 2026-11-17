@@ -128,3 +128,44 @@ CREATE TABLE IF NOT EXISTS ts_market_meta (
   sync_state TEXT NOT NULL DEFAULT 'idle',
   last_error TEXT
 );
+
+-- 多源板块/概念目录（eastmoney|ths × concept|industry|region）
+CREATE TABLE IF NOT EXISTS board_catalog (
+  source TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  code TEXT NOT NULL,
+  name TEXT NOT NULL,
+  name_key TEXT NOT NULL,
+  extra_json TEXT,
+  updated_at REAL NOT NULL,
+  PRIMARY KEY (source, kind, code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_board_catalog_kind ON board_catalog (kind, source);
+CREATE INDEX IF NOT EXISTS idx_board_catalog_name_key ON board_catalog (name_key);
+
+-- 个股所属板块/概念（已去重，sources_json 记录来源）
+CREATE TABLE IF NOT EXISTS stock_board_map (
+  code TEXT NOT NULL,
+  name_key TEXT NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  sources_json TEXT NOT NULL DEFAULT '[]',
+  updated_at REAL NOT NULL,
+  PRIMARY KEY (code, name_key, kind)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_board_map_code_kind ON stock_board_map (code, kind);
+CREATE INDEX IF NOT EXISTS idx_stock_board_map_kind_name ON stock_board_map (kind, name_key);
+
+-- 板块/概念同步进度
+CREATE TABLE IF NOT EXISTS board_sync_meta (
+  key TEXT PRIMARY KEY,
+  synced_at REAL,
+  row_count INTEGER NOT NULL DEFAULT 0,
+  sync_state TEXT NOT NULL DEFAULT 'idle',
+  last_error TEXT,
+  progress_done INTEGER NOT NULL DEFAULT 0,
+  progress_total INTEGER NOT NULL DEFAULT 0,
+  detail_json TEXT
+);

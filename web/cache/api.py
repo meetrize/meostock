@@ -20,6 +20,7 @@ from cache.providers.kline_fetch import (
     normalize_symbol,
 )
 from cache.providers.lazy_markets import enrich_index_quotes
+from cache import board_concepts as board_concepts_mod
 from cache.sync_worker import (
     enqueue,
     get_progress,
@@ -359,6 +360,127 @@ def cache_sync_all(body: SyncAllBody) -> JSONResponse:
         lanes=body.lanes,
     )
     return JSONResponse(result)
+
+
+@router.post("/board-concepts/sync")
+def board_concepts_sync(force: int = Query(0, description="1=强制全量")) -> JSONResponse:
+    """全量拉取东财+同花顺板块/概念并入库。"""
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "cache disabled"}, status_code=503)
+    from cache.db import init_db
+
+    init_db()
+    result = board_concepts_mod.start_full_sync(force=bool(force))
+    return JSONResponse(result)
+
+
+@router.post("/board-concepts/sync-bj")
+def board_concepts_sync_bj() -> JSONResponse:
+    """补同步北交所个股概念/板块（修复 92 前缀误判后）。"""
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "cache disabled"}, status_code=503)
+    from cache.db import init_db
+
+    init_db()
+    return JSONResponse(board_concepts_mod.start_bj_resync())
+
+
+@router.get("/board-concepts/sync/progress")
+def board_concepts_sync_progress() -> JSONResponse:
+    return JSONResponse({"ok": True, **board_concepts_mod.get_sync_progress()})
+
+
+@router.get("/board-concepts/stats")
+def board_concepts_stats() -> JSONResponse:
+    from cache.db import init_db
+
+    init_db()
+    return JSONResponse({"ok": True, **board_concepts_mod.db_stats()})
+
+
+@router.get("/board-concepts/by-name")
+def board_concepts_by_name(
+    names: str = Query(..., description="概念/板块名，逗号分隔"),
+    category: str = Query("concept", description="concept|board|all"),
+    match: str = Query("and", description="and|or"),
+) -> JSONResponse:
+    """按概念名反查成分股代码（读库）。"""
+    from cache.db import init_db
+
+    init_db()
+    cat = (category or "concept").lower().strip()
+    if cat not in ("concept", "board", "all"):
+        return JSONResponse(
+            {"ok": False, "error": "category must be concept|board|all"},
+            status_code=400,
+        )
+    m = (match or "and").lower().strip()
+    if m not in ("and", "or"):
+        return JSONResponse({"ok": False, "error": "match must be and|or"}, status_code=400)
+    parts = [p.strip() for p in (names or "").split(",") if p.strip()]
+    kind = "all" if cat == "all" else cat
+    codes = board_concepts_mod.get_codes_by_concept_names(parts, kind=kind, match=m)
+    return JSONResponse(
+        {
+            "ok": True,
+            "source": "db",
+            "names": parts,
+            "match": m,
+            "category": cat,
+            "count": len(codes),
+            "codes": codes,
+        }
+    )
+
+
+@router.get("/board-concepts/stock")
+def board_concepts_stock(
+    codes: str = Query(..., description="逗号分隔代码"),
+    category: str = Query("all", description="all|concept|board"),
+) -> JSONResponse:
+    """从库读取个股板块/概念。category=board 含行业+地域。"""
+    from cache.db import init_db
+
+    init_db()
+    cat = (category or "all").lower().strip()
+    if cat not in ("all", "concept", "board"):
+        return JSONResponse(
+            {"ok": False, "error": "category must be all|concept|board"},
+            status_code=400,
+        )
+    parts = [p.strip() for p in (codes or "").split(",") if p.strip()]
+    data = board_concepts_mod.get_stock_items_from_db(parts, category=cat)
+    concepts = {
+        code: [
+            x
+            for x in items
+            if str(x.get("kind") or "") == "concept"
+            or "concept" in (x.get("kinds") or [])
+        ]
+        for code, items in data.items()
+    }
+    boards = {
+        code: [
+            x
+            for x in items
+            if str(x.get("kind") or "") in ("industry", "region")
+            or any(k in ("industry", "region") for k in (x.get("kinds") or []))
+        ]
+        for code, items in data.items()
+    }
+    concepts = {k: v for k, v in concepts.items() if v}
+    boards = {k: v for k, v in boards.items() if v}
+    return JSONResponse(
+        {
+            "ok": True,
+            "source": "db",
+            "category": cat,
+            "requested": len(parts),
+            "concepts": concepts if cat in ("all", "concept") else {},
+            "boards": boards if cat in ("all", "board") else {},
+            "items": data if cat == "all" else (concepts if cat == "concept" else boards),
+        }
+    )
 
 
 @router.get("/sync/progress")

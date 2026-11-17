@@ -886,6 +886,9 @@ def _to_eastmoney_secid(code: str) -> str | None:
     symbol = "".join(ch for ch in symbol if ch.isdigit())
     if not symbol:
         return None
+    # 北交所 92/8/4 → 0.xxx；沪市 6/9（含 B 股 900）→ 1.xxx；其余深市 0.xxx
+    if market == "bj" or symbol.startswith("92") or symbol.startswith(("8", "4")):
+        return f"0.{symbol}"
     if market == "sh" or symbol.startswith(("6", "9")):
         return f"1.{symbol}"
     return f"0.{symbol}"
@@ -917,58 +920,78 @@ def _num_or_none(v: Any) -> float | None:
 
 
 def _em_board_list(board_type: str) -> list[dict[str, Any]]:
+    """东财行业/概念板块全量列表（分页拉齐，不再只取 Top100）。"""
     fs = _EM_BOARD_FS[board_type]
-    params = {
-        "pn": "1",
-        "pz": "100",
-        "po": "1",
-        "np": "1",
-        "ut": "bd1d9ddb04089700cf9c27f6f7426281",
-        "fltt": "2",
-        "invt": "2",
-        "fid": "f3",
-        "fs": fs,
-        "fields": _EM_BOARD_FIELDS,
-    }
-    mirrors = (
-        EM_CLIST,
-        "https://79.push2.eastmoney.com/api/qt/clist/get",
-        "https://17.push2.eastmoney.com/api/qt/clist/get",
-        "https://29.push2.eastmoney.com/api/qt/clist/get",
-    )
-    last_err: Exception | None = None
-    data: dict[str, Any] | None = None
-    for base in mirrors:
-        try:
-            data = _http_get_json(f"{base}?{urllib.parse.urlencode(params)}")
-            break
-        except _http_errors() as e:
-            last_err = e
-    if data is None:
-        raise RuntimeError(str(last_err) if last_err else "eastmoney board empty")
-
     rows: list[dict[str, Any]] = []
-    for i, row in enumerate(_normalize_diff((((data or {}).get("data") or {}).get("diff"))), start=1):
-        code = str(row.get("f12") or "").strip()
-        name = str(row.get("f14") or "").strip()
-        if not code or not name:
+    total_hint = 0
+    for pn in range(1, 12):
+        params = {
+            "pn": str(pn),
+            "pz": "100",
+            "po": "1",
+            "np": "1",
+            "ut": "bd1d9ddb04089700cf9c27f6f7426281",
+            "fltt": "2",
+            "invt": "2",
+            "fid": "f3",
+            "fs": fs,
+            "fields": _EM_BOARD_FIELDS,
+        }
+        try:
+            diff = _em_clist_diff(params)
+            # total 需单独请求首包；_em_clist_diff 只回 diff，这里再取一次首包 total
+            if pn == 1:
+                try:
+                    data = _http_get_json(
+                        f"{EM_CLIST}?{urllib.parse.urlencode(params)}"
+                    )
+                    total_hint = int((((data or {}).get("data") or {}).get("total")) or 0)
+                except Exception:  # noqa: BLE001
+                    total_hint = 0
+        except Exception as e:  # noqa: BLE001
+            if pn == 1:
+                raise
+            break
+        if not diff:
+            break
+        for row in diff:
+            code = str(row.get("f12") or "").strip()
+            name = str(row.get("f14") or "").strip()
+            if not code or not name:
+                continue
+            rows.append(
+                {
+                    "rank": 0,
+                    "code": code,
+                    "name": name,
+                    "price": _num_or_none(row.get("f2")),
+                    "change": _num_or_none(row.get("f4")),
+                    "changePercent": _num_or_none(row.get("f3")),
+                    "totalMarketCap": _num_or_none(row.get("f20")),
+                    "turnoverRate": _num_or_none(row.get("f8")),
+                    "riseCount": _num_or_none(row.get("f104")),
+                    "fallCount": _num_or_none(row.get("f105")),
+                    "leadingStock": (str(row.get("f128") or "").strip() or None),
+                    "leadingStockChangePercent": _num_or_none(row.get("f136")),
+                    "source": "eastmoney",
+                    "sources": ["eastmoney"],
+                }
+            )
+        if len(diff) < 100:
+            break
+        if total_hint and len(rows) >= total_hint:
+            break
+
+    # 去重（分页偶发重复）
+    seen: set[str] = set()
+    uniq: list[dict[str, Any]] = []
+    for row in rows:
+        if row["code"] in seen:
             continue
-        rows.append(
-            {
-                "rank": i,
-                "code": code,
-                "name": name,
-                "price": _num_or_none(row.get("f2")),
-                "change": _num_or_none(row.get("f4")),
-                "changePercent": _num_or_none(row.get("f3")),
-                "totalMarketCap": _num_or_none(row.get("f20")),
-                "turnoverRate": _num_or_none(row.get("f8")),
-                "riseCount": _num_or_none(row.get("f104")),
-                "fallCount": _num_or_none(row.get("f105")),
-                "leadingStock": (str(row.get("f128") or "").strip() or None),
-                "leadingStockChangePercent": _num_or_none(row.get("f136")),
-            }
-        )
+        seen.add(row["code"])
+        uniq.append(row)
+    rows = uniq
+
     rows.sort(
         key=lambda x: (
             x["changePercent"] is not None,
@@ -979,6 +1002,132 @@ def _em_board_list(board_type: str) -> list[dict[str, Any]]:
     for i, row in enumerate(rows, start=1):
         row["rank"] = i
     return rows
+
+
+def _ths_concept_board_list() -> list[dict[str, Any]]:
+    """同花顺概念板块目录（抓取 q.10jqka.com.cn/gn/）。"""
+    url = "https://q.10jqka.com.cn/gn/"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": _BROWSER_UA,
+            "Referer": "https://q.10jqka.com.cn/",
+            "Accept": "text/html,*/*",
+        },
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        raw = resp.read()
+    # 页面多为 gbk
+    text = raw.decode("gbk", errors="replace")
+    pairs = re.findall(
+        r"/gn/detail/code/(\d+)/[^>\"]*\"[^>]*>([^<]+)<",
+        text,
+    )
+    if not pairs:
+        pairs = re.findall(r"/gn/detail/code/(\d+)/[^>]*>([^<]+)<", text)
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for cid, name in pairs:
+        cid = str(cid).strip()
+        name = str(name).strip()
+        if not cid or not name or cid in seen:
+            continue
+        seen.add(cid)
+        rows.append(
+            {
+                "rank": 0,
+                "code": f"ths:{cid}",
+                "name": name,
+                "price": None,
+                "change": None,
+                "changePercent": None,
+                "totalMarketCap": None,
+                "turnoverRate": None,
+                "riseCount": None,
+                "fallCount": None,
+                "leadingStock": None,
+                "leadingStockChangePercent": None,
+                "source": "ths",
+                "sources": ["ths"],
+            }
+        )
+    rows.sort(key=lambda x: x["name"])
+    for i, row in enumerate(rows, start=1):
+        row["rank"] = i
+    return rows
+
+
+def _concept_name_key(name: str) -> str:
+    s = str(name or "").strip()
+    for suf in ("概念", "板块"):
+        if len(s) > len(suf) and s.endswith(suf):
+            s = s[: -len(suf)]
+    return s.casefold()
+
+
+def _merge_board_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """按名称合并多源板块；行情字段优先东财。"""
+    buckets: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for row in rows:
+        name = str(row.get("name") or "").strip()
+        if not name:
+            continue
+        key = _concept_name_key(name)
+        src = str(row.get("source") or (row.get("sources") or ["unknown"])[0])
+        if key not in buckets:
+            item = dict(row)
+            item["name"] = name
+            item["sources"] = [src]
+            item["source"] = src
+            buckets[key] = item
+            order.append(key)
+            continue
+        cur = buckets[key]
+        sources = list(cur.get("sources") or [])
+        if src not in sources:
+            sources.append(src)
+        cur["sources"] = sources
+        # 优先保留东财代码与行情
+        if src == "eastmoney" or (
+            "eastmoney" in sources and str(cur.get("source")) != "eastmoney"
+        ):
+            for field in (
+                "code",
+                "price",
+                "change",
+                "changePercent",
+                "totalMarketCap",
+                "turnoverRate",
+                "riseCount",
+                "fallCount",
+                "leadingStock",
+                "leadingStockChangePercent",
+            ):
+                if row.get(field) is not None:
+                    cur[field] = row.get(field)
+            cur["source"] = "eastmoney" if "eastmoney" in sources else sources[0]
+            # 展示名：优先更长（如「储能概念」优于「储能」）
+            if len(name) > len(str(cur.get("name") or "")):
+                cur["name"] = name
+        else:
+            if len(name) > len(str(cur.get("name") or "")):
+                cur["name"] = name
+            cur["source"] = "eastmoney" if "eastmoney" in sources else sources[0]
+
+    merged = [buckets[k] for k in order]
+    merged.sort(
+        key=lambda x: (
+            x.get("changePercent") is not None,
+            x.get("changePercent") if x.get("changePercent") is not None else -1e18,
+            str(x.get("name") or ""),
+        ),
+        reverse=True,
+    )
+    for i, row in enumerate(merged, start=1):
+        row["rank"] = i
+    return merged
 
 
 def _sina_board_list(board_type: str) -> list[dict[str, Any]]:
@@ -1051,28 +1200,158 @@ def _sina_board_list(board_type: str) -> list[dict[str, Any]]:
 @app.get("/api/board/list")
 def board_list(
     type: str = Query("industry", description="industry|concept"),
+    source: str = Query(
+        "eastmoney",
+        description="eastmoney|ths|all|sina；概念支持 ths/all，行业暂无同花顺目录时回退东财",
+    ),
 ) -> JSONResponse:
-    """行业 / 概念板块涨跌榜。优先东财 clist，失败回退新浪 FLJK。"""
+    """行业 / 概念板块涨跌榜。支持东财 / 同花顺 / 合并。"""
     board_type = (type or "industry").lower().strip()
+    src = (source or "eastmoney").lower().strip()
     if board_type not in _EM_BOARD_FS:
         return JSONResponse(
             {"ok": False, "error": "type must be industry|concept"},
             status_code=400,
         )
+    if src not in ("eastmoney", "ths", "all", "sina"):
+        return JSONResponse(
+            {"ok": False, "error": "source must be eastmoney|ths|all|sina"},
+            status_code=400,
+        )
+
+    # 库目录作回退/补源；行情仍优先实时接口，避免涨跌榜被入库快照锁死
+    db_items: list[dict[str, Any]] = []
+    db_ths_items: list[dict[str, Any]] = []
+    try:
+        from cache import board_concepts as bcm
+
+        db_kind = "industry" if board_type == "industry" else "concept"
+        db_src = "all" if src == "all" else src
+        if db_src in ("eastmoney", "ths", "all"):
+            db_items = bcm.get_catalog_from_db(kind=db_kind, source=db_src) or []
+        if src in ("ths", "all") and board_type == "concept":
+            db_ths_items = bcm.get_catalog_from_db(kind="concept", source="ths") or []
+    except Exception:  # noqa: BLE001
+        pass
 
     em_error: str | None = None
-    try:
-        items = _em_board_list(board_type)
-        if items:
+    ths_error: str | None = None
+    em_items: list[dict[str, Any]] = []
+    ths_items: list[dict[str, Any]] = []
+
+    if src in ("eastmoney", "all", "sina"):
+        try:
+            em_items = _em_board_list(board_type)
+        except Exception as e:  # noqa: BLE001
+            em_error = str(e) or type(e).__name__
+
+    ths_from_db = False
+    if src in ("ths", "all") and board_type == "concept":
+        try:
+            ths_items = _ths_concept_board_list()
+        except Exception as e:  # noqa: BLE001
+            ths_error = str(e) or type(e).__name__
+        if not ths_items and db_ths_items:
+            ths_items = db_ths_items
+            ths_from_db = True
+            ths_error = None
+
+    if src == "ths":
+        if ths_items:
             return JSONResponse(
-                {"ok": True, "type": board_type, "items": items, "source": "eastmoney"}
+                {
+                    "ok": True,
+                    "type": board_type,
+                    "items": ths_items,
+                    "source": "db:ths" if ths_from_db else "ths",
+                    "fromDb": ths_from_db,
+                }
             )
-        em_error = "empty"
-    except Exception as e:  # noqa: BLE001
-        em_error = str(e) or type(e).__name__
+        if db_items:
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "type": board_type,
+                    "items": db_items,
+                    "source": "db:ths",
+                    "fromDb": True,
+                }
+            )
+        return JSONResponse(
+            {"ok": False, "error": f"ths: {ths_error or 'empty'}"},
+            status_code=502,
+        )
+
+    if src == "all":
+        merged = _merge_board_rows([*em_items, *ths_items])
+        if merged:
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "type": board_type,
+                    "items": merged,
+                    "source": "all",
+                    "sources": {
+                        "eastmoney": len(em_items),
+                        "ths": len(ths_items),
+                    },
+                    "errors": {
+                        k: v
+                        for k, v in {
+                            "eastmoney": em_error,
+                            "ths": ths_error,
+                        }.items()
+                        if v
+                    }
+                    or None,
+                }
+            )
+        if db_items:
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "type": board_type,
+                    "items": db_items,
+                    "source": f"db:{src}",
+                    "fromDb": True,
+                }
+            )
+        # fall through to sina if both empty
+
+    if em_items and src in ("eastmoney", "all", "sina"):
+        if src == "eastmoney" or (src == "all" and not ths_items):
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "type": board_type,
+                    "items": em_items,
+                    "source": "eastmoney",
+                    "fallbackFrom": f"ths: {ths_error}" if ths_error else None,
+                }
+            )
+
+    if src == "eastmoney" and em_items:
+        return JSONResponse(
+            {"ok": True, "type": board_type, "items": em_items, "source": "eastmoney"}
+        )
+
+    if db_items and src in ("eastmoney", "all"):
+        return JSONResponse(
+            {
+                "ok": True,
+                "type": board_type,
+                "items": db_items,
+                "source": f"db:{src}",
+                "fromDb": True,
+                "fallbackFrom": f"eastmoney: {em_error}" if em_error else None,
+            }
+        )
 
     try:
         items = _sina_board_list(board_type)
+        for row in items:
+            row["source"] = "sina"
+            row["sources"] = ["sina"]
         return JSONResponse(
             {
                 "ok": True,
@@ -1083,10 +1362,21 @@ def board_list(
             }
         )
     except Exception as e:  # noqa: BLE001
+        if db_items:
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "type": board_type,
+                    "items": db_items,
+                    "source": f"db:{src}",
+                    "fromDb": True,
+                    "fallbackFrom": f"eastmoney: {em_error}; sina: {e}",
+                }
+            )
         return JSONResponse(
             {
                 "ok": False,
-                "error": f"eastmoney: {em_error}; sina: {e}",
+                "error": f"eastmoney: {em_error}; ths: {ths_error}; sina: {e}",
             },
             status_code=502,
         )
@@ -1128,15 +1418,10 @@ def stock_industries(
     return JSONResponse({"ok": True, "industries": industries})
 
 
-# 与板块页同一套东财概念榜 → 成分股反查；进程内缓存，供行情「概念」列
-_CONCEPT_MAP_TTL = 30 * 60
-_CONCEPT_MAP_LOCK = threading.Lock()
-_CONCEPT_MAP_STATE: dict[str, Any] = {
-    "ts": 0.0,
-    "map": {},
-    "board_count": 0,
-    "building": False,
-}
+# 个股概念：东财 F10 + 同花顺 concept.php；进程内缓存
+_STOCK_CONCEPT_TTL = 60 * 60
+_STOCK_CONCEPT_LOCK = threading.Lock()
+_STOCK_CONCEPT_CACHE: dict[str, dict[str, Any]] = {}
 
 
 def _em_clist_diff(params: dict[str, str]) -> list[dict[str, Any]]:
@@ -1157,147 +1442,326 @@ def _em_clist_diff(params: dict[str, str]) -> list[dict[str, Any]]:
     raise RuntimeError(str(last_err) if last_err else "eastmoney clist failed")
 
 
-def _em_board_constituent_codes(board_code: str) -> list[str]:
-    """板块成分代码（纯数字）。"""
-    bk = str(board_code or "").strip()
-    if not bk:
+def _pure_a_share_code(raw: str) -> str:
+    s = str(raw or "").strip()
+    s = re.sub(r"^(sh|sz|bj)", "", s, flags=re.I)
+    s = re.sub(r"\.(SH|SZ|BJ)$", "", s, flags=re.I)
+    return "".join(ch for ch in s if ch.isdigit())
+
+
+def _em_sec_prefix(code: str) -> str:
+    """东财 F10 用 SH/SZ/BJ 前缀。北交所 92/8/4 须优先于沪市 9 开头判断。"""
+    c = _pure_a_share_code(code)
+    if c.startswith("92") or c.startswith(("8", "4")):
+        return f"BJ{c}"
+    if c.startswith(("6", "9")):
+        return f"SH{c}"
+    return f"SZ{c}"
+
+
+def _em_stock_boards(code: str) -> list[dict[str, Any]]:
+    """按个股拉东财所属板块（F10 CoreConception）。"""
+    pure = _pure_a_share_code(code)
+    if not pure:
         return []
-    out: list[str] = []
-    for pn in range(1, 6):
-        rows = _em_clist_diff(
+    em_code = _em_sec_prefix(pure)
+    url = (
+        "https://emweb.securities.eastmoney.com/PC_HSF10/CoreConception/PageAjax"
+        f"?code={urllib.parse.quote(em_code)}"
+    )
+    try:
+        data = _http_get_json(url, timeout=12.0)
+    except _http_errors():
+        return []
+    out: list[dict[str, Any]] = []
+    for row in data.get("ssbk") or []:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("BOARD_NAME") or "").strip()
+        if not name:
+            continue
+        out.append(
             {
-                "pn": str(pn),
-                "pz": "100",
-                "po": "1",
-                "np": "1",
-                "ut": "bd1d9ddb04089700cf9c27f6f7426281",
-                "fltt": "2",
-                "invt": "2",
-                "fid": "f3",
-                "fs": f"b:{bk} f:!50",
-                "fields": "f12",
+                "name": name,
+                "source": "eastmoney",
+                "kind": "concept",
+                "boardCode": str(row.get("BOARD_CODE") or "").strip() or None,
             }
         )
-        if not rows:
-            break
-        for row in rows:
-            code = str(row.get("f12") or "").strip()
-            if code:
-                out.append(code)
-        if len(rows) < 100:
-            break
+    # 用 datacenter 补 BOARD_TYPE（更准）
+    try:
+        q = urllib.parse.urlencode(
+            {
+                "reportName": "RPT_F10_CORETHEME_BOARDTYPE",
+                "columns": "ALL",
+                "filter": f'(SECURITY_CODE="{pure}")',
+                "pageNumber": "1",
+                "pageSize": "50",
+                "sortTypes": "1",
+                "sortColumns": "BOARD_RANK",
+                "source": "WEB",
+                "client": "WEB",
+            }
+        )
+        typed = _http_get_json(
+            f"https://datacenter-web.eastmoney.com/api/data/v1/get?{q}",
+            timeout=12.0,
+        )
+        by_name = {
+            str(x.get("BOARD_NAME") or "").strip(): x
+            for x in ((typed.get("result") or {}).get("data") or [])
+            if isinstance(x, dict)
+        }
+        for item in out:
+            meta = by_name.get(item["name"]) or {}
+            btype = str(meta.get("BOARD_TYPE") or "").strip()
+            if btype == "行业":
+                item["kind"] = "industry"
+            elif btype == "板块":
+                item["kind"] = "region"
+            else:
+                item["kind"] = "concept"
+    except _http_errors():
+        pass
     return out
 
 
-def _build_concept_stock_map() -> tuple[dict[str, list[str]], int]:
-    """用板块模块同源东财概念榜建 code→概念名列表（热门概念在前）。"""
-    boards = _em_board_list("concept")
-    if not boards:
-        return {}, 0
-    mapping: dict[str, list[str]] = {}
-
-    def _one(board: dict[str, Any]) -> tuple[str, list[str]]:
-        name = str(board.get("name") or "").strip()
-        code = str(board.get("code") or "").strip()
-        if not name or not code:
-            return name, []
-        return name, _em_board_constituent_codes(code)
-
-    with ThreadPoolExecutor(max_workers=12) as pool:
-        futs = [pool.submit(_one, b) for b in boards]
-        for fut in as_completed(futs):
-            try:
-                name, codes = fut.result()
-            except Exception:  # noqa: BLE001
-                continue
-            if not name:
-                continue
-            for c in codes:
-                bucket = mapping.setdefault(c, [])
-                if name not in bucket:
-                    bucket.append(name)
-    return mapping, len(boards)
-
-
-def _ensure_concept_stock_map(*, force: bool = False) -> dict[str, Any]:
-    now = time.time()
-    with _CONCEPT_MAP_LOCK:
-        age = now - float(_CONCEPT_MAP_STATE.get("ts") or 0)
-        cached = _CONCEPT_MAP_STATE.get("map") or {}
-        if not force and cached and age < _CONCEPT_MAP_TTL:
-            return {
-                "map": cached,
-                "board_count": int(_CONCEPT_MAP_STATE.get("board_count") or 0),
-                "synced_at": float(_CONCEPT_MAP_STATE.get("ts") or 0),
-                "cached": True,
-            }
-        if _CONCEPT_MAP_STATE.get("building"):
-            return {
-                "map": cached,
-                "board_count": int(_CONCEPT_MAP_STATE.get("board_count") or 0),
-                "synced_at": float(_CONCEPT_MAP_STATE.get("ts") or 0),
-                "cached": True,
-                "building": True,
-            }
-        _CONCEPT_MAP_STATE["building"] = True
-
+def _ths_stock_concepts(code: str) -> list[dict[str, Any]]:
+    """按个股拉同花顺概念题材。"""
+    pure = _pure_a_share_code(code)
+    if not pure:
+        return []
+    url = f"https://basic.10jqka.com.cn/api/stockph/concept.php?code={urllib.parse.quote(pure)}"
     try:
-        mapping, board_count = _build_concept_stock_map()
-        with _CONCEPT_MAP_LOCK:
-            if mapping:
-                _CONCEPT_MAP_STATE["map"] = mapping
-                _CONCEPT_MAP_STATE["board_count"] = board_count
-                _CONCEPT_MAP_STATE["ts"] = time.time()
-            _CONCEPT_MAP_STATE["building"] = False
-            return {
-                "map": _CONCEPT_MAP_STATE.get("map") or {},
-                "board_count": int(_CONCEPT_MAP_STATE.get("board_count") or 0),
-                "synced_at": float(_CONCEPT_MAP_STATE.get("ts") or 0),
-                "cached": False,
+        raw = _http_get_text(
+            url,
+            timeout=12.0,
+            referer="https://basic.10jqka.com.cn/",
+            headers={"Accept": "application/json,*/*"},
+        )
+        data = json.loads(raw)
+    except Exception:  # noqa: BLE001
+        return []
+    if not isinstance(data, dict):
+        return []
+    status = data.get("status_code")
+    if status is not None and int(status) != 0:
+        return []
+    out: list[dict[str, Any]] = []
+    for row in data.get("data") or []:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "").strip()
+        if not name:
+            continue
+        out.append(
+            {
+                "name": name,
+                "source": "ths",
+                "kind": "concept",
+                "boardCode": str(row.get("plateid") or row.get("cid") or "").strip()
+                or None,
             }
-    except Exception:
-        with _CONCEPT_MAP_LOCK:
-            _CONCEPT_MAP_STATE["building"] = False
-        raise
+        )
+    return out
+
+
+def _merge_concept_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """名称去重（储能/储能概念 视为同一），合并 sources。"""
+    buckets: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for row in items:
+        name = str(row.get("name") or "").strip()
+        if not name:
+            continue
+        key = _concept_name_key(name)
+        src = str(row.get("source") or "unknown")
+        kind = str(row.get("kind") or "concept")
+        if key not in buckets:
+            buckets[key] = {
+                "name": name,
+                "sources": [src],
+                "kinds": [kind],
+            }
+            order.append(key)
+            continue
+        cur = buckets[key]
+        if src not in cur["sources"]:
+            cur["sources"].append(src)
+        if kind not in cur["kinds"]:
+            cur["kinds"].append(kind)
+        if len(name) > len(str(cur.get("name") or "")):
+            cur["name"] = name
+    return [buckets[k] for k in order]
+
+
+def _fetch_stock_concepts_merged(code: str, *, force: bool = False) -> list[dict[str, Any]]:
+    pure = _pure_a_share_code(code)
+    if not pure:
+        return []
+    now = time.time()
+    with _STOCK_CONCEPT_LOCK:
+        cached = _STOCK_CONCEPT_CACHE.get(pure)
+        if (
+            not force
+            and cached
+            and now - float(cached.get("ts") or 0) < _STOCK_CONCEPT_TTL
+        ):
+            return list(cached.get("items") or [])
+
+    em_items: list[dict[str, Any]] = []
+    ths_items: list[dict[str, Any]] = []
+    try:
+        em_items = _em_stock_boards(pure)
+    except Exception:  # noqa: BLE001
+        em_items = []
+    try:
+        ths_items = _ths_stock_concepts(pure)
+    except Exception:  # noqa: BLE001
+        ths_items = []
+    # 行情概念列：排除纯行业（保留 region/concept/风格）
+    filtered = [
+        x
+        for x in [*em_items, *ths_items]
+        if str(x.get("kind") or "concept") != "industry"
+    ]
+    merged = _merge_concept_items(filtered)
+    # 失败/空结果不写长缓存，避免把暂时失败钉死成「无概念」
+    if merged:
+        with _STOCK_CONCEPT_LOCK:
+            _STOCK_CONCEPT_CACHE[pure] = {"ts": now, "items": merged}
+    return merged
 
 
 @app.get("/api/stock-concepts")
 def stock_concepts(
-    codes: str = Query("", description="逗号分隔股票代码；空则返回全表映射"),
-    force: int = Query(0, description="1=强制重建概念映射"),
+    codes: str = Query(
+        "",
+        description="逗号分隔股票代码；优先读库，缺省再按个股拉取",
+    ),
+    force: int = Query(0, description="1=忽略库/缓存强制联网拉取"),
+    category: str = Query(
+        "concept",
+        description="concept|board|all；concept=概念，board=行业+地域板块",
+    ),
 ) -> JSONResponse:
-    """股票所属概念（与 /dashboard/boards 概念板块同源：东财概念榜成分反查）。"""
-    try:
-        snap = _ensure_concept_stock_map(force=bool(force))
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
-
-    full_map: dict[str, list[str]] = snap.get("map") or {}
+    """股票所属概念/板块：优先 SQLite 入库数据，缺失时再拉东财+同花顺。"""
+    cat = (category or "concept").lower().strip()
+    if cat not in ("concept", "board", "all"):
+        return JSONResponse(
+            {"ok": False, "error": "category must be concept|board|all"},
+            status_code=400,
+        )
     parts = [p.strip() for p in (codes or "").split(",") if p.strip()]
-    if not parts:
-        concepts = full_map
-    else:
-        concepts = {}
-        for raw in parts:
-            pure = re.sub(r"^(sh|sz|bj)", "", raw, flags=re.I)
-            if not pure:
-                continue
-            names = full_map.get(pure) or full_map.get(raw)
-            if names:
-                concepts[pure] = names
+    pure_codes: list[str] = []
+    seen: set[str] = set()
+    for raw in parts:
+        pure = _pure_a_share_code(raw)
+        if pure and pure not in seen:
+            seen.add(pure)
+            pure_codes.append(pure)
 
-    return JSONResponse(
-        {
-            "ok": True,
-            "source": "eastmoney",
-            "board_count": snap.get("board_count") or 0,
-            "synced_at": snap.get("synced_at"),
-            "cached": bool(snap.get("cached")),
-            "building": bool(snap.get("building")),
-            "total": len(concepts),
-            "concepts": concepts,
-        }
-    )
+    if not pure_codes:
+        return JSONResponse(
+            {
+                "ok": True,
+                "source": "db",
+                "category": cat,
+                "total": 0,
+                "concepts": {},
+                "boards": {},
+                "hint": "请传 codes=002535,000001",
+            }
+        )
+
+    force_flag = bool(force)
+    from_db: dict[str, list[dict[str, Any]]] = {}
+    if not force_flag:
+        try:
+            from cache import board_concepts as bcm
+
+            from_db = bcm.get_stock_items_from_db(pure_codes, category="all")
+        except Exception:  # noqa: BLE001
+            from_db = {}
+
+    missing = [c for c in pure_codes if c not in from_db or not from_db.get(c)]
+    live: dict[str, list[dict[str, Any]]] = {}
+
+    def _one(c: str) -> tuple[str, list[dict[str, Any]]]:
+        try:
+            # 全量项（含 industry/region/concept）
+            from cache import board_concepts as bcm
+
+            items = bcm.fetch_stock_items_merged(c)
+            if items:
+                try:
+                    bcm.save_stock_items(c, items)
+                except Exception:  # noqa: BLE001
+                    pass
+            return c, items
+        except Exception:  # noqa: BLE001
+            # 回退旧路径（仅非行业）
+            try:
+                return c, _fetch_stock_concepts_merged(c, force=True)
+            except Exception:  # noqa: BLE001
+                return c, []
+
+    if missing or force_flag:
+        todo = pure_codes if force_flag else missing
+        workers = min(6, max(2, len(todo)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futs = [pool.submit(_one, c) for c in todo]
+            for fut in as_completed(futs):
+                code, items = fut.result()
+                if items:
+                    live[code] = items
+
+    merged_all: dict[str, list[dict[str, Any]]] = {}
+    for c in pure_codes:
+        items = live.get(c) or from_db.get(c) or []
+        if items:
+            merged_all[c] = items
+
+    def _split(items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        concepts: list[dict[str, Any]] = []
+        boards: list[dict[str, Any]] = []
+        for x in items:
+            kind = str(x.get("kind") or "")
+            kinds = [str(k) for k in (x.get("kinds") or [])]
+            if kind in ("industry", "region") or any(
+                k in ("industry", "region") for k in kinds
+            ):
+                boards.append(x)
+            else:
+                concepts.append(x)
+        return concepts, boards
+
+    concepts_out: dict[str, list[dict[str, Any]]] = {}
+    boards_out: dict[str, list[dict[str, Any]]] = {}
+    for code, items in merged_all.items():
+        c_list, b_list = _split(items)
+        if c_list:
+            concepts_out[code] = c_list
+        if b_list:
+            boards_out[code] = b_list
+
+    payload: dict[str, Any] = {
+        "ok": True,
+        "source": "db+live" if live else ("db" if from_db else "live"),
+        "category": cat,
+        "sources": ["eastmoney", "ths"],
+        "requested": len(pure_codes),
+        "total": len(merged_all),
+        "concepts": concepts_out if cat in ("concept", "all") else {},
+        "boards": boards_out if cat in ("board", "all") else {},
+    }
+    if cat == "concept":
+        payload["items"] = concepts_out
+    elif cat == "board":
+        payload["items"] = boards_out
+    else:
+        payload["items"] = merged_all
+    return JSONResponse(payload)
 
 @app.get("/api/symbols")
 def symbol_list(

@@ -576,30 +576,82 @@
   padding: 0 5px;
   border: 1px solid var(--border-primary);
   border-radius: 4px;
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  background: transparent;
   color: var(--text-secondary);
   font-size: 11px;
+  font-weight: 500;
   line-height: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
   transition: color var(--transition-fast), border-color var(--transition-fast),
-    background var(--transition-fast);
+    background var(--transition-fast), filter var(--transition-fast);
+}
+
+/* 东财：空心深蓝 */
+.conceptTagEm {
+  border-color: #2563a8;
+  background: transparent;
+  color: #4a8fd4;
+}
+
+/* 同花顺：空心深琥珀 */
+.conceptTagThs {
+  border-color: #b45309;
+  background: transparent;
+  color: #c97a2a;
+}
+
+/* 双源：空心深青绿 */
+.conceptTagBoth {
+  border-color: #0f766e;
+  background: transparent;
+  color: #1a9a8c;
 }
 
 .conceptTag:hover {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  filter: brightness(1.15);
 }
 
+/* 选中过滤：实心底 */
 .conceptTagActive {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
   font-weight: 600;
+}
+
+.conceptTagEm.conceptTagActive {
+  background: #1e4a7a;
+  border-color: #1e4a7a;
+  color: #dbeafe;
+}
+
+.conceptTagThs.conceptTagActive {
+  background: #8a4b12;
+  border-color: #8a4b12;
+  color: #ffedd5;
+}
+
+.conceptTagBoth.conceptTagActive {
+  background: #0f5f56;
+  border-color: #0f5f56;
+  color: #ccfbf1;
+}
+
+.conceptLegend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.conceptLegend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid currentColor;
 }
 
 .conceptMoreBtn {
