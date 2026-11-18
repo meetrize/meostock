@@ -2162,6 +2162,31 @@ def _normalize_xnge_bg(raw: str | None) -> str:
     return bg
 
 
+def _fetch_xnge_html(upstream: str) -> str:
+    """拉取犀利 HTML：优先 urllib + TdxW UA；失败再用 curl_cffi。"""
+    headers = {
+        "User-Agent": TDX_UA,
+        "Accept": "text/html,application/xhtml+xml",
+        "Referer": "http://www.tdx.com.cn/",
+    }
+    try:
+        return _http_get_text(upstream, headers=headers)
+    except (urllib.error.URLError, TimeoutError, OSError) as first:
+        try:
+            from curl_cffi import requests as curl_requests
+
+            resp = curl_requests.get(
+                upstream,
+                headers=headers,
+                impersonate="chrome120",
+                timeout=15,
+            )
+            resp.raise_for_status()
+            return resp.text
+        except Exception as second:  # noqa: BLE001
+            raise RuntimeError(f"{first}; fallback: {second}") from second
+
+
 def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
     """用 TdxW UA 拉取 t.xnge.cn 任意路径 HTML。"""
     path = (path or "").lstrip("/")
@@ -2177,15 +2202,8 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
     if qs:
         upstream = f"{upstream}?{qs}"
     try:
-        html = _http_get_text(
-            upstream,
-            headers={
-                "User-Agent": TDX_UA,
-                "Accept": "text/html,application/xhtml+xml",
-                "Referer": "http://www.tdx.com.cn/",
-            },
-        )
-    except (urllib.error.URLError, TimeoutError) as e:
+        html = _fetch_xnge_html(upstream)
+    except Exception as e:  # noqa: BLE001
         return JSONResponse({"ok": False, "error": str(e), "url": upstream}, status_code=502)
 
     # 去掉原站「每 N 秒整页 Refresh 跳转」（如 <meta http-equiv="Refresh" content="60; url=/fupan/" />）
