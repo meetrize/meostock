@@ -1055,12 +1055,47 @@
     }
     .paste-ft {
       display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .paste-ft-row {
+      display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
       flex-wrap: wrap;
     }
     .paste-ft .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .paste-toast {
+      display: none;
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+    }
+    .paste-toast.show { display: block; }
+    .paste-toast.ok {
+      color: #1a7f4b;
+      background: rgba(45, 192, 142, 0.12);
+      border-color: rgba(45, 192, 142, 0.35);
+    }
+    .paste-toast.info {
+      color: var(--text);
+      background: var(--input-bg);
+      border-color: var(--line);
+    }
+    .paste-toast.warn {
+      color: #9a6700;
+      background: rgba(245, 166, 35, 0.12);
+      border-color: rgba(245, 166, 35, 0.4);
+    }
+    .paste-toast.err {
+      color: #b42318;
+      background: rgba(240, 68, 56, 0.1);
+      border-color: rgba(240, 68, 56, 0.35);
+    }
     .paste-sel {
       max-width: 160px;
       border: 1px solid var(--line);
@@ -1485,11 +1520,15 @@
         </details>
       </div>
       <div class="modal-ft paste-ft">
-        <span class="paste-meta" id="pasteSelMeta">已选 0</span>
-        <div class="actions">
-          <button type="button" id="pasteCopyBtn">仅复制代码</button>
-          <button type="button" class="primary" id="pasteOpenMultiBtn">打开多面板</button>
-          <button type="button" data-close="pasteModal">关闭</button>
+        <div class="paste-toast" id="pasteToast" role="status" aria-live="polite"></div>
+        <div class="paste-ft-row">
+          <span class="paste-meta" id="pasteSelMeta">已选 0</span>
+          <div class="actions">
+            <button type="button" id="pasteCopyBtn">仅复制代码</button>
+            <button type="button" id="pasteAddWatchlistBtn">加入自选</button>
+            <button type="button" class="primary" id="pasteOpenMultiBtn">打开多面板</button>
+            <button type="button" data-close="pasteModal">关闭</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3930,6 +3969,83 @@
       return out;
     }
 
+    /** 与 dashboard watchlist.groups 对齐：仅 sh/sz/bj/hk/us，跳过期货 */
+    function toWatchlistCode(hit) {
+      if (!hit?.symbol) return null;
+      if (
+        hit.market === "futures" ||
+        hit.category === "futures" ||
+        hit.assetType === "futures" ||
+        /^fut:/i.test(String(hit.symbol))
+      ) {
+        return null;
+      }
+      const raw = String(hit.symbol).trim();
+      const a = raw.match(/^(sh|sz|bj)\.?(\d{6})$/i);
+      if (a) return `${a[1].toLowerCase()}${a[2]}`;
+      const a2 = raw.match(/^(\d{6})\.(sh|sz|bj)$/i);
+      if (a2) return `${a2[2].toLowerCase()}${a2[1]}`;
+      const hk = raw.match(/^hk\.?(\d{1,5})$/i);
+      if (hk) return `hk${hk[1].padStart(5, "0")}`;
+      const us = raw.match(/^us\.?([a-z][a-z0-9.\-]{0,9})$/i);
+      if (us) return `us${us[1].toUpperCase()}`;
+      if (/^\d{6}$/.test(raw)) {
+        if (raw.startsWith("6") || raw.startsWith("5") || raw.startsWith("9")) return `sh${raw}`;
+        if (raw.startsWith("0") || raw.startsWith("3") || raw.startsWith("1")) return `sz${raw}`;
+        if (raw.startsWith("4") || raw.startsWith("8") || raw.startsWith("92")) return `bj${raw}`;
+      }
+      return null;
+    }
+
+    function batchAddPasteToWatchlist(codes) {
+      const KEY = "watchlist.groups";
+      let groups = null;
+      try {
+        groups = JSON.parse(localStorage.getItem(KEY) || "null");
+      } catch (_) {
+        groups = null;
+      }
+      const now = Date.now();
+      if (!Array.isArray(groups) || !groups.length) {
+        groups = [{ id: "default", name: "默认分组", codes: [], createdAt: now, updatedAt: now }];
+      }
+      const group = groups.find((g) => g.id === "default") || groups[0];
+      if (!Array.isArray(group.codes)) group.codes = [];
+      let added = 0;
+      let already = 0;
+      for (const code of codes) {
+        if (!code) continue;
+        if (group.codes.includes(code)) {
+          already += 1;
+          continue;
+        }
+        group.codes.push(code);
+        added += 1;
+      }
+      if (added > 0) {
+        group.updatedAt = now;
+        try {
+          localStorage.setItem(KEY, JSON.stringify(groups));
+        } catch (e) {
+          return { added: 0, already, error: e?.message || String(e) };
+        }
+      }
+      return { added, already, error: null };
+    }
+
+    let pasteToastTimer = 0;
+    function showPasteToast(message, kind = "info") {
+      const el = document.getElementById("pasteToast");
+      if (!el) return;
+      el.textContent = message;
+      el.className = `paste-toast show ${kind}`;
+      clearTimeout(pasteToastTimer);
+      pasteToastTimer = setTimeout(() => {
+        el.classList.remove("show");
+      }, 4500);
+      setStatus(message);
+    }
+
     function updatePasteSelMeta() {
       const selected = pasteSelectedSymbols();
       const matched = pasteRows.filter((r) => r.best).length;
@@ -4173,6 +4289,11 @@
       const mask = document.getElementById("pasteModal");
       if (!mask) return;
       mask.classList.add("show");
+      const toast = document.getElementById("pasteToast");
+      if (toast) {
+        toast.classList.remove("show");
+        toast.textContent = "";
+      }
       const restored = loadPasteCache();
       const ta = document.getElementById("pasteText");
       if (tryClipboard) {
@@ -4298,6 +4419,87 @@
         setStatus(`已复制 ${syms.length} 个代码`);
       } catch (_) {
         setStatus(syms.join(","));
+      }
+    });
+    document.getElementById("pasteAddWatchlistBtn")?.addEventListener("click", () => {
+      let checkedCount = 0;
+      const codes = [];
+      const seen = new Set();
+      let skippedFutures = 0;
+      let skippedOther = 0;
+      for (const row of pasteRows) {
+        if (!row.checked) continue;
+        checkedCount += 1;
+        const hit = pasteEffectiveHit(row);
+        if (!hit?.symbol) {
+          skippedOther += 1;
+          continue;
+        }
+        const wl = toWatchlistCode(hit);
+        if (!wl) {
+          if (
+            hit.market === "futures" ||
+            hit.category === "futures" ||
+            /^fut:/i.test(String(hit.symbol))
+          ) {
+            skippedFutures += 1;
+          } else {
+            skippedOther += 1;
+          }
+          continue;
+        }
+        if (seen.has(wl)) continue;
+        seen.add(wl);
+        codes.push(wl);
+      }
+
+      if (!checkedCount) {
+        showPasteToast("请先勾选要加入自选的股票", "warn");
+        return;
+      }
+      if (!codes.length) {
+        if (skippedFutures && !skippedOther) {
+          showPasteToast(
+            `已勾选 ${skippedFutures} 只期货，自选暂不支持期货标的`,
+            "warn"
+          );
+        } else if (skippedFutures) {
+          showPasteToast(
+            `勾选的 ${checkedCount} 只里没有可加入自选的股票（含 ${skippedFutures} 只期货）`,
+            "warn"
+          );
+        } else {
+          showPasteToast("勾选的标的暂不支持加入自选", "warn");
+        }
+        return;
+      }
+
+      const result = batchAddPasteToWatchlist(codes);
+      if (result.error) {
+        showPasteToast(`写入自选失败：${result.error}`, "err");
+        return;
+      }
+
+      const { added, already } = result;
+      const futHint =
+        skippedFutures > 0 ? `；另跳过 ${skippedFutures} 只期货` : "";
+
+      if (added > 0 && already > 0) {
+        showPasteToast(
+          `已新加入 ${added} 只，另有 ${already} 只原本就在自选中${futHint}`,
+          "ok"
+        );
+      } else if (added > 0) {
+        showPasteToast(`已成功加入自选 ${added} 只${futHint}`, "ok");
+      } else if (already > 0) {
+        showPasteToast(
+          already === 1
+            ? `这只股票已在自选中，无需重复添加${futHint}`
+            : `这 ${already} 只都已在自选中，无需重复添加${futHint}`,
+          "info"
+        );
+      } else {
+        showPasteToast("没有可加入的股票", "warn");
       }
     });
     document.getElementById("pasteOpenMultiBtn")?.addEventListener("click", () => {
