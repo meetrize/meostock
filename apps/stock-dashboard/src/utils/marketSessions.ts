@@ -143,12 +143,47 @@ export function isMarketOpen(market: FinancialMarket, ms: number = Date.now()): 
   return market.sessions.some((s) => now >= s.start && now < s.end);
 }
 
+/** 距下次开市（含午休后复市）的小时 / 分钟；已开市则为 0/0 */
+export type OpenCountdown = {
+  hours: number;
+  minutes: number;
+};
+
+export function minutesUntilNextOpen(market: FinancialMarket, ms: number = Date.now()): OpenCountdown {
+  if (isMarketOpen(market, ms)) {
+    return { hours: 0, minutes: 0 };
+  }
+
+  const parts = zonedClockParts(ms, market.timeZone);
+  const nowMins = parts.hour * 60 + parts.minute;
+
+  for (let day = 0; day <= 7; day += 1) {
+    const weekday = (parts.weekday + day) % 7;
+    if (weekday === 0 || weekday === 6) continue;
+
+    for (const session of market.sessions) {
+      if (day === 0 && session.start <= nowMins) continue;
+
+      const totalSeconds = (day * 24 * 60 + (session.start - nowMins)) * 60 - parts.second;
+      if (totalSeconds < 0) continue;
+
+      return {
+        hours: Math.floor(totalSeconds / 3600),
+        minutes: Math.floor((totalSeconds % 3600) / 60),
+      };
+    }
+  }
+
+  return { hours: 0, minutes: 0 };
+}
+
 export type MarketClockSnapshot = {
   market: FinancialMarket;
   timeLabel: string;
   weekdayLabel: string;
   dateLabel: string;
   open: boolean;
+  openIn: OpenCountdown;
 };
 
 export function formatSessionsLabel(market: FinancialMarket): string {
@@ -166,6 +201,7 @@ export function snapshotMarketClocks(ms: number = Date.now()): MarketClockSnapsh
       weekdayLabel: parts.weekdayLabel,
       dateLabel: parts.dateLabel,
       open: isMarketOpen(market, ms),
+      openIn: minutesUntilNextOpen(market, ms),
     };
   });
 }
