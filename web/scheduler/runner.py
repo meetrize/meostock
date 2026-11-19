@@ -10,6 +10,8 @@ from typing import Any
 from scheduler import jobs as jobs_mod
 from scheduler.em_board_sync import get_progress as em_progress
 from scheduler.em_board_sync import run_em_board_sync
+from scheduler.finance_calendar_sync import get_progress as cal_progress
+from scheduler.finance_calendar_sync import run_finance_calendar_sync
 from scheduler.ths_concept_sync import get_progress as ths_progress
 from scheduler.ths_concept_sync import run_ths_concept_sync
 
@@ -29,8 +31,12 @@ def _register_handlers() -> None:
     def em_handler() -> dict[str, Any]:
         return run_em_board_sync(delay=0.05, workers=6)
 
+    def cal_handler() -> dict[str, Any]:
+        return run_finance_calendar_sync(page_delay=0.12)
+
     jobs_mod.register_handler("ths_concept_sync", ths_handler)
     jobs_mod.register_handler("em_board_sync", em_handler)
+    jobs_mod.register_handler("finance_calendar_sync", cal_handler)
 
 
 def _tick() -> None:
@@ -105,4 +111,5 @@ def runtime_status() -> dict[str, Any]:
         "running_job_id": _running_job_id,
         "ths_concept_sync": ths_progress(),
         "em_board_sync": em_progress(),
+        "finance_calendar_sync": cal_progress(),
     }

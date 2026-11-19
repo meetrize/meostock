@@ -31,11 +31,30 @@ DEFAULT_JOBS: list[dict[str, Any]] = [
         "enabled": 0,
         "interval_minutes": 360,
     },
+    {
+        "id": "finance_calendar_sync",
+        "name": "东财财经日历同步",
+        "job_type": "finance_calendar_sync",
+        "enabled": 1,
+        "interval_minutes": 1440,
+        "align_next_2am": True,
+    },
 ]
 
 
 def register_handler(job_type: str, handler: JobHandler) -> None:
     _HANDLERS[job_type] = handler
+
+
+def _default_next_run(job: dict[str, Any], now: float) -> float:
+    if job.get("align_next_2am"):
+        try:
+            from scheduler.finance_calendar_sync import next_2am_ts
+
+            return next_2am_ts(now)
+        except Exception:  # noqa: BLE001
+            pass
+    return now + int(job.get("interval_minutes") or 360) * 60
 
 
 def ensure_default_jobs() -> None:
@@ -63,7 +82,7 @@ def ensure_default_jobs() -> None:
                     job["job_type"],
                     int(job.get("enabled") or 0),
                     int(job.get("interval_minutes") or 360),
-                    now + int(job.get("interval_minutes") or 360) * 60,
+                    _default_next_run(job, now),
                     now,
                 ),
             )
@@ -166,6 +185,17 @@ def _write_run_start(job_id: str) -> int:
         return int(cur.lastrowid)
 
 
+def _next_run_after_finish(job_id: str, now: float, interval_minutes: int) -> float:
+    if job_id == "finance_calendar_sync":
+        try:
+            from scheduler.finance_calendar_sync import next_2am_ts
+
+            return next_2am_ts(now)
+        except Exception:  # noqa: BLE001
+            pass
+    return now + max(5, interval_minutes) * 60
+
+
 def _write_run_finish(
     run_id: int,
     job_id: str,
@@ -178,6 +208,7 @@ def _write_run_finish(
 ) -> None:
     conn = get_conn()
     now = time.time()
+    next_run = _next_run_after_finish(job_id, now, interval_minutes)
     with _lock:
         conn.execute(
             """
@@ -202,7 +233,7 @@ def _write_run_finish(
             """,
             (
                 now,
-                now + max(5, interval_minutes) * 60,
+                next_run,
                 status,
                 error,
                 json.dumps(result, ensure_ascii=False) if result is not None else None,

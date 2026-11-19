@@ -36,6 +36,7 @@ export const CATALOG_GROUP_LABELS: Record<PortalCatalogGroupId, string> = {
   assets: '紧凑条带（可选）',
   derivatives: '衍生品与场内',
   embed: '嵌入网页',
+  calendar: '财经日历',
 };
 
 const FULL_W = 12;
@@ -337,6 +338,16 @@ export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
     allowMultiple: true,
     starred: true,
   },
+  'calendar.events': {
+    type: 'calendar.events',
+    name: '财经日历',
+    description: '东财财经会议 / 经济数据 / 其他，可按类型地区筛选',
+    group: 'calendar',
+    lane: 'em-sina',
+    defaultLayout: { w: 6, h: 12, minW: 4, minH: 6, maxW: FULL_W, maxH: TALL_H },
+    allowMultiple: true,
+    starred: true,
+  },
 };
 
 export const WIDGET_CATALOG_LIST = Object.values(WIDGET_CATALOG);
@@ -360,6 +371,7 @@ export function catalogGroups(): Array<{
     'derivatives',
     'assets',
     'embed',
+    'calendar',
   ];
   return order.map((id) => ({
     id,

@@ -141,6 +141,16 @@ except Exception as _macro_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("macro rates disabled: %s", _macro_exc)
 
+# 东财财经日历（本地库查询 + AI 重要性评级）
+try:
+    from fe_calendar.api import router as _fe_calendar_router
+
+    app.include_router(_fe_calendar_router)
+except Exception as _cal_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("finance calendar disabled: %s", _cal_exc)
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {

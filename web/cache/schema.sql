@@ -196,3 +196,31 @@ CREATE TABLE IF NOT EXISTS scheduled_job_run (
 );
 
 CREATE INDEX IF NOT EXISTS idx_scheduled_job_run_job ON scheduled_job_run (job_id, started_at DESC);
+
+-- 东财财经日历
+CREATE TABLE IF NOT EXISTS finance_calendar_event (
+  fe_code TEXT PRIMARY KEY,
+  start_at TEXT NOT NULL,
+  end_at TEXT,
+  start_ts REAL,
+  name TEXT NOT NULL DEFAULT '',
+  sponsor TEXT,
+  city TEXT,
+  fe_type TEXT,
+  std_type_code TEXT,
+  content TEXT,
+  content_hash TEXT,
+  importance INTEGER,
+  importance_reason TEXT,
+  importance_rated_at REAL,
+  source TEXT NOT NULL DEFAULT 'eastmoney',
+  first_seen_at REAL NOT NULL,
+  updated_at REAL NOT NULL,
+  synced_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cal_event_start ON finance_calendar_event (start_ts);
+CREATE INDEX IF NOT EXISTS idx_cal_event_std ON finance_calendar_event (std_type_code);
+CREATE INDEX IF NOT EXISTS idx_cal_event_fe_type ON finance_calendar_event (fe_type);
+CREATE INDEX IF NOT EXISTS idx_cal_event_city ON finance_calendar_event (city);
+-- idx_cal_event_importance 在 init_db 加列后再建（兼容旧库）

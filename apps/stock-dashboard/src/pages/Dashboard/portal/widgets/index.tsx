@@ -21,6 +21,7 @@ import { StatMarginWidget } from './StatMarginWidget';
 import { MacroRatesWidget } from './MacroRatesWidget';
 import { SparkPanelWidget } from './SparkPanelWidget';
 import { IframeWidget } from './IframeWidget';
+import { CalendarEventsWidget } from './CalendarEventsWidget';
 import { isSparkWidgetType } from '../sparkCatalog';
 
 export interface RenderWidgetOptions {
@@ -91,6 +92,8 @@ export function renderWidget(
           onUpdate={opts?.onUpdate}
         />
       );
+    case 'calendar.events':
+      return <CalendarEventsWidget />;
     default:
       return null;
   }

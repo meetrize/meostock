@@ -32,7 +32,8 @@ export type PortalWidgetType =
   | 'topic.topList'
   | 'rank.hk'
   | 'rank.cb'
-  | 'embed.iframe';
+  | 'embed.iframe'
+  | 'calendar.events';
 
 export type PortalCatalogGroupId =
   | 'ashare'
@@ -47,7 +48,8 @@ export type PortalCatalogGroupId =
   | 'fx'
   | 'crypto'
   | 'rates'
-  | 'embed';
+  | 'embed'
+  | 'calendar';
 
 export interface PortalWidgetInstance {
   id: string;

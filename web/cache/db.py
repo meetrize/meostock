@@ -58,6 +58,17 @@ def init_db() -> Path:
             )
         except sqlite3.Error:
             pass
+        # 财经日历：重要性（旧库增量加列后再建索引）
+        try:
+            _ensure_column(conn, "finance_calendar_event", "importance", "INTEGER")
+            _ensure_column(conn, "finance_calendar_event", "importance_reason", "TEXT")
+            _ensure_column(conn, "finance_calendar_event", "importance_rated_at", "REAL")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_cal_event_importance "
+                "ON finance_calendar_event (importance)"
+            )
+        except sqlite3.Error:
+            pass
         cur = conn.execute("SELECT value FROM cache_config WHERE key = ?", ("mode",))
         if cur.fetchone() is None:
             import time

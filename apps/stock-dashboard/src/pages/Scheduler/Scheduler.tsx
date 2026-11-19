@@ -1,5 +1,5 @@
 /**
- * 定时任务：同花顺概念 / 东财板块概念同步等
+ * 定时任务：同花顺概念 / 东财板块概念 / 财经日历同步等
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -40,7 +40,11 @@ type SyncProgress = {
   tagged?: number;
   removed?: number;
   skipped?: number;
+  inserted?: number;
+  updated?: number;
+  unchanged?: number;
   message?: string;
+  last_error?: string | null;
 };
 
 function fmtTime(ts?: number | null): string {
@@ -55,6 +59,7 @@ function fmtTime(ts?: number | null): string {
 function jobProgressKey(jobType: string): string | null {
   if (jobType === 'ths_concept_sync') return 'ths';
   if (jobType === 'em_board_sync') return 'em';
+  if (jobType === 'finance_calendar_sync') return 'cal';
   return null;
 }
 
@@ -65,30 +70,39 @@ export function Scheduler() {
   const [loading, setLoading] = useState(true);
   const [thsProgress, setThsProgress] = useState<SyncProgress | null>(null);
   const [emProgress, setEmProgress] = useState<SyncProgress | null>(null);
+  const [calProgress, setCalProgress] = useState<SyncProgress | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const activeProgress = useMemo(() => {
+    if (calProgress?.active) return calProgress;
     if (emProgress?.active) return emProgress;
     if (thsProgress?.active) return thsProgress;
-    return thsProgress?.message ? thsProgress : emProgress;
-  }, [emProgress, thsProgress]);
+    return thsProgress?.message
+      ? thsProgress
+      : emProgress?.message
+        ? emProgress
+        : calProgress;
+  }, [calProgress, emProgress, thsProgress]);
 
   const load = useCallback(async () => {
     try {
-      const [jRes, rRes, thsRes, emRes] = await Promise.all([
+      const [jRes, rRes, thsRes, emRes, calRes] = await Promise.all([
         fetch('/api/scheduler/jobs'),
         fetch('/api/scheduler/runs?limit=30'),
         fetch('/api/scheduler/ths-concept/progress'),
         fetch('/api/scheduler/em-board/progress'),
+        fetch('/api/scheduler/finance-calendar/progress'),
       ]);
       const jData = await jRes.json().catch(() => ({}));
       const rData = await rRes.json().catch(() => ({}));
       const thsData = await thsRes.json().catch(() => ({}));
       const emData = await emRes.json().catch(() => ({}));
+      const calData = await calRes.json().catch(() => ({}));
       if (jData?.ok && Array.isArray(jData.jobs)) setJobs(jData.jobs);
       if (rData?.ok && Array.isArray(rData.runs)) setRuns(rData.runs);
       if (thsData?.ok) setThsProgress(thsData);
       if (emData?.ok) setEmProgress(emData);
+      if (calData?.ok) setCalProgress(calData);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -131,6 +145,32 @@ export function Scheduler() {
       if (!res.ok || !data?.ok) throw new Error(data?.error || data?.running || `启动失败 ${res.status}`);
       toast.success(`已启动：${job.name}`);
       await load();
+
+      // 财经日历：轮询进度并给出成功/失败结果提示
+      if (job.job_type === 'finance_calendar_sync') {
+        let sawActive = false;
+        for (let i = 0; i < 120; i += 1) {
+          await new Promise((r) => setTimeout(r, 800));
+          const pRes = await fetch('/api/scheduler/finance-calendar/progress');
+          const pData = await pRes.json().catch(() => ({}));
+          if (pData?.ok) {
+            setCalProgress(pData);
+            if (pData.active) sawActive = true;
+            if (sawActive && !pData.active) {
+              if (pData.phase === 'error' || pData.last_error) {
+                toast.error(pData.last_error || pData.message || '财经日历同步失败');
+              } else {
+                toast.success(
+                  pData.message ||
+                    `财经日历同步完成：+${pData.inserted ?? 0} ~${pData.updated ?? 0} =${pData.unchanged ?? 0}`
+                );
+              }
+              await load();
+              break;
+            }
+          }
+        }
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -142,6 +182,7 @@ export function Scheduler() {
     const key = jobProgressKey(jobType);
     if (key === 'ths') return thsProgress;
     if (key === 'em') return emProgress;
+    if (key === 'cal') return calProgress;
     return null;
   };
 
@@ -154,7 +195,7 @@ export function Scheduler() {
             定时任务
           </h2>
           <p className={styles.desc}>
-            东财/同花顺板块概念定时入库后，打开板块页优先读库，避免实时请求拖慢加载。
+            东财/同花顺板块概念与财经日历定时入库后，页面优先读库；日历任务默认夜间 02:00 同步。
           </p>
         </div>
         <button type="button" className={styles.refreshBtn} onClick={() => void load()}>
@@ -228,6 +269,17 @@ export function Scheduler() {
                     {job.job_type === 'em_board_sync' ? (
                       <div className={styles.jobHint}>
                         东财行业+概念目录入库，并按 F10 严格对齐个股板块标注；打开板块页优先读库。
+                      </div>
+                    ) : null}
+                    {job.job_type === 'finance_calendar_sync' ? (
+                      <div className={styles.jobHint}>
+                        拉取东财未来约 30 天财经日历（会议/经济数据/其他），增量 upsert 到本地库。
+                      </div>
+                    ) : null}
+                    {job.job_type === 'finance_calendar_sync' && p?.active ? (
+                      <div className={styles.jobHint}>
+                        进度 {p.message || '同步中…'}
+                        {p.total ? ` · ${p.done ?? 0}/${p.total}` : ''}
                       </div>
                     ) : null}
                   </div>
