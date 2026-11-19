@@ -40,6 +40,12 @@ const MarketFundFlow = lazy(() =>
 const Scheduler = lazy(() =>
   import('@/pages/Scheduler').then((mod) => ({ default: mod.Scheduler }))
 );
+const WorkspacesManage = lazy(() =>
+  import('@/pages/Workspaces').then((mod) => ({ default: mod.WorkspacesManage }))
+);
+const WorkspaceView = lazy(() =>
+  import('@/pages/Workspaces').then((mod) => ({ default: mod.WorkspaceView }))
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -62,6 +68,12 @@ function BoardDetailRoute() {
 
 const browserRouter = createBrowserRouter(
   [
+    {
+      // 全屏自定义版面：无侧栏 / 顶栏 / 页脚
+      path: 'workspaces/:id',
+      element: withSuspense(<WorkspaceView />),
+      errorElement: <RouteErrorFallback />,
+    },
     {
       path: '/',
       element: <Layout />,
@@ -118,6 +130,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'scheduler',
           element: withSuspense(<Scheduler />),
+        },
+        {
+          path: 'workspaces',
+          element: withSuspense(<WorkspacesManage />),
         },
         {
           path: 'settings',

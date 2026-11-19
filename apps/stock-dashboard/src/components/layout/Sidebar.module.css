@@ -125,6 +125,85 @@
   display: none;
 }
 
+.wsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.wsToggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.chevron {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.15s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.wsList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 4px 28px;
+}
+
+.wsItem {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 12px);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wsItem:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.wsItemActive {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.wsItemLabel {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wsAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs, 12px);
+  cursor: pointer;
+  text-align: left;
+}
+
+.wsAction:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .sidebar {

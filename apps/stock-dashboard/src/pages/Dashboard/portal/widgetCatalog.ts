@@ -35,6 +35,7 @@ export const CATALOG_GROUP_LABELS: Record<PortalCatalogGroupId, string> = {
   cross: '跨境市场',
   assets: '紧凑条带（可选）',
   derivatives: '衍生品与场内',
+  embed: '嵌入网页',
 };
 
 const FULL_W = 12;
@@ -326,6 +327,16 @@ export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
     defaultLayout: { ...LIST_LAYOUT, h: 10 },
     starred: true,
   },
+  'embed.iframe': {
+    type: 'embed.iframe',
+    name: '网页嵌入',
+    description: '通过 iframe 引入第三方网页（需目标站允许嵌入）',
+    group: 'embed',
+    lane: 'placeholder',
+    defaultLayout: { w: 6, h: 12, minW: 4, minH: 6, maxW: FULL_W, maxH: TALL_H },
+    allowMultiple: true,
+    starred: true,
+  },
 };
 
 export const WIDGET_CATALOG_LIST = Object.values(WIDGET_CATALOG);
@@ -348,6 +359,7 @@ export function catalogGroups(): Array<{
     'cross',
     'derivatives',
     'assets',
+    'embed',
   ];
   return order.map((id) => ({
     id,

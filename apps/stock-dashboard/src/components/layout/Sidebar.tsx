@@ -2,7 +2,8 @@
  * 侧边栏导航组件
  */
 
-import { NavLink, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Grid3X3,
@@ -16,8 +17,19 @@ import {
   Cloud,
   ExternalLink,
   Clock,
+  PanelsTopLeft,
+  ChevronDown,
+  Plus,
+  Wrench,
 } from 'lucide-react';
 import { Logo } from '@/components/common';
+import {
+  createWorkspaceStandalone,
+  peekLastOpenedId,
+  peekWorkspaces,
+  subscribeWorkspaces,
+} from '@/pages/Workspaces';
+import type { Workspace } from '@/pages/Workspaces/types';
 import styles from './Sidebar.module.css';
 
 interface NavItem {
@@ -57,6 +69,24 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed = false }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => peekWorkspaces());
+  const [lastOpenedId, setLastOpenedId] = useState<string | null>(() => peekLastOpenedId());
+  const onWorkspaceRoute =
+    location.pathname === '/workspaces' ||
+    location.pathname.startsWith('/workspaces/');
+  const [wsOpen, setWsOpen] = useState(onWorkspaceRoute);
+
+  useEffect(() => {
+    return subscribeWorkspaces(() => {
+      setWorkspaces(peekWorkspaces());
+      setLastOpenedId(peekLastOpenedId());
+    });
+  }, []);
+
+  useEffect(() => {
+    if (onWorkspaceRoute) setWsOpen(true);
+  }, [onWorkspaceRoute]);
 
   const renderNavItem = (item: NavItem) => {
     if (item.external) {
@@ -94,6 +124,12 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     );
   };
 
+  const openDefaultWorkspace = () => {
+    const id = lastOpenedId ?? workspaces[0]?.id;
+    if (id) navigate(`/workspaces/${id}`);
+    else navigate('/workspaces');
+  };
+
   return (
     <aside
       className={`${styles.sidebar}${collapsed ? ` ${styles.collapsed}` : ''}`}
@@ -108,6 +144,73 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
       <nav className={styles.nav}>
         <div className={styles.navGroup}>
           {navItems.map(renderNavItem)}
+
+          <div className={styles.wsSection}>
+            <button
+              type="button"
+              className={`${styles.navItem} ${styles.wsToggle} ${
+                onWorkspaceRoute ? styles.active : ''
+              }`}
+              aria-expanded={wsOpen}
+              onClick={() => {
+                if (collapsed) {
+                  openDefaultWorkspace();
+                  return;
+                }
+                setWsOpen((v) => !v);
+              }}
+              onDoubleClick={openDefaultWorkspace}
+              title="自定义版面"
+            >
+              {onWorkspaceRoute && <span className={styles.activeIndicator} />}
+              <span className={styles.icon}>
+                <PanelsTopLeft size={18} />
+              </span>
+              <span className={styles.label}>自定义版面</span>
+              <ChevronDown
+                size={14}
+                className={`${styles.chevron} ${wsOpen ? styles.chevronOpen : ''}`}
+                aria-hidden
+              />
+            </button>
+
+            {wsOpen && !collapsed && (
+              <div className={styles.wsList} role="group" aria-label="版面列表">
+                {workspaces.map((ws) => {
+                  const active = location.pathname === `/workspaces/${ws.id}`;
+                  return (
+                    <NavLink
+                      key={ws.id}
+                      to={`/workspaces/${ws.id}`}
+                      className={`${styles.wsItem} ${active ? styles.wsItemActive : ''}`}
+                      title={ws.name}
+                    >
+                      <span className={styles.wsItemLabel}>{ws.name}</span>
+                    </NavLink>
+                  );
+                })}
+                <button
+                  type="button"
+                  className={styles.wsAction}
+                  onClick={() => {
+                    const ws = createWorkspaceStandalone();
+                    navigate(`/workspaces/${ws.id}`);
+                  }}
+                >
+                  <Plus size={13} aria-hidden />
+                  新建版面
+                </button>
+                <button
+                  type="button"
+                  className={styles.wsAction}
+                  onClick={() => navigate('/workspaces')}
+                >
+                  <Wrench size={13} aria-hidden />
+                  管理版面
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={styles.navGroup}>

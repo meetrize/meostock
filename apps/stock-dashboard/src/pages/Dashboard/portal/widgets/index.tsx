@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { PortalWidgetType } from '../types';
+import type { PortalWidgetInstance, PortalWidgetType } from '../types';
 import { isIndexWidgetType } from '../indexCatalog';
 import { IndexWidget } from './IndicesWidget';
 import {
@@ -20,12 +20,20 @@ import { RankListWidget } from './RankListWidget';
 import { StatMarginWidget } from './StatMarginWidget';
 import { MacroRatesWidget } from './MacroRatesWidget';
 import { SparkPanelWidget } from './SparkPanelWidget';
+import { IframeWidget } from './IframeWidget';
 import { isSparkWidgetType } from '../sparkCatalog';
+
+export interface RenderWidgetOptions {
+  editing?: boolean;
+  onUpdate?: (patch: Partial<PortalWidgetInstance>) => void;
+}
 
 export function renderWidget(
   type: PortalWidgetType,
   gridW: number,
-  gridH: number
+  gridH: number,
+  widget?: PortalWidgetInstance,
+  opts?: RenderWidgetOptions
 ): ReactNode {
   if (isIndexWidgetType(type)) {
     return <IndexWidget type={type} />;
@@ -74,6 +82,15 @@ export function renderWidget(
     case 'rank.hk':
     case 'rank.cb':
       return <RankListWidget type={type} gridH={gridH} />;
+    case 'embed.iframe':
+      if (!widget) return null;
+      return (
+        <IframeWidget
+          widget={widget}
+          editing={Boolean(opts?.editing)}
+          onUpdate={opts?.onUpdate}
+        />
+      );
     default:
       return null;
   }

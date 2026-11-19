@@ -47,6 +47,7 @@ interface PortalCanvasProps {
   widgets: PortalWidgetInstance[];
   onLayoutChange: (layout: Layout) => void;
   onRemoveWidget: (id: string) => void;
+  onUpdateWidget?: (id: string, patch: Partial<PortalWidgetInstance>) => void;
 }
 
 type ResizeAxis = 'e' | 's' | 'se';
@@ -134,6 +135,7 @@ export function PortalCanvas({
   widgets,
   onLayoutChange,
   onRemoveWidget,
+  onUpdateWidget,
 }: PortalCanvasProps) {
   const { width, containerRef, mounted } = useContainerWidth({
     measureBeforeMount: true,
@@ -187,9 +189,11 @@ export function PortalCanvas({
 
   const commitLayout = useCallback(
     (next: Layout) => {
+      // 空 layout 回调常见于首块挂载前测宽；有面板时忽略，避免把刚加的格子冲掉
+      if (next.length === 0 && widgets.length > 0) return;
       onLayoutChange(applyResizeSnapshot(next, sessionRef.current));
     },
-    [onLayoutChange]
+    [onLayoutChange, widgets.length]
   );
 
   const handleResizeStart = useCallback(
@@ -263,7 +267,12 @@ export function PortalCanvas({
                   titleClickFor(widget.type) ? '打开日线 K 线' : undefined
                 }
               >
-                {renderWidget(widget.type, w, h)}
+                {renderWidget(widget.type, w, h, widget, {
+                  editing: false,
+                  onUpdate: onUpdateWidget
+                    ? (patch) => onUpdateWidget(widget.id, patch)
+                    : undefined,
+                })}
               </WidgetChrome>
             </div>
           );
@@ -323,7 +332,12 @@ export function PortalCanvas({
                     titleClickFor(widget.type) ? '打开日线 K 线' : undefined
                   }
                 >
-                  {renderWidget(widget.type, item.w, item.h)}
+                  {renderWidget(widget.type, item.w, item.h, widget, {
+                    editing,
+                    onUpdate: onUpdateWidget
+                      ? (patch) => onUpdateWidget(widget.id, patch)
+                      : undefined,
+                  })}
                 </WidgetChrome>
               </div>
             );

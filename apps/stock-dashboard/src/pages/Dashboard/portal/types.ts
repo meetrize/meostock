@@ -31,7 +31,8 @@ export type PortalWidgetType =
   | 'topic.limitList'
   | 'topic.topList'
   | 'rank.hk'
-  | 'rank.cb';
+  | 'rank.cb'
+  | 'embed.iframe';
 
 export type PortalCatalogGroupId =
   | 'ashare'
@@ -45,7 +46,8 @@ export type PortalCatalogGroupId =
   | 'metals'
   | 'fx'
   | 'crypto'
-  | 'rates';
+  | 'rates'
+  | 'embed';
 
 export interface PortalWidgetInstance {
   id: string;

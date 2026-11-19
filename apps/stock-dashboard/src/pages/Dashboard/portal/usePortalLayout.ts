@@ -274,6 +274,18 @@ export function usePortalLayout() {
     [updateActivePreset]
   );
 
+  const updateWidget = useCallback(
+    (id: string, patch: Partial<PortalWidgetInstance>) => {
+      updateActivePreset(({ layout, widgets }) => ({
+        layout,
+        widgets: widgets.map((w) =>
+          w.id === id ? { ...w, ...patch, id: w.id, type: w.type } : w
+        ),
+      }));
+    },
+    [updateActivePreset]
+  );
+
   const addWidget = useCallback(
     (type: PortalWidgetType) => {
       const catalog = WIDGET_CATALOG[type];
@@ -288,9 +300,16 @@ export function usePortalLayout() {
           w,
           h,
         });
+        const widget: PortalWidgetInstance = {
+          id,
+          type,
+          ...(type === 'embed.iframe'
+            ? { title: '网页', config: { url: '' } }
+            : {}),
+        };
         return {
           layout: [...layout, layoutItem],
-          widgets: [...widgets, { id, type }],
+          widgets: [...widgets, widget],
         };
       });
       return id;
@@ -318,6 +337,7 @@ export function usePortalLayout() {
     layoutById,
     onLayoutChange,
     removeWidget,
+    updateWidget,
     addWidget,
     resetToDefault,
   };
