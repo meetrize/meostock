@@ -84,14 +84,86 @@ function fmtWhen(startAt: string, endAt?: string | null): string {
   return startAt.slice(5, 10) || s;
 }
 
+/** 国家/地区 → 国旗；中国城市统一中国国旗 */
+const REGION_FLAGS: Record<string, string> = {
+  中国: '🇨🇳',
+  美国: '🇺🇸',
+  欧盟: '🇪🇺',
+  日本: '🇯🇵',
+  英国: '🇬🇧',
+  加拿大: '🇨🇦',
+  德国: '🇩🇪',
+  澳大利亚: '🇦🇺',
+  意大利: '🇮🇹',
+  瑞士: '🇨🇭',
+  俄罗斯: '🇷🇺',
+  菲律宾: '🇵🇭',
+  马来西亚: '🇲🇾',
+  巴西: '🇧🇷',
+  新加坡: '🇸🇬',
+  泰国: '🇹🇭',
+  韩国: '🇰🇷',
+  法国: '🇫🇷',
+  阿根廷: '🇦🇷',
+  土耳其: '🇹🇷',
+  安塔利亚: '🇹🇷',
+  布鲁塞尔: '🇧🇪',
+  旧金山: '🇺🇸',
+  华盛顿: '🇺🇸',
+  中国香港: '🇭🇰',
+  香港: '🇭🇰',
+  中国澳门: '🇲🇴',
+  澳门: '🇲🇴',
+  中国台湾: '🇨🇳',
+  台湾: '🇨🇳',
+  OPEC: '🛢️',
+};
+
+function isChinaMainlandPlace(city: string): boolean {
+  const c = city.trim();
+  if (!c) return false;
+  if (c === '中国') return true;
+  if (/香港|澳门|台湾/.test(c)) return false;
+  if (c.startsWith('中国')) return true;
+  if (/(市|省|自治区|特别行政区)$/.test(c)) return true;
+  if (/^(北京|上海|天津|重庆|广州|深圳|杭州|成都|武汉|苏州|西安|郑州|南京|青岛|厦门|宁波|长沙|合肥|福州|济南|大连|沈阳|哈尔滨|长春|昆明|贵阳|南宁|海口|石家庄|太原|呼和浩特|兰州|西宁|银川|乌鲁木齐)/.test(c)) {
+    return true;
+  }
+  return false;
+}
+
+function regionDisplay(city?: string | null): { flag: string; label: string } {
+  const raw = (city || '').trim();
+  if (!raw || raw === '-') return { flag: '🏳️', label: '—' };
+  if (REGION_FLAGS[raw]) return { flag: REGION_FLAGS[raw], label: raw };
+  if (isChinaMainlandPlace(raw)) return { flag: '🇨🇳', label: raw };
+  return { flag: '🌍', label: raw };
+}
+
 function toneClass(code?: string | null): string {
   if (code === '1') return styles.toneMeet;
   if (code === '2') return styles.toneData;
   return styles.toneOther;
 }
 
+function typeToneClass(code?: string | null): string {
+  if (code === '1') return styles.typeMeet;
+  if (code === '2') return styles.typeData;
+  return styles.typeOther;
+}
+
+function starLevelClass(n: number): string {
+  if (n >= 5) return styles.starLv5;
+  if (n === 4) return styles.starLv4;
+  if (n === 3) return styles.starLv3;
+  if (n === 2) return styles.starLv2;
+  if (n === 1) return styles.starLv1;
+  return '';
+}
+
 function Stars({ value, reason }: { value?: number | null; reason?: string | null }) {
   const n = Math.max(0, Math.min(5, Number(value) || 0));
+  const onClass = `${styles.starOn} ${starLevelClass(n)}`;
   return (
     <span
       className={styles.stars}
@@ -99,12 +171,22 @@ function Stars({ value, reason }: { value?: number | null; reason?: string | nul
       aria-label={n ? `重要性 ${n} 星` : '未评级'}
     >
       {Array.from({ length: 5 }, (_, i) => (
-        <span key={i} className={i < n ? styles.starOn : styles.starOff}>
+        <span key={i} className={i < n ? onClass : styles.starOff}>
           ★
         </span>
       ))}
     </span>
   );
+}
+
+function eventTooltip(ev: CalEvent): string {
+  const parts: string[] = [];
+  if (ev.sponsor) parts.push(`主办：${ev.sponsor}`);
+  if (ev.city) parts.push(`地区：${ev.city}`);
+  if (ev.std_type_label) parts.push(`大类：${ev.std_type_label}`);
+  if (ev.importance) parts.push(`重要性：${ev.importance} 星`);
+  if (ev.importance_reason) parts.push(`评级：${ev.importance_reason}`);
+  return parts.length ? parts.join(' · ') : ev.name;
 }
 
 async function sleep(ms: number) {
@@ -588,32 +670,44 @@ export function CalendarEventsWidget() {
         <ul className={styles.list}>
           {filteredItems.map((ev) => {
             const open = expanded === ev.fe_code;
+            const region = regionDisplay(ev.city);
+            const typeLabel = ev.fe_type && ev.fe_type !== '-' ? ev.fe_type : ev.std_type_label || '—';
             return (
               <li key={ev.fe_code} className={`${styles.item} ${toneClass(ev.std_type_code)}`}>
                 <button
                   type="button"
                   className={styles.itemMain}
+                  title={eventTooltip(ev)}
                   onClick={() => setExpanded(open ? null : ev.fe_code)}
                 >
                   <span className={styles.when}>{fmtWhen(ev.start_at, ev.end_at)}</span>
-                  <span className={styles.body}>
-                    <span className={styles.nameRow}>
-                      <span className={styles.name}>{ev.name}</span>
-                      <Stars value={ev.importance} reason={ev.importance_reason} />
+                  <span className={styles.region} title={region.label}>
+                    <span className={styles.flag} aria-hidden>
+                      {region.flag}
                     </span>
-                    <span className={styles.meta}>
-                      {ev.std_type_label || '—'}
-                      {ev.city ? ` · ${ev.city}` : ''}
-                      {ev.sponsor ? ` · ${ev.sponsor}` : ''}
-                    </span>
+                    <span className={styles.regionText}>{region.label}</span>
                   </span>
-                  {ev.fe_type ? <span className={styles.typeTag}>{ev.fe_type}</span> : null}
+                  <span className={styles.impCol}>
+                    <Stars value={ev.importance} reason={ev.importance_reason} />
+                  </span>
+                  <span className={styles.name} title={eventTooltip(ev)}>
+                    {ev.name}
+                  </span>
+                  <span
+                    className={`${styles.typeTag} ${typeToneClass(ev.std_type_code)}`}
+                    title={typeLabel}
+                  >
+                    {typeLabel}
+                  </span>
                 </button>
                 {open && (
                   <div className={styles.detail}>
                     {ev.content || '暂无详情'}
                     {ev.importance_reason ? (
                       <div className={styles.rateReason}>评级理由：{ev.importance_reason}</div>
+                    ) : null}
+                    {ev.sponsor ? (
+                      <div className={styles.rateReason}>主办：{ev.sponsor}</div>
                     ) : null}
                   </div>
                 )}
