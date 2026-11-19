@@ -318,7 +318,7 @@
     }
     banner.style.display = "";
     banner.textContent =
-      "未配置 DEEPSEEK_API_KEY：在项目 .env 填写后重启服务，即可使用 AI 对话。";
+      "未配置 AI 模型：请到设置 → AI 模型 添加配置并设为使用中。";
   }
 
   function renderReports() {

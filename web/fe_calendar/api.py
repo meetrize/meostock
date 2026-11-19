@@ -96,8 +96,8 @@ def calendar_ai_rate():
         return JSONResponse(
             {
                 "ok": False,
-                "error": "未配置 DEEPSEEK_API_KEY",
-                "hint": "在 .env 填写 DEEPSEEK_API_KEY 后重启服务",
+                "error": "未配置 AI 模型",
+                "hint": "在设置 → AI 模型 中添加配置并设为使用中",
             },
             status_code=503,
         )

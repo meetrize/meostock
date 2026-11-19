@@ -13,7 +13,7 @@ export function FinanceCalendar() {
         <div>
           <h1 className={styles.title}>财经日历</h1>
           <p className={styles.subtitle}>
-            东财财经会议 / 经济数据 / 其他事件。可同步日历，并用 DeepSeek 对未评级事件打 1–5 星重要性。
+            东财财经会议 / 经济数据 / 其他事件。可同步日历，并用 AI 对未评级事件打 1–5 星重要性。
           </p>
         </div>
         <Link to="/scheduler" className={styles.link}>

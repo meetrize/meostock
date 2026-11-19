@@ -146,7 +146,7 @@ def _rate_batch(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def run_ai_importance_rating(*, batch_size: int = BATCH_SIZE) -> dict[str, Any]:
     """对 importance IS NULL 的事件批量评级并回填。"""
     if not ai_config.is_configured():
-        raise RuntimeError("未配置 DEEPSEEK_API_KEY，无法评级")
+        raise RuntimeError("未配置 AI 模型（设置 → AI 模型），无法评级")
 
     started = time.time()
     pending = list_unrated_events()

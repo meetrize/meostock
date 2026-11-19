@@ -224,3 +224,19 @@ CREATE INDEX IF NOT EXISTS idx_cal_event_std ON finance_calendar_event (std_type
 CREATE INDEX IF NOT EXISTS idx_cal_event_fe_type ON finance_calendar_event (fe_type);
 CREATE INDEX IF NOT EXISTS idx_cal_event_city ON finance_calendar_event (city);
 -- idx_cal_event_importance 在 init_db 加列后再建（兼容旧库）
+
+-- AI 模型配置档案（设置页；Key 仅本机）
+CREATE TABLE IF NOT EXISTS ai_provider_profile (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  base_url TEXT NOT NULL,
+  model TEXT NOT NULL,
+  api_key TEXT NOT NULL DEFAULT '',
+  max_tokens INTEGER,
+  timeout_sec REAL,
+  created_at REAL NOT NULL,
+  updated_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_profile_provider ON ai_provider_profile (provider);

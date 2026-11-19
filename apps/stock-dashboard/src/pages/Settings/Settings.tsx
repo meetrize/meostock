@@ -9,6 +9,7 @@ import { Card, NumberField, useToast } from '@/components/common';
 import { useAppSettings } from '@/contexts';
 import type { QuoteCacheMode, QuoteSource } from '@/types';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
+import { AiModelSettings } from './AiModelSettings';
 import { SourceLaneMatrix } from './SourceLaneMatrix';
 import styles from './Settings.module.css';
 
@@ -213,6 +214,10 @@ export function Settings() {
             </div>
           </div>
         </div>
+      </Card>
+
+      <Card>
+        <AiModelSettings />
       </Card>
 
       <Card>

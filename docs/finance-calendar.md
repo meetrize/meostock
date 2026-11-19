@@ -78,7 +78,9 @@ GET https://datacenter-web.eastmoney.com/api/data/v1/get
 | `GET /api/calendar/sync/status` | 上次同步摘要 |
 | `GET /api/calendar/ai-rate/pending` | 未评级条数 |
 | `GET /api/calendar/ai-rate/progress` | AI 评级进度 |
-| `POST /api/calendar/ai-rate` | 异步批量评级（跳过已有 `importance`；需 `DEEPSEEK_API_KEY`） |
+| `POST /api/calendar/ai-rate` | 异步批量评级（跳过已有 `importance`；需设置页已配置 AI 模型） |
+
+AI Key / 模型见 [ai-provider-settings.md](./ai-provider-settings.md)。
 
 面板「AI 重要程度评级」按钮会轮询进度并展示五星；展开行可见评级理由。
 

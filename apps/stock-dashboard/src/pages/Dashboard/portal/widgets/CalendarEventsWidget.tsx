@@ -295,7 +295,7 @@ export function CalendarEventsWidget() {
       const res = await fetch('/api/calendar/ai-rate', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (res.status === 503) {
-        throw new Error(data?.error || '未配置 DEEPSEEK_API_KEY');
+        throw new Error(data?.error || '未配置 AI 模型（设置 → AI 模型）');
       }
       if (!res.ok || !data?.ok) {
         throw new Error(data?.error || data?.message || '启动 AI 评级失败');
@@ -525,7 +525,7 @@ export function CalendarEventsWidget() {
       {(rating || rateProgress?.active) && (
         <div className={styles.progressBox} aria-live="polite">
           <div className={styles.progressText}>
-            {rateProgress?.message || 'DeepSeek 正在评级重要性…'}
+            {rateProgress?.message || 'AI 正在评级重要性…'}
             {rateProgress?.total
               ? ` · ${rateProgress.done ?? 0}/${rateProgress.total}`
               : ''}
