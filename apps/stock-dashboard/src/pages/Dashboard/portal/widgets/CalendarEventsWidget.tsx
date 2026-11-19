@@ -18,6 +18,8 @@ type CalEvent = {
   fe_type?: string | null;
   std_type_code?: string | null;
   std_type_label?: string;
+  source?: string | null;
+  source_label?: string | null;
   content?: string | null;
   importance?: number | null;
   importance_reason?: string | null;
@@ -53,6 +55,13 @@ const IMPORTANCE_CHIPS: { code: string; label: string }[] = [
   { code: '3', label: '≥3★' },
   { code: '4', label: '≥4★' },
   { code: '5', label: '5★' },
+];
+
+/** ''=全部；eastmoney=东财；feedgen=本系统新闻抽取 */
+const SOURCE_CHIPS: { code: string; label: string }[] = [
+  { code: '', label: '全部来源' },
+  { code: 'eastmoney', label: '东财' },
+  { code: 'feedgen', label: 'feedgen' },
 ];
 
 function isoDay(d: Date): string {
@@ -184,6 +193,8 @@ function eventTooltip(ev: CalEvent): string {
   if (ev.sponsor) parts.push(`主办：${ev.sponsor}`);
   if (ev.city) parts.push(`地区：${ev.city}`);
   if (ev.std_type_label) parts.push(`大类：${ev.std_type_label}`);
+  const srcLabel = ev.source_label || (ev.source === 'feedgen' ? 'feedgen' : '东财');
+  parts.push(`来源：${srcLabel}`);
   if (ev.importance) parts.push(`重要性：${ev.importance} 星`);
   if (ev.importance_reason) parts.push(`评级：${ev.importance_reason}`);
   return parts.length ? parts.join(' · ') : ev.name;
@@ -198,6 +209,7 @@ export function CalendarEventsWidget() {
   const [range, setRange] = useState<RangeKey>('30d');
   const [stdType, setStdType] = useState('');
   const [importance, setImportance] = useState('');
+  const [source, setSource] = useState('');
   const [feType, setFeType] = useState('');
   const [city, setCity] = useState('');
   const [q, setQ] = useState('');
@@ -229,6 +241,7 @@ export function CalendarEventsWidget() {
       });
       if (stdType) params.set('std_type', stdType);
       if (importance) params.set('importance', importance);
+      if (source) params.set('source', source);
       if (feType) params.set('fe_type', feType);
       if (city) params.set('city', city);
 
@@ -276,7 +289,7 @@ export function CalendarEventsWidget() {
     } finally {
       setLoading(false);
     }
-  }, [bounds.from, bounds.to, city, feType, importance, stdType]);
+  }, [bounds.from, bounds.to, city, feType, importance, source, stdType]);
 
   const filteredItems = useMemo(() => {
     const keyword = q.trim().toLowerCase();
@@ -540,6 +553,24 @@ export function CalendarEventsWidget() {
             </button>
           ))}
         </div>
+        <div className={styles.chipRow} role="group" aria-label="数据来源">
+          {SOURCE_CHIPS.map((c) => (
+            <button
+              key={c.code || 'src-all'}
+              type="button"
+              className={`${styles.chip} ${source === c.code ? styles.chipActive : ''} ${
+                c.code === 'feedgen'
+                  ? styles.chipSourceFeedgen
+                  : c.code === 'eastmoney'
+                    ? styles.chipSourceEastmoney
+                    : ''
+              }`}
+              onClick={() => setSource(c.code)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
         <div className={styles.filters}>
           <select
             className={styles.select}
@@ -672,6 +703,8 @@ export function CalendarEventsWidget() {
             const open = expanded === ev.fe_code;
             const region = regionDisplay(ev.city);
             const typeLabel = ev.fe_type && ev.fe_type !== '-' ? ev.fe_type : ev.std_type_label || '—';
+            const sourceLabel = ev.source_label || (ev.source === 'feedgen' ? 'feedgen' : '东财');
+            const sourceCode = (ev.source || 'eastmoney').toLowerCase();
             return (
               <li key={ev.fe_code} className={`${styles.item} ${toneClass(ev.std_type_code)}`}>
                 <button
@@ -694,6 +727,14 @@ export function CalendarEventsWidget() {
                     {ev.name}
                   </span>
                   <span
+                    className={`${styles.sourceTag} ${
+                      sourceCode === 'feedgen' ? styles.sourceFeedgen : styles.sourceEastmoney
+                    }`}
+                    title={`来源：${sourceLabel}`}
+                  >
+                    {sourceLabel}
+                  </span>
+                  <span
                     className={`${styles.typeTag} ${typeToneClass(ev.std_type_code)}`}
                     title={typeLabel}
                   >
@@ -709,6 +750,7 @@ export function CalendarEventsWidget() {
                     {ev.sponsor ? (
                       <div className={styles.rateReason}>主办：{ev.sponsor}</div>
                     ) : null}
+                    <div className={styles.rateReason}>来源：{sourceLabel}</div>
                   </div>
                 )}
               </li>

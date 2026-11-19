@@ -31,6 +31,7 @@ def calendar_events(
     importance: str | None = Query(
         None, description="unrated | 1..5（≥N 星）"
     ),
+    source: str | None = Query(None, description="eastmoney|feedgen"),
     limit: int = Query(200, ge=1, le=1000),
 ):
     try:
@@ -42,6 +43,7 @@ def calendar_events(
             city=city,
             q=q,
             importance=importance,
+            source=source,
             limit=limit,
         )
         return JSONResponse({"ok": True, "items": items, "count": len(items)})

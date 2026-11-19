@@ -14,6 +14,11 @@ STD_TYPE_LABELS = {
     "3": "其他类型",
 }
 
+SOURCE_LABELS = {
+    "eastmoney": "东财",
+    "feedgen": "feedgen",
+}
+
 
 def _day_start_ts(d: date) -> float:
     return datetime(d.year, d.month, d.day).timestamp()
@@ -37,9 +42,12 @@ def list_events(
     city: str | None = None,
     q: str | None = None,
     importance: str | None = None,
+    source: str | None = None,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
-    """importance: ``unrated`` | ``1``..``5``（表示 ≥N 星）。"""
+    """importance: ``unrated`` | ``1``..``5``（表示 ≥N 星）。
+    source: ``eastmoney`` | ``feedgen``。
+    """
     init_db()
     today = date.today()
     start = _parse_day(from_day, today)
@@ -70,6 +78,9 @@ def list_events(
     if city:
         clauses.append("city = ?")
         params.append(city.strip())
+    if source and source.strip():
+        clauses.append("IFNULL(NULLIF(TRIM(source), ''), 'eastmoney') = ?")
+        params.append(source.strip().lower())
     if q and q.strip():
         like = f"%{q.strip()}%"
         clauses.append("(name LIKE ? OR sponsor LIKE ? OR content LIKE ? OR city LIKE ?)")
@@ -82,10 +93,9 @@ def list_events(
         clauses.append("importance IS NOT NULL AND importance >= ?")
         params.append(int(imp))
 
-
     sql = f"""
       SELECT fe_code, start_at, end_at, start_ts, name, sponsor, city,
-             fe_type, std_type_code, content,
+             fe_type, std_type_code, content, source,
              importance, importance_reason, importance_rated_at,
              updated_at, synced_at
       FROM finance_calendar_event
@@ -104,6 +114,9 @@ def list_events(
         item = dict(r)
         code = str(item.get("std_type_code") or "")
         item["std_type_label"] = STD_TYPE_LABELS.get(code, "其他")
+        src = str(item.get("source") or "").strip().lower() or "eastmoney"
+        item["source"] = src
+        item["source_label"] = SOURCE_LABELS.get(src, src)
         out.append(item)
     return out
 
@@ -117,6 +130,7 @@ def facets(
     by_std: dict[str, int] = {}
     by_fe: dict[str, int] = {}
     by_city: dict[str, int] = {}
+    by_source: dict[str, int] = {}
     for e in events:
         st = str(e.get("std_type_code") or "") or "-"
         by_std[st] = by_std.get(st, 0) + 1
@@ -124,15 +138,27 @@ def facets(
         by_fe[ft] = by_fe.get(ft, 0) + 1
         city = str(e.get("city") or "").strip() or "-"
         by_city[city] = by_city.get(city, 0) + 1
+        src = str(e.get("source") or "").strip().lower() or "eastmoney"
+        by_source[src] = by_source.get(src, 0) + 1
 
     def top(d: dict[str, int], n: int = 40) -> list[dict[str, Any]]:
         items = sorted(d.items(), key=lambda x: (-x[1], x[0]))[:n]
         return [{"value": k, "count": v, "label": STD_TYPE_LABELS.get(k, k)} for k, v in items]
 
+    sources = [
+        {
+            "value": k,
+            "count": v,
+            "label": SOURCE_LABELS.get(k, k),
+        }
+        for k, v in sorted(by_source.items(), key=lambda x: (-x[1], x[0]))
+    ]
+
     return {
         "std_types": top(by_std, 10),
         "fe_types": top(by_fe, 40),
         "cities": top(by_city, 40),
+        "sources": sources,
         "total": len(events),
     }
 

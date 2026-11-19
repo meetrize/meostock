@@ -47,6 +47,7 @@ GET https://datacenter-web.eastmoney.com/api/data/v1/get
 - `name` / `sponsor` / `city` / `fe_type` / `std_type_code` / `content`
 - `importance` / `importance_reason` / `importance_rated_at`：DeepSeek 1–5 星（仅未评级时写入）
 - `content_hash`：变更检测
+- `source`：数据来源码 — `eastmoney`（展示「东财」）/ `feedgen`（本系统新闻日程扫描）
 - `first_seen_at` / `updated_at` / `synced_at`
 
 窗口：`[today-3, today+29]`（含进行中 overlap）。分页 `pageSize=50` 拉齐。不硬删远端消失项。
@@ -73,8 +74,8 @@ GET https://datacenter-web.eastmoney.com/api/data/v1/get
 
 | 路径 | 说明 |
 |------|------|
-| `GET /api/calendar/events` | `from` `to` `std_type` `fe_type` `city` `q` `importance`(`unrated`\|`1`..`5`≥N) `limit` |
-| `GET /api/calendar/facets` | 类型 / 细类 / 地区计数 |
+| `GET /api/calendar/events` | `from` `to` `std_type` `fe_type` `city` `q` `importance`(`unrated`\|`1`..`5`≥N) `source`(`eastmoney`\|`feedgen`) `limit` |
+| `GET /api/calendar/facets` | 类型 / 细类 / 地区 / 来源计数 |
 | `GET /api/calendar/sync/status` | 上次同步摘要 |
 | `GET /api/calendar/ai-rate/pending` | 未评级条数 |
 | `GET /api/calendar/ai-rate/progress` | AI 评级进度 |

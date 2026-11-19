@@ -174,6 +174,16 @@
   color: #f59e0b;
 }
 
+.chipSourceEastmoney.chipActive {
+  border-color: #0ea5e9;
+  color: #0284c7;
+}
+
+.chipSourceFeedgen.chipActive {
+  border-color: #10b981;
+  color: #059669;
+}
+
 .chipOther.chipActive {
   border-color: var(--cal-other);
   color: var(--cal-other);
@@ -269,7 +279,7 @@
 .itemMain {
   width: 100%;
   display: grid;
-  grid-template-columns: 118px 96px 70px minmax(0, 1fr) auto;
+  grid-template-columns: 118px 96px 70px minmax(0, 1fr) auto auto;
   gap: 8px;
   align-items: center;
   padding: 8px 10px;
@@ -328,6 +338,28 @@
   min-width: 0;
 }
 
+.sourceTag {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-primary);
+  font-size: 10px;
+  white-space: nowrap;
+  justify-self: end;
+}
+
+.sourceEastmoney {
+  color: #0284c7;
+  border-color: color-mix(in srgb, #0ea5e9 45%, var(--border-primary));
+  background: color-mix(in srgb, #0ea5e9 12%, transparent);
+}
+
+.sourceFeedgen {
+  color: #059669;
+  border-color: color-mix(in srgb, #10b981 45%, var(--border-primary));
+  background: color-mix(in srgb, #10b981 12%, transparent);
+}
+
 .typeTag {
   flex-shrink: 0;
   padding: 2px 8px;
@@ -372,6 +404,7 @@
     grid-template-rows: auto auto;
   }
 
+  .sourceTag,
   .typeTag {
     grid-column: 2 / -1;
     justify-self: start;
