@@ -12,7 +12,7 @@ import styles from './WorldClocks.module.css';
 
 function buildTitle(item: MarketClockSnapshot): string {
   const status = item.open ? '交易中' : '休市';
-  return `${item.market.fullName}（${item.market.timeZone}）\n当地 ${item.timeLabel} · ${status}\n常规时段 ${formatSessionsLabel(item.market)}（不含节假日）`;
+  return `${item.market.fullName}（${item.market.timeZone}）\n当地 周${item.weekdayLabel} ${item.dateLabel} ${item.timeLabel} · ${status}\n常规时段 ${formatSessionsLabel(item.market)}（不含节假日）`;
 }
 
 export function WorldClocks() {
@@ -37,10 +37,13 @@ export function WorldClocks() {
           <div className={styles.body}>
             <div className={styles.top}>
               <span className={styles.name}>{item.market.shortName}</span>
-              <span className={styles.time}>{item.timeLabel}</span>
-              <span className={styles.status}>{item.open ? '开' : '休'}</span>
+              <span className={styles.hours}>{item.market.hoursLabel}</span>
             </div>
-            <span className={styles.hours}>{item.market.hoursLabel}</span>
+            <div className={styles.bottom}>
+              <span className={styles.time}>{item.timeLabel}</span>
+              <span className={styles.date}>{item.dateLabel}</span>
+              <span className={styles.weekday}>{item.weekdayLabel}</span>
+            </div>
           </div>
         </div>
       ))}

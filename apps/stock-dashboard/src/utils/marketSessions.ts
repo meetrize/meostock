@@ -77,7 +77,13 @@ export type ZonedClockParts = {
   hour: number;
   minute: number;
   second: number;
+  month: number;
+  day: number;
   weekday: number;
+  /** 周几数字：周一=1 … 周日=7 */
+  weekdayLabel: string;
+  /** 月日，如 11-19 */
+  dateLabel: string;
   timeLabel: string;
 };
 
@@ -91,6 +97,8 @@ export function zonedClockParts(ms: number, timeZone: string): ZonedClockParts {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
     hour12: false,
     weekday: 'short',
   }).formatToParts(new Date(ms));
@@ -99,6 +107,8 @@ export function zonedClockParts(ms: number, timeZone: string): ZonedClockParts {
   const hour = Number(get('hour')) % 24;
   const minute = Number(get('minute'));
   const second = Number(get('second'));
+  const month = Number(get('month'));
+  const day = Number(get('day'));
   const wd = get('weekday');
   const weekdayMap: Record<string, number> = {
     Sun: 0,
@@ -109,12 +119,19 @@ export function zonedClockParts(ms: number, timeZone: string): ZonedClockParts {
     Fri: 5,
     Sat: 6,
   };
+  const weekday = weekdayMap[wd] ?? 0;
+  // 周一=1 … 周日=7
+  const weekdayNum = weekday === 0 ? 7 : weekday;
 
   return {
     hour,
     minute,
     second,
-    weekday: weekdayMap[wd] ?? 0,
+    month,
+    day,
+    weekday,
+    weekdayLabel: String(weekdayNum),
+    dateLabel: `${pad2(month)}-${pad2(day)}`,
     timeLabel: `${pad2(hour)}:${pad2(minute)}`,
   };
 }
@@ -129,6 +146,8 @@ export function isMarketOpen(market: FinancialMarket, ms: number = Date.now()): 
 export type MarketClockSnapshot = {
   market: FinancialMarket;
   timeLabel: string;
+  weekdayLabel: string;
+  dateLabel: string;
   open: boolean;
 };
 
@@ -144,6 +163,8 @@ export function snapshotMarketClocks(ms: number = Date.now()): MarketClockSnapsh
     return {
       market,
       timeLabel: parts.timeLabel,
+      weekdayLabel: parts.weekdayLabel,
+      dateLabel: parts.dateLabel,
       open: isMarketOpen(market, ms),
     };
   });
