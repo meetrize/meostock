@@ -72,6 +72,8 @@ export function BoardDetail() {
 
   // UI 状态
   const [loading, setLoading] = useState(true);
+  /** K线/spot/资金流后挂，不挡首屏 */
+  const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [klinePeriod, setKlinePeriod] = useState('daily');
 
   const isIndustry = type === 'industry';
@@ -168,17 +170,22 @@ export function BoardDetail() {
     }
   }, [decodedCode, isThsBoard]);
 
-  // 初始加载（只在板块代码变化时触发）
+  // 首屏只等本库成分（含标题）；K线/spot/资金流后挂，避免东财拖垮打开速度
   const loadAll = useEffectEvent(async () => {
     setLoading(true);
+    setSecondaryLoading(false);
     setDbBoardInfo(null);
-    await Promise.all([
-      fetchConstituents(),
-      fetchSpot(),
-      fetchFundFlowHistory(),
-      fetchKline(),
-    ]);
+    setKlineData([]);
+    setSpotData([]);
+    setFundFlowHistory([]);
+    await fetchConstituents();
     setLoading(false);
+    setSecondaryLoading(true);
+    try {
+      await Promise.all([fetchSpot(), fetchFundFlowHistory(), fetchKline()]);
+    } finally {
+      setSecondaryLoading(false);
+    }
   });
 
   useEffect(() => {
@@ -188,7 +195,7 @@ export function BoardDetail() {
   // 周期变化时重新加载 K 线（不触发全页 loading）
   const reloadKline = useEffectEvent(() => {
     if (!loading && code) {
-      fetchKline();
+      void fetchKline();
     }
   });
 
@@ -351,7 +358,8 @@ export function BoardDetail() {
   // 检查是否已加自选
   const checkIsAdded = useIsInWatchlist();
 
-  if (loading || (!isThsBoard && boardLoading)) {
+  // DB 板块（BK* / ths:）标题来自 detail，不必等全局行业+概念全表
+  if (loading || (!isDbBoard && boardLoading)) {
     return <Loading fullScreen text="加载板块数据..." />;
   }
 
@@ -432,6 +440,8 @@ export function BoardDetail() {
                   style={{ height: '100%', width: '100%' }}
                   notMerge
                 />
+              ) : secondaryLoading ? (
+                <Loading text="加载K线..." />
               ) : (
                 <Empty title="暂无K线数据" />
               )}
