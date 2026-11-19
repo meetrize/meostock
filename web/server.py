@@ -1886,6 +1886,39 @@ def stock_concepts(
         payload["items"] = merged_all
     return JSONResponse(payload)
 
+@app.post("/api/symbols/resolve-batch")
+async def symbols_resolve_batch(request: Request) -> JSONResponse:
+    """批量解析代码/名称 token → 本库 symbol（模糊匹配）。"""
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    tokens = body.get("tokens") or []
+    if not isinstance(tokens, list):
+        return JSONResponse({"ok": False, "error": "tokens must be a list"}, status_code=400)
+    try:
+        limit = int(body.get("limit") or 8)
+    except (TypeError, ValueError):
+        limit = 8
+    try:
+        from cache.symbol_resolve import resolve_tokens
+
+        items = resolve_tokens([str(t) for t in tokens], limit_per_token=limit)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+    matched = sum(1 for x in items if x.get("best"))
+    return JSONResponse(
+        {
+            "ok": True,
+            "count": len(items),
+            "matched": matched,
+            "items": items,
+        }
+    )
+
+
 @app.get("/api/symbols")
 def symbol_list(
     market: str = Query("cn", description="cn|hk|us|fund|index"),

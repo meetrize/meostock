@@ -929,6 +929,147 @@
       font-size: 12px;
     }
     .cmp-more:hover { color: var(--text); border-color: var(--btn-hover); }
+
+    .modal-paste { width: min(720px, calc(100vw - 24px)); max-height: min(86vh, 720px); }
+    .paste-meta { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+    .paste-ta {
+      width: 100%;
+      min-height: 96px;
+      max-height: 160px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: var(--text);
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      box-sizing: border-box;
+    }
+    .paste-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin: 10px 0 8px;
+    }
+    .paste-toolbar button,
+    .paste-ft button {
+      border: 1px solid var(--line);
+      background: var(--btn-bg, var(--input-bg));
+      color: var(--text);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .paste-toolbar button:hover,
+    .paste-ft button:hover { border-color: var(--btn-hover); }
+    .paste-toolbar button.primary,
+    .paste-ft button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .paste-toolbar .sep { width: 1px; height: 16px; background: var(--line); margin: 0 2px; }
+    .paste-filter {
+      flex: 1;
+      min-width: 120px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--input-bg);
+      color: var(--text);
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+    .paste-chips { display: inline-flex; gap: 4px; }
+    .paste-chips button.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--btn-active-bg);
+    }
+    .paste-table-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: auto;
+      max-height: min(42vh, 360px);
+    }
+    .paste-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .paste-table th,
+    .paste-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+    }
+    .paste-table th {
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+      color: var(--muted);
+      font-weight: 600;
+      z-index: 1;
+    }
+    .paste-table tr:hover td { background: var(--btn-active-bg); }
+    .paste-table a {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .paste-table a:hover { text-decoration: underline; }
+    .paste-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+    .paste-badge.ok { color: #0a7; border-color: #0a7; }
+    .paste-badge.warn { color: #c80; border-color: #c80; }
+    .paste-badge.miss { color: #a33; border-color: #a33; }
+    .paste-miss {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .paste-miss summary { cursor: pointer; user-select: none; }
+    .paste-miss-list {
+      margin: 6px 0 0;
+      padding: 0;
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .paste-miss-list li {
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--input-bg);
+      border: 1px solid var(--line);
+    }
+    .paste-ft {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .paste-ft .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .paste-sel {
+      max-width: 160px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 12px;
+      padding: 2px 4px;
+    }
   </style>
 </head>
 <body>
@@ -937,6 +1078,10 @@
       <div class="tb-quote">
         <span class="tb-name" id="stockName" title="股票名称">--</span>
         <input id="symbol" type="text" value="600036" maxlength="32" placeholder="代码" title="输入代码后回车查询" />
+        <button type="button" class="tb-tool" id="btnPasteResolve" title="粘贴解析选股（Ctrl/⌘+Shift+V）">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 2h-4.18C14.4.84 13.3 0 12 0S9.6.84 9.18 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm7 18H5V4h2v3h10V4h2v16z"/></svg>
+          <span class="label">批量</span>
+        </button>
         <span class="tb-price" id="tbPrice">--</span>
         <span class="tb-change" id="tbChange">--</span>
       </div>
@@ -1296,6 +1441,60 @@
     </div>
   </div>
 
+  <!-- 粘贴批量解析选股 -->
+  <div class="modal-mask" id="pasteModal">
+    <div class="modal modal-paste">
+      <div class="modal-hd">
+        <span>粘贴解析选股</span>
+        <button type="button" class="x" data-close="pasteModal">×</button>
+      </div>
+      <div class="modal-bd">
+        <p class="paste-meta" id="pasteMeta">粘贴文本或读取剪贴板，解析代码/名称后多选打开多面板</p>
+        <textarea id="pasteText" class="paste-ta" placeholder="粘贴大段文本后自动解析，例如：300991 创益通、招商银行、螺纹钢…"></textarea>
+        <div class="paste-toolbar">
+          <button type="button" class="primary" id="pasteParseBtn">解析</button>
+          <button type="button" id="pasteReadClipBtn">读剪贴板</button>
+          <button type="button" id="pasteSelectHiBtn">全选高置信</button>
+          <button type="button" id="pasteClearBtn">清空</button>
+          <span class="sep"></span>
+          <span class="paste-chips" id="pasteMarketChips">
+            <button type="button" data-paste-mkt="all" class="active">全部</button>
+            <button type="button" data-paste-mkt="cn">A股</button>
+            <button type="button" data-paste-mkt="futures">期货</button>
+          </span>
+          <input id="pasteFilter" class="paste-filter" type="search" placeholder="结果内过滤…" />
+        </div>
+        <div class="paste-table-wrap">
+          <table class="paste-table">
+            <thead>
+              <tr>
+                <th style="width:28px"><input type="checkbox" id="pasteCheckAll" title="全选可见" /></th>
+                <th>代码</th>
+                <th>名称</th>
+                <th>市场</th>
+                <th>置信</th>
+                <th>候选</th>
+              </tr>
+            </thead>
+            <tbody id="pasteResultBody"></tbody>
+          </table>
+        </div>
+        <details class="paste-miss" id="pasteMissBox" hidden>
+          <summary id="pasteMissSummary">未命中 0</summary>
+          <ul class="paste-miss-list" id="pasteMissList"></ul>
+        </details>
+      </div>
+      <div class="modal-ft paste-ft">
+        <span class="paste-meta" id="pasteSelMeta">已选 0</span>
+        <div class="actions">
+          <button type="button" id="pasteCopyBtn">仅复制代码</button>
+          <button type="button" class="primary" id="pasteOpenMultiBtn">打开多面板</button>
+          <button type="button" data-close="pasteModal">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 扩展链接内嵌浮层 -->
   <div class="ext-embed" id="extEmbed" aria-hidden="true">
     <div class="ext-embed-hd" id="extEmbedHd">
@@ -1313,6 +1512,13 @@
   <script src="/static/kline-ai.js?v=20261116d"></script>
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
+    import {
+      extractTokens,
+      openMultipanel,
+      confidenceLabel,
+      isHighConfidence,
+      getPasteCacheKey,
+    } from "/static/kline/paste-resolve.mjs";
 
     const { init, registerIndicator, registerOverlay } = klinecharts;
     const sdk = new StockSDK();
@@ -3682,6 +3888,430 @@
       }
     }
 
+    // —— 粘贴批量解析选股 ——
+    /** @type {Array<{token:string,confidence:string,best:any,matches:any[],checked:boolean,pickSymbol?:string}>} */
+    let pasteRows = [];
+    let pasteMarketFilter = "all";
+    let pasteParsing = false;
+
+    function pasteMarketLabel(hit) {
+      if (!hit) return "—";
+      if (hit.market === "futures" || hit.category === "futures") return "期货";
+      const m = String(hit.market || "");
+      return (
+        { cn: "A股", hk: "港股", us: "美股", fund: "基金", index: "指数" }[m] ||
+        m ||
+        "—"
+      );
+    }
+
+    function pasteEffectiveHit(row) {
+      if (!row) return null;
+      const pick = row.pickSymbol;
+      if (pick && Array.isArray(row.matches)) {
+        const found = row.matches.find((m) => m.symbol === pick);
+        if (found) return found;
+      }
+      return row.best || null;
+    }
+
+    function pasteSelectedSymbols() {
+      const out = [];
+      const seen = new Set();
+      for (const row of pasteRows) {
+        if (!row.checked) continue;
+        const hit = pasteEffectiveHit(row);
+        if (!hit?.symbol) continue;
+        const sym = String(hit.symbol);
+        if (seen.has(sym)) continue;
+        seen.add(sym);
+        out.push(sym);
+      }
+      return out;
+    }
+
+    function updatePasteSelMeta() {
+      const selected = pasteSelectedSymbols();
+      const matched = pasteRows.filter((r) => r.best).length;
+      const el = document.getElementById("pasteSelMeta");
+      if (el) el.textContent = `已选 ${selected.length} · 匹配 ${matched}/${pasteRows.length}`;
+      const meta = document.getElementById("pasteMeta");
+      if (meta && pasteRows.length) {
+        meta.textContent = `已识别 ${pasteRows.length} 个 token · 匹配 ${matched}`;
+      }
+    }
+
+    function pasteRowVisible(row) {
+      // 未命中不展示
+      const hit = pasteEffectiveHit(row);
+      if (!hit?.symbol) return false;
+      const q = String(document.getElementById("pasteFilter")?.value || "")
+        .trim()
+        .toLowerCase();
+      if (pasteMarketFilter === "cn") {
+        if (hit.market !== "cn") return false;
+      } else if (pasteMarketFilter === "futures") {
+        if (hit.market !== "futures" && hit.category !== "futures") return false;
+      }
+      if (!q) return true;
+      const blob = `${row.token} ${hit.symbol || ""} ${hit.name || ""} ${hit.code || ""}`.toLowerCase();
+      return blob.includes(q);
+    }
+
+    function renderPasteResults() {
+      const tbody = document.getElementById("pasteResultBody");
+      if (!tbody) return;
+      const frag = document.createDocumentFragment();
+      let visible = 0;
+      pasteRows.forEach((row, idx) => {
+        if (!pasteRowVisible(row)) return;
+        visible += 1;
+        const hit = pasteEffectiveHit(row);
+        const tr = document.createElement("tr");
+        tr.dataset.idx = String(idx);
+        const conf = row.confidence || "none";
+        const badgeCls =
+          conf === "exact_code" || conf === "exact_name"
+            ? "ok"
+            : conf === "fuzzy"
+              ? "warn"
+              : "miss";
+        const period = currentPeriod || "1d";
+        const sym = hit?.symbol || "";
+        const name = hit?.name || "—";
+        const link = sym
+          ? `<a href="/?symbol=${encodeURIComponent(sym)}&period=${encodeURIComponent(period)}" target="_blank" rel="noopener">${escapeHtml(sym)}</a>`
+          : `<span class="muted">${escapeHtml(row.token)}</span>`;
+        let cand = "—";
+        if (row.matches && row.matches.length > 1) {
+          cand = `<select class="paste-sel" data-paste-pick="${idx}">${row.matches
+            .map(
+              (m) =>
+                `<option value="${escapeHtml(m.symbol)}" ${
+                  m.symbol === (row.pickSymbol || row.best?.symbol) ? "selected" : ""
+                }>${escapeHtml(m.symbol)} ${escapeHtml(m.name || "")}</option>`
+            )
+            .join("")}</select>`;
+        } else if (row.matches && row.matches.length === 1) {
+          cand = "唯一";
+        }
+        tr.innerHTML = `
+          <td><input type="checkbox" data-paste-check="${idx}" ${row.checked && hit ? "checked" : ""} ${hit ? "" : "disabled"} /></td>
+          <td>${link}</td>
+          <td title="${escapeHtml(name)}">${escapeHtml(name)}</td>
+          <td>${escapeHtml(pasteMarketLabel(hit))}</td>
+          <td><span class="paste-badge ${badgeCls}">${escapeHtml(confidenceLabel(conf))}</span></td>
+          <td>${cand}</td>
+        `;
+        frag.appendChild(tr);
+      });
+      tbody.innerHTML = "";
+      if (!visible) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--muted);padding:16px">暂无结果，请粘贴文本后点「解析」</td></tr>`;
+      } else {
+        tbody.appendChild(frag);
+      }
+      const missBox = document.getElementById("pasteMissBox");
+      if (missBox) missBox.hidden = true;
+      updatePasteSelMeta();
+    }
+
+    function savePasteCache() {
+      try {
+        sessionStorage.setItem(
+          getPasteCacheKey(),
+          JSON.stringify({
+            text: document.getElementById("pasteText")?.value || "",
+            rows: pasteRows,
+            market: pasteMarketFilter,
+          })
+        );
+      } catch (_) {}
+    }
+
+    function loadPasteCache() {
+      try {
+        const raw = sessionStorage.getItem(getPasteCacheKey());
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (data?.text != null) {
+          const ta = document.getElementById("pasteText");
+          if (ta) ta.value = String(data.text);
+        }
+        if (Array.isArray(data?.rows)) {
+          pasteRows = data.rows;
+          pasteMarketFilter = data.market || "all";
+          document.querySelectorAll("[data-paste-mkt]").forEach((btn) => {
+            btn.classList.toggle("active", btn.dataset.pasteMkt === pasteMarketFilter);
+          });
+          renderPasteResults();
+          return pasteRows.length > 0;
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    async function resolvePasteText(text) {
+      if (pasteParsing) return;
+      pasteParsing = true;
+      const tbody = document.getElementById("pasteResultBody");
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="6" style="color:var(--muted);padding:16px">解析中…</td></tr>`;
+      }
+      try {
+        const tokens = extractTokens(text);
+        if (!tokens.length) {
+          pasteRows = [];
+          renderPasteResults();
+          setStatus("未识别到股票代码或名称");
+          return;
+        }
+        // 期货先本地匹配，减少未命中
+        const futByToken = new Map();
+        for (const tok of tokens) {
+          const exact = resolveFutures(tok);
+          if (exact) {
+            futByToken.set(tok, {
+              token: tok,
+              confidence: "exact_code",
+              best: futuresHit(exact),
+              matches: [futuresHit(exact)],
+            });
+            continue;
+          }
+          const hits = searchFuturesCatalog(tok);
+          if (hits.length === 1) {
+            futByToken.set(tok, {
+              token: tok,
+              confidence: "exact_name",
+              best: hits[0],
+              matches: hits,
+            });
+          } else if (hits.length > 1 && hits.length <= 8) {
+            futByToken.set(tok, {
+              token: tok,
+              confidence: "fuzzy",
+              best: hits[0],
+              matches: hits,
+            });
+          }
+        }
+        const needApi = tokens.filter((t) => !futByToken.has(t));
+        let apiItems = [];
+        if (needApi.length) {
+          const res = await fetch("/api/symbols/resolve-batch", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tokens: needApi, limit: 8 }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data?.ok) throw new Error(data?.error || `解析失败 ${res.status}`);
+          apiItems = data.items || [];
+        }
+        const apiMap = new Map(apiItems.map((it) => [String(it.token), it]));
+        const confRank = { exact_code: 0, exact_name: 1, fuzzy: 2, none: 9 };
+        const built = tokens.map((tok) => {
+          const fut = futByToken.get(tok);
+          const api = apiMap.get(tok);
+          const base = fut ||
+            api || {
+              token: tok,
+              confidence: "none",
+              best: null,
+              matches: [],
+            };
+          // 若 API 与期货都有，优先 A 股精确代码
+          let chosen = base;
+          if (fut && api?.best && isHighConfidence(api.confidence)) {
+            chosen = api;
+          } else if (!api?.best && fut) {
+            chosen = fut;
+          } else if (api) {
+            chosen = api;
+          }
+          const conf = chosen.confidence || "none";
+          return {
+            token: tok,
+            confidence: conf,
+            best: chosen.best || null,
+            matches: chosen.matches || [],
+            pickSymbol: chosen.best?.symbol || "",
+            checked: isHighConfidence(conf) && !!chosen.best,
+          };
+        });
+        // 按命中标的去重；未命中丢弃
+        const bySym = new Map();
+        for (const row of built) {
+          if (!row.best?.symbol) continue;
+          const sym = row.best.symbol;
+          const prev = bySym.get(sym);
+          if (
+            !prev ||
+            (confRank[row.confidence] ?? 9) < (confRank[prev.confidence] ?? 9) ||
+            ((confRank[row.confidence] ?? 9) === (confRank[prev.confidence] ?? 9) &&
+              String(row.best.name || "").length > String(prev.best?.name || "").length)
+          ) {
+            bySym.set(sym, row);
+          }
+        }
+        pasteRows = [...bySym.values()];
+        renderPasteResults();
+        savePasteCache();
+        const matched = pasteRows.filter((r) => r.best).length;
+        const selected = pasteSelectedSymbols().length;
+        setStatus(`已解析 ${matched} / 选中 ${selected}`);
+      } catch (e) {
+        pasteRows = [];
+        renderPasteResults();
+        setStatus(`解析失败：${e.message || e}`);
+      } finally {
+        pasteParsing = false;
+      }
+    }
+
+    async function openPasteResolveModal({ tryClipboard = false } = {}) {
+      const mask = document.getElementById("pasteModal");
+      if (!mask) return;
+      mask.classList.add("show");
+      const restored = loadPasteCache();
+      const ta = document.getElementById("pasteText");
+      if (tryClipboard) {
+        try {
+          const clip = await navigator.clipboard.readText();
+          if (clip && clip.trim()) {
+            if (ta) ta.value = clip;
+            await resolvePasteText(clip);
+            return;
+          }
+        } catch (_) {
+          /* 无权限则手贴 */
+        }
+      }
+      if (!restored) {
+        ta?.focus();
+        setStatus("请粘贴文本后点「解析」（或 Ctrl/⌘+Shift+V）");
+      }
+    }
+
+    document.getElementById("pasteParseBtn")?.addEventListener("click", () => {
+      void resolvePasteText(document.getElementById("pasteText")?.value || "");
+    });
+    // 粘贴后自动解析（无需再点「解析」）
+    let pasteAutoTimer = 0;
+    const pasteTa = document.getElementById("pasteText");
+    const scheduleAutoParse = () => {
+      clearTimeout(pasteAutoTimer);
+      pasteAutoTimer = window.setTimeout(() => {
+        const text = document.getElementById("pasteText")?.value || "";
+        if (!text.trim()) return;
+        void resolvePasteText(text);
+      }, 80);
+    };
+    pasteTa?.addEventListener("paste", () => scheduleAutoParse());
+    pasteTa?.addEventListener("input", (e) => {
+      // 仅对一次插入较多内容的情况自动解析，避免逐字输入频繁请求
+      if (e.inputType === "insertFromPaste" || e.inputType === "insertFromDrop") {
+        scheduleAutoParse();
+      }
+    });
+    document.getElementById("pasteReadClipBtn")?.addEventListener("click", async () => {
+      try {
+        const clip = await navigator.clipboard.readText();
+        if (!clip?.trim()) {
+          setStatus("剪贴板为空");
+          return;
+        }
+        const ta = document.getElementById("pasteText");
+        if (ta) ta.value = clip;
+        await resolvePasteText(clip);
+      } catch (e) {
+        setStatus(`无法读剪贴板：${e.message || e}，请手动粘贴`);
+        document.getElementById("pasteText")?.focus();
+      }
+    });
+    document.getElementById("pasteSelectHiBtn")?.addEventListener("click", () => {
+      pasteRows.forEach((r) => {
+        r.checked = isHighConfidence(r.confidence) && !!r.best;
+      });
+      renderPasteResults();
+      savePasteCache();
+    });
+    document.getElementById("pasteClearBtn")?.addEventListener("click", () => {
+      pasteRows = [];
+      const ta = document.getElementById("pasteText");
+      if (ta) ta.value = "";
+      renderPasteResults();
+      try {
+        sessionStorage.removeItem(getPasteCacheKey());
+      } catch (_) {}
+    });
+    document.getElementById("pasteFilter")?.addEventListener("input", () => renderPasteResults());
+    document.getElementById("pasteMarketChips")?.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-paste-mkt]");
+      if (!btn) return;
+      pasteMarketFilter = btn.dataset.pasteMkt || "all";
+      document.querySelectorAll("[data-paste-mkt]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.pasteMkt === pasteMarketFilter);
+      });
+      renderPasteResults();
+    });
+    document.getElementById("pasteCheckAll")?.addEventListener("change", (e) => {
+      const on = !!e.target.checked;
+      pasteRows.forEach((r, idx) => {
+        if (!pasteRowVisible(r) || !r.best) return;
+        r.checked = on;
+      });
+      renderPasteResults();
+      savePasteCache();
+    });
+    document.getElementById("pasteResultBody")?.addEventListener("change", (e) => {
+      const t = e.target;
+      if (t?.matches?.("[data-paste-check]")) {
+        const idx = Number(t.dataset.pasteCheck);
+        if (pasteRows[idx]) {
+          pasteRows[idx].checked = !!t.checked;
+          updatePasteSelMeta();
+          savePasteCache();
+        }
+        return;
+      }
+      if (t?.matches?.("[data-paste-pick]")) {
+        const idx = Number(t.dataset.pastePick);
+        if (pasteRows[idx]) {
+          pasteRows[idx].pickSymbol = t.value;
+          const hit = pasteRows[idx].matches?.find((m) => m.symbol === t.value);
+          if (hit) pasteRows[idx].best = hit;
+          pasteRows[idx].checked = true;
+          renderPasteResults();
+          savePasteCache();
+        }
+      }
+    });
+    document.getElementById("pasteCopyBtn")?.addEventListener("click", async () => {
+      const syms = pasteSelectedSymbols();
+      if (!syms.length) {
+        setStatus("未选中任何标的");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(syms.join(","));
+        setStatus(`已复制 ${syms.length} 个代码`);
+      } catch (_) {
+        setStatus(syms.join(","));
+      }
+    });
+    document.getElementById("pasteOpenMultiBtn")?.addEventListener("click", () => {
+      const syms = pasteSelectedSymbols();
+      if (!syms.length) {
+        setStatus("未选中任何标的");
+        return;
+      }
+      const url = openMultipanel(syms, { period: currentPeriod || "1d" });
+      setStatus(`已解析 ${pasteRows.filter((r) => r.best).length} / 选中 ${syms.length} · 打开多面板`);
+      document.getElementById("pasteModal")?.classList.remove("show");
+      console.debug("multipanel", url);
+    });
+
     function openCompareModal() {
       document.getElementById("compareModal").classList.add("show");
       const input = document.getElementById("cmpQuery");
@@ -5379,6 +6009,9 @@
       void loadOlderHistoryManual();
     });
     document.getElementById("btnCompare").addEventListener("click", openCompareModal);
+    document.getElementById("btnPasteResolve")?.addEventListener("click", () => {
+      void openPasteResolveModal({ tryClipboard: true });
+    });
     document.getElementById("btnIndicator").addEventListener("click", openIndicatorModal);
     document.getElementById("btnSetting").addEventListener("click", openSettingModal);
     document.getElementById("btnTheme").addEventListener("click", toggleTheme);
@@ -5404,7 +6037,30 @@
       }
     });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeExtDropdown();
+      if (e.key === "Escape") {
+        closeExtDropdown();
+        const pasteMask = document.getElementById("pasteModal");
+        if (pasteMask?.classList.contains("show")) {
+          pasteMask.classList.remove("show");
+          e.preventDefault();
+        }
+        return;
+      }
+      // Ctrl/Cmd+Shift+V → 批量粘贴解析
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "V" || e.key === "v")) {
+        const tag = (e.target && e.target.tagName) || "";
+        const editable =
+          tag === "TEXTAREA" ||
+          (tag === "INPUT" &&
+            !["button", "checkbox", "radio", "submit", "reset"].includes(
+              String(e.target.type || "").toLowerCase()
+            )) ||
+          (e.target && e.target.isContentEditable);
+        // 在普通输入框里不拦截；Shift 组合仍允许强制打开
+        if (editable && tag === "TEXTAREA" && e.target.id === "pasteText") return;
+        e.preventDefault();
+        void openPasteResolveModal({ tryClipboard: true });
+      }
     });
     window.addEventListener("resize", () => {
       const wrap = document.getElementById("extMenuWrap");
