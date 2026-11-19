@@ -284,7 +284,12 @@ export async function getQuotesByCodesPreferCache(
  */
 export async function getFullQuotesPreferCache(
   codes: string[],
-  options?: { source?: QuoteSource; useSdkCache?: boolean; market?: string }
+  options?: {
+    source?: QuoteSource;
+    useSdkCache?: boolean;
+    market?: string;
+    onPartial?: (quotes: FullQuote[]) => void;
+  }
 ): Promise<FullQuote[]> {
   const list = codes.map((c) => normalizeStockCode(c) || c).filter(Boolean);
   if (!list.length) return [];
@@ -326,7 +331,10 @@ export async function getFullQuotesPreferCache(
     return alignQuotesToRequestedCodes(list, live.length ? live : cached);
   }
 
-  return fetchQuotesMultiMarket(list, { source: options?.source });
+  return fetchQuotesMultiMarket(list, {
+    source: options?.source,
+    onPartial: options?.onPartial,
+  });
 }
 
 function quoteDigits(code: string): string {

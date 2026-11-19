@@ -19,12 +19,12 @@ import { getChartColors, type ChartColors } from '@/components/charts/chartTheme
 import { Button, Card, Loading, Tabs, useToast } from '@/components/common';
 import { useAppSettings } from '@/contexts';
 import { useAlertRules, useIsInWatchlist, usePolling, useTheme } from '@/hooks';
+import { getKlineWithIndicatorsPreferCache } from '@/services/klineCache';
+import { getFullQuotesPreferCache } from '@/services/quoteCache';
 import {
   getDividendDetail,
-  getFullQuotes,
   getFundFlow,
   getIndividualFundFlow,
-  getKlineWithIndicators,
   getMinuteKline,
   getNorthboundIndividual,
   getPanelLargeOrder,
@@ -785,11 +785,15 @@ export function StockDetail() {
     }
 
     try {
-      const [quoteData] = await getFullQuotes([normalizedCode]);
-      if (quoteData) {
+      const apply = (quoteData: FullQuote | undefined) => {
+        if (!quoteData) return;
         // SDK/缓存常返回裸码 000001；详情路由用带前缀的 normalizedCode（如 sh000001）
         setQuote({ ...quoteData, code: normalizedCode });
-      }
+      };
+      const list = await getFullQuotesPreferCache([normalizedCode], {
+        onPartial: (partial) => apply(partial[0]),
+      });
+      apply(list[0]);
     } catch (error) {
       console.error('Fetch quote error:', error);
     }
@@ -837,7 +841,7 @@ export function StockDetail() {
 
     const requestPeriod = klinePeriod as KlinePeriod;
     try {
-      const data = await getKlineWithIndicators(normalizedCode, {
+      const data = await getKlineWithIndicatorsPreferCache(normalizedCode, {
         period: requestPeriod,
         adjust: 'qfq',
         startDate: getKlineStartDate(requestPeriod),
@@ -906,18 +910,15 @@ export function StockDetail() {
     }
   }, [normalizedCode]);
 
-  // 整载只跑一次（换股由路由 key 重挂载触发）；周期/指标变化走下面的专属增量 effect，
-  // 若把 fetch 回调放进依赖，切个 tab 就会全屏 loading + 五个接口全部重拉
+  // 整载只跑一次（换股由路由 key 重挂载触发）；周期/指标变化走下面的专属增量 effect。
+  // 首屏只等行情+K线（本机缓存秒开）；分时/资金/分红后挂，不挡全屏 loading。
   const loadInitial = useEffectEvent(async () => {
     setLoading(true);
-    await Promise.all([
-      fetchQuote(),
-      fetchTimeline(),
-      fetchKline(),
-      fetchFundData(),
-      fetchDividendData(),
-    ]);
+    await Promise.all([fetchQuote(), fetchKline()]);
     setLoading(false);
+    void fetchTimeline();
+    void fetchFundData();
+    void fetchDividendData();
   });
 
   useEffect(() => {
