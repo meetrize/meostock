@@ -47,7 +47,7 @@ GET https://datacenter-web.eastmoney.com/api/data/v1/get
 - `name` / `sponsor` / `city` / `fe_type` / `std_type_code` / `content`
 - `importance` / `importance_reason` / `importance_rated_at`：DeepSeek 1–5 星（仅未评级时写入）
 - `content_hash`：变更检测
-- `source`：数据来源码 — `eastmoney`（展示「东财」）/ `feedgen`（本系统新闻日程扫描）
+- `source`：数据来源码 — `eastmoney`（东财）/ `feedgen`（新闻日程扫描）/ `manual`（粘贴解析手动添加）
 - `first_seen_at` / `updated_at` / `synced_at`
 
 窗口：`[today-3, today+29]`（含进行中 overlap）。分页 `pageSize=50` 拉齐。不硬删远端消失项。
@@ -74,9 +74,11 @@ GET https://datacenter-web.eastmoney.com/api/data/v1/get
 
 | 路径 | 说明 |
 |------|------|
-| `GET /api/calendar/events` | `from` `to` `std_type` `fe_type` `city` `q` `importance`(`unrated`\|`1`..`5`≥N) `source`(`eastmoney`\|`feedgen`) `limit` |
+| `GET /api/calendar/events` | `from` `to` `std_type` `fe_type` `city` `q` `importance`(`unrated`\|`1`..`5`≥N) `source`(`eastmoney`\|`feedgen`\|`manual`) `limit` |
 | `GET /api/calendar/facets` | 类型 / 细类 / 地区 / 来源计数 |
 | `GET /api/calendar/sync/status` | 上次同步摘要 |
+| `POST /api/calendar/parse` | 粘贴文本 AI 抽取未来日程（中/英均可，字段输出简体中文；不写库；需已配置 AI） |
+| `POST /api/calendar/events` | 确认添加手动事件（`source=manual`；语义去重；可 `force`） |
 | `GET /api/calendar/ai-rate/pending` | 未评级条数 |
 | `GET /api/calendar/ai-rate/progress` | AI 评级进度 |
 | `POST /api/calendar/ai-rate` | 异步批量评级（跳过已有 `importance`；需设置页已配置 AI 模型） |
@@ -85,7 +87,7 @@ AI Key / 模型见 [ai-provider-settings.md](./ai-provider-settings.md)。
 
 新闻侧 `source=feedgen` 由 sibling **feedgen** 任务 `calendar.future_scan` 写入；写入前带语义去重（规则相似 + AI 判同，可与东财行合并），详见 feedgen `docs/CALENDAR_FUTURE_SCAN.md`。
 
-面板「AI 重要程度评级」按钮会轮询进度并展示五星；展开行可见评级理由。
+面板支持「添加日程」：粘贴新闻稿 → 校对勾选 → 确认入库（`manual`）；「AI 重要程度评级」会轮询进度并展示五星。
 
 ---
 

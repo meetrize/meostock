@@ -17,6 +17,7 @@ STD_TYPE_LABELS = {
 SOURCE_LABELS = {
     "eastmoney": "东财",
     "feedgen": "feedgen",
+    "manual": "手动",
 }
 
 
@@ -46,7 +47,7 @@ def list_events(
     limit: int = 200,
 ) -> list[dict[str, Any]]:
     """importance: ``unrated`` | ``1``..``5``（表示 ≥N 星）。
-    source: ``eastmoney`` | ``feedgen``。
+    source: ``eastmoney`` | ``feedgen`` | ``manual``。
     """
     init_db()
     today = date.today()

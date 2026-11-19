@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Empty, Loading, useToast } from '@/components/common';
+import { CalendarPasteAddModal } from './CalendarPasteAddModal';
 import styles from './CalendarEventsWidget.module.css';
 
 type RangeKey = 'today' | '7d' | '30d';
@@ -57,11 +58,12 @@ const IMPORTANCE_CHIPS: { code: string; label: string }[] = [
   { code: '5', label: '5★' },
 ];
 
-/** ''=全部；eastmoney=东财；feedgen=本系统新闻抽取 */
+/** ''=全部；eastmoney=东财；feedgen=新闻抽取；manual=粘贴手动 */
 const SOURCE_CHIPS: { code: string; label: string }[] = [
   { code: '', label: '全部来源' },
   { code: 'eastmoney', label: '东财' },
   { code: 'feedgen', label: 'feedgen' },
+  { code: 'manual', label: '手动' },
 ];
 
 function isoDay(d: Date): string {
@@ -193,7 +195,9 @@ function eventTooltip(ev: CalEvent): string {
   if (ev.sponsor) parts.push(`主办：${ev.sponsor}`);
   if (ev.city) parts.push(`地区：${ev.city}`);
   if (ev.std_type_label) parts.push(`大类：${ev.std_type_label}`);
-  const srcLabel = ev.source_label || (ev.source === 'feedgen' ? 'feedgen' : '东财');
+  const srcLabel =
+    ev.source_label ||
+    (ev.source === 'feedgen' ? 'feedgen' : ev.source === 'manual' ? '手动' : '东财');
   parts.push(`来源：${srcLabel}`);
   if (ev.importance) parts.push(`重要性：${ev.importance} 星`);
   if (ev.importance_reason) parts.push(`评级：${ev.importance_reason}`);
@@ -225,6 +229,7 @@ export function CalendarEventsWidget() {
   const [rating, setRating] = useState(false);
   const [rateProgress, setRateProgress] = useState<SyncProgress | null>(null);
   const [pendingRate, setPendingRate] = useState(0);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const syncAbortRef = useRef(false);
   const rateAbortRef = useRef(false);
 
@@ -493,6 +498,14 @@ export function CalendarEventsWidget() {
           <div className={styles.actionBtns}>
             <button
               type="button"
+              className={styles.addBtnInline}
+              disabled={syncing || rating}
+              onClick={() => setPasteOpen(true)}
+            >
+              添加日程
+            </button>
+            <button
+              type="button"
               className={styles.syncBtnInline}
               disabled={syncing || rating}
               onClick={() => void triggerSync()}
@@ -563,7 +576,9 @@ export function CalendarEventsWidget() {
                   ? styles.chipSourceFeedgen
                   : c.code === 'eastmoney'
                     ? styles.chipSourceEastmoney
-                    : ''
+                    : c.code === 'manual'
+                      ? styles.chipSourceManual
+                      : ''
               }`}
               onClick={() => setSource(c.code)}
             >
@@ -703,7 +718,13 @@ export function CalendarEventsWidget() {
             const open = expanded === ev.fe_code;
             const region = regionDisplay(ev.city);
             const typeLabel = ev.fe_type && ev.fe_type !== '-' ? ev.fe_type : ev.std_type_label || '—';
-            const sourceLabel = ev.source_label || (ev.source === 'feedgen' ? 'feedgen' : '东财');
+            const sourceLabel =
+              ev.source_label ||
+              (ev.source === 'feedgen'
+                ? 'feedgen'
+                : ev.source === 'manual'
+                  ? '手动'
+                  : '东财');
             const sourceCode = (ev.source || 'eastmoney').toLowerCase();
             return (
               <li key={ev.fe_code} className={`${styles.item} ${toneClass(ev.std_type_code)}`}>
@@ -728,7 +749,11 @@ export function CalendarEventsWidget() {
                   </span>
                   <span
                     className={`${styles.sourceTag} ${
-                      sourceCode === 'feedgen' ? styles.sourceFeedgen : styles.sourceEastmoney
+                      sourceCode === 'feedgen'
+                        ? styles.sourceFeedgen
+                        : sourceCode === 'manual'
+                          ? styles.sourceManual
+                          : styles.sourceEastmoney
                     }`}
                     title={`来源：${sourceLabel}`}
                   >
@@ -758,6 +783,12 @@ export function CalendarEventsWidget() {
           })}
         </ul>
       )}
+
+      <CalendarPasteAddModal
+        open={pasteOpen}
+        onClose={() => setPasteOpen(false)}
+        onAdded={() => void load()}
+      />
     </div>
   );
 }

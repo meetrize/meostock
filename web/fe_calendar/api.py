@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import Any
 
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 
 from ai import config as ai_config
 from fe_calendar.ai_rate import get_rate_progress, list_unrated_events, run_ai_importance_rating
+from fe_calendar.parse import parse_calendar_text
 from fe_calendar.store import facets, list_events, sync_status
+from fe_calendar.write import create_manual_events, preview_duplicates
 from scheduler.finance_calendar_sync import get_progress
 
 router = APIRouter(prefix="/api/calendar", tags=["calendar"])
@@ -18,6 +22,30 @@ _log = logging.getLogger("fe-calendar-api")
 
 _rate_lock = threading.Lock()
 _rate_thread: threading.Thread | None = None
+
+_HINT_AI = "在设置 → AI 模型 中添加配置并设为使用中"
+
+
+class ParseBody(BaseModel):
+    text: str = Field(..., min_length=1)
+
+
+class CreateEventItem(BaseModel):
+    name: str
+    start_at: str
+    end_at: str | None = None
+    std_type_code: str | None = "3"
+    fe_type: str | None = None
+    sponsor: str | None = None
+    city: str | None = None
+    summary: str | None = None
+    force: bool | None = None
+
+
+class CreateBody(BaseModel):
+    events: list[CreateEventItem] = Field(default_factory=list)
+    source_excerpt: str | None = None
+    force: bool = False
 
 
 @router.get("/events")
@@ -31,7 +59,7 @@ def calendar_events(
     importance: str | None = Query(
         None, description="unrated | 1..5（≥N 星）"
     ),
-    source: str | None = Query(None, description="eastmoney|feedgen"),
+    source: str | None = Query(None, description="eastmoney|feedgen|manual"),
     limit: int = Query(200, ge=1, le=1000),
 ):
     try:
@@ -71,6 +99,77 @@ def calendar_sync_status():
         return JSONResponse({"ok": True, **sync_status(), "progress": get_progress()})
     except Exception as exc:  # noqa: BLE001
         _log.exception("calendar sync status failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/parse")
+def calendar_parse(body: ParseBody):
+    """粘贴文本 → AI 抽取未来日程（不写库）。"""
+    if not ai_config.is_configured():
+        return JSONResponse(
+            {"ok": False, "error": "未配置 AI 模型", "hint": _HINT_AI},
+            status_code=503,
+        )
+    try:
+        data = parse_calendar_text(body.text)
+        events = preview_duplicates(data["events"])
+        return JSONResponse(
+            {
+                "ok": True,
+                "events": events,
+                "count": len(events),
+                "model": data.get("model"),
+                "provider": data.get("provider"),
+                "truncated": data.get("truncated"),
+            }
+        )
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("calendar parse failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/events")
+def calendar_create(body: CreateBody):
+    """确认添加手动日程（含语义去重）。"""
+    if not body.events:
+        return JSONResponse({"ok": False, "error": "events 为空"}, status_code=400)
+    try:
+        payload: list[dict[str, Any]] = []
+        for e in body.events:
+            payload.append(
+                {
+                    "name": e.name,
+                    "start_at": e.start_at,
+                    "end_at": e.end_at,
+                    "std_type_code": e.std_type_code or "3",
+                    "fe_type": e.fe_type or "",
+                    "sponsor": e.sponsor or "",
+                    "city": e.city or "",
+                    "summary": e.summary or "",
+                }
+            )
+        for i, e in enumerate(body.events):
+            if e.force:
+                payload[i]["force"] = True
+        result = create_manual_events(
+            payload,
+            source_excerpt=(body.source_excerpt or "")[:800],
+            force=bool(body.force),
+        )
+        return JSONResponse(
+            {
+                "ok": True,
+                **result,
+                "message": (
+                    f"新建 {result['inserted']}，合并 {result['merged']}，"
+                    f"更新 {result['updated']}，跳过 {result['skipped']}"
+                ),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("calendar create failed")
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
 
