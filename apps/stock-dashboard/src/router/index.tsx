@@ -52,6 +52,7 @@ const FinanceCalendar = lazy(() =>
 const Favorites = lazy(() =>
   import('@/pages/Favorites').then((mod) => ({ default: mod.Favorites }))
 );
+const Agent = lazy(() => import('@/pages/Agent').then((mod) => ({ default: mod.Agent })));
 
 function withSuspense(element: ReactNode) {
   return (
@@ -144,6 +145,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'favorites',
           element: withSuspense(<Favorites />),
+        },
+        {
+          path: 'agent',
+          element: withSuspense(<Agent />),
         },
         {
           path: 'workspaces',

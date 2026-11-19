@@ -21,6 +21,7 @@ __pycache__/
 # 运行时缓存
 data/*.db
 data/*.db-*
+data/agent_workspaces/
 
 # 本地密钥（Tushare Token 等）
 .env

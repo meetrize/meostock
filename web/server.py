@@ -131,6 +131,16 @@ except Exception as _ai_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("ai proxy disabled: %s", _ai_exc)
 
+# 看板 AI Agent（工具循环 / 只读查库）
+try:
+    from agent.api import router as _agent_router
+
+    app.include_router(_agent_router)
+except Exception as _agent_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("ai agent disabled: %s", _agent_exc)
+
 # 宏观利率（NY Fed 目标/EFFR + 财政部国债曲线；无需 API Key）
 try:
     from macro.api import router as _macro_router

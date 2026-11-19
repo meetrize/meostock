@@ -1,0 +1,58 @@
+[
+  {
+    "id": "db_tables",
+    "title": "本地库有哪些表",
+    "category": "查库",
+    "description": "列出 quote_cache 表结构摘要",
+    "prompt": "请用 schema_inspect 查看本地行情库有哪些表和主要字段，用简洁表格说明每张表的用途。",
+    "skillId": "db_explore"
+  },
+  {
+    "id": "db_top_gainers",
+    "title": "今日涨幅靠前的 A 股",
+    "category": "查库",
+    "description": "只读查询 quote_snapshot",
+    "prompt": "请只读查询本地库：找出 market='cn' 且 change_percent 最高的 15 只股票，列出代码、名称、涨跌幅、现价，并对出现的股票名称做成可点 K 线的说明。",
+    "skillId": "db_explore"
+  },
+  {
+    "id": "symbol_lookup",
+    "title": "搜索标的名称",
+    "category": "查库",
+    "description": "按关键字搜股票/商品",
+    "prompt": "请用 symbol_search 搜索「茅台」「黄金」相关标的，列出匹配结果并说明如何点开 K 线。",
+    "skillId": "db_explore"
+  },
+  {
+    "id": "market_brief",
+    "title": "今日市场一句话",
+    "category": "投研",
+    "description": "结合库内快照做简要解读",
+    "prompt": "结合本地 quote_snapshot（A 股）涨跌分布，用两三句话概括今日市场情绪，并点名 3 只代表性个股（需可点开 K 线）。不要给买卖指令。",
+    "skillId": "research_brief"
+  },
+  {
+    "id": "calendar_peek",
+    "title": "近期财经日历",
+    "category": "查库",
+    "description": "读 finance_calendar_event",
+    "prompt": "请只读查询 finance_calendar_event：列出 start_ts 在未来 7 天内最重要的 10 条事件（优先 importance 非空且高），用表格展示 start_at、name、importance、city。",
+    "skillId": "db_explore"
+  },
+  {
+    "id": "coding_hello",
+    "title": "工作区写一份说明",
+    "category": "工程",
+    "description": "在隔离工作区生成 Markdown 交付物",
+    "prompt": "请在当前会话工作区写入 README_agent.md，内容为：meostock Agent 工作区用途说明（中文，约 10 行）。写完后 workspace_list 确认，并告诉我相对路径。",
+    "skillId": "coding_workspace"
+  },
+  {
+    "id": "self_upgrade_demo",
+    "title": "本仓库自升级（小改动）",
+    "category": "工程",
+    "description": "改文档 → smoke → 准备验收（不自动 push）",
+    "prompt": "请对本仓库做一次最小自升级演示：在 docs/ai-agent.md 末尾追加一小节「## Agent 自升级演练」写两句中文说明 Phase 2/3 已可用；然后 run_smoke_test；通过后 prepare_acceptance，commit message 用简体中文说明目的。不要自行 commit/push。",
+    "skillId": "self_upgrade"
+  }
+]

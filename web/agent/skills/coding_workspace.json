@@ -1,0 +1,18 @@
+{
+  "id": "coding_workspace",
+  "title": "工作区 Coding",
+  "description": "在隔离工作区写文件、跑 allowlist 命令并交付产物",
+  "intent": "coding",
+  "tools": [
+    "schema_inspect",
+    "sql_readonly",
+    "symbol_search",
+    "workspace_list",
+    "workspace_read",
+    "workspace_write",
+    "shell_run"
+  ],
+  "permission": "L1",
+  "prompt": "你在 meostock Agent 的隔离工作区（data/agent_workspaces/<session>/）交付代码或文档。\n优先 workspace_write 写入产物；可用 shell_run（allowlist）做 py_compile 等检查。\n不要改本仓库源码（那是 self_upgrade）；不要写数据库；回答时列出产物相对路径。",
+  "userHint": "在工作区写一个小脚本/报告"
+}

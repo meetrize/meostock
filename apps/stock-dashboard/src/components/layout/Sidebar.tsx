@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Plus,
   Wrench,
+  Bot,
 } from 'lucide-react';
 import { Logo } from '@/components/common';
 import {
@@ -61,6 +62,7 @@ const navItems: NavItem[] = [
   { path: '/scanner', label: '扫描', icon: <TrendingUp size={18} /> },
   { path: '/eod-picker', label: '尾盘选股', icon: <TrendingUp size={18} /> },
   { path: '/scheduler', label: '定时任务', icon: <Clock size={18} /> },
+  { path: '/agent', label: 'AI Agent', icon: <Bot size={18} /> },
 ];
 
 const bottomItems: NavItem[] = [

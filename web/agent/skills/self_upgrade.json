@@ -1,0 +1,25 @@
+{
+  "id": "self_upgrade",
+  "title": "本仓库自升级",
+  "description": "修改 meostock → smoke 测试 → 人工验收 → commit/push",
+  "intent": "self_upgrade",
+  "tools": [
+    "repo_list",
+    "repo_read",
+    "repo_write",
+    "shell_run",
+    "run_smoke_test",
+    "git_status",
+    "git_diff",
+    "prepare_acceptance",
+    "schema_inspect",
+    "sql_readonly",
+    "symbol_search",
+    "workspace_list",
+    "workspace_read",
+    "workspace_write"
+  ],
+  "permission": "L2",
+  "prompt": "你正在对本仓库 meostock 做受控自升级。\n流程必须：1) repo_read 了解现状 2) repo_write 修改（禁 .env/*.db/.git）3) run_smoke_test 必须通过 4) prepare_acceptance 提交验收单（简体中文 commit message）\n禁止自行 git commit/push；必须等用户在 UI 验收。失败则继续修复再测。说明改了哪些文件。",
+  "userHint": "帮我升级/修改本项目并准备提交"
+}

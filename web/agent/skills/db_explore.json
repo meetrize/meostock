@@ -1,0 +1,10 @@
+{
+  "id": "db_explore",
+  "title": "只读查库",
+  "description": "查看表结构、跑 SELECT、搜索标的",
+  "intent": "db_query",
+  "tools": ["schema_inspect", "sql_readonly", "symbol_search"],
+  "permission": "L0",
+  "prompt": "你正在协助用户只读探索 meostock 本地 SQLite（quote_cache.db）。优先调用工具拿真实数据，禁止编造表名或行。回答用简洁中文；出现股票/商品名称时写清代码便于前端生成 K 线链接。",
+  "userHint": "帮我查一下本地库"
+}
