@@ -151,6 +151,16 @@ except Exception as _cal_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("finance calendar disabled: %s", _cal_exc)
 
+# 网址收藏夹
+try:
+    from favorites.api import router as _favorites_router
+
+    app.include_router(_favorites_router)
+except Exception as _fav_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("favorites disabled: %s", _fav_exc)
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {

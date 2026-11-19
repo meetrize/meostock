@@ -49,6 +49,9 @@ const WorkspaceView = lazy(() =>
 const FinanceCalendar = lazy(() =>
   import('@/pages/FinanceCalendar').then((mod) => ({ default: mod.FinanceCalendar }))
 );
+const Favorites = lazy(() =>
+  import('@/pages/Favorites').then((mod) => ({ default: mod.Favorites }))
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -137,6 +140,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'calendar',
           element: withSuspense(<FinanceCalendar />),
+        },
+        {
+          path: 'favorites',
+          element: withSuspense(<Favorites />),
         },
         {
           path: 'workspaces',

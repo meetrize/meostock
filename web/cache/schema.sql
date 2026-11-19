@@ -240,3 +240,17 @@ CREATE TABLE IF NOT EXISTS ai_provider_profile (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_profile_provider ON ai_provider_profile (provider);
+
+-- 网址收藏夹
+CREATE TABLE IF NOT EXISTS bookmark_favorite (
+  id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  favicon_url TEXT,
+  note TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at REAL NOT NULL,
+  updated_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmark_sort ON bookmark_favorite (sort_order);
