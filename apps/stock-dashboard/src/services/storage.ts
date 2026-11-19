@@ -425,6 +425,22 @@ export function getSettings(): AppSettings {
     /* ignore */
   }
 
+  // 「仅联网」会跳过本机快照，自选首屏常被东财偶发拖慢；一次性改回 auto。
+  // 仍需纯联网可在设置页重新选择。
+  const networkToAutoFixKey = 'settings.quoteSource.networkToAutoFix.v1';
+  try {
+    if (quoteSource === 'network' && !localStorage.getItem(networkToAutoFixKey)) {
+      quoteSource = 'auto';
+      localStorage.setItem(networkToAutoFixKey, '1');
+      const next = { ...parsed, quoteSource: 'auto' as const };
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify({ ...DEFAULT_SETTINGS, ...next }));
+    } else if (!localStorage.getItem(networkToAutoFixKey)) {
+      localStorage.setItem(networkToAutoFixKey, '1');
+    }
+  } catch {
+    /* ignore */
+  }
+
   return {
     ...DEFAULT_SETTINGS,
     ...parsed,

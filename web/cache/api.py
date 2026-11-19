@@ -206,9 +206,9 @@ def cache_snapshot(
     models.set_config("last_market", market)
 
     meta = models.get_market_meta(market)
-    # 全表读用于判断是否有缓存 / 是否需同步；再按 codes 过滤返回
-    all_items = models.read_snapshot(market)
-    items = models.read_snapshot(market, codes=code_list) if code_list else all_items
+    # 用 row_count 判断是否有缓存，避免为 need_sync 再全表读一遍
+    has_cache = models.snapshot_row_count(market) > 0
+    items = models.read_snapshot(market, codes=code_list) if code_list else models.read_snapshot(market)
     now = time.time()
     as_of = float(meta["snapshot_as_of"]) if meta and meta.get("snapshot_as_of") else None
     synced_at = float(meta["snapshot_synced_at"]) if meta and meta.get("snapshot_synced_at") else None
@@ -217,29 +217,21 @@ def cache_snapshot(
     syncing = is_syncing(market)
     source = (meta or {}).get("source")
 
-    # local：不入队；network：视为更积极同步（force 语义）
+    # local：不入队；按码查询不因 network 每次强制全市场同步（自选轮询会拖垮读锁）
     allow_net = quote_source != "local"
     need_sync = False
     if allow_net:
-        if quote_source == "network":
-            need_sync = bool(force) or (not all_items) or should_auto_sync(active_mode)
+        if code_list:
+            need_sync = bool(force) or (not has_cache) or (stale and should_auto_sync(active_mode))
+        elif quote_source == "network":
+            need_sync = bool(force) or (not has_cache) or should_auto_sync(active_mode)
         else:
-            need_sync = bool(force) or (not all_items) or (stale and should_auto_sync(active_mode))
+            need_sync = bool(force) or (not has_cache) or (stale and should_auto_sync(active_mode))
 
-    # 无缓存：后台拉，短等首批（渐进落库），避免阻塞数十秒
-    if not all_items:
+    # 无缓存：后台入队后立即返回（先本地秒开语义），不再阻塞等待最多 8s
+    if not has_cache:
         if allow_net and not is_syncing(market):
             enqueue(market, force=True, priority=0)
-        if allow_net:
-            deadline = time.time() + 8.0
-            while time.time() < deadline:
-                all_items = models.read_snapshot(market)
-                if all_items:
-                    break
-                if not is_syncing(market):
-                    break
-                time.sleep(0.35)
-        items = models.read_snapshot(market, codes=code_list) if code_list else all_items
         meta = models.get_market_meta(market)
         as_of = float(meta["snapshot_as_of"]) if meta and meta.get("snapshot_as_of") else None
         synced_at = float(meta["snapshot_synced_at"]) if meta and meta.get("snapshot_synced_at") else None
@@ -247,7 +239,8 @@ def cache_snapshot(
         stale = True
         syncing = is_syncing(market) or (meta or {}).get("sync_state") == "running"
         source = (meta or {}).get("source")
-        if not all_items and not syncing:
+        items = models.read_snapshot(market, codes=code_list) if code_list else models.read_snapshot(market)
+        if not items and not syncing:
             if quote_source == "local":
                 return JSONResponse(
                     {
@@ -277,8 +270,33 @@ def cache_snapshot(
                 },
                 status_code=502,
             )
+        if not items and syncing:
+            # 冷启动：立刻返回空 + syncing，前端可先用 sdk 补缺或稍后重试
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "market": market,
+                    "mode": active_mode,
+                    "quote_source": quote_source,
+                    "as_of": None,
+                    "synced_at": None,
+                    "age_sec": None,
+                    "ttl_sec": ttl_seconds(active_mode, market),
+                    "stale": True,
+                    "offline": False,
+                    "syncing": True,
+                    "source": source,
+                    "total": 0,
+                    "filtered": bool(code_list),
+                    "items": [],
+                }
+            )
     elif need_sync and not syncing and allow_net:
-        if force or active_mode == "realtime" or quote_source == "network":
+        # 按码查询：后台慢同步即可，避免自选打开时抢写锁
+        if code_list and not force:
+            enqueue(market, force=False, priority=2)
+            syncing = True
+        elif force or active_mode == "realtime" or quote_source == "network":
             enqueue(market, force=True, priority=0)
             syncing = True
             stale = True

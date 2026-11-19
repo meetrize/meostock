@@ -192,34 +192,24 @@ export function Watchlist() {
     return !group || group.codes.length === 0;
   }, [groups, activeGroupId]);
 
-  // 加载行情（cn/hk/us 混合自选由 quoteCache 分市场拉取）
-  const fetchQuotes = useCallback(async () => {
-    if (normalizedActiveCodes.length === 0) {
-      setQuotes(new Map());
-      setQuotesReady(true);
-      setQuotesError(false);
-      return;
-    }
+  const applyQuotesMap = useCallback((data: FullQuote[]) => {
+    const map = new Map<string, FullQuote>();
+    data.forEach((q) => {
+      if (q && q.code) {
+        const normalized = normalizeStockCode(q.code);
+        map.set(normalized, q);
+        map.set(q.code, q);
+        map.set(q.code.toLowerCase(), q);
+        const bare = normalized.replace(/^(sh|sz|bj|hk|us)/i, '');
+        if (bare && !map.has(bare)) map.set(bare, q);
+      }
+    });
+    setQuotes(map);
+    return map;
+  }, []);
 
-    try {
-      const data = await getQuotesByCodesPreferCache(normalizedActiveCodes);
-      const map = new Map<string, FullQuote>();
-
-      // 使用标准化后的代码作为 key（含 usAAPL / hk00700）
-      data.forEach((q) => {
-        if (q && q.code) {
-          const normalized = normalizeStockCode(q.code);
-          map.set(normalized, q);
-          map.set(q.code, q);
-          map.set(q.code.toLowerCase(), q);
-          const bare = normalized.replace(/^(sh|sz|bj|hk|us)/i, '');
-          if (bare && !map.has(bare)) map.set(bare, q);
-        }
-      });
-
-      setQuotes(map);
-      setQuotesError(false);
-
+  const evaluateAlerts = useCallback(
+    (map: Map<string, FullQuote>) => {
       const now = Date.now();
       const triggered: AlertRule[] = [];
 
@@ -229,18 +219,9 @@ export function Watchlist() {
         .forEach((rule) => {
           const normalized = normalizeStockCode(rule.code);
           const currentQuote = map.get(normalized);
-          if (!currentQuote) {
-            return;
-          }
-
-          if (now - rule.lastTriggeredAt < rule.cooldownSec * 1000) {
-            return;
-          }
-
-          if (!matchesAlertRule(rule, currentQuote)) {
-            return;
-          }
-
+          if (!currentQuote) return;
+          if (now - rule.lastTriggeredAt < rule.cooldownSec * 1000) return;
+          if (!matchesAlertRule(rule, currentQuote)) return;
           triggered.push(rule);
         });
 
@@ -251,7 +232,6 @@ export function Watchlist() {
         );
       }
 
-      // 超限聚合成一条：全部规则都已写 lastTriggeredAt（冷却语义一致），不逐条轰炸
       const MAX_ALERT_TOASTS = 2;
       triggered.slice(0, MAX_ALERT_TOASTS).forEach((rule) => {
         toast.info(`${rule.name} 触发告警: ${formatAlertRule(rule)}`);
@@ -259,13 +239,37 @@ export function Watchlist() {
       if (triggered.length > MAX_ALERT_TOASTS) {
         toast.info(`另有 ${triggered.length - MAX_ALERT_TOASTS} 条告警触发，详见告警面板`);
       }
+    },
+    [toast]
+  );
+
+  // 加载行情：先本地快照秒开，再联网补缺/刷新（cn/hk/us 分市场）
+  const fetchQuotes = useCallback(async () => {
+    if (normalizedActiveCodes.length === 0) {
+      setQuotes(new Map());
+      setQuotesReady(true);
+      setQuotesError(false);
+      return;
+    }
+
+    try {
+      const data = await getQuotesByCodesPreferCache(normalizedActiveCodes, {
+        onPartial: (partial) => {
+          applyQuotesMap(partial);
+          setQuotesReady(true);
+          setQuotesError(false);
+        },
+      });
+      const map = applyQuotesMap(data);
+      setQuotesError(false);
+      evaluateAlerts(map);
     } catch (error) {
       console.error('Fetch quotes error:', error);
       setQuotesError(true);
     } finally {
       setQuotesReady(true);
     }
-  }, [normalizedActiveCodes, toast]);
+  }, [normalizedActiveCodes, applyQuotesMap, evaluateAlerts]);
 
   const activeCodesKey = normalizedActiveCodes.join(',');
   useEffect(() => {

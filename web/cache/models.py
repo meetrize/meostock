@@ -355,27 +355,61 @@ def _code_match_keys(raw: str) -> set[str]:
     return {k for k in keys if k}
 
 
+def snapshot_row_count(market: str) -> int:
+    """廉价判断某市场是否已有快照（避免为 need_sync 全表读）。"""
+    meta = get_market_meta(market)
+    if meta and meta.get("row_count") is not None:
+        try:
+            return int(meta["row_count"] or 0)
+        except (TypeError, ValueError):
+            pass
+    conn = get_conn()
+    with _lock:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM quote_snapshot WHERE market = ?", (market,)
+        ).fetchone()
+    return int(row["c"] if row else 0)
+
+
 def read_snapshot(
     market: str,
     *,
     codes: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     conn = get_conn()
+    wanted: set[str] = set()
+    if codes:
+        for c in codes:
+            wanted |= _code_match_keys(c)
+        if not wanted:
+            return []
+
     with _lock:
-        rows = conn.execute(
-            "SELECT * FROM quote_snapshot WHERE market = ?", (market,)
-        ).fetchall()
+        if not wanted:
+            rows = conn.execute(
+                "SELECT * FROM quote_snapshot WHERE market = ?", (market,)
+            ).fetchall()
+        else:
+            # 按码 SQL 过滤，自选/少量 codes 不再全表扫（us 约 1 万行时尤为明显）
+            keys = list(wanted)
+            placeholders = ",".join("?" for _ in keys)
+            rows = conn.execute(
+                f"""
+                SELECT * FROM quote_snapshot
+                WHERE market = ?
+                  AND (
+                    lower(code) IN ({placeholders})
+                    OR lower(IFNULL(kline_symbol, '')) IN ({placeholders})
+                  )
+                """,
+                (market, *[k.lower() for k in keys], *[k.lower() for k in keys]),
+            ).fetchall()
+
     out: list[dict[str, Any]] = []
     for r in rows:
         out.append(row_to_quote_item(dict(r)))
     if not codes:
         return out
-
-    wanted: set[str] = set()
-    for c in codes:
-        wanted |= _code_match_keys(c)
-    if not wanted:
-        return []
 
     filtered: list[dict[str, Any]] = []
     seen: set[str] = set()

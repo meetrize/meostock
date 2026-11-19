@@ -169,28 +169,24 @@ async function fetchLiveQuotesForMarket(
 
 const US_EXCHANGE_SUFFIX_RE = /\.(OQ|N|A|O|P|OB|PK|OTC)$/i;
 
-async function fetchQuotesMultiMarket(
-  list: string[],
-  options?: {
-    source?: QuoteSource;
-    force?: boolean;
-    batchSize?: number;
-    concurrency?: number;
+function collectUniqueQuotes(map: Map<string, FullQuote>): FullQuote[] {
+  const uniqueQuotes: FullQuote[] = [];
+  const seen = new Set<string>();
+  for (const q of map.values()) {
+    const key = normalizeStockCode(q.code) || q.code;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueQuotes.push(q);
   }
-): Promise<FullQuote[]> {
-  const source = resolveSource(options?.source);
-  const groups = groupCodesByCacheMarket(list);
+  return uniqueQuotes;
+}
 
-  if (source === 'network') {
-    const parts = await Promise.all(
-      (Object.keys(groups) as QuoteCacheMarket[]).map((market) =>
-        fetchLiveQuotesForMarket(market, groups[market], options)
-      )
-    );
-    return alignQuotesToRequestedCodes(list, parts.flat());
-  }
-
-  const map = new Map<string, FullQuote>();
+async function loadCacheIntoMap(
+  groups: Record<QuoteCacheMarket, string[]>,
+  map: Map<string, FullQuote>,
+  options?: { force?: boolean; source?: QuoteSource }
+): Promise<Record<QuoteCacheMarket, string[]>> {
+  const source = options?.source ?? 'auto';
   const missingByMarket: Record<QuoteCacheMarket, string[]> = { cn: [], hk: [], us: [] };
 
   await Promise.all(
@@ -204,8 +200,6 @@ async function fetchQuotesMultiMarket(
         });
         items.forEach((q) => indexQuoteIntoMap(map, q));
       } catch {
-        // 该市场缓存失败：整组进 missing，auto/network 再走 sdk
-        if (source === 'local') return;
         missingByMarket[market].push(...codes);
         return;
       }
@@ -217,31 +211,57 @@ async function fetchQuotesMultiMarket(
     })
   );
 
-  if (source !== 'local') {
-    const liveParts = await Promise.all(
-      (Object.keys(missingByMarket) as QuoteCacheMarket[]).map((market) =>
-        missingByMarket[market].length
-          ? fetchLiveQuotesForMarket(market, missingByMarket[market], options)
-          : Promise.resolve([] as FullQuote[])
-      )
-    );
-    liveParts.flat().forEach((q) => indexQuoteIntoMap(map, q));
+  return missingByMarket;
+}
+
+async function fetchQuotesMultiMarket(
+  list: string[],
+  options?: {
+    source?: QuoteSource;
+    force?: boolean;
+    batchSize?: number;
+    concurrency?: number;
+    /** 本地快照就绪后立即回调（不等待联网补缺），用于自选等先秒开 */
+    onPartial?: (quotes: FullQuote[]) => void;
+  }
+): Promise<FullQuote[]> {
+  const source = resolveSource(options?.source);
+  const groups = groupCodesByCacheMarket(list);
+  const map = new Map<string, FullQuote>();
+
+  // network 也先读本机快照：少量代码秒开，再叠加实时（避免东财偶发拖垮首屏）
+  const missingAfterCache = await loadCacheIntoMap(groups, map, {
+    force: options?.force,
+    source: source === 'network' ? 'auto' : source,
+  });
+
+  const partial = alignQuotesToRequestedCodes(list, collectUniqueQuotes(map));
+  if (partial.length > 0) {
+    options?.onPartial?.(partial);
   }
 
-  const uniqueQuotes: FullQuote[] = [];
-  const seen = new Set<string>();
-  for (const q of map.values()) {
-    const key = normalizeStockCode(q.code) || q.code;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    uniqueQuotes.push(q);
+  if (source === 'local') {
+    return partial;
   }
-  return alignQuotesToRequestedCodes(list, uniqueQuotes);
+
+  // auto：只补缺；network：对全部代码再拉一遍实时（缓存已通过 onPartial 露出）
+  const liveTargets: Record<QuoteCacheMarket, string[]> =
+    source === 'network' ? groups : missingAfterCache;
+
+  const liveParts = await Promise.all(
+    (Object.keys(liveTargets) as QuoteCacheMarket[]).map((market) =>
+      liveTargets[market].length
+        ? fetchLiveQuotesForMarket(market, liveTargets[market], options)
+        : Promise.resolve([] as FullQuote[])
+    )
+  );
+  liveParts.flat().forEach((q) => indexQuoteIntoMap(map, q));
+  return alignQuotesToRequestedCodes(list, collectUniqueQuotes(map));
 }
 
 /**
- * 按代码取行情：auto 先缓存再 sdk；local 只缓存；network 只 sdk。
- * 自动按 cn/hk/us 分市场请求，避免美股代码打到 A 股快照。
+ * 按代码取行情：auto / network 均先缓存再 sdk；local 只缓存。
+ * 可用 onPartial 在快照命中后立刻上屏。自动按 cn/hk/us 分市场请求。
  */
 export async function getQuotesByCodesPreferCache(
   codes: string[],
@@ -250,6 +270,7 @@ export async function getQuotesByCodesPreferCache(
     force?: boolean;
     batchSize?: number;
     concurrency?: number;
+    onPartial?: (quotes: FullQuote[]) => void;
   }
 ): Promise<FullQuote[]> {
   const list = codes.map((c) => normalizeStockCode(c) || c).filter(Boolean);
@@ -272,52 +293,37 @@ export async function getFullQuotesPreferCache(
 
   // 总览指数：固定 index 表，避免 sh000001 被 cn 个股误匹配
   if (marketOpt === 'index') {
-    if (source === 'network') {
-      return alignQuotesToRequestedCodes(
-        list,
-        await getFullQuotes(list, options?.useSdkCache !== false)
-      );
-    }
+    let cached: FullQuote[] = [];
     try {
       const { items } = await fetchSnapshotItems('index', { codes: list });
-      if (items.length > 0) {
-        const out = alignQuotesToRequestedCodes(list, items);
-        if (source === 'local' || out.length === list.length) return out;
-      }
-      if (source === 'local') return items;
+      cached = alignQuotesToRequestedCodes(list, items);
+      if (source === 'local') return cached;
+      if (source === 'auto' && cached.length === list.length) return cached;
     } catch {
       if (source === 'local') return [];
     }
-    return alignQuotesToRequestedCodes(
-      list,
-      await getFullQuotes(list, options?.useSdkCache !== false)
-    );
+    const live = await getFullQuotes(list, options?.useSdkCache !== false);
+    return alignQuotesToRequestedCodes(list, live.length ? live : cached);
   }
 
   // 显式单市场（如 portal 只拉 hk）仍支持；未指定则按代码拆分
   if (marketOpt === 'cn' || marketOpt === 'hk' || marketOpt === 'us') {
-    if (source === 'network') {
-      return alignQuotesToRequestedCodes(
-        list,
-        await fetchLiveQuotesForMarket(marketOpt, list)
-      );
-    }
+    let cached: FullQuote[] = [];
     try {
       const { items } = await fetchSnapshotItems(marketOpt, { codes: list });
-      if (items.length > 0) {
-        const out = alignQuotesToRequestedCodes(list, items);
-        if (source === 'local' || out.length === list.length) return out;
-        if (source === 'auto') {
-          const missing = list.filter((c) => !out.some((q) => q.code === c));
-          const live = await fetchLiveQuotesForMarket(marketOpt, missing);
-          return alignQuotesToRequestedCodes(list, out.concat(live));
-        }
+      cached = alignQuotesToRequestedCodes(list, items);
+      if (source === 'local') return cached;
+      if (source === 'auto' && cached.length === list.length) return cached;
+      if (source === 'auto' && cached.length > 0) {
+        const missing = list.filter((c) => !cached.some((q) => q.code === c));
+        const live = await fetchLiveQuotesForMarket(marketOpt, missing);
+        return alignQuotesToRequestedCodes(list, cached.concat(live));
       }
-      if (source === 'local') return items;
     } catch {
       if (source === 'local') return [];
     }
-    return alignQuotesToRequestedCodes(list, await fetchLiveQuotesForMarket(marketOpt, list));
+    const live = await fetchLiveQuotesForMarket(marketOpt, list);
+    return alignQuotesToRequestedCodes(list, live.length ? live : cached);
   }
 
   return fetchQuotesMultiMarket(list, { source: options?.source });
