@@ -83,6 +83,8 @@ GET https://datacenter-web.eastmoney.com/api/data/v1/get
 
 AI Key / 模型见 [ai-provider-settings.md](./ai-provider-settings.md)。
 
+新闻侧 `source=feedgen` 由 sibling **feedgen** 任务 `calendar.future_scan` 写入；写入前带语义去重（规则相似 + AI 判同，可与东财行合并），详见 feedgen `docs/CALENDAR_FUTURE_SCAN.md`。
+
 面板「AI 重要程度评级」按钮会轮询进度并展示五星；展开行可见评级理由。
 
 ---
