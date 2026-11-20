@@ -254,3 +254,18 @@ CREATE TABLE IF NOT EXISTS bookmark_favorite (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bookmark_sort ON bookmark_favorite (sort_order);
+
+-- AI 平台：一个平台 = 一套 base_url + api_key，可挂多个模型
+-- （ai_provider_profile.platform_id 非空时继承平台的 provider/base_url/api_key，
+--   旧数据 platform_id 为空时继续使用本行自带的 base_url / api_key）
+CREATE TABLE IF NOT EXISTS ai_platform (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  base_url TEXT NOT NULL,
+  api_key TEXT NOT NULL DEFAULT '',
+  created_at REAL NOT NULL,
+  updated_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_platform_provider ON ai_platform (provider);

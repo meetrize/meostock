@@ -15,7 +15,7 @@ from ai.client import chat_completion
 from agent.intent import resolve_intent
 from agent.paths import workspace_dir
 from agent.projects import resolve_project
-from agent.tools.registry import TOOL_DEFS, execute_tool
+from agent.tools.registry import TOOL_DEFS, execute_tool, tool_names
 
 _log = logging.getLogger("agent.runtime")
 
@@ -41,7 +41,8 @@ _SYSTEM_BASE = (
     "改仓库后：run_smoke_test → prepare_acceptance；禁止自行 commit/push（须 UI 人工验收）。\n"
     "实施纪律：用户要求改代码/加菜单/自升级时，读够必要文件后必须在同一次会话内调用 "
     "repo_write/workspace_write 真正落盘；禁止以「本轮只读/方案已确定/未写入」收尾；"
-    "禁止把「已具备写入条件」当成完成。"
+    "禁止把「已具备写入条件」当成完成；"
+    "禁止询问用户确认/等待执行/列出落盘清单却不写；内容定稿后立刻 repo_write，无需人工确认。"
 )
 
 # 回传给模型的 tool 结果上限（读文件给更高额度；UI SSE 仍可压缩）
@@ -82,10 +83,18 @@ _SELF_UPGRADE_EXPLORE_TOOLS = frozenset(
 )
 
 _FORCE_WRITE_NUDGE = (
-    "【系统强制推进·只允许 repo_write】本阶段已禁用 shell_run/repo_read。"
-    "你必须立刻用正式 tool_calls 调用 repo_write（可一次并行多个 path），"
-    "把完整文件内容写入目标源码（不要写临时 css/md/绕路脚本）。"
-    "禁止 grep/sed/方案文字/伪工具 XML。"
+    "【系统强制推进·只允许 repo_write】禁止再问用户确认，禁止「等待执行/落盘清单」类文字。"
+    "本阶段已禁用 shell_run/repo_read。立刻用正式 tool_calls 并行 repo_write 写入全部目标文件完整内容。"
+    "不要写临时 css/md/脚本；不要输出方案表；直接写盘。"
+)
+
+_ASK_CONFIRM_RE = re.compile(
+    r"(等待执行|等待确认|请确认|是否继续|下一步要落盘|内容已定稿|"
+    r"要我现在(写入|修改)|可以开始写|等你确认|请回复.*(继续|确认)|"
+    r"落盘的清单|清单[（(]内容已定稿[）)]|"
+    r"尚未写入|请勿验收|本轮未完成|待改文件|功能目前不可用|"
+    r"待剩余改动|验收单[（(]待|还没接上|请继续.*写)",
+    re.IGNORECASE,
 )
 
 _FORCE_ACCEPT_NUDGE = (
@@ -97,9 +106,26 @@ _FORCE_ACCEPT_NUDGE = (
 
 _FAKE_TOOL_TEXT = re.compile(
     r"(invoke\s+name\s*=|DSML|tool_call|"
-    r"functions\.repo_write|functions\.workspace_write|"
-    r"<parameter\s+name=|</?invoke)",
+    r"functions\.\w+|</?invoke|"
+    r"parameter\s+name\s*=|"
+    r"<\|[^|]*\|>|"
+    r"```(?:xml|tool|function))",
     re.IGNORECASE | re.MULTILINE,
+)
+
+_INVOKE_NAME_RE = re.compile(
+    r"invoke\s+name\s*=\s*[\"']?([a-zA-Z_][\w]*)[\"']?",
+    re.IGNORECASE,
+)
+_PARAM_RE = re.compile(
+    r"parameter\s+name\s*=\s*[\"']?(\w+)[\"']?[^>\n]*>([^<\n]+)",
+    re.IGNORECASE,
+)
+
+_RECOVER_TOOL_NUDGE = (
+    "【系统恢复】你刚才把工具调用写成了 DSML/纯文本，那不会执行。"
+    "请立刻改用 API 的 tool_calls（function calling）继续；"
+    "不要再输出 invoke/DSML/XML。根据上一轮工具结果接着做下一步。"
 )
 
 
@@ -163,6 +189,106 @@ def _looks_like_fake_tool_text(text: str) -> bool:
     if not raw:
         return False
     return bool(_FAKE_TOOL_TEXT.search(raw))
+
+
+def _looks_like_ask_confirm_or_plan_only(text: str) -> bool:
+    """方案/确认式/未完成清单收尾：应拒绝并强制写盘。"""
+    raw = (text or "").strip()
+    if not raw:
+        return False
+    if _ASK_CONFIRM_RE.search(raw):
+        return True
+    # 表格或代码写到一半就停（deepseek-flash 常见 max_tokens 截断）
+    tail = raw[-120:]
+    if raw.rstrip().endswith(("|", "`", "、", "，", ",", "；", ";", "（", "(", "→", "…")):
+        return True
+    if "落盘" in raw and len(raw) > 80:
+        return True
+    if re.search(r"^\s*\|\s*\d+\s*\|", raw, re.M) and (
+        "待" in raw or "未" in raw or "等待" in raw or "清单" in raw
+    ):
+        return True
+    if "```" in raw and raw.count("```") % 2 == 1:
+        return True
+    # 长文列了多个源码路径却没有说「已写入全部」
+    path_hits = len(re.findall(r"(?:web|apps)/[\w./-]+\.(?:py|tsx|ts|css|sql|md)", raw))
+    if path_hits >= 3 and not re.search(r"已全部写入|已完成写入|验收通过", raw):
+        return True
+    return bool(re.search(r"\|\s*$", tail))
+
+
+def _strip_fake_tool_markup(text: str) -> str:
+    """去掉伪工具标记，避免泄漏到用户可见正文。"""
+    raw = text or ""
+    if not _looks_like_fake_tool_text(raw):
+        return raw
+    cleaned = re.sub(r"(?is)<\|[^|]*>", "", raw)
+    cleaned = re.sub(r"(?is)DSML[^\n]*", "", cleaned)
+    cleaned = re.sub(r"(?is)invoke\s+name\s*=.*?(?=(?:invoke\s+name\s*=)|$)", "", cleaned)
+    cleaned = re.sub(r"(?is)parameter\s+name\s*=[^\n]*", "", cleaned)
+    cleaned = re.sub(r"(?is)```(?:xml|tool|function)[\s\S]*?```", "", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned).strip()
+    return cleaned
+
+
+def _coerce_tool_arg(raw: str) -> Any:
+    val = (raw or "").strip().strip('"').strip("'")
+    if re.fullmatch(r"-?\d+", val):
+        try:
+            return int(val)
+        except ValueError:
+            return val
+    if val.lower() in ("true", "false"):
+        return val.lower() == "true"
+    if val.lower() in ("null", "none"):
+        return None
+    return val
+
+
+def _parse_pseudo_tool_calls(text: str) -> list[dict[str, Any]]:
+    """从 DSML/伪 XML 文本中解析出可执行的工具调用。"""
+    raw = text or ""
+    known = set(tool_names())
+    found: list[dict[str, Any]] = []
+    matches = list(_INVOKE_NAME_RE.finditer(raw))
+    for idx, m in enumerate(matches):
+        name = m.group(1)
+        if name not in known:
+            continue
+        start = m.end()
+        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(raw)
+        chunk = raw[start:end]
+        args: dict[str, Any] = {}
+        for pm in _PARAM_RE.finditer(chunk):
+            args[pm.group(1)] = _coerce_tool_arg(pm.group(2))
+        # 兜底：path="..." / command="..." 同行属性
+        for km in re.finditer(
+            r"\b(path|command|sql|query|table|summary|commit_message|offset|max_chars|"
+            r"start_line|end_line|cwd_scope|timeout_sec)\s*=\s*[\"']([^\"']+)[\"']",
+            chunk,
+            re.I,
+        ):
+            args.setdefault(km.group(1), _coerce_tool_arg(km.group(2)))
+        found.append({"name": name, "arguments": args})
+    return found[:8]
+
+
+def _synthesize_tool_calls(parsed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for i, item in enumerate(parsed):
+        name = str(item.get("name") or "")
+        args = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
+        out.append(
+            {
+                "id": f"recovered-{i}-{name}",
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "arguments": json.dumps(args, ensure_ascii=False),
+                },
+            }
+        )
+    return out
 
 
 def _has_build_or_smoke(results: list[dict[str, Any]]) -> bool:
@@ -369,6 +495,16 @@ def _linkify_content(text: str, entities: list[dict[str, Any]]) -> str:
     return out
 
 
+def _agent_max_tokens(cfg: dict[str, Any]) -> int:
+    """Agent 工具循环需要更大输出，避免 flash 模型 length 截断后只吐半份清单。"""
+    env = (os.environ.get("AGENT_MAX_TOKENS") or "").strip()
+    if env.isdigit():
+        return max(1024, min(int(env), 8192))
+    base = ai_config.max_tokens()
+    # 配置过低（常见 1k~2k）时抬到 4096，减少「写到一半停」
+    return max(base, 4096)
+
+
 def _chat_with_tools(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]],
@@ -379,12 +515,19 @@ def _chat_with_tools(
     """非流式一轮（可能含 tool_calls）。"""
     base = str(cfg.get("base_url") or "").rstrip("/")
     url = ai_config.completions_url(base)
+    # 工具循环超时略放宽（flash 网关偶发慢）
+    timeout = max(float(ai_config.default_timeout()), 120.0)
+    if cfg.get("timeout_sec"):
+        try:
+            timeout = max(timeout, float(cfg["timeout_sec"]))
+        except (TypeError, ValueError):
+            pass
     payload: dict[str, Any] = {
         "model": cfg["model"],
         "messages": messages,
         "stream": False,
         "temperature": 0.3,
-        "max_tokens": ai_config.max_tokens(),
+        "max_tokens": _agent_max_tokens(cfg),
         "tools": tools,
         "tool_choice": tool_choice if tool_choice is not None else "auto",
     }
@@ -399,7 +542,6 @@ def _chat_with_tools(
         },
         method="POST",
     )
-    timeout = ai_config.default_timeout()
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
@@ -562,6 +704,7 @@ def run_agent_sse(
     write_nudges = 0
     non_write_streak = 0
     force_phase = False
+    dsml_recoveries = 0
     yield _sse(
         {
             "event": "meta",
@@ -624,15 +767,91 @@ def run_agent_sse(
                         _log.warning("tool_choice fallback %s failed: %s", fb, e2)
                 if upstream is None:
                     raise last_exc if last_exc else tool_choice_exc
-            msg = ((upstream.get("choices") or [{}])[0].get("message") or {})
+            choice0 = (upstream.get("choices") or [{}])[0] or {}
+            msg = (choice0.get("message") or {})
             tool_calls = msg.get("tool_calls") or []
             content = (msg.get("content") or "").strip()
+            finish_reason = str(choice0.get("finish_reason") or "")
+
+            # max_tokens 截断：没有 tool_calls 时当作未完成，逼继续写
+            if (
+                finish_reason == "length"
+                and not tool_calls
+                and (require_write or _looks_like_ask_confirm_or_plan_only(content))
+            ):
+                write_nudges += 1
+                force_phase = True
+                yield _sse(
+                    {
+                        "event": "status",
+                        "message": (
+                            f"模型输出被 max_tokens 截断（finish_reason=length），"
+                            f"第 {write_nudges} 次强制继续写盘…"
+                        ),
+                    }
+                )
+                working.append(
+                    {
+                        "role": "assistant",
+                        "content": (content or "")[:1200] or "（输出被截断）",
+                    }
+                )
+                working.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            _FORCE_WRITE_NUDGE
+                            if not _has_successful_write(collected_tool_results)
+                            else _FORCE_ACCEPT_NUDGE
+                        )
+                        + " 上一段被截断，请从断点继续 repo_write，不要再写清单。",
+                    }
+                )
+                continue
+
+            # —— DSML / 伪工具文本恢复：解析并转成真正的 tool_calls ——
+            recovered_from_dsml = False
+            if (not tool_calls) and content and _looks_like_fake_tool_text(content):
+                parsed = _parse_pseudo_tool_calls(content)
+                dsml_recoveries += 1
+                if parsed and dsml_recoveries <= 12:
+                    tool_calls = _synthesize_tool_calls(parsed)
+                    recovered_from_dsml = True
+                    names = ", ".join(p["name"] for p in parsed)
+                    yield _sse(
+                        {
+                            "event": "status",
+                            "message": (
+                                f"检测到 DSML 伪工具调用，已自动恢复执行：{names}"
+                            ),
+                        }
+                    )
+                    # 不把 DSML 原文塞进对话，避免模型继续模仿
+                    content = _strip_fake_tool_markup(content)
+                else:
+                    yield _sse(
+                        {
+                            "event": "status",
+                            "message": (
+                                "检测到 DSML/纯文本伪工具调用，已忽略并要求改用正式 tool_calls"
+                            ),
+                        }
+                    )
+                    working.append(
+                        {
+                            "role": "assistant",
+                            "content": "（系统已忽略无效的 DSML 工具文本）",
+                        }
+                    )
+                    working.append({"role": "user", "content": _RECOVER_TOOL_NUDGE})
+                    force_phase = require_write or force_phase
+                    continue
 
             if tool_calls:
                 working.append(
                     {
                         "role": "assistant",
-                        "content": msg.get("content") or "",
+                        "content": (content or "") if recovered_from_dsml else (msg.get("content") or ""),
                         "tool_calls": tool_calls,
                     }
                 )
@@ -768,46 +987,54 @@ def run_agent_sse(
                     working.append({"role": "user", "content": nudge})
                 continue
 
-            # —— 无 tool_calls：可能是正文，也可能是伪工具文本 ——
-            if require_write and not _implementation_complete(intent, collected_tool_results):
+            # —— 无 tool_calls：正文收尾（伪工具已在上方处理）——
+            clean = _strip_fake_tool_markup(content) if content else ""
+            ask_confirm = bool(clean and _looks_like_ask_confirm_or_plan_only(clean))
+            must_continue_impl = require_write and not _implementation_complete(
+                intent, collected_tool_results
+            )
+            # 方案/确认式文字：即使未标 self_upgrade，也强制进入写盘，绝不交给用户点确认
+            if must_continue_impl or ask_confirm:
                 write_nudges += 1
                 force_phase = True
-                if content:
-                    # 伪 tool 调用当无效，不展示为最终答案
-                    note = (
-                        "检测到模型把工具调用写成了纯文本，已忽略；请改用正式 tool_calls。"
-                        if _looks_like_fake_tool_text(content)
-                        else "拒绝在未完成实施前用文字收尾。"
-                    )
-                    working.append({"role": "assistant", "content": content[:2000]})
-                    yield _sse(
-                        {
-                            "event": "status",
-                            "message": f"{note}（第 {write_nudges} 次催促）",
-                        }
-                    )
-                else:
-                    yield _sse(
-                        {
-                            "event": "status",
-                            "message": f"尚未完成实施（第 {write_nudges} 次催促），继续…",
-                        }
-                    )
+                yield _sse(
+                    {
+                        "event": "status",
+                        "message": (
+                            f"拒绝「等待确认/只出清单」收尾（第 {write_nudges} 次），"
+                            "强制继续 repo_write…"
+                            if ask_confirm
+                            else f"拒绝未完成实施的文字收尾（第 {write_nudges} 次），继续…"
+                        ),
+                    }
+                )
+                # 不把「请确认」长文塞回上下文，避免模型继续复读清单
+                working.append(
+                    {
+                        "role": "assistant",
+                        "content": "（系统已拦截确认式/清单式回复，改为直接写盘）",
+                    }
+                )
                 working.append(
                     {
                         "role": "user",
                         "content": (
-                            _FORCE_WRITE_NUDGE
-                            if not _has_successful_write(collected_tool_results)
-                            else _FORCE_ACCEPT_NUDGE
+                            _FORCE_ACCEPT_NUDGE
+                            if _has_successful_write(collected_tool_results)
+                            else _FORCE_WRITE_NUDGE
+                            + (
+                                " 你刚才列出的落盘文件请立即 repo_write，不要再输出表格。"
+                                if ask_confirm
+                                else ""
+                            )
                         ),
                     }
                 )
                 continue
 
-            if content:
-                final_text = content
-                yield _sse({"event": "content", "content": content})
+            if clean:
+                final_text = clean
+                yield _sse({"event": "content", "content": clean})
                 stopped_by_cap = False
                 break
 
@@ -841,6 +1068,40 @@ def run_agent_sse(
                             yield _sse({"event": "content", "content": final_text})
                     except Exception as e2:  # noqa: BLE001
                         raise stream_exc from e2
+                # flash 终稿流也可能吐「尚未写入」清单：拦截后强制写盘，不交给用户
+                if final_text and (
+                    (require_write and not _implementation_complete(intent, collected_tool_results))
+                    or _looks_like_ask_confirm_or_plan_only(final_text)
+                ):
+                    write_nudges += 1
+                    force_phase = True
+                    yield _sse(
+                        {
+                            "event": "status",
+                            "message": (
+                                f"终稿仍是清单/未完成（第 {write_nudges} 次），强制继续写盘…"
+                            ),
+                        }
+                    )
+                    working.append(
+                        {
+                            "role": "assistant",
+                            "content": "（系统已拦截清单式终稿）",
+                        }
+                    )
+                    working.append(
+                        {
+                            "role": "user",
+                            "content": (
+                                _FORCE_ACCEPT_NUDGE
+                                if _has_successful_write(collected_tool_results)
+                                else _FORCE_WRITE_NUDGE
+                                + " 不要再输出「尚未写入」表，立刻 repo_write。"
+                            ),
+                        }
+                    )
+                    final_text = ""
+                    continue
             stopped_by_cap = False
             break
         else:

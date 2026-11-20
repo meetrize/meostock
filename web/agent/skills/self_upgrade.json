@@ -14,6 +14,6 @@
     "prepare_acceptance"
   ],
   "permission": "L2",
-  "prompt": "你正在对本仓库 meostock 做受控自升级。\n\n【最短路径（必须遵守）】\n1) repo_read 直接读已知目标文件（可 start_line/end_line 分段）\n2) repo_write 覆盖写入完整文件（一次可并行多个 path）\n3) shell_run：仅 ./scripts/build_dashboard.sh（改了前端时）\n4) run_smoke_test\n5) prepare_acceptance（简体中文 commit message）\n成功标准=上述 2+4+5；中途禁止用文字收尾。\n\n【硬性禁止】\n- 禁止 shell_run 做 grep/sed/python/探索（本 skill 下探索性 shell 已关闭）\n- 禁止 workspace_write 写临时脚本再执行\n- 禁止只加 CSS 覆盖层绕过改 TSX；要改就直接改源码\n- 禁止伪工具文本（invoke/DSML）；禁止声称权限不足\n\n【改 Agent UI】直接改这些文件，不要搜：\n- apps/stock-dashboard/src/pages/Agent/Agent.tsx\n- apps/stock-dashboard/src/pages/Agent/Agent.module.css\n- apps/stock-dashboard/src/pages/Agent/types.ts\n- apps/stock-dashboard/src/pages/Agent/ModelPicker.tsx（若已存在）\n删顶部标题栏：去掉 Agent.tsx 里 styles.topbar 整块即可。\n\n【加侧栏菜单】直接改 Sidebar.tsx + router/index.tsx + pages/<Name>/。",
+  "prompt": "你正在对本仓库 meostock 做受控自升级。\n\n【最短路径】\n1) repo_read 已知目标文件\n2) 立刻 repo_write 完整内容（可并行多文件）——无需用户确认\n3) shell_run 仅 ./scripts/build_dashboard.sh（改前端时）\n4) run_smoke_test\n5) prepare_acceptance\n\n【绝对禁止】\n- 禁止「等待执行 / 请确认 / 落盘清单 / 内容已定稿」等文字代替写入\n- 禁止问用户要不要继续；默认授权你直接改仓库\n- 禁止 DSML/伪工具文本；禁止 grep 探索；禁止 workspace 临时脚本\n- 方案想清楚后同一轮就必须出现 repo_write\n\n【改 Agent UI】直接改 Agent.tsx / Agent.module.css / types.ts / ModelPicker.tsx\n【加侧栏】Sidebar.tsx + router/index.tsx + pages/<Name>/\n【改库表】直接 repo_write web/cache/schema.sql（或既有迁移路径），不要只列表。",
   "userHint": "帮我升级/修改本项目并准备提交"
 }

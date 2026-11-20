@@ -182,6 +182,11 @@ export function Agent() {
   const liveStreamRafRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  /** 请求是否仍在飞（与 UI streaming 解耦，避免停不住/连点双发） */
+  const inFlightRef = useRef(false);
+  /** 发送前草稿：中断/失败后写回输入框，避免发送钮因空输入一直灰掉 */
+  const draftPromptRef = useRef('');
+  const lastSseAtRef = useRef(0);
 
   const active = useMemo(
     () => sessions.find((s) => s.id === activeId) || sessions[0],
@@ -216,6 +221,12 @@ export function Agent() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [active?.messages, streaming, liveStream?.text]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const refreshProjects = useCallback(async () => {
     try {
@@ -419,8 +430,10 @@ export function Agent() {
 
   const send = async (text?: string, skillId?: string | null) => {
     const content = (text ?? input).trim();
-    if (!content || streaming || !active) return;
+    if (!content || inFlightRef.current || !active) return;
 
+    draftPromptRef.current = content;
+    inFlightRef.current = true;
     const userMsg: ChatMessage = {
       id: uid(),
       role: 'user',
@@ -455,6 +468,21 @@ export function Agent() {
 
     const ac = new AbortController();
     abortRef.current = ac;
+    lastSseAtRef.current = Date.now();
+    const streamStartedAt = Date.now();
+    const STREAM_IDLE_MS = 90_000;
+    const STREAM_MAX_MS = 12 * 60_000;
+    const watchdog = window.setInterval(() => {
+      if (abortRef.current !== ac) return;
+      const now = Date.now();
+      if (now - lastSseAtRef.current > STREAM_IDLE_MS) {
+        ac.abort();
+        return;
+      }
+      if (now - streamStartedAt > STREAM_MAX_MS) {
+        ac.abort();
+      }
+    }, 4000);
 
     const flushLiveToMessage = (linked?: string) => {
       if (liveStreamRafRef.current != null) {
@@ -513,6 +541,8 @@ export function Agent() {
       const decoder = new TextDecoder();
       let buffer = '';
       let linkedFinal: string | undefined;
+      let sawDone = false;
+      let sawError = false;
 
       const updateAssistant = (fn: (m: ChatMessage) => ChatMessage) => {
         patchActive((s) => ({
@@ -540,6 +570,7 @@ export function Agent() {
             continue;
           }
           const event = String(obj.event || '');
+          lastSseAtRef.current = Date.now();
           if (event === 'intent') {
             updateAssistant((m) => ({
               ...m,
@@ -617,25 +648,76 @@ export function Agent() {
               }));
             }
           } else if (event === 'error') {
+            sawError = true;
             updateAssistant((m) => ({ ...m, error: String(obj.error || '错误') }));
             if (obj.hint) setHealthHint(String(obj.hint));
           } else if (event === 'done') {
+            sawDone = true;
             if (obj.workspacePath) setWorkspacePath(String(obj.workspacePath));
           }
         }
       }
       flushLiveToMessage(linkedFinal);
+      // 仅正常 done 才清空草稿；中途断流/服务重启把提示词写回，避免发送钮因空输入灰死
+      if (sawDone && !sawError) {
+        draftPromptRef.current = '';
+      } else if (draftPromptRef.current) {
+        setInput(draftPromptRef.current);
+        if (!sawDone) {
+          updateAssistant((m) => ({
+            ...m,
+            error: m.error || '连接中断，已停止',
+            content: m.content || '（连接中断）',
+            tools: (m.tools || []).map((t) =>
+              t.status === 'running' ? { ...t, status: 'error' as const } : t
+            ),
+          }));
+        }
+      }
     } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      const message = err instanceof Error ? err.message : '请求失败';
+      const aborted =
+        (err as Error).name === 'AbortError' ||
+        (typeof DOMException !== 'undefined' &&
+          err instanceof DOMException &&
+          err.name === 'AbortError');
       flushLiveToMessage();
+      const idle =
+        aborted && Date.now() - lastSseAtRef.current > STREAM_IDLE_MS - 1000;
+      const markTools = (m: ChatMessage): ChatMessage => ({
+        ...m,
+        tools: (m.tools || []).map((t) =>
+          t.status === 'running' ? { ...t, status: 'error' as const } : t
+        ),
+      });
+      if (aborted) {
+        patchActive((s) => ({
+          ...s,
+          messages: s.messages.map((m) =>
+            m.id === assistantId
+              ? markTools({
+                  ...m,
+                  error: idle ? '长时间无响应，已自动停止' : '已停止',
+                  content: m.content || '（已停止本次请求）',
+                })
+              : m
+          ),
+        }));
+        if (draftPromptRef.current) setInput(draftPromptRef.current);
+        return;
+      }
+      const message = err instanceof Error ? err.message : '请求失败';
       patchActive((s) => ({
         ...s,
         messages: s.messages.map((m) =>
-          m.id === assistantId ? { ...m, error: message, content: m.content || '' } : m
+          m.id === assistantId
+            ? markTools({ ...m, error: message, content: m.content || '' })
+            : m
         ),
       }));
+      if (draftPromptRef.current) setInput(draftPromptRef.current);
     } finally {
+      window.clearInterval(watchdog);
+      inFlightRef.current = false;
       setStreaming(false);
       abortRef.current = null;
       if (liveStreamRafRef.current != null) {
@@ -643,6 +725,12 @@ export function Agent() {
         liveStreamRafRef.current = null;
       }
     }
+  };
+
+  const stop = () => {
+    abortRef.current?.abort();
+    // 立刻解锁 UI（后台请求随后在 catch/finally 收尾）
+    setStreaming(false);
   };
 
   const onPromptClick = (p: CuratedPrompt) => {
@@ -897,21 +985,46 @@ export function Agent() {
               disabled={streaming}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
+                if (e.key === 'Escape' && streaming) {
+                  e.preventDefault();
+                  stop();
+                  return;
+                }
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  void send();
+                  if (streaming) stop();
+                  else void send();
                 }
               }}
             />
             <div className={styles.composerAside}>
               <button
                 type="button"
-                className={styles.sendBtn}
-                disabled={streaming || !input.trim()}
-                onClick={() => void send()}
+                className={`${styles.sendBtn}${streaming ? ` ${styles.stopBtn}` : ''}`}
+                disabled={!streaming && !input.trim()}
+                title={
+                  streaming
+                    ? '停止当前请求（Esc）'
+                    : input.trim()
+                      ? '发送'
+                      : '请输入提示词'
+                }
+                onClick={() => {
+                  if (streaming) stop();
+                  else void send();
+                }}
               >
-                {streaming ? <Loader2 size={16} /> : <Send size={16} />}
-                发送
+                {streaming ? (
+                  <>
+                    <Loader2 size={16} className={styles.spin} />
+                    停止
+                  </>
+                ) : (
+                  <>
+                    <Send size={16} />
+                    发送
+                  </>
+                )}
               </button>
             </div>
           </div>

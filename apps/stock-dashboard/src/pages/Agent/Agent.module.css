@@ -685,7 +685,9 @@
   align-self: flex-end;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-width: 88px;
   height: 40px;
   padding: 0 14px;
   border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--border-primary));
@@ -699,6 +701,27 @@
 .sendBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.stopBtn {
+  border-color: color-mix(in srgb, #e35d6a 55%, var(--border-primary));
+  background: color-mix(in srgb, #e35d6a 16%, transparent);
+  color: var(--text-primary);
+}
+
+.stopBtn:hover {
+  border-color: color-mix(in srgb, #e35d6a 70%, var(--border-primary));
+  background: color-mix(in srgb, #e35d6a 24%, transparent);
+}
+
+.spin {
+  animation: agent-spin 0.8s linear infinite;
+}
+
+@keyframes agent-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .hintBanner {

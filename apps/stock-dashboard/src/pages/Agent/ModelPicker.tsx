@@ -14,6 +14,26 @@ export type ModelPickerOption = {
   active?: boolean;
 };
 
+/** 「管理模型配置」页面在 dashboard 下的真实路径（服务端挂载点为 /dashboard/） */
+const MANAGE_PATH = '/dashboard/settings';
+
+/**
+ * 把「管理模型配置」地址归一化成真正可用的绝对 URL。
+ * dashboard 挂在 /dashboard/ 下，旧代码的 '/settings' 会 404，
+ * 这里统一补前缀；已是绝对地址则原样返回。
+ */
+export function resolveManageHref(raw?: string): string {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  let target = (raw || '').trim();
+  if (!target || target === '/' || target === '/settings' || target === 'settings') {
+    target = MANAGE_PATH;
+  }
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(target)) return target;
+  if (!target.startsWith('/')) target = `/${target}`;
+  if (!/^\/dashboard(\/|$)/.test(target)) target = `/dashboard${target}`;
+  return `${origin}${target}`;
+}
+
 type Props = {
   options: ModelPickerOption[];
   /** 当前使用中的 profile id */
@@ -23,7 +43,7 @@ type Props = {
   switching?: boolean;
   disabled?: boolean;
   onSelect: (id: string) => void;
-  /** 「管理模型配置」跳转地址，默认 /settings */
+  /** 「管理模型配置」跳转地址，默认 /dashboard/settings（运行时补全域名） */
   manageHref?: string;
 };
 
@@ -42,12 +62,14 @@ export function ModelPicker({
   switching = false,
   disabled = false,
   onSelect,
-  manageHref = '/settings',
+  manageHref = MANAGE_PATH,
 }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const close = useCallback(() => setOpen(false), []);
+
+  const manageUrl = resolveManageHref(manageHref);
 
   useEffect(() => {
     if (!open) return;
@@ -124,7 +146,11 @@ export function ModelPicker({
             );
           })}
           <div className={styles.menuFoot}>
-            <a className={styles.manageLink} href={manageHref}>
+            <a
+              className={styles.manageLink}
+              href={manageUrl}
+              title={`打开模型配置页：${manageUrl}`}
+            >
               管理模型配置 →
             </a>
           </div>

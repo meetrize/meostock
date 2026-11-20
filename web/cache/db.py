@@ -69,6 +69,16 @@ def init_db() -> Path:
             )
         except sqlite3.Error:
             pass
+        # AI 模型档案：归属平台（一个平台挂多个模型，共用 base_url + key）
+        try:
+            _ensure_column(conn, "ai_provider_profile", "platform_id", "TEXT")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_profile_platform "
+                "ON ai_provider_profile (platform_id)"
+            )
+            # 旧库的 base_url 曾是 NOT NULL；平台化后允许留空（从平台继承）
+        except sqlite3.Error:
+            pass
         cur = conn.execute("SELECT value FROM cache_config WHERE key = ?", ("mode",))
         if cur.fetchone() is None:
             import time
