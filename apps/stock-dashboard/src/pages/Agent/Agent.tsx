@@ -174,7 +174,6 @@ export function Agent() {
   const [aiProfiles, setAiProfiles] = useState<AiProfileOption[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string>('');
   const [switchingModel, setSwitchingModel] = useState(false);
-  const [permLabel, setPermLabel] = useState('L2 本仓库全权限');
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [busyAccept, setBusyAccept] = useState<string | null>(null);
   /** 流式正文单独状态，避免每个 token 都改 sessions 触发整树 reconcile */
@@ -282,11 +281,6 @@ export function Agent() {
         }
         if (hData?.configured) {
           setModelLabel(`${hData.provider || 'ai'} · ${hData.model || ''}`);
-          setPermLabel(
-            hData.defaultPermission || hData.permissionLevel
-              ? `${hData.defaultPermission || hData.permissionLevel} 本仓库全权限`
-              : 'L2 本仓库全权限'
-          );
           setHealthHint(null);
         } else {
           setModelLabel('未配置');
@@ -556,7 +550,6 @@ export function Agent() {
               permission: String(obj.permission || ''),
             }));
             if (obj.workspacePath) setWorkspacePath(String(obj.workspacePath));
-            if (obj.permission) setPermLabel(String(obj.permission));
             if (obj.projectKind === 'workspace') {
               void refreshProjects();
             }
@@ -628,7 +621,6 @@ export function Agent() {
             if (obj.hint) setHealthHint(String(obj.hint));
           } else if (event === 'done') {
             if (obj.workspacePath) setWorkspacePath(String(obj.workspacePath));
-            if (obj.permission) setPermLabel(String(obj.permission));
           }
         }
       }
@@ -707,17 +699,6 @@ export function Agent() {
       </aside>
 
       <section className={styles.main}>
-        <div className={styles.topbar}>
-          <div className={styles.topTitle}>
-            <h1>AI Agent</h1>
-            <div className={styles.meta}>
-              本机投研 / 工程副驾驶 · 权限 {permLabel}
-              {workspacePath ? ` · 工作区已就绪` : ''}
-            </div>
-          </div>
-          <span className={styles.badge}>{modelLabel}</span>
-        </div>
-
         {healthHint && (
           <div className={styles.hintBanner}>
             {healthHint} · <a href="/dashboard/settings">去设置</a>
