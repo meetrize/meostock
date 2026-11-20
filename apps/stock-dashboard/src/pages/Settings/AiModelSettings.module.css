@@ -31,8 +31,162 @@
 }
 
 .muted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--font-size-sm);
   color: var(--text-tertiary);
+}
+
+.platformCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.platformHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.platformHeadMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.balanceChip {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--border-primary));
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.balanceChip:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.balanceChip:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.platformActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emptyModels {
+  list-style: none;
+  padding: 6px 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.standaloneBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.standaloneTitle {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.discoverPanel {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+}
+
+.discoverToolbar {
+  display: flex;
+  gap: 4px;
+}
+
+.discoverList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  max-height: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.discoverItem {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.discoverItem:last-child {
+  border-bottom: none;
+}
+
+.discoverItem .checkRow {
+  padding: 8px 10px;
+}
+
+.discoverDisabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.discoverId {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.discoverOwned {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.addedTag {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-accent);
 }
 
 .profileList {

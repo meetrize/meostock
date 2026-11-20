@@ -1,70 +1,98 @@
 # AI 模型配置（设置页）
 
-> 多平台档案 + 热切换；Key 落本机 SQLite，脱敏展示。  
-> 范围：DeepSeek 预设 + 任意 OpenAI 兼容端点。
+> 平台 + 模型两层结构；一套 Base URL / Key 可挂多个模型。  
+> Key 落本机 SQLite，脱敏展示。范围：DeepSeek 预设 + 任意 OpenAI 兼容端点。
 
 ---
 
-## 1. 交互
+## 1. 信息架构
+
+| 层 | 表 | 说明 |
+|----|-----|------|
+| **平台** | `ai_platform` | provider + base_url + api_key（填一次） |
+| **模型** | `ai_provider_profile` | 可激活单元；`platform_id` 非空时继承平台 URL/Key |
+
+**使用中** = 选中某一个模型（全站共用），不是选中整个平台。
+
+`platform_id` 为空的历史档案仍可用，展示在「独立配置（未归入平台）」，可一键归入/升为平台。
+
+---
+
+## 2. 交互
 
 设置页「AI 模型」卡片：
 
-1. **状态条**：当前生效平台 · 模型 · 连通状态  
-2. **档案列表**：点击行切换「使用中」；编辑 / 删除  
-3. **编辑表单**：平台（DeepSeek / OpenAI 兼容）、名称、Base URL、模型、API Key、高级（max_tokens / 超时）  
-4. **测试连通**：可对草稿或已保存档案探测，不强制先保存
+1. **状态条**：当前生效平台类型 · 模型 · 连通状态  
+2. **平台卡片**：头（名称 / URL / Key 掩码）+ 测试 / 编辑 / 删除  
+3. **模型列表**（嵌在平台下）：点击设为使用中；编辑 / 删除  
+4. **添加模型**：仅填模型名（可选手动）  
+5. **从平台拉取**：请求上游 `/models` → 多选 → 确认批量添加（已添加项禁用）  
+6. **添加平台**：可勾选「同时添加首个模型」（合并配置）；取消勾选则先只建平台  
 
-全站（K 线聊天、财经日历评级等）共用一个「当前生效」配置。
+拉取失败时：DeepSeek 等可回落本地预设列表供勾选；也可改手动添加。
 
 ---
 
-## 2. 存储
+## 3. 存储
 
-表 `ai_provider_profile`（`data/quote_cache.db`）：
+### `ai_platform`
 
 | 字段 | 说明 |
 |------|------|
 | id | UUID |
 | name | 显示名 |
 | provider | `deepseek` \| `openai_compat` |
-| base_url / model / api_key | 调用参数（Key 明文仅本机） |
+| base_url / api_key | 调用参数（Key 明文仅本机） |
+
+### `ai_provider_profile`
+
+| 字段 | 说明 |
+|------|------|
+| id | UUID |
+| name / model | 显示名与模型 ID |
+| platform_id | 非空 → 继承平台；空 → 本行自带 base_url/api_key |
+| provider / base_url / api_key | 独立档案或快照字段 |
 | max_tokens / timeout_sec | 可选 |
 
 `cache_config`：
 
-- `ai_active_profile_id`：当前生效档案  
-- `ai_last_health_json`：最近探测快照（ok / latency / error / at）
+- `ai_active_profile_id`：当前生效模型  
+- `ai_last_health_json`：最近探测快照  
 
 API **永不返回完整 Key**，仅 `api_key_masked` + `has_api_key`。
 
 ### 启动优先级
 
-1. 库中 active 档案且有 Key  
-2. 库无档案时，用 `.env` 的 `DEEPSEEK_*` 自动导入一条并设为 active  
-3. 否则未配置
-
-正式配置以设置页为准；`.env` 仅作冷启动种子。
+1. 库中 active 模型且能解析出 Key  
+2. 库无档案时，用 `.env` 的 `DEEPSEEK_*` 自动建平台 + 默认模型并设为 active  
+3. 否则未配置  
 
 ---
 
-## 3. HTTP API
+## 4. HTTP API
 
 | 路径 | 说明 |
 |------|------|
-| `GET /api/ai/config` | 当前配置摘要（无 Key）+ health 快照 + 档案列表摘要 |
-| `GET /api/ai/profiles` | 全部档案（脱敏） |
-| `POST /api/ai/profiles` | 新建 |
-| `PATCH /api/ai/profiles/{id}` | 更新（空 `api_key` = 不改） |
+| `GET /api/ai/config` | 摘要 + health + `platforms[]`（嵌套 models）+ `standalone` + `profiles` |
+| `GET/POST /api/ai/platforms` | 列出 / 新建（body 可带 `model` 合并首个模型） |
+| `PATCH/DELETE /api/ai/platforms/{id}` | 更新 / 删除（有下属模型时禁止删） |
+| `POST /api/ai/platforms/{id}/models/discover` | 拉取上游模型列表（标注 `already_added`） |
+| `GET /api/ai/platforms/{id}/balance` | DeepSeek 专用：查账户余额（官方 `GET /user/balance`） |
+| `GET /api/ai/profiles` | 全部模型档案（脱敏，含 platform_id） |
+| `POST /api/ai/profiles` | 新建（可带 `platform_id`，此时可省略 url/key） |
+| `POST /api/ai/profiles/batch` | 批量：`{ platform_id, models[] }` |
+| `PATCH /api/ai/profiles/{id}` | 更新 |
 | `DELETE /api/ai/profiles/{id}` | 删除（使用中不可删） |
 | `POST /api/ai/profiles/{id}/activate` | 设为当前生效 |
-| `POST /api/ai/test` | 测连通（body 可带草稿字段或 `profile_id`） |
-| `GET /api/ai/health` | 与 config 对齐的连通摘要 |
+| `POST /api/ai/profiles/{id}/attach` | 独立档案归入平台（可自动匹配或新建平台） |
+| `POST /api/ai/test` | 测连通（支持 `profile_id` / `platform_id` / 草稿字段） |
+| `GET /api/ai/health` | 连通摘要 |
 
 DeepSeek 专属 tools（联网搜索等）仅在 `provider=deepseek` 时启用。
 
 ---
 
-## 4. 安全边界
+## 5. 安全边界
 
 - Key 与 `.env` 同属本机信任边界，不加密、不上云。  
 - 前端只见掩码；更换 Key 需显式输入新值。  

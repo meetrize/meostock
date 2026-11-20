@@ -1,5 +1,5 @@
 /**
- * 对话框右下角的 AI 模型选择器：点击展开、向上弹出
+ * 输入框内模型选择器：点击展开、向上弹出
  * 数据来自 /api/ai/config 的 profiles，切换走 POST /api/ai/profiles/{id}/activate
  */
 import { useCallback, useEffect, useRef, useState } from 'react';

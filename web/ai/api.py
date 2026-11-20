@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ai import config as ai_config
+from ai import platforms as ai_platforms
 from ai import profiles as ai_profiles
 from ai.client import probe_connectivity
 from ai.context import build_context, context_to_prompt_block
@@ -65,6 +66,13 @@ class ProfileCreateBody(BaseModel):
     max_tokens: int | None = None
     timeout_sec: float | None = None
     activate: bool = False
+    platform_id: str | None = None
+
+
+class ProfileBatchCreateBody(BaseModel):
+    platform_id: str
+    models: list[str] = Field(default_factory=list)
+    activate_first: bool = False
 
 
 class ProfilePatchBody(BaseModel):
@@ -77,10 +85,34 @@ class ProfilePatchBody(BaseModel):
     timeout_sec: float | None = None
     clear_max_tokens: bool = False
     clear_timeout_sec: bool = False
+    platform_id: str | None = None
+    clear_platform: bool = False
+
+
+class ProfileAttachBody(BaseModel):
+    platform_id: str | None = None
+
+
+class PlatformCreateBody(BaseModel):
+    name: str | None = None
+    provider: str = "deepseek"
+    base_url: str = ""
+    api_key: str = ""
+    # 合并配置：同时创建首个模型
+    model: str | None = None
+    activate: bool = False
+
+
+class PlatformPatchBody(BaseModel):
+    name: str | None = None
+    provider: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
 
 
 class TestBody(BaseModel):
     profile_id: str | None = None
+    platform_id: str | None = None
     provider: str | None = None
     base_url: str | None = None
     model: str | None = None
@@ -260,6 +292,8 @@ def _config_payload() -> dict[str, Any]:
     active = ai_profiles.get_active_profile(include_secret=False)
     health = ai_profiles.get_last_health()
     profiles = ai_profiles.list_profiles()
+    platforms = ai_profiles.list_platforms_with_models()
+    standalone = ai_profiles.list_standalone_profiles()
     cfg = ai_config.active_config()
     return {
         "ok": True,
@@ -271,6 +305,8 @@ def _config_payload() -> dict[str, Any]:
         "supports_deepseek_tools": ai_config.supports_deepseek_tools(),
         "health": health,
         "profiles": profiles,
+        "platforms": platforms,
+        "standalone": standalone,
         "hint": None if ai_config.is_configured() else _HINT_UNCONFIGURED,
     }
 
@@ -306,12 +342,31 @@ def ai_profiles_create(body: ProfileCreateBody) -> JSONResponse:
             max_tokens=body.max_tokens,
             timeout_sec=body.timeout_sec,
             activate=body.activate,
+            platform_id=body.platform_id,
         )
         return JSONResponse({"ok": True, "profile": item, **_config_payload()})
     except ValueError as exc:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     except Exception as exc:  # noqa: BLE001
         _log.exception("create profile failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/profiles/batch")
+def ai_profiles_batch_create(body: ProfileBatchCreateBody) -> JSONResponse:
+    try:
+        items = ai_profiles.create_profiles_batch(
+            platform_id=body.platform_id,
+            models=body.models,
+            activate_first=body.activate_first,
+        )
+        return JSONResponse(
+            {"ok": True, "created": items, "count": len(items), **_config_payload()}
+        )
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("batch create profiles failed")
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
 
@@ -337,6 +392,12 @@ def ai_profiles_patch(profile_id: str, body: ProfilePatchBody) -> JSONResponse:
             kwargs["timeout_sec"] = body.timeout_sec
         else:
             kwargs["timeout_sec"] = ...
+        if body.clear_platform:
+            kwargs["platform_id"] = None
+        elif body.platform_id is not None:
+            kwargs["platform_id"] = body.platform_id
+        else:
+            kwargs["platform_id"] = ...
         item = ai_profiles.update_profile(profile_id, **kwargs)
         return JSONResponse({"ok": True, "profile": item, **_config_payload()})
     except KeyError:
@@ -345,6 +406,20 @@ def ai_profiles_patch(profile_id: str, body: ProfilePatchBody) -> JSONResponse:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
     except Exception as exc:  # noqa: BLE001
         _log.exception("patch profile failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/profiles/{profile_id}/attach")
+def ai_profiles_attach(profile_id: str, body: ProfileAttachBody) -> JSONResponse:
+    try:
+        item = ai_profiles.attach_profile_to_platform(profile_id, body.platform_id)
+        return JSONResponse({"ok": True, "profile": item, **_config_payload()})
+    except KeyError:
+        return JSONResponse({"ok": False, "error": "档案不存在"}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("attach profile failed")
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
 
@@ -376,11 +451,128 @@ def ai_profiles_activate(profile_id: str) -> JSONResponse:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
 
+@router.get("/platforms")
+def ai_platforms_list() -> JSONResponse:
+    try:
+        return JSONResponse(
+            {"ok": True, "platforms": ai_profiles.list_platforms_with_models()}
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("list platforms failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/platforms")
+def ai_platforms_create(body: PlatformCreateBody) -> JSONResponse:
+    try:
+        plat = ai_platforms.create_platform(
+            name=body.name,
+            provider=body.provider,
+            base_url=body.base_url,
+            api_key=body.api_key,
+        )
+        profile = None
+        model_s = (body.model or "").strip()
+        if model_s:
+            profile = ai_profiles.create_profile(
+                platform_id=str(plat["id"]),
+                model=model_s,
+                activate=body.activate,
+            )
+        return JSONResponse(
+            {
+                "ok": True,
+                "platform": plat,
+                "profile": profile,
+                **_config_payload(),
+            }
+        )
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("create platform failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.patch("/platforms/{platform_id}")
+def ai_platforms_patch(platform_id: str, body: PlatformPatchBody) -> JSONResponse:
+    try:
+        plat = ai_platforms.update_platform(
+            platform_id,
+            name=body.name,
+            provider=body.provider,
+            base_url=body.base_url,
+            api_key=body.api_key,
+        )
+        return JSONResponse({"ok": True, "platform": plat, **_config_payload()})
+    except KeyError:
+        return JSONResponse({"ok": False, "error": "平台不存在"}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("patch platform failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.delete("/platforms/{platform_id}")
+def ai_platforms_delete(platform_id: str) -> JSONResponse:
+    try:
+        ai_platforms.delete_platform(platform_id)
+        return JSONResponse({"ok": True, **_config_payload()})
+    except KeyError:
+        return JSONResponse({"ok": False, "error": "平台不存在"}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("delete platform failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.get("/platforms/{platform_id}/balance")
+def ai_platforms_balance(platform_id: str) -> JSONResponse:
+    try:
+        result = ai_platforms.fetch_platform_balance(platform_id)
+        status = 200 if result.get("ok") else 502
+        return JSONResponse({"ok": bool(result.get("ok")), **result}, status_code=status)
+    except KeyError:
+        return JSONResponse({"ok": False, "error": "平台不存在"}, status_code=404)
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("platform balance failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/platforms/{platform_id}/models/discover")
+def ai_platforms_discover(platform_id: str) -> JSONResponse:
+    try:
+        result = ai_platforms.discover_platform_models(platform_id)
+        # 标注已添加
+        existing = {
+            str(p.get("model") or "")
+            for p in ai_profiles.list_profiles()
+            if p.get("platform_id") == platform_id
+        }
+        models = []
+        for m in result.get("models") or []:
+            mid = str(m.get("id") or "")
+            models.append({**m, "already_added": mid in existing})
+        result["models"] = models
+        # 即使上游失败，也可能带回 preset；一律 200，用 result.ok / error 表达
+        return JSONResponse({"ok": True, **result})
+    except KeyError:
+        return JSONResponse({"ok": False, "error": "平台不存在"}, status_code=404)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("discover models failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
 @router.post("/test")
 def ai_test(body: TestBody) -> JSONResponse:
     try:
         runtime = ai_profiles.resolve_runtime_config(
             profile_id=body.profile_id,
+            platform_id=body.platform_id,
             provider=body.provider,
             base_url=body.base_url,
             model=body.model,
@@ -398,10 +590,12 @@ def ai_test(body: TestBody) -> JSONResponse:
             **result,
             "at": time.time(),
             "profile_id": runtime.get("id"),
+            "platform_id": runtime.get("platform_id") or body.platform_id,
         }
-        # 仅当测的是当前 active（或未指定草稿）时写入 health
         active_id = ai_profiles.get_active_id()
-        if not body.profile_id and not (body.api_key or body.base_url or body.model):
+        if not body.profile_id and not body.platform_id and not (
+            body.api_key or body.base_url or body.model
+        ):
             ai_profiles.set_last_health(snap)
         elif body.profile_id and body.profile_id == active_id:
             ai_profiles.set_last_health(snap)

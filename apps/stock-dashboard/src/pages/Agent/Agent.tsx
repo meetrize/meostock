@@ -7,9 +7,9 @@ import {
   Bot,
   ChevronDown,
   ChevronRight,
-  Loader2,
   Plus,
   Send,
+  Square,
   Trash2,
   CandlestickChart,
   FileCode2,
@@ -972,7 +972,7 @@ export function Agent() {
               </div>
             </div>
           </div>
-          <div className={styles.composerRow}>
+          <div className={styles.composerBox}>
             <textarea
               className={styles.input}
               value={input}
@@ -981,7 +981,7 @@ export function Agent() {
                   ? `已选 skill · ${pendingSkill}，输入提示词…（Enter 发送）`
                   : '输入提示词…（Enter 发送，Shift+Enter 换行）'
               }
-              rows={2}
+              rows={5}
               disabled={streaming}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -997,7 +997,15 @@ export function Agent() {
                 }
               }}
             />
-            <div className={styles.composerAside}>
+            <div className={styles.composerToolbar}>
+              <ModelPicker
+                options={aiProfiles}
+                activeId={activeProfileId}
+                label={modelLabel}
+                switching={switchingModel}
+                disabled={streaming}
+                onSelect={(id) => void switchAiProfile(id)}
+              />
               <button
                 type="button"
                 className={`${styles.sendBtn}${streaming ? ` ${styles.stopBtn}` : ''}`}
@@ -1009,33 +1017,15 @@ export function Agent() {
                       ? '发送'
                       : '请输入提示词'
                 }
+                aria-label={streaming ? '停止' : '发送'}
                 onClick={() => {
                   if (streaming) stop();
                   else void send();
                 }}
               >
-                {streaming ? (
-                  <>
-                    <Loader2 size={16} className={styles.spin} />
-                    停止
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    发送
-                  </>
-                )}
+                {streaming ? <Square size={14} fill="currentColor" /> : <Send size={18} />}
               </button>
             </div>
-          </div>
-          <div className={styles.composerFoot}>
-            <ModelPicker
-              options={aiProfiles}
-              activeId={activeProfileId}
-              label={modelLabel}
-              switching={switchingModel}
-              onSelect={(id) => void switchAiProfile(id)}
-            />
           </div>
         </div>
       </section>

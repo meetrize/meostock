@@ -618,88 +618,72 @@
   cursor: not-allowed;
 }
 
-.composerRow {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-.composerAside {
+.composerBox {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: 8px;
-  flex-shrink: 0;
-}
-
-.modelSelectWrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: flex-end;
-}
-
-.modelSelect {
-  height: 30px;
-  max-width: 200px;
-  min-width: 140px;
-  padding: 0 8px;
+  min-height: 148px;
+  padding: 12px 12px 10px;
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
+  border-radius: calc(var(--radius-md) + 2px);
   background: var(--bg-primary);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-family: inherit;
 }
 
-.modelSelect:focus {
-  outline: none;
+.composerBox:focus-within {
   border-color: color-mix(in srgb, var(--color-accent) 55%, var(--border-primary));
+}
+
+.composerToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 2px;
 }
 
 .input {
   flex: 1;
-  min-height: 44px;
-  max-height: 140px;
+  width: 100%;
+  min-height: 100px;
+  max-height: 240px;
   resize: vertical;
-  padding: 10px 12px;
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-md);
-  background: var(--bg-primary);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-family: inherit;
-  line-height: 1.4;
-}
-
-.composerRow .input {
-  min-width: 0;
+  line-height: 1.5;
 }
 
 .input:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--border-primary));
 }
 
 .sendBtn {
-  align-self: flex-end;
+  position: relative;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-width: 88px;
+  width: 40px;
   height: 40px;
-  padding: 0 14px;
+  min-width: 40px;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--border-primary));
-  border-radius: var(--radius-md);
+  border-radius: 50%;
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--text-primary);
-  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
+.sendBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
 .sendBtn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -862,11 +846,4 @@
 
 .composer {
   position: relative;
-}
-
-.composerFoot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 6px;
 }
