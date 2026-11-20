@@ -1,6 +1,6 @@
 .page {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  grid-template-columns: 220px minmax(0, 1fr) 5px var(--agent-side-w, 300px);
   gap: 0;
   height: calc(100vh - 120px);
   min-height: 480px;
@@ -10,8 +10,33 @@
   overflow: hidden;
 }
 
-.pageNoPanel {
-  grid-template-columns: 220px minmax(0, 1fr);
+.resizeHandle {
+  width: 5px;
+  margin: 0 -1px;
+  cursor: col-resize;
+  background: transparent;
+  border: none;
+  padding: 0;
+  position: relative;
+  z-index: 2;
+  touch-action: none;
+}
+
+.resizeHandle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: var(--border-primary);
+}
+
+.resizeHandle:hover::after,
+.resizeHandle:active::after {
+  left: 1px;
+  width: 3px;
+  background: color-mix(in srgb, var(--color-accent) 55%, var(--border-primary));
 }
 
 .sessions {
@@ -731,21 +756,542 @@
   overflow: hidden;
 }
 
-.sidePanelHead {
-  padding: 12px;
+.sideTabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0;
+  padding: 4px 2px 0;
   border-bottom: 1px solid var(--border-primary);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
+  overflow: hidden;
+}
+
+.sideTab {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 2px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.sideTabLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sideTab:hover {
   color: var(--text-primary);
+}
+
+.sideTabActive {
+  color: var(--text-primary);
+  border-bottom-color: var(--color-accent);
+}
+
+.sideTabBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: #e35d6a;
+  color: #fff;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
 }
 
 .sidePanelBody {
   flex: 1;
-  overflow: auto;
-  padding: 10px;
+  overflow: hidden;
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  min-height: 0;
+}
+
+.sidePaneBody {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.sidePaneToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidePaneHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sideSearch {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.sideSearch:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--border-primary));
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background: var(--bg-tertiary, var(--bg-secondary));
+  color: var(--text-primary);
+}
+
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+.mainTabBar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--border-primary);
+  overflow-x: auto;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--bg-primary) 40%, var(--bg-secondary));
+}
+
+.mainTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 180px;
+  height: 30px;
+  padding: 0 4px 0 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.mainTabActive {
+  background: var(--bg-primary);
+  border-color: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.mainTabBtn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+  padding: 0;
+}
+
+.mainTabClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.mainTabClose:hover {
+  background: var(--bg-tertiary, var(--bg-secondary));
+  color: var(--text-primary);
+}
+
+.chatPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.chatPane[hidden] {
+  display: none !important;
+}
+
+.mainPane {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.viewerStatus,
+.viewerError {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.viewerError {
+  color: #e35d6a;
+}
+
+.viewerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+.viewerPath {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewerMeta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.codeViewer,
+.diffViewer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-primary);
+}
+
+.codePre {
+  flex: 1;
+  margin: 0;
+  padding: 12px 16px;
+  overflow: auto;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre;
+}
+
+.diffPre {
+  flex: 1;
+  margin: 0;
+  padding: 8px 0;
+  overflow: auto;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.diffLine,
+.diffAdd,
+.diffDel,
+.diffHunk,
+.diffSection {
+  padding: 0 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.diffAdd {
+  background: color-mix(in srgb, #16a34a 14%, transparent);
+  color: #86efac;
+}
+
+.diffDel {
+  background: color-mix(in srgb, #e35d6a 14%, transparent);
+  color: #fca5a5;
+}
+
+.diffHunk {
+  color: var(--color-accent);
+}
+
+.diffSection {
+  margin-top: 8px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+
+.treeScroll {
+  flex: 1;
+  overflow: auto;
+}
+
+.treeRow {
+  display: flex;
+  align-items: center;
+}
+
+.treeMain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.treeMain:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.treeIcon {
+  display: inline-flex;
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.treeName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gitList,
+.toolTrail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gitRow,
+.toolTrailRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gitRow:hover,
+.toolTrailRow:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.gitStatus {
+  flex-shrink: 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--color-accent);
+  min-width: 20px;
+}
+
+.gitPath {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.gitCommitBox {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.gitCommitHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.gitAiBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.gitAiBtn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--border-primary));
+  color: var(--text-primary);
+}
+
+.gitAiBtn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.gitCommitInput {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.gitCommitInput:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--border-primary));
+}
+
+.gitPendingHint {
+  font-size: 11px;
+  color: var(--color-accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gitCommitActions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gitCommitActions .acceptBtn,
+.gitCommitActions .rejectBtn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+}
+
+.terminalPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 8px;
+  gap: 6px;
+}
+
+.terminalHost {
+  flex: 1;
+  min-height: 180px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #0f1115;
+}
+
+.termStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.termDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b7280;
+}
+
+.termDotOn {
+  background: #16a34a;
+}
+
+.termDotWait {
+  background: #eab308;
+}
+
+.termDotOff {
+  background: #6b7280;
+}
+
+.termActions {
+  display: flex;
+  gap: 2px;
 }
 
 .artifactCard,
@@ -822,11 +1368,7 @@
 
 @media (max-width: 1100px) {
   .page {
-    grid-template-columns: 180px minmax(0, 1fr);
-  }
-
-  .sidePanel {
-    display: none;
+    grid-template-columns: 160px minmax(0, 1fr) 5px var(--agent-side-w, 260px);
   }
 }
 

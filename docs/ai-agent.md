@@ -62,13 +62,22 @@ flowchart LR
 | `GET /api/agent/projects` | 目标项目列表（meostock 本仓库 + Agent 工作区项目） |
 | `POST /api/agent/chat` | 工具循环 SSE（`sessionId` / `projectId` / `skillId`） |
 | — | 工具轮次默认不限制（安全上限 500；可用环境变量 `AGENT_MAX_TOOL_ROUNDS` 调高/调低） |
-| `GET /api/agent/workspace/{sessionId}` | 工作区文件列表 |
+| `GET /api/agent/fs/tree` | IDE：列目录（`projectId` + `path`） |
+| `GET /api/agent/fs/file` | IDE：读文件（支持 `offset` / `max_chars`） |
+| `GET /api/agent/git/summary` | IDE：分支 + porcelain 变更列表 |
+| `GET /api/agent/git/diff` | IDE：单文件 diff |
+| `WS /api/agent/terminal` | IDE：本机 PTY（`cwd`=当前项目根；单用户信任边界） |
+| `GET /api/agent/workspace/{sessionId}` | 工作区文件列表（浅） |
 | `GET /api/agent/acceptance` | 待处理验收单 |
 | `POST /api/agent/acceptance/{id}/approve` | 标记批准 |
 | `POST /api/agent/acceptance/{id}/reject` | 驳回 |
 | `POST /api/agent/acceptance/{id}/finalize` | 批准后 commit（`push` 默认 true） |
 
 SSE 事件：`start` / `intent` / `tool_*` / `content` / `artifact` / `acceptance` / `entities` / `error` / `done`
+
+### 页面布局（工作台）
+
+`/dashboard/agent`：左会话 · 中央多标签（对话 / 代码 / Diff）· 右侧常驻侧栏（文件 / Git 变更 / 终端 / 产物 / 工具轨迹）。终端为网页 PTY，cwd 锁在当前项目；不替代验收提交流程。
 
 ---
 

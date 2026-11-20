@@ -12,13 +12,28 @@ import {
   Square,
   Trash2,
   CandlestickChart,
-  FileCode2,
 } from 'lucide-react';
 import { openKlineTool } from '@/utils/multipanel';
 import { useToast } from '@/components/common';
 import { MarkdownBody } from './MarkdownBody';
 import { StreamingPlain } from './StreamingPlain';
 import { ModelPicker } from './ModelPicker';
+import { MainTabBar } from './main/MainTabBar';
+import { CodeViewer } from './main/CodeViewer';
+import { DiffViewer } from './main/DiffViewer';
+import {
+  SideWorkbench,
+  type SideTabId,
+} from './side/SideWorkbench';
+import type { ToolTrailItem } from './side/ToolsPanel';
+import {
+  CHAT_TAB_ID,
+  chatTab,
+  codeTabId,
+  diffTabId,
+  openOrFocusTab,
+  type MainTab,
+} from './mainTabs';
 import {
   appendMessage,
   loadActiveId,
@@ -43,6 +58,23 @@ import { AGENT_PROJECT_KEY } from './types';
 import styles from './Agent.module.css';
 
 const DEFAULT_PROJECT_ID = 'meostock';
+const SIDE_WIDTH_KEY = 'meostock.agent.sideWidth';
+/** 右侧工作台宽度：默认 300，可拖 240～480 */
+const SIDE_WIDTH_DEFAULT = 300;
+const SIDE_WIDTH_MIN = 240;
+const SIDE_WIDTH_MAX = 480;
+
+function loadSideWidth(): number {
+  try {
+    const n = Number(localStorage.getItem(SIDE_WIDTH_KEY));
+    if (Number.isFinite(n)) {
+      return Math.min(SIDE_WIDTH_MAX, Math.max(SIDE_WIDTH_MIN, Math.round(n)));
+    }
+  } catch {
+    /* ignore */
+  }
+  return SIDE_WIDTH_DEFAULT;
+}
 
 function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -176,11 +208,18 @@ export function Agent() {
   const [switchingModel, setSwitchingModel] = useState(false);
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [busyAccept, setBusyAccept] = useState<string | null>(null);
+  const [sideTab, setSideTab] = useState<SideTabId>('files');
+  const [sideWidth, setSideWidth] = useState(() => loadSideWidth());
+  const [mainTabs, setMainTabs] = useState<MainTab[]>(() => [chatTab()]);
+  const [activeMainTabId, setActiveMainTabId] = useState(CHAT_TAB_ID);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const resizingRef = useRef(false);
   /** 流式正文单独状态，避免每个 token 都改 sessions 触发整树 reconcile */
   const [liveStream, setLiveStream] = useState<{ id: string; text: string } | null>(null);
   const liveStreamAccRef = useRef('');
   const liveStreamRafRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messageAnchorRef = useRef<Record<string, HTMLDivElement | null>>({});
   const abortRef = useRef<AbortController | null>(null);
   /** 请求是否仍在飞（与 UI streaming 解耦，避免停不住/连点双发） */
   const inFlightRef = useRef(false);
@@ -207,6 +246,32 @@ export function Agent() {
     }
     return { arts, accepts };
   }, [active?.messages]);
+
+  const toolTrail = useMemo(() => {
+    const items: ToolTrailItem[] = [];
+    for (const m of active?.messages || []) {
+      for (const t of m.tools || []) {
+        items.push({ ...t, messageId: m.id });
+      }
+    }
+    return items;
+  }, [active?.messages]);
+
+  const pendingAcceptCount = useMemo(
+    () => panelArtifacts.accepts.filter((a) => a.status === 'pending').length,
+    [panelArtifacts.accepts]
+  );
+
+  const activeMainTab = useMemo(
+    () => mainTabs.find((t) => t.id === activeMainTabId) || mainTabs[0],
+    [mainTabs, activeMainTabId]
+  );
+
+  useEffect(() => {
+    // 切换项目：关掉代码/Diff 标签，回到对话
+    setMainTabs([chatTab()]);
+    setActiveMainTabId(CHAT_TAB_ID);
+  }, [projectId]);
 
   useEffect(() => {
     // 流式过程中不写 localStorage，减少额外同步与重渲染
@@ -363,13 +428,20 @@ export function Agent() {
     });
   };
 
-  const finalizeAcceptance = async (id: string, push: boolean) => {
+  const finalizeAcceptance = async (
+    id: string,
+    push: boolean,
+    commitMessage?: string
+  ) => {
     setBusyAccept(id);
     try {
       const res = await fetch(`/api/agent/acceptance/${id}/finalize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ push }),
+        body: JSON.stringify({
+          push,
+          commitMessage: commitMessage?.trim() || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {
@@ -394,6 +466,8 @@ export function Agent() {
                 acceptance: {
                   ...m.acceptance,
                   status: data?.ok ? 'finalized' : m.acceptance.status,
+                  commitMessage:
+                    commitMessage?.trim() || m.acceptance.commitMessage,
                 },
               }
             : m
@@ -405,6 +479,57 @@ export function Agent() {
       setBusyAccept(null);
     }
   };
+
+  const directCommit = async (message: string, push: boolean) => {
+    const res = await fetch('/api/agent/git/commit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: projectId || DEFAULT_PROJECT_ID,
+        message,
+        push,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) {
+      if (data?.committed && data?.pushed === false) {
+        toast.success('本地 commit 已完成');
+        toast.error(data?.error || 'push 失败');
+        return;
+      }
+      throw new Error(data?.error || '提交失败');
+    }
+    toast.success(push ? '已 commit + push' : '已 commit');
+  };
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDE_WIDTH_KEY, String(sideWidth));
+    } catch {
+      /* ignore */
+    }
+  }, [sideWidth]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!resizingRef.current || !pageRef.current) return;
+      const rect = pageRef.current.getBoundingClientRect();
+      const next = Math.round(rect.right - e.clientX);
+      setSideWidth(Math.min(SIDE_WIDTH_MAX, Math.max(SIDE_WIDTH_MIN, next)));
+    };
+    const onUp = () => {
+      if (!resizingRef.current) return;
+      resizingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, []);
 
   const rejectAcceptance = async (id: string) => {
     setBusyAccept(id);
@@ -739,12 +864,66 @@ export function Agent() {
     void send(p.prompt, p.skillId);
   };
 
-  const showPanel =
-    panelArtifacts.arts.length > 0 || panelArtifacts.accepts.length > 0 || !!workspacePath;
+  const openCodeTab = (path: string) => {
+    const name = path.split('/').pop() || path;
+    const next = openOrFocusTab(mainTabs, {
+      id: codeTabId(path),
+      kind: 'code',
+      title: name,
+      path,
+    });
+    setMainTabs(next.tabs);
+    setActiveMainTabId(next.activeId);
+  };
+
+  const openDiffTab = (path: string) => {
+    const name = path.split('/').pop() || path;
+    const next = openOrFocusTab(mainTabs, {
+      id: diffTabId(path),
+      kind: 'diff',
+      title: `Δ ${name}`,
+      path,
+    });
+    setMainTabs(next.tabs);
+    setActiveMainTabId(next.activeId);
+  };
+
+  const closeMainTab = (id: string) => {
+    if (id === CHAT_TAB_ID) return;
+    setMainTabs((prev) => {
+      const next = prev.filter((t) => t.id !== id);
+      if (!next.some((t) => t.id === activeMainTabId)) {
+        setActiveMainTabId(CHAT_TAB_ID);
+      }
+      return next.length ? next : [chatTab()];
+    });
+  };
+
+  const citePath = (path: string) => {
+    setInput((cur) => {
+      const piece = `\`${path}\``;
+      if (!cur.trim()) return piece + ' ';
+      return `${cur.replace(/\s+$/, '')} ${piece} `;
+    });
+    setActiveMainTabId(CHAT_TAB_ID);
+    toast.success(`已引用 ${path}`);
+  };
+
+  const jumpToMessage = (messageId: string) => {
+    setActiveMainTabId(CHAT_TAB_ID);
+    window.setTimeout(() => {
+      messageAnchorRef.current[messageId]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 50);
+  };
 
   return (
     <div
-      className={`${styles.page}${showPanel ? '' : ` ${styles.pageNoPanel}`}`}
+      ref={pageRef}
+      className={styles.page}
+      style={{ ['--agent-side-w' as string]: `${sideWidth}px` }}
       translate="no"
     >
       <aside className={styles.sessions}>
@@ -793,6 +972,29 @@ export function Agent() {
           </div>
         )}
 
+        <MainTabBar
+          tabs={mainTabs}
+          activeId={activeMainTabId}
+          onSelect={setActiveMainTabId}
+          onClose={closeMainTab}
+        />
+
+        {activeMainTab?.kind === 'code' && activeMainTab.path ? (
+          <div className={styles.mainPane}>
+            <CodeViewer projectId={projectId} path={activeMainTab.path} />
+          </div>
+        ) : null}
+
+        {activeMainTab?.kind === 'diff' && activeMainTab.path ? (
+          <div className={styles.mainPane}>
+            <DiffViewer projectId={projectId} path={activeMainTab.path} />
+          </div>
+        ) : null}
+
+        <div
+          className={styles.chatPane}
+          hidden={activeMainTab?.kind !== 'chat'}
+        >
         <div className={styles.messages}>
           {active && active.messages.length === 0 ? (
             <div className={styles.empty}>
@@ -824,6 +1026,9 @@ export function Agent() {
             active?.messages.map((m) => (
               <div
                 key={m.id}
+                ref={(el) => {
+                  messageAnchorRef.current[m.id] = el;
+                }}
                 className={`${styles.bubble} ${
                   m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant
                 }`}
@@ -1028,71 +1233,42 @@ export function Agent() {
             </div>
           </div>
         </div>
+        </div>
       </section>
 
-      {showPanel ? (
-        <aside className={styles.sidePanel}>
-          <div className={styles.sidePanelHead}>产物 / 验收</div>
-          <div className={styles.sidePanelBody}>
-            {workspacePath ? (
-              <div className={styles.artifactCard}>
-                <div>工作区</div>
-                <div className={styles.artifactPath}>{workspacePath}</div>
-              </div>
-            ) : null}
-            {panelArtifacts.accepts.map((a) => (
-              <div key={a.id} className={styles.acceptCard}>
-                <p className={styles.acceptTitle}>验收 · {a.status}</p>
-                <div>{a.summary}</div>
-                {a.commitMessage ? (
-                  <div className={styles.diffStat}>{a.commitMessage}</div>
-                ) : null}
-                {a.diffStat ? <div className={styles.diffStat}>{a.diffStat}</div> : null}
-                {a.status === 'pending' ? (
-                  <div className={styles.acceptActions}>
-                    <button
-                      type="button"
-                      className={styles.acceptBtn}
-                      disabled={busyAccept === a.id}
-                      onClick={() => void finalizeAcceptance(a.id, true)}
-                    >
-                      通过并 push
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.rejectBtn}
-                      disabled={busyAccept === a.id}
-                      onClick={() => void rejectAcceptance(a.id)}
-                    >
-                      驳回
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            {panelArtifacts.arts
-              .filter((a) => a.type !== 'acceptance')
-              .map((a, i) => (
-                <div key={`${a.path || a.type}-${i}`} className={styles.artifactCard}>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <FileCode2 size={14} />
-                    <span>{a.type || 'file'}</span>
-                    {a.scope ? <span>· {a.scope}</span> : null}
-                  </div>
-                  {a.path ? <div className={styles.artifactPath}>{a.path}</div> : null}
-                  {a.absPath ? (
-                    <div className={styles.artifactPath} title={a.absPath}>
-                      {a.absPath}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            {!panelArtifacts.arts.length && !panelArtifacts.accepts.length ? (
-              <div className={styles.sideEmpty}>本会话尚无产物</div>
-            ) : null}
-          </div>
-        </aside>
-      ) : null}
+      <div
+        className={styles.resizeHandle}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="调整侧栏宽度"
+        title={`拖动调整侧栏（${SIDE_WIDTH_MIN}–${SIDE_WIDTH_MAX}px）`}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          resizingRef.current = true;
+          document.body.style.cursor = 'col-resize';
+          document.body.style.userSelect = 'none';
+        }}
+        onDoubleClick={() => setSideWidth(SIDE_WIDTH_DEFAULT)}
+      />
+
+      <SideWorkbench
+        sideTab={sideTab}
+        onSideTab={setSideTab}
+        projectId={projectId || DEFAULT_PROJECT_ID}
+        workspacePath={workspacePath}
+        arts={panelArtifacts.arts}
+        accepts={panelArtifacts.accepts}
+        busyAccept={busyAccept}
+        toolItems={toolTrail}
+        pendingAcceptCount={pendingAcceptCount}
+        onOpenFile={openCodeTab}
+        onOpenDiff={openDiffTab}
+        onCitePath={citePath}
+        onFinalize={(id, push, msg) => void finalizeAcceptance(id, push, msg)}
+        onReject={(id) => void rejectAcceptance(id)}
+        onDirectCommit={directCommit}
+        onJumpTool={jumpToMessage}
+      />
     </div>
   );
 }

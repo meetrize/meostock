@@ -5,17 +5,19 @@ from __future__ import annotations
 import logging
 from typing import Any, Iterator
 
-from fastapi import APIRouter
+from fastapi import APIRouter, WebSocket
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ai import config as ai_config
 from ai import profiles as ai_profiles
 from agent.acceptance import get_acceptance, list_pending, update_acceptance
+from agent import ide_fs, ide_git
 from agent.projects import list_projects
 from agent.prompts import list_curated_prompts
 from agent.runtime import run_agent_sse
 from agent.skills_meta import list_skills_public
+from agent.terminal_ws import handle_terminal_ws
 from agent.tools import git_ops
 from agent.paths import workspace_dir
 
@@ -40,6 +42,17 @@ class AgentChatBody(BaseModel):
 
 class FinalizeBody(BaseModel):
     push: bool = True
+    commitMessage: str | None = None
+
+
+class GitCommitBody(BaseModel):
+    projectId: str | None = None
+    message: str = ""
+    push: bool = False
+
+
+class GitSuggestBody(BaseModel):
+    projectId: str | None = None
 
 
 @router.get("/health")
@@ -177,6 +190,9 @@ def agent_acceptance_finalize(acceptance_id: str, body: FinalizeBody | None = No
         rec = get_acceptance(acceptance_id)
         if not rec:
             return JSONResponse({"ok": False, "error": "不存在"}, status_code=404)
+        msg = (body.commitMessage if body else None) or None
+        if msg and str(msg).strip():
+            update_acceptance(acceptance_id, commitMessage=str(msg).strip()[:2000])
         if rec.get("status") == "pending":
             update_acceptance(acceptance_id, status="approved")
         do_push = True if body is None else bool(body.push)
@@ -234,3 +250,81 @@ def json_dumps_event(obj: dict[str, Any]) -> bytes:
     import json
 
     return f"data: {json.dumps(obj, ensure_ascii=False)}\n\n".encode("utf-8")
+
+
+@router.get("/fs/tree")
+def agent_fs_tree(projectId: str | None = None, path: str = ".") -> JSONResponse:
+    try:
+        return JSONResponse(ide_fs.list_tree(projectId, path))
+    except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("fs tree failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.get("/fs/file")
+def agent_fs_file(
+    projectId: str | None = None,
+    path: str = "",
+    offset: int | None = None,
+    max_chars: int | None = None,
+) -> JSONResponse:
+    try:
+        return JSONResponse(
+            ide_fs.read_file(projectId, path, offset=offset, max_chars=max_chars)
+        )
+    except (FileNotFoundError, IsADirectoryError, ValueError) as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("fs file failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.get("/git/summary")
+def agent_git_summary(projectId: str | None = None) -> JSONResponse:
+    try:
+        return JSONResponse(ide_git.git_summary(projectId))
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("git summary failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.get("/git/diff")
+def agent_git_diff(projectId: str | None = None, path: str = "") -> JSONResponse:
+    try:
+        return JSONResponse(ide_git.git_file_diff(projectId, path))
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("git diff failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/git/suggest-message")
+def agent_git_suggest_message(body: GitSuggestBody) -> JSONResponse:
+    try:
+        result = ide_git.suggest_commit_message(body.projectId)
+        status = 200 if result.get("ok") else 400
+        return JSONResponse(result, status_code=status)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("suggest commit message failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/git/commit")
+def agent_git_commit(body: GitCommitBody) -> JSONResponse:
+    try:
+        result = ide_git.commit_changes(
+            body.projectId, message=body.message, do_push=body.push
+        )
+        status = 200 if result.get("ok") or result.get("committed") else 400
+        return JSONResponse(result, status_code=status)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("git commit failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.websocket("/terminal")
+async def agent_terminal_ws(websocket: WebSocket) -> None:
+    await handle_terminal_ws(websocket)
