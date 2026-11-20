@@ -84,3 +84,11 @@ SSE 事件：`start` / `intent` / `tool_*` / `content` / `artifact` / `acceptanc
 - L4 整机任意路径
 - 无人值守自动 push
 - 实盘交易 / 多用户云同步
+
+---
+
+## Agent 自升级演练
+
+本节为最小自升级演示：Phase 2（工作区 coding + shell allowlist）与 Phase 3（自升级验收闭环）均已可用，Agent 可在受保护路径之外写入仓库并跑冒烟测试。
+
+改动仍需人工在 UI 验收后才 commit/push，Agent 自身不具备 push 权限。
