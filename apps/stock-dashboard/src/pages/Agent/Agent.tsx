@@ -2,17 +2,11 @@
  * AI Agent 工作台（Phase 2/3：工作区 coding + 自升级验收）
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, Loader2, Plus, Send, Trash2, CandlestickChart, FileCode2 } from 'lucide-react';
 import { openKlineTool } from '@/utils/multipanel';
 import { useToast } from '@/components/common';
+import { MarkdownBody } from './MarkdownBody';
 import {
   appendMessage,
   loadActiveId,
@@ -47,35 +41,6 @@ function ensureSessions(): AgentSession[] {
   saveSessions([s]);
   saveActiveId(s.id);
   return [s];
-}
-
-function renderRichText(text: string) {
-  const parts: ReactNode[] = [];
-  const re = /\[([^\]]+)\]\((kline:[^)]+|\/?\?symbol=[^)]+)\)/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  let key = 0;
-  while ((m = re.exec(text))) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    const label = m[1];
-    const href = m[2];
-    const symbol = href.startsWith('kline:')
-      ? href.slice('kline:'.length)
-      : new URLSearchParams(href.replace(/^\//, '').replace(/^\?/, '')).get('symbol') || '';
-    parts.push(
-      <button
-        key={`lk-${key++}`}
-        type="button"
-        className={styles.inlineLink}
-        onClick={() => symbol && openKline(symbol)}
-      >
-        {label}
-      </button>
-    );
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  return parts.length ? parts : text;
 }
 
 export function Agent() {
@@ -533,10 +498,16 @@ export function Agent() {
                     ))}
                   </div>
                 ) : null}
-                {renderRichText(
-                  m.contentLinked ||
-                    m.content ||
-                    (streaming && m.role === 'assistant' ? '…' : '')
+                {m.role === 'assistant' ? (
+                  <MarkdownBody
+                    text={
+                      m.contentLinked ||
+                      m.content ||
+                      (streaming ? '…' : '')
+                    }
+                  />
+                ) : (
+                  <div className={styles.userPlain}>{m.content}</div>
                 )}
                 {m.entities && m.entities.length > 0 ? (
                   <div className={styles.entityRow}>
