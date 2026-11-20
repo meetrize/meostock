@@ -45,6 +45,8 @@ export type ChatMessage = {
   ts: number;
   intent?: string;
   skillId?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
   permission?: string;
   tools?: ToolEvent[];
   entities?: AgentEntity[];
@@ -70,5 +72,27 @@ export type CuratedPrompt = {
   skillId: string | null;
 };
 
+export type AgentProject = {
+  id: string;
+  name: string;
+  kind: 'repo' | 'workspace' | string;
+  path: string;
+  description?: string;
+  fileCount?: number | null;
+  updatedAt?: number | null;
+  source?: string;
+};
+
+export type AgentSkill = {
+  id: string;
+  title: string;
+  description: string;
+  intent: string;
+  tools: string[];
+  userHint?: string;
+  permission?: string;
+};
+
 export const AGENT_SESSIONS_KEY = 'stock-dashboard:agent-sessions:v1';
 export const AGENT_ACTIVE_KEY = 'stock-dashboard:agent-active:v1';
+export const AGENT_PROJECT_KEY = 'stock-dashboard:agent-project:v1';

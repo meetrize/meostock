@@ -20,15 +20,37 @@ import type {
   AcceptanceInfo,
   AgentArtifact,
   AgentEntity,
+  AgentProject,
   AgentSession,
+  AgentSkill,
   ChatMessage,
   CuratedPrompt,
   ToolEvent,
 } from './types';
+import { AGENT_PROJECT_KEY } from './types';
 import styles from './Agent.module.css';
+
+const DEFAULT_PROJECT_ID = 'meostock';
 
 function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function loadSavedProjectId(): string {
+  try {
+    const v = localStorage.getItem(AGENT_PROJECT_KEY);
+    return v?.trim() || DEFAULT_PROJECT_ID;
+  } catch {
+    return DEFAULT_PROJECT_ID;
+  }
+}
+
+function saveProjectId(id: string) {
+  try {
+    localStorage.setItem(AGENT_PROJECT_KEY, id);
+  } catch {
+    /* ignore */
+  }
 }
 
 function openKline(symbol: string) {
@@ -54,6 +76,9 @@ export function Agent() {
     return list[0].id;
   });
   const [prompts, setPrompts] = useState<CuratedPrompt[]>([]);
+  const [projects, setProjects] = useState<AgentProject[]>([]);
+  const [skills, setSkills] = useState<AgentSkill[]>([]);
+  const [projectId, setProjectId] = useState<string>(() => loadSavedProjectId());
   const [input, setInput] = useState('');
   const [pendingSkill, setPendingSkill] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
@@ -72,6 +97,11 @@ export function Agent() {
   const active = useMemo(
     () => sessions.find((s) => s.id === activeId) || sessions[0],
     [sessions, activeId]
+  );
+
+  const selectedProject = useMemo(
+    () => projects.find((p) => p.id === projectId) || projects[0] || null,
+    [projects, projectId]
   );
 
   const panelArtifacts = useMemo(() => {
@@ -98,16 +128,45 @@ export function Agent() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [active?.messages, streaming, liveStream?.text]);
 
+  const refreshProjects = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agent/projects');
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && Array.isArray(data.projects)) {
+        setProjects(data.projects as AgentProject[]);
+        const ids = new Set((data.projects as AgentProject[]).map((p) => p.id));
+        setProjectId((cur) => {
+          if (ids.has(cur)) return cur;
+          return DEFAULT_PROJECT_ID;
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     void (async () => {
       try {
-        const [pRes, hRes] = await Promise.all([
+        const [pRes, hRes, projRes, skRes] = await Promise.all([
           fetch('/api/agent/prompts'),
           fetch('/api/agent/health'),
+          fetch('/api/agent/projects'),
+          fetch('/api/agent/skills'),
         ]);
         const pData = await pRes.json().catch(() => ({}));
         const hData = await hRes.json().catch(() => ({}));
+        const projData = await projRes.json().catch(() => ({}));
+        const skData = await skRes.json().catch(() => ({}));
         if (pData?.ok && Array.isArray(pData.prompts)) setPrompts(pData.prompts);
+        if (projData?.ok && Array.isArray(projData.projects)) {
+          setProjects(projData.projects as AgentProject[]);
+          const ids = new Set((projData.projects as AgentProject[]).map((p) => p.id));
+          setProjectId((cur) => (ids.has(cur) ? cur : DEFAULT_PROJECT_ID));
+        }
+        if (skData?.ok && Array.isArray(skData.skills)) {
+          setSkills(skData.skills as AgentSkill[]);
+        }
         if (hData?.configured) {
           setModelLabel(`${hData.provider || 'ai'} · ${hData.model || ''}`);
           setPermLabel(
@@ -125,6 +184,10 @@ export function Agent() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    saveProjectId(projectId);
+  }, [projectId]);
 
   const patchActive = useCallback(
     (updater: (s: AgentSession) => AgentSession) => {
@@ -248,7 +311,6 @@ export function Agent() {
       return next;
     });
     setInput('');
-    setPendingSkill(null);
     setStreaming(true);
     liveStreamAccRef.current = '';
     setLiveStream({ id: assistantId, text: '' });
@@ -300,6 +362,7 @@ export function Agent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sessionId: active.id,
+          projectId: projectId || DEFAULT_PROJECT_ID,
           skillId: skillId ?? userMsg.skillId ?? null,
           messages: history,
         }),
@@ -348,10 +411,15 @@ export function Agent() {
               ...m,
               intent: String(obj.intent || ''),
               skillId: (obj.skillId as string) || m.skillId,
+              projectId: (obj.projectId as string) || m.projectId,
+              projectName: (obj.projectName as string) || m.projectName,
               permission: String(obj.permission || ''),
             }));
             if (obj.workspacePath) setWorkspacePath(String(obj.workspacePath));
             if (obj.permission) setPermLabel(String(obj.permission));
+            if (obj.projectKind === 'workspace') {
+              void refreshProjects();
+            }
           } else if (event === 'tool_start') {
             const te: ToolEvent = {
               id: String(obj.id || obj.tool || uid()),
@@ -530,10 +598,12 @@ export function Agent() {
                   m.role === 'user' ? styles.bubbleUser : styles.bubbleAssistant
                 }`}
               >
-                {m.role === 'assistant' && (m.intent || m.permission) ? (
+                {m.role === 'assistant' && (m.intent || m.permission || m.projectName) ? (
                   <div className={styles.intentTag}>
                     <span>
-                      {m.intent ? `意图 · ${m.intent}` : ''}
+                      {m.projectName ? `项目 · ${m.projectName}` : ''}
+                      {m.intent ? `${m.projectName ? ' · ' : ''}意图 · ${m.intent}` : ''}
+                      {m.skillId ? ` · skill · ${m.skillId}` : ''}
                       {m.permission ? ` · ${m.permission}` : ''}
                     </span>
                   </div>
@@ -616,29 +686,103 @@ export function Agent() {
         </div>
 
         <div className={styles.composer}>
-          <textarea
-            className={styles.input}
-            value={input}
-            placeholder="输入提示词…（Enter 发送，Shift+Enter 换行）"
-            rows={2}
-            disabled={streaming}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                void send();
+          <div className={styles.composerBar}>
+            <div className={styles.composerField}>
+              <span className={styles.composerLabel}>目标项目</span>
+              <select
+                className={styles.projectSelect}
+                value={selectedProject?.id || projectId}
+                disabled={streaming}
+                onChange={(e) => setProjectId(e.target.value)}
+                title={selectedProject?.path || ''}
+              >
+                {(projects.length
+                  ? projects
+                  : [
+                      {
+                        id: DEFAULT_PROJECT_ID,
+                        name: 'meostock（本项目）',
+                        kind: 'repo',
+                        path: '',
+                      } as AgentProject,
+                    ]
+                ).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.kind === 'repo' ? '★ ' : ''}
+                    {p.name}
+                    {p.kind === 'workspace' && p.fileCount != null
+                      ? ` · ${p.fileCount} 文件`
+                      : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedProject?.description ? (
+                <span className={styles.projectHint} title={selectedProject.description}>
+                  {selectedProject.description}
+                </span>
+              ) : null}
+            </div>
+            <div className={`${styles.composerField} ${styles.composerFieldGrow}`}>
+              <span className={styles.composerLabel}>Skill（可选，发送时一并提交）</span>
+              <div className={styles.skillChips}>
+                <button
+                  type="button"
+                  className={`${styles.skillChip}${
+                    !pendingSkill ? ` ${styles.skillChipActive}` : ''
+                  }`}
+                  disabled={streaming}
+                  onClick={() => setPendingSkill(null)}
+                >
+                  不指定
+                </button>
+                {skills.map((sk) => (
+                  <button
+                    key={sk.id}
+                    type="button"
+                    className={`${styles.skillChip}${
+                      pendingSkill === sk.id ? ` ${styles.skillChipActive}` : ''
+                    }`}
+                    disabled={streaming}
+                    title={sk.description || sk.userHint || sk.id}
+                    onClick={() =>
+                      setPendingSkill((cur) => (cur === sk.id ? null : sk.id))
+                    }
+                  >
+                    {sk.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className={styles.composerRow}>
+            <textarea
+              className={styles.input}
+              value={input}
+              placeholder={
+                pendingSkill
+                  ? `已选 skill · ${pendingSkill}，输入提示词…（Enter 发送）`
+                  : '输入提示词…（Enter 发送，Shift+Enter 换行）'
               }
-            }}
-          />
-          <button
-            type="button"
-            className={styles.sendBtn}
-            disabled={streaming || !input.trim()}
-            onClick={() => void send()}
-          >
-            {streaming ? <Loader2 size={16} /> : <Send size={16} />}
-            发送
-          </button>
+              rows={2}
+              disabled={streaming}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className={styles.sendBtn}
+              disabled={streaming || !input.trim()}
+              onClick={() => void send()}
+            >
+              {streaming ? <Loader2 size={16} /> : <Send size={16} />}
+              发送
+            </button>
+          </div>
         </div>
       </section>
 

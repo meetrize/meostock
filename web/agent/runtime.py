@@ -12,6 +12,7 @@ from ai import config as ai_config
 from ai.client import chat_completion
 from agent.intent import resolve_intent
 from agent.paths import workspace_dir
+from agent.projects import resolve_project
 from agent.tools.registry import TOOL_DEFS, execute_tool
 
 _log = logging.getLogger("agent.runtime")
@@ -22,6 +23,8 @@ _SYSTEM_BASE = (
     "可读可写本仓库与会话工作区、allowlist shell、只读查库；"
     "禁止写数据库、禁止 .env/*.db/.git、禁止任意 shell。\n"
     "需要事实或改文件时必须调用工具，禁止编造，禁止声称「权限不足 / 只有 L0」。\n"
+    "必须严格针对【目标项目】操作：kind=repo 时优先 repo_* / 本仓库构建；"
+    "kind=workspace 时优先 workspace_*，不要误改本仓库除非用户明确要求。\n"
     "前端重新发布：改 apps/stock-dashboard 后执行 shell_run：./scripts/build_dashboard.sh"
     "（产物落到 web/static/dashboard，刷新即可）。\n"
     "提到股票或商品时尽量带上代码与名称；不提供买卖指令或收益承诺。\n"
@@ -252,6 +255,7 @@ def run_agent_sse(
     messages: list[dict[str, str]],
     skill_id: str | None = None,
     session_id: str | None = None,
+    project_id: str | None = None,
 ) -> Iterator[bytes]:
     yield _sse({"event": "start"})
     cfg = ai_config.active_config()
@@ -270,8 +274,15 @@ def run_agent_sse(
 
     last_user = next((m["content"] for m in reversed(history) if m["role"] == "user"), "")
     intent = resolve_intent(last_user, skill_id=skill_id)
-    perm = str(intent.get("permission") or "L0")
-    ws = workspace_dir(session_id)
+    perm = str(intent.get("permission") or "L2")
+    project = resolve_project(project_id)
+    # 选中 Agent 工作区项目时，workspace_* 指向该项目目录；否则用会话目录
+    tool_workspace_id = (
+        str(project["id"])
+        if project.get("kind") == "workspace"
+        else session_id
+    )
+    ws = workspace_dir(tool_workspace_id)
     yield _sse(
         {
             "event": "intent",
@@ -280,20 +291,42 @@ def run_agent_sse(
             "permission": perm,
             "source": intent.get("source"),
             "workspacePath": str(ws),
+            "projectId": project.get("id"),
+            "projectKind": project.get("kind"),
+            "projectName": project.get("name"),
+            "projectPath": project.get("path"),
         }
     )
 
     system_parts = [
         _SYSTEM_BASE,
         f"【本轮权限】{perm}",
+        (
+            f"【目标项目】id={project.get('id')} · kind={project.get('kind')} · "
+            f"name={project.get('name')} · path={project.get('path')}"
+        ),
         f"【会话工作区】{ws}",
     ]
+    if project.get("kind") == "repo":
+        system_parts.append(
+            "【操作重点】目标为本仓库 meostock：用 repo_read/repo_write/shell_run(构建脚本)；"
+            "工作区仅作临时草稿。"
+        )
+    else:
+        system_parts.append(
+            "【操作重点】目标为 Agent 隔离工作区项目：优先 workspace_list/read/write；"
+            "除非用户明确要求，不要改动本仓库源码。"
+        )
     if intent.get("systemExtra"):
         system_parts.append(str(intent["systemExtra"]))
     system = "\n\n".join(system_parts)
 
     tools = _filter_tools(intent.get("tools"))
-    tool_ctx = {"session_id": session_id}
+    tool_ctx = {
+        "session_id": tool_workspace_id,
+        "project_id": project.get("id"),
+        "project_kind": project.get("kind"),
+    }
     working: list[dict[str, Any]] = [{"role": "system", "content": system}, *history]
     collected_tool_results: list[dict[str, Any]] = []
     final_text = ""

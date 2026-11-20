@@ -59,7 +59,8 @@ flowchart LR
 | `GET /api/agent/health` | 模型 + phase + 能力 |
 | `GET /api/agent/prompts` | 精选提示词 |
 | `GET /api/agent/skills` | skill 元数据 |
-| `POST /api/agent/chat` | 工具循环 SSE（`sessionId` 绑定工作区） |
+| `GET /api/agent/projects` | 目标项目列表（meostock 本仓库 + Agent 工作区项目） |
+| `POST /api/agent/chat` | 工具循环 SSE（`sessionId` / `projectId` / `skillId`） |
 | `GET /api/agent/workspace/{sessionId}` | 工作区文件列表 |
 | `GET /api/agent/acceptance` | 待处理验收单 |
 | `POST /api/agent/acceptance/{id}/approve` | 标记批准 |

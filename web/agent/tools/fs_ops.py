@@ -88,6 +88,9 @@ def workspace_read(session_id: str | None, path: str) -> dict[str, Any]:
 
 
 def workspace_write(session_id: str | None, path: str, content: str) -> dict[str, Any]:
+    from agent.projects import ensure_workspace_project_meta
+
+    ensure_workspace_project_meta(session_id)
     base = workspace_dir(session_id)
     target = resolve_workspace_path(session_id, path)
     out = _write_file(base, target, content)

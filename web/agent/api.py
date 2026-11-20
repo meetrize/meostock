@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from ai import config as ai_config
 from ai import profiles as ai_profiles
 from agent.acceptance import get_acceptance, list_pending, update_acceptance
+from agent.projects import list_projects
 from agent.prompts import list_curated_prompts
 from agent.runtime import run_agent_sse
 from agent.skills_meta import list_skills_public
@@ -34,6 +35,7 @@ class AgentChatBody(BaseModel):
     messages: list[ChatMessage] = Field(default_factory=list)
     skillId: str | None = None
     sessionId: str | None = None
+    projectId: str | None = None
 
 
 class FinalizeBody(BaseModel):
@@ -88,6 +90,15 @@ def agent_skills() -> JSONResponse:
         return JSONResponse({"ok": True, "skills": list_skills_public()})
     except Exception as exc:  # noqa: BLE001
         _log.exception("agent skills failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.get("/projects")
+def agent_projects() -> JSONResponse:
+    try:
+        return JSONResponse({"ok": True, "projects": list_projects()})
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("agent projects failed")
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
 
@@ -199,6 +210,7 @@ async def agent_chat(body: AgentChatBody):
                 messages=msgs,
                 skill_id=body.skillId,
                 session_id=body.sessionId,
+                project_id=body.projectId,
             )
         except Exception as exc:  # noqa: BLE001
             _log.exception("agent chat stream failed")
