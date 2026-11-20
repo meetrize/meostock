@@ -156,3 +156,120 @@
 .danger:hover:not(:disabled) {
   color: var(--color-down, #ef4444);
 }
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.presetsTitle {
+  margin: 0;
+  font-size: var(--font-size-md, 1rem);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.presetsDesc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.presetCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.presetCard:hover {
+  border-color: var(--color-accent, #3b82f6);
+}
+
+.presetLabel {
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.presetDesc {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.presets {
+  padding: 14px 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.presetsTitle {
+  margin: 0;
+  font-size: var(--font-size-md, 1rem);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.presetsDesc {
+  margin: 6px 0 12px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.presetCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.presetCard:hover {
+  border-color: var(--color-accent, #3b82f6);
+}
+
+.presetLabel {
+  font-weight: 650;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.presetDesc {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}

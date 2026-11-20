@@ -67,9 +67,10 @@ export function createDefaultWatchPreset(): PortalPreset {
     item('stat-breadth', 'stat.breadth', 0, statsY, 2, 2),
     item('stat-limit', 'stat.limit', 2, statsY, 2, 2),
     item('stat-amount', 'stat.amount', 4, statsY, 2, 2),
-    item('stat-northbound', 'stat.northbound', 6, statsY, 2, 2),
-    item('stat-mainForce', 'stat.mainForce', 8, statsY, 2, 2),
-    item('stat-strongestBoard', 'stat.strongestBoard', 10, statsY, 2, 2),
+    // 北向日频净买入已停更：移出默认布局（catalog 仍保留停更提示组件，供旧预设兼容）
+    item('stat-mainForce', 'stat.mainForce', 6, statsY, 2, 2),
+    item('stat-strongestBoard', 'stat.strongestBoard', 8, statsY, 2, 2),
+    item('stat-margin', 'stat.margin', 10, statsY, 2, 2),
     ...globalParts,
     ...futParts,
     item('macro-rates', 'macro.rates', 0, macroY, 12, macroH),

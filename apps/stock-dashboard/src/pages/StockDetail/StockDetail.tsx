@@ -49,6 +49,8 @@ import {
   normalizeStockCode,
   yearsAgoYmd,
 } from '@/utils/format';
+import { ResearchScorecard } from './ResearchScorecard';
+import { ResearchTimeline } from './ResearchTimeline';
 import styles from './StockDetail.module.css';
 
 type IndividualFundFlowRows = Awaited<ReturnType<typeof getIndividualFundFlow>>;
@@ -1153,6 +1155,9 @@ export function StockDetail() {
           </div>
         </div>
       </Card>
+
+      <ResearchScorecard code={normalizedCode || quote.code} />
+      <ResearchTimeline code={normalizedCode || quote.code} />
 
       <div className={styles.mainGrid}>
         <div className={styles.chartSection}>

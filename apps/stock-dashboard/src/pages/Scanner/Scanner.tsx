@@ -10,6 +10,7 @@ import { Button, Card, Empty, Tabs, useToast } from '@/components/common';
 import { useBoardData } from '@/contexts';
 import {
   type AnalysisProgress,
+  assessTradability,
   isAnalysisAborted,
   type ScannerSignalKey,
   type ScannerStockPoolItem,
@@ -89,6 +90,8 @@ interface ScanResultRow {
   name: string;
   signal: string;
   time: string;
+  tradable: boolean;
+  tradableLabel: string;
 }
 
 function formatProgress(progress: AnalysisProgress) {
@@ -317,20 +320,46 @@ export function Scanner() {
             name: result.name,
             signal: result.matchedSignals.join(' / '),
             time: now,
+            tradable: true,
+            tradableLabel: '检测中',
           });
           setResults([...buffered]);
         },
       });
 
-      setResults(
-        scanned.map((item) => ({
+      let quoteByCode = new Map<
+        string,
+        Awaited<ReturnType<typeof getAllQuotesByCodes>>[number]
+      >();
+      try {
+        const quotes = await getAllQuotesByCodes(
+          scanned.map((item) => item.routeCode || item.code)
+        );
+        quoteByCode = new Map(
+          quotes.map((q) => [normalizeStockCode(q.code).toUpperCase(), q])
+        );
+      } catch (err) {
+        console.warn('tradability quote enrich failed', err);
+      }
+
+      const toRow = (item: (typeof scanned)[number]): ScanResultRow => {
+        const key = normalizeStockCode(item.routeCode || item.code).toUpperCase();
+        const q = quoteByCode.get(key);
+        const t = q
+          ? assessTradability(q)
+          : { tradable: true, label: '可成交（无报价样本）' };
+        return {
           code: item.code,
           routeCode: item.routeCode,
           name: item.name,
           signal: item.matchedSignals.join(' / '),
           time: now,
-        }))
-      );
+          tradable: t.tradable,
+          tradableLabel: t.label,
+        };
+      };
+
+      setResults(scanned.map(toRow));
     } catch (error) {
       if (isAnalysisAborted(error)) {
         toast.info('已取消扫描');
@@ -580,7 +609,17 @@ export function Scanner() {
                     </div>
                     <div className={styles.resultSignal}>
                       <span className={styles.signalTag}>{item.signal}</span>
-                      <span className={styles.resultTime}>{item.time}</span>
+                      <span
+                        className={styles.resultTime}
+                        title={item.tradableLabel}
+                        style={{
+                          color: item.tradable
+                            ? 'var(--text-tertiary)'
+                            : 'var(--color-fall, #ef4444)',
+                        }}
+                      >
+                        {item.tradable ? '可成交' : '不可成交'} · {item.time}
+                      </span>
                     </div>
                     <button
                       className={`${styles.addBtn} ${isInWatchlist(item.routeCode) ? styles.added : ''}`}

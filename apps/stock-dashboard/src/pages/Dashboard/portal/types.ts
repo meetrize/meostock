@@ -33,7 +33,14 @@ export type PortalWidgetType =
   | 'rank.hk'
   | 'rank.cb'
   | 'embed.iframe'
-  | 'calendar.events';
+  | 'calendar.events'
+  | 'research.regime'
+  | 'research.marketThermometer'
+  | 'research.themeLeaders'
+  | 'research.radarWatchlist'
+  | 'research.portfolioRisk'
+  | 'research.aiBrief'
+  | 'research.eventTimeline';
 
 export type PortalCatalogGroupId =
   | 'ashare'
@@ -49,7 +56,8 @@ export type PortalCatalogGroupId =
   | 'crypto'
   | 'rates'
   | 'embed'
-  | 'calendar';
+  | 'calendar'
+  | 'research';
 
 export interface PortalWidgetInstance {
   id: string;

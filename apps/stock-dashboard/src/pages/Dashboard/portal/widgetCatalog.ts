@@ -37,6 +37,7 @@ export const CATALOG_GROUP_LABELS: Record<PortalCatalogGroupId, string> = {
   derivatives: '衍生品与场内',
   embed: '嵌入网页',
   calendar: '财经日历',
+  research: '研判工作台',
 };
 
 const FULL_W = 12;
@@ -165,8 +166,8 @@ export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
   },
   'stat.northbound': {
     type: 'stat.northbound',
-    name: '北向资金',
-    description: '北向净流入摘要',
+    name: '北向（已停更）',
+    description: '日频净买入已停更；勿作日频信号（改看季度持股）',
     group: 'capital',
     lane: 'em-sina',
     defaultLayout: { ...KPI_LAYOUT },
@@ -348,6 +349,69 @@ export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
     allowMultiple: true,
     starred: true,
   },
+  'research.regime': {
+    type: 'research.regime',
+    name: '研判 Regime',
+    description: '总仓位倾向 + 大盘温度摘要',
+    group: 'research',
+    lane: 'em-sina',
+    defaultLayout: { ...KPI_LAYOUT, w: 3, h: 3, minH: 2 },
+    starred: true,
+  },
+  'research.marketThermometer': {
+    type: 'research.marketThermometer',
+    name: '大盘温度计',
+    description: '温度分 / 情绪阶段 / 因子下钻',
+    group: 'research',
+    lane: 'em-sina',
+    defaultLayout: { w: 6, h: 8, minW: 4, minH: 5, maxW: FULL_W, maxH: TALL_H },
+    starred: true,
+  },
+  'research.themeLeaders': {
+    type: 'research.themeLeaders',
+    name: '主线板块',
+    description: '行业/概念涨幅主线与生命周期标签',
+    group: 'research',
+    lane: 'em-sina',
+    defaultLayout: { w: 6, h: 10, minW: 4, minH: 5, maxW: FULL_W, maxH: TALL_H },
+    starred: true,
+  },
+  'research.radarWatchlist': {
+    type: 'research.radarWatchlist',
+    name: '自选雷达',
+    description: '观察池列表（六维 Scorecard Phase 2）',
+    group: 'research',
+    lane: 'em-sina',
+    defaultLayout: { w: 6, h: 8, minW: 3, minH: 4, maxW: FULL_W, maxH: TALL_H },
+    starred: true,
+  },
+  'research.portfolioRisk': {
+    type: 'research.portfolioRisk',
+    name: '组合风控',
+    description: 'TradeCard 持仓止损 / 集中度 / 违规',
+    group: 'research',
+    lane: 'em-sina',
+    defaultLayout: { w: 6, h: 8, minW: 3, minH: 4, maxW: FULL_W, maxH: TALL_H },
+    starred: true,
+  },
+  'research.aiBrief': {
+    type: 'research.aiBrief',
+    name: '今日简报',
+    description: 'Scope 简报（经校验层，非自动荐股）',
+    group: 'research',
+    lane: 'em-sina',
+    defaultLayout: { w: 4, h: 10, minW: 3, minH: 5, maxW: FULL_W, maxH: TALL_H },
+    starred: true,
+  },
+  'research.eventTimeline': {
+    type: 'research.eventTimeline',
+    name: '事件轴',
+    description: '资讯 / 日历 / 龙虎榜 / 大宗',
+    group: 'research',
+    lane: 'em-sina',
+    defaultLayout: { w: 6, h: 10, minW: 4, minH: 5, maxW: FULL_W, maxH: TALL_H },
+    starred: true,
+  },
 };
 
 export const WIDGET_CATALOG_LIST = Object.values(WIDGET_CATALOG);
@@ -358,6 +422,7 @@ export function catalogGroups(): Array<{
   entries: WidgetCatalogEntry[];
 }> {
   const order: PortalCatalogGroupId[] = [
+    'research',
     'ashare',
     'global',
     'futuresSpark',

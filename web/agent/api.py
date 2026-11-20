@@ -38,6 +38,13 @@ class AgentChatBody(BaseModel):
     skillId: str | None = None
     sessionId: str | None = None
     projectId: str | None = None
+    # 研判 Scope 上下文（设计方案 §6.3 / Research Workbench Phase 0）
+    scopeType: str | None = None
+    scopeId: str | None = None
+    asOf: str | None = None
+    visibleSignals: list[str] | None = None
+    strategyTemplateId: str | None = None
+    knownEvidenceIds: list[str] | None = None
 
 
 class FinalizeBody(BaseModel):
@@ -263,6 +270,12 @@ async def agent_chat(body: AgentChatBody):
                 skill_id=body.skillId,
                 session_id=body.sessionId,
                 project_id=body.projectId,
+                scope_type=body.scopeType,
+                scope_id=body.scopeId,
+                as_of=body.asOf,
+                visible_signals=body.visibleSignals,
+                strategy_template_id=body.strategyTemplateId,
+                known_evidence_ids=body.knownEvidenceIds,
             )
         except Exception as exc:  # noqa: BLE001
             _log.exception("agent chat stream failed")

@@ -22,6 +22,15 @@ import { MacroRatesWidget } from './MacroRatesWidget';
 import { SparkPanelWidget } from './SparkPanelWidget';
 import { IframeWidget } from './IframeWidget';
 import { CalendarEventsWidget } from './CalendarEventsWidget';
+import {
+  ResearchAiBriefWidget,
+  ResearchEventTimelineWidget,
+  ResearchMarketThermometerWidget,
+  ResearchPortfolioRiskWidget,
+  ResearchRadarWatchlistWidget,
+  ResearchRegimeWidget,
+  ResearchThemeLeadersWidget,
+} from './ResearchWidgets';
 import { isSparkWidgetType } from '../sparkCatalog';
 
 export interface RenderWidgetOptions {
@@ -94,6 +103,20 @@ export function renderWidget(
       );
     case 'calendar.events':
       return <CalendarEventsWidget />;
+    case 'research.regime':
+      return <ResearchRegimeWidget />;
+    case 'research.marketThermometer':
+      return <ResearchMarketThermometerWidget />;
+    case 'research.themeLeaders':
+      return <ResearchThemeLeadersWidget gridH={gridH} />;
+    case 'research.radarWatchlist':
+      return <ResearchRadarWatchlistWidget />;
+    case 'research.portfolioRisk':
+      return <ResearchPortfolioRiskWidget />;
+    case 'research.aiBrief':
+      return <ResearchAiBriefWidget />;
+    case 'research.eventTimeline':
+      return <ResearchEventTimelineWidget />;
     default:
       return null;
   }

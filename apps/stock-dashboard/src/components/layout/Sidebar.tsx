@@ -24,6 +24,7 @@ import {
   Plus,
   Wrench,
   Bot,
+  Microscope,
 } from 'lucide-react';
 import { Logo } from '@/components/common';
 import {
@@ -45,6 +46,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { path: '/', label: '总览', icon: <LayoutDashboard size={18} /> },
+  { path: '/research', label: '研判', icon: <Microscope size={18} /> },
   { path: '/quotes', label: '行情', icon: <CandlestickChart size={18} /> },
   { path: '/fupan', label: '涨停复盘', icon: <Flame size={18} /> },
   { path: '/heatmap', label: '热力图', icon: <Grid3X3 size={18} /> },

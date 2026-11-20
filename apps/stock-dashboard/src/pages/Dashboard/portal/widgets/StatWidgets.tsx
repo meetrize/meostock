@@ -51,26 +51,22 @@ export function StatAmountWidget() {
   );
 }
 
+/**
+ * 北向日频净买入已于 2024-08 前后停更；禁止再展示「今日净流入」。
+ * 本组件仅提示停更，引导看个股北向持股等慢变量。
+ */
 export function StatNorthboundWidget() {
-  const { northboundSnapshot } = useDashboardData();
   return (
-    <div className={styles.statCard}>
-      <div
-        className={`${styles.statValueLarge} ${getChangeColorClass(
-          northboundSnapshot?.netInflow ?? northboundSnapshot?.netBuyAmount
-        )}`}
-      >
-        {formatYuanAmount(
-          northboundSnapshot?.netInflow ?? northboundSnapshot?.netBuyAmount
-        )}
-      </div>
+    <div
+      className={styles.statCard}
+      title="北向日度净买入已停更（2024-08 起改为季度披露持股）；勿当作日频信号"
+    >
+      <div className={styles.statValueLarge}>已停更</div>
       <div className={styles.statMeta}>
-        <span>
-          {northboundSnapshot?.upCount ?? '--'}/
-          {northboundSnapshot?.downCount ?? '--'}
-        </span>
-        <span>{northboundSnapshot?.boardName ?? '北向'}</span>
+        <span>日频净买入</span>
+        <span>改看季度持股</span>
       </div>
+      <div className={styles.statHint}>非日频资金信号</div>
     </div>
   );
 }

@@ -618,12 +618,27 @@ def _extract_artifacts(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return arts
 
 
+_SCOPE_PROTOCOL = (
+    "【研判输出协议】若用户绑定了 Scope 或问题属于研判简报，结构化结论须含字段："
+    "direction(bullish|neutral|bearish|insufficient_data)、horizon、as_of、data_gaps[]、"
+    "summary、evidence_ids[]（非空且可解析）、falsify_if[]、confidence(high|medium|low)、"
+    "confidence_basis。禁止无 evidence 的方向断言；有 data_gaps 时不得 high 置信度；"
+    "禁止把宏观结论写成个股买卖指令；数值须与可见指标一致。不构成投资建议。"
+)
+
+
 def run_agent_sse(
     *,
     messages: list[dict[str, str]],
     skill_id: str | None = None,
     session_id: str | None = None,
     project_id: str | None = None,
+    scope_type: str | None = None,
+    scope_id: str | None = None,
+    as_of: str | None = None,
+    visible_signals: list[str] | None = None,
+    strategy_template_id: str | None = None,
+    known_evidence_ids: list[str] | None = None,
 ) -> Iterator[bytes]:
     yield _sse({"event": "start"})
     cfg = ai_config.active_config()
@@ -651,6 +666,7 @@ def run_agent_sse(
         else session_id
     )
     ws = workspace_dir(tool_workspace_id)
+    scope_bound = bool(scope_type and scope_id)
     yield _sse(
         {
             "event": "intent",
@@ -663,6 +679,9 @@ def run_agent_sse(
             "projectKind": project.get("kind"),
             "projectName": project.get("name"),
             "projectPath": project.get("path"),
+            "scopeType": scope_type,
+            "scopeId": scope_id,
+            "scopeBound": scope_bound,
         }
     )
 
@@ -675,6 +694,20 @@ def run_agent_sse(
         ),
         f"【会话工作区】{ws}",
     ]
+    if scope_bound or intent.get("intent") == "research":
+        system_parts.append(_SCOPE_PROTOCOL)
+        scope_lines = [
+            "【当前研判 Scope】",
+            f"- scope_type: {scope_type or '(未指定)'}",
+            f"- scope_id: {scope_id or '(未指定)'}",
+            f"- as_of: {as_of or '(未指定，请标注数据时点)'}",
+            f"- strategy_template_id: {strategy_template_id or '(无)'}",
+        ]
+        if visible_signals:
+            scope_lines.append(
+                "- visible_signals: " + ", ".join(str(s) for s in visible_signals[:40])
+            )
+        system_parts.append("\n".join(scope_lines))
     if project.get("kind") == "repo":
         system_parts.append(
             "【操作重点】目标为本仓库 meostock：用 repo_read/repo_write/shell_run(构建脚本)；"
@@ -1159,6 +1192,43 @@ def run_agent_sse(
         if arts:
             yield _sse({"event": "artifacts", "items": arts})
 
+        # 研判 Scope 绑定或 research 意图：对结构化 brief 做证据校验
+        if final_text and (scope_bound or intent.get("intent") == "research"):
+            try:
+                from research.ai_validate import validate_text_briefs
+
+                known = (
+                    set(str(x) for x in known_evidence_ids)
+                    if known_evidence_ids
+                    else None
+                )
+                validation = validate_text_briefs(
+                    final_text, known_evidence_ids=known
+                )
+                yield _sse({"event": "research_validation", **validation})
+                if validation.get("blocked"):
+                    yield _sse(
+                        {
+                            "event": "content",
+                            "content": (
+                                "\n\n---\n⚠️ **研判校验已拦截**：存在无证据或数值冲突的方向结论，"
+                                "不得作为硬事实。请补充 evidence_ids 后重试。"
+                                "（不构成投资建议）"
+                            ),
+                        }
+                    )
+                elif validation.get("status") == "reference_only" and validation.get(
+                    "message"
+                ):
+                    yield _sse(
+                        {
+                            "event": "content",
+                            "content": f"\n\n---\nℹ️ {validation['message']}",
+                        }
+                    )
+            except Exception as val_exc:  # noqa: BLE001
+                _log.warning("research validation skipped: %s", val_exc)
+
     except Exception as exc:  # noqa: BLE001
         _log.warning("agent run failed: %s", exc)
         yield _sse({"event": "error", "error": str(exc)[:500]})
@@ -1171,6 +1241,7 @@ def run_agent_sse(
             "workspacePath": str(ws),
             "toolCalls": len(collected_tool_results),
             "wroteFiles": _has_write_tool(collected_tool_results),
+            "scopeBound": scope_bound,
         }
     )
     yield b"data: [DONE]\n\n"

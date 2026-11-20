@@ -171,6 +171,18 @@ except Exception as _fav_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("favorites disabled: %s", _fav_exc)
 
+# 研判工作台 Research Workbench（Phase 0 骨架）
+try:
+    from research.api import router as _research_router
+
+    app.include_router(_research_router)
+except Exception as _research_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning(
+        "research workbench disabled: %s", _research_exc
+    )
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {

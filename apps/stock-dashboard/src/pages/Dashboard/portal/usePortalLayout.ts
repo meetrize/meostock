@@ -128,18 +128,40 @@ function ensureMacroRates(state: PortalPersistedState): PortalPersistedState {
   return changed ? { ...state, presets } : state;
 }
 
+/** 北向日频净买入已停更：从已持久化布局中移除，避免继续展示误导口径 */
+function stripNorthboundWidget(state: PortalPersistedState): PortalPersistedState {
+  let changed = false;
+  const presets = state.presets.map((preset) => {
+    const removeIds = new Set(
+      preset.widgets.filter((w) => w.type === 'stat.northbound').map((w) => w.id)
+    );
+    if (removeIds.size === 0) return preset;
+    changed = true;
+    return {
+      ...preset,
+      widgets: preset.widgets.filter((w) => !removeIds.has(w.id)),
+      layout: preset.layout.filter((item) => !removeIds.has(item.i)),
+    };
+  });
+  return changed ? { ...state, presets } : state;
+}
+
+function upgradePortalState(state: PortalPersistedState): PortalPersistedState {
+  return stripNorthboundWidget(ensureMacroRates(state));
+}
+
 function loadState(): PortalPersistedState {
   try {
     const parsed = parseState(localStorage.getItem(PORTAL_STORAGE_KEY));
     if (parsed) {
-      const ensured = ensureMacroRates(parsed);
+      const ensured = upgradePortalState(parsed);
       if (ensured !== parsed) saveState(ensured);
       return ensured;
     }
     for (const key of PORTAL_LEGACY_STORAGE_KEYS) {
       const legacy = parseState(localStorage.getItem(key));
       if (legacy) {
-        const ensured = ensureMacroRates(legacy);
+        const ensured = upgradePortalState(legacy);
         saveState(ensured);
         return ensured;
       }

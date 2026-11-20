@@ -62,7 +62,7 @@ flowchart LR
 | `GET /api/agent/projects` | 目标项目列表（meostock 本仓库 + Agent 工作区项目；已隐藏的不返回） |
 | `POST /api/agent/projects` | 新建工作区项目（`name` 可空 → 默认名；目录落在 `data/agent_workspaces/`） |
 | `DELETE /api/agent/projects/{id}` | 从列表移除（仅 `project.json` 标 `hidden`，**不删**目录文件；本仓库不可删） |
-| `POST /api/agent/chat` | 工具循环 SSE（`sessionId` / `projectId` / `skillId`） |
+| `POST /api/agent/chat` | 工具循环 SSE（`sessionId` / `projectId` / `skillId`；可选研判 Scope：`scopeType` / `scopeId` / `asOf` / `visibleSignals` / `strategyTemplateId`） |
 | — | 工具轮次默认不限制（安全上限 500；可用环境变量 `AGENT_MAX_TOOL_ROUNDS` 调高/调低） |
 | `GET /api/agent/fs/tree` | IDE：列目录（`projectId` + `path`） |
 | `GET /api/agent/fs/file` | IDE：读文件（支持 `offset` / `max_chars`） |

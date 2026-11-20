@@ -1,0 +1,230 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  padding-bottom: 24px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl, 1.35rem);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  max-width: 52em;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
+.regimeBar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.regimeItem label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
+.regimeItem strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-md, 1rem);
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--color-accent, #3b82f6);
+  background: var(--bg-secondary);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--font-size-md, 1rem);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cardDesc {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
+.cardMeta {
+  margin-top: auto;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
+.footerNote {
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs, 0.75rem);
+  line-height: 1.5;
+}
+
+.error {
+  color: var(--color-fall, #ef4444);
+  font-size: var(--font-size-sm);
+}
+
+.panel {
+  padding: 14px 16px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--font-size-md, 1rem);
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.panelHint {
+  margin: 0 0 10px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.factorList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.factorRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.themeList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.themeItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-primary);
+  color: inherit;
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+}
+
+.holdingActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.muted {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs, 0.75rem);
+}
+
+.up {
+  color: var(--color-rise, #16a34a);
+  font-weight: 600;
+}
+
+.down {
+  color: var(--color-fall, #ef4444);
+  font-weight: 600;
+}
+
+.cardForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.input {
+  min-width: 120px;
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.violations {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--color-fall, #ef4444);
+  font-size: var(--font-size-sm);
+}

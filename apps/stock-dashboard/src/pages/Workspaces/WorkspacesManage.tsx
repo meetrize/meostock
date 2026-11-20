@@ -14,6 +14,11 @@ import {
   Upload,
 } from 'lucide-react';
 import { useToast } from '@/components/common';
+import {
+  RESEARCH_DESK_OPTIONS,
+  createResearchDesk,
+  type ResearchDeskKind,
+} from './researchPresets';
 import { useWorkspaces } from './useWorkspaces';
 import styles from './WorkspacesManage.module.css';
 
@@ -25,6 +30,7 @@ export function WorkspacesManage() {
     workspaces,
     lastOpenedId,
     createWorkspace,
+    createWorkspaceFromPreset,
     renameWorkspace,
     duplicateWorkspace,
     deleteWorkspace,
@@ -53,6 +59,13 @@ export function WorkspacesManage() {
 
   const handleCreate = () => {
     const ws = createWorkspace();
+    toast.success(`已新建「${ws.name}」`);
+    navigate(`/workspaces/${ws.id}`);
+  };
+
+  const handleCreateDesk = (kind: ResearchDeskKind) => {
+    const preset = createResearchDesk(kind);
+    const ws = createWorkspaceFromPreset(preset);
     toast.success(`已新建「${ws.name}」`);
     navigate(`/workspaces/${ws.id}`);
   };
@@ -135,6 +148,26 @@ export function WorkspacesManage() {
           </button>
         </div>
       </header>
+
+      <section className={styles.presets}>
+        <h2 className={styles.presetsTitle}>研判桌预设</h2>
+        <p className={styles.presetsDesc}>
+          一键生成长线 / 波段 / 短线研判版面（含温度计、主线、风控等面板）。
+        </p>
+        <div className={styles.presetGrid}>
+          {RESEARCH_DESK_OPTIONS.map((opt) => (
+            <button
+              key={opt.kind}
+              type="button"
+              className={styles.presetCard}
+              onClick={() => handleCreateDesk(opt.kind)}
+            >
+              <span className={styles.presetLabel}>{opt.label}</span>
+              <span className={styles.presetDesc}>{opt.desc}</span>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <ul className={styles.list}>
         {workspaces.map((ws) => {

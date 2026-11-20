@@ -3,6 +3,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Bot,
   ChevronDown,
@@ -187,6 +188,20 @@ function ensureSessions(): AgentSession[] {
 
 export function Agent() {
   const toast = useToast();
+  const [searchParams] = useSearchParams();
+  const researchScope = useMemo(() => {
+    const scopeType = (searchParams.get('scopeType') || '').trim() || null;
+    const scopeId = (searchParams.get('scopeId') || '').trim() || null;
+    if (!scopeType || !scopeId) return null;
+    const asOf = (searchParams.get('asOf') || '').trim() || null;
+    const strategyTemplateId =
+      (searchParams.get('strategyTemplateId') || '').trim() || null;
+    const visibleRaw = (searchParams.get('visibleSignals') || '').trim();
+    const visibleSignals = visibleRaw
+      ? visibleRaw.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+    return { scopeType, scopeId, asOf, strategyTemplateId, visibleSignals };
+  }, [searchParams]);
   const [sessions, setSessions] = useState<AgentSession[]>(() => ensureSessions());
   const [activeId, setActiveId] = useState<string>(() => {
     const list = ensureSessions();
@@ -724,6 +739,15 @@ export function Agent() {
           projectId: projectId || DEFAULT_PROJECT_ID,
           skillId: skillId ?? userMsg.skillId ?? null,
           messages: history,
+          ...(researchScope
+            ? {
+                scopeType: researchScope.scopeType,
+                scopeId: researchScope.scopeId,
+                asOf: researchScope.asOf,
+                strategyTemplateId: researchScope.strategyTemplateId,
+                visibleSignals: researchScope.visibleSignals,
+              }
+            : {}),
         }),
         signal: ac.signal,
       });
@@ -1074,6 +1098,16 @@ export function Agent() {
             {healthHint} · <a href="/dashboard/settings">去设置</a>
           </div>
         )}
+        {researchScope ? (
+          <div className={styles.hintBanner}>
+            研判 Scope：{researchScope.scopeType}/{researchScope.scopeId}
+            {researchScope.strategyTemplateId
+              ? ` · 模板 ${researchScope.strategyTemplateId}`
+              : ''}
+            {' · '}
+            输出将校验 evidence_ids（不构成投资建议）
+          </div>
+        ) : null}
 
         <MainTabBar
           tabs={mainTabs}

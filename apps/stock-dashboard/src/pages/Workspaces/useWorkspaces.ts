@@ -411,6 +411,27 @@ export function useWorkspaces(activeId?: string) {
     return ws;
   }, [commitStateNow, state]);
 
+  /** 从研判桌预设新建（长线/波段/短线） */
+  const createWorkspaceFromPreset = useCallback(
+    (preset: Workspace): Workspace => {
+      const prev = loadState();
+      const base = state;
+      const source = base.workspaces.length >= prev.workspaces.length ? base : prev;
+      const ws: Workspace = {
+        ...preset,
+        id: `ws-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      };
+      const next: WorkspacePersistedState = {
+        ...source,
+        lastOpenedId: ws.id,
+        workspaces: [...source.workspaces, ws],
+      };
+      commitStateNow(next);
+      return ws;
+    },
+    [commitStateNow, state]
+  );
+
   const renameWorkspace = useCallback(
     (id: string, name: string) => {
       const trimmed = name.trim();
@@ -505,6 +526,7 @@ export function useWorkspaces(activeId?: string) {
     updateWidget,
     addWidget,
     createWorkspace,
+    createWorkspaceFromPreset,
     renameWorkspace,
     duplicateWorkspace,
     deleteWorkspace,

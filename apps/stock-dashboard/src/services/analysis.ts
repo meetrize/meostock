@@ -38,6 +38,67 @@ export function isLimitDown(
   return quote.changePercent <= -(getLimitPercent(quote.code, quote.name) - LIMIT_TOLERANCE);
 }
 
+/** 一字板近似：开=高=低=收 且已触及涨跌停 */
+export function isOneWordBoard(
+  quote: Pick<FullQuote, 'code' | 'name' | 'open' | 'high' | 'low' | 'price'> & {
+    changePercent: number | null;
+  }
+): boolean {
+  const { open, high, low, price } = quote;
+  if (
+    open == null ||
+    high == null ||
+    low == null ||
+    price == null ||
+    open <= 0
+  ) {
+    return false;
+  }
+  const flat =
+    Math.abs(open - high) < 1e-6 &&
+    Math.abs(high - low) < 1e-6 &&
+    Math.abs(low - price) < 1e-6;
+  if (!flat) return false;
+  return isLimitUp(quote) || isLimitDown(quote);
+}
+
+export interface Tradability {
+  tradable: boolean;
+  reasons: string[];
+  limitPercent: number;
+  label: string;
+}
+
+/** 信号可成立但未必可成交（一字板 / 涨跌停 / 无报价） */
+export function assessTradability(
+  quote: Pick<
+    FullQuote,
+    'code' | 'name' | 'open' | 'high' | 'low' | 'price'
+  > & { changePercent: number | null }
+): Tradability {
+  const reasons: string[] = [];
+  if (quote.price == null || quote.price <= 0) {
+    reasons.push('停牌或无报价');
+  }
+  if (isLimitUp(quote) && isOneWordBoard(quote)) {
+    reasons.push('一字涨停');
+  } else if (isLimitUp(quote)) {
+    reasons.push('涨停');
+  }
+  if (isLimitDown(quote)) {
+    reasons.push('跌停');
+  }
+  const tradable = reasons.length === 0;
+  return {
+    tradable,
+    reasons,
+    limitPercent: getLimitPercent(quote.code, quote.name),
+    label: tradable
+      ? '可成交'
+      : `信号成立但不可成交（${reasons.join('/')}）`,
+  };
+}
+
 export interface TimelinePoint {
   time: string;
   price: number;
