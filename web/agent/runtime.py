@@ -33,8 +33,8 @@ _SYSTEM_BASE = (
     "也可用 shell_run：sed/grep/head/wc/rg 等辅助定位。\n"
     "必须严格针对【目标项目】操作：kind=repo 时优先 repo_* / 本仓库构建；"
     "kind=workspace 时优先 workspace_*，不要误改本仓库除非用户明确要求。\n"
-    "工具效率：同一轮尽量并行多个 tool_calls；目标文件路径已知时直接 repo_read/write，"
-    "禁止反复 repo_list 盲目翻目录；改完立刻构建/冒烟，不要空转探索。\n"
+    "工具效率：路径已知时直接 repo_read → repo_write；禁止用 shell grep/sed 探索；"
+    "自升级禁止 workspace 临时脚本绕路；改完只跑 build 脚本与 smoke，然后 prepare_acceptance。\n"
     "前端重新发布：改 apps/stock-dashboard 后执行 shell_run：./scripts/build_dashboard.sh"
     "（产物落到 web/static/dashboard，刷新即可）。\n"
     "提到股票或商品时尽量带上代码与名称；不提供买卖指令或收益承诺。\n"
@@ -57,31 +57,42 @@ _TOOL_RESULT_DEFAULT = 24_000
 _WRITE_TOOLS = frozenset({"repo_write", "workspace_write"})
 _IMPLEMENT_INTENTS = frozenset({"self_upgrade", "coding"})
 _IMPLEMENT_SKILLS = frozenset({"self_upgrade", "publish_frontend", "coding_workspace"})
+# 写盘后收尾：允许修文件 + 构建/冒烟 + 验收（shell 在执行层限制为 build_only）
 _POST_WRITE_TOOLS = frozenset(
     {
         "shell_run",
         "run_smoke_test",
         "prepare_acceptance",
-        "git_status",
-        "git_diff",
         "repo_write",
-        "workspace_write",
     }
 )
 # 未写盘阶段：只允许写文件，禁止再用 shell/grep 空转
 _WRITE_PHASE_TOOLS = frozenset({"repo_write", "workspace_write"})
+# 自升级探索阶段也不给 shell（避免一上来就 grep）；只给读+写
+_SELF_UPGRADE_EXPLORE_TOOLS = frozenset(
+    {
+        "repo_list",
+        "repo_read",
+        "repo_write",
+        "run_smoke_test",
+        "prepare_acceptance",
+        "git_status",
+        "git_diff",
+    }
+)
 
 _FORCE_WRITE_NUDGE = (
     "【系统强制推进·只允许 repo_write】本阶段已禁用 shell_run/repo_read。"
     "你必须立刻用正式 tool_calls 调用 repo_write（可一次并行多个 path），"
-    "把完整文件内容写入。禁止 grep/sed/方案文字/伪工具 XML。"
-    "目标文件若已知（如 Agent.tsx / Agent.module.css / types.ts），直接覆盖写入。"
+    "把完整文件内容写入目标源码（不要写临时 css/md/绕路脚本）。"
+    "禁止 grep/sed/方案文字/伪工具 XML。"
 )
 
 _FORCE_ACCEPT_NUDGE = (
-    "【系统强制推进·收尾】文件已写入，但还没有 prepare_acceptance，任务仍未完成，禁止结束。"
-    "立刻：若改了前端则 shell_run ./scripts/build_dashboard.sh → run_smoke_test → "
-    "prepare_acceptance（简体中文 commit message）。不要只回复文字。"
+    "【系统强制收尾】文件已写入。shell 仅允许 ./scripts/build_dashboard.sh 与 smoke；"
+    "禁止再 grep/sed/python。立刻："
+    "shell_run ./scripts/build_dashboard.sh（若改了前端）→ run_smoke_test → "
+    "prepare_acceptance（简体中文 commit message）。不要探索。"
 )
 
 _FAKE_TOOL_TEXT = re.compile(
@@ -154,6 +165,19 @@ def _looks_like_fake_tool_text(text: str) -> bool:
     return bool(_FAKE_TOOL_TEXT.search(raw))
 
 
+def _has_build_or_smoke(results: list[dict[str, Any]]) -> bool:
+    for block in results:
+        name = str(block.get("tool") or "")
+        payload = block.get("result") if isinstance(block.get("result"), dict) else {}
+        if name == "run_smoke_test" and payload.get("ok"):
+            return True
+        if name == "shell_run" and payload.get("ok"):
+            cmd = str(payload.get("command") or "")
+            if "build_dashboard" in cmd or "agent_smoke_test" in cmd:
+                return True
+    return False
+
+
 def _select_tools_for_phase(
     all_tools: list[dict[str, Any]],
     *,
@@ -161,12 +185,20 @@ def _select_tools_for_phase(
     results: list[dict[str, Any]],
     force_phase: bool,
 ) -> list[dict[str, Any]]:
-    """推进阶段收紧工具：未写盘时只留 write；已写盘待验收时只留构建/验收。"""
-    if not _intent_requires_write(intent) or not force_phase:
+    """最短路径工具集：自升级默认无 shell；强制写盘只 write；收尾只构建/验收。"""
+    if not _intent_requires_write(intent):
         return all_tools
+
     if not _has_successful_write(results):
-        allow = _WRITE_PHASE_TOOLS
+        if force_phase:
+            allow = _WRITE_PHASE_TOOLS
+        elif _is_self_upgrade(intent):
+            allow = _SELF_UPGRADE_EXPLORE_TOOLS
+        else:
+            return all_tools
     elif _is_self_upgrade(intent) and not _has_successful_acceptance(results):
+        allow = _POST_WRITE_TOOLS
+    elif force_phase and not _implementation_complete(intent, results):
         allow = _POST_WRITE_TOOLS
     else:
         return all_tools
@@ -180,16 +212,28 @@ def _tool_choice_for_phase(
     results: list[dict[str, Any]],
     force_phase: bool,
 ) -> Any:
-    """未写盘时强制调用 repo_write；已写盘待验收时强制调工具。"""
+    """未写盘强制 repo_write；已构建则强制 prepare_acceptance。"""
     if not _intent_requires_write(intent):
         return "auto"
     if not _has_successful_write(results):
         if force_phase:
             return {"type": "function", "function": {"name": "repo_write"}}
-        return "required"
+        return "auto" if _is_self_upgrade(intent) else "required"
     if _is_self_upgrade(intent) and not _has_successful_acceptance(results):
+        if _has_build_or_smoke(results) or force_phase:
+            return {"type": "function", "function": {"name": "prepare_acceptance"}}
         return "required"
     return "auto"
+
+
+def _shell_mode_for_phase(
+    *,
+    intent: dict[str, Any],
+    results: list[dict[str, Any]],
+) -> str | None:
+    if _is_self_upgrade(intent) and _has_successful_write(results):
+        return "build_only"
+    return None
 
 
 def _resolve_max_rounds(intent_rounds: Any) -> int:
@@ -503,11 +547,12 @@ def run_agent_sse(
         system_parts.append(str(intent["systemExtra"]))
     system = "\n\n".join(system_parts)
 
-    tools = _filter_tools(intent.get("tools"))
-    tool_ctx = {
+    all_tools = _filter_tools(intent.get("tools"))
+    tool_ctx: dict[str, Any] = {
         "session_id": tool_workspace_id,
         "project_id": project.get("id"),
         "project_kind": project.get("kind"),
+        "shell_mode": None,
     }
     working: list[dict[str, Any]] = [{"role": "system", "content": system}, *history]
     collected_tool_results: list[dict[str, Any]] = []
@@ -541,7 +586,7 @@ def run_agent_sse(
                 or (require_write and non_write_streak >= 1)
             )
             round_tools = _select_tools_for_phase(
-                tools,
+                all_tools,
                 intent=intent,
                 results=collected_tool_results,
                 force_phase=in_force,
@@ -550,6 +595,9 @@ def run_agent_sse(
                 intent=intent,
                 results=collected_tool_results,
                 force_phase=in_force,
+            )
+            tool_ctx["shell_mode"] = _shell_mode_for_phase(
+                intent=intent, results=collected_tool_results
             )
             try:
                 upstream = _chat_with_tools(
@@ -606,6 +654,18 @@ def run_agent_sse(
                             "ok": False,
                             "error": (
                                 f"强制写盘阶段已禁用 {name}，请调用 repo_write 写入完整文件内容"
+                            ),
+                            "blocked": True,
+                        }
+                    elif (
+                        _is_self_upgrade(intent)
+                        and name == "workspace_write"
+                        and project.get("kind") == "repo"
+                    ):
+                        result = {
+                            "ok": False,
+                            "error": (
+                                "改本仓库请用 repo_write，不要 workspace_write 写临时脚本绕路"
                             ),
                             "blocked": True,
                         }

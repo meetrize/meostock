@@ -324,11 +324,15 @@ def _repo_write(args: dict[str, Any], _ctx: dict[str, Any] | None) -> dict[str, 
 
 
 def _shell_run(args: dict[str, Any], ctx: dict[str, Any] | None) -> dict[str, Any]:
+    mode = str(args.get("mode") or "").strip() or None
+    if not mode and isinstance(ctx, dict):
+        mode = str(ctx.get("shell_mode") or "").strip() or None
     return shell_ops.run_shell(
         str(args.get("command") or ""),
         cwd_scope=str(args.get("cwd_scope") or "repo"),
         session_id=_ctx_session(args, ctx),
         timeout_sec=float(args.get("timeout_sec") or 120),
+        mode=mode,
     )
 
 

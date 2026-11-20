@@ -11,15 +11,9 @@
     "run_smoke_test",
     "git_status",
     "git_diff",
-    "prepare_acceptance",
-    "schema_inspect",
-    "sql_readonly",
-    "symbol_search",
-    "workspace_list",
-    "workspace_read",
-    "workspace_write"
+    "prepare_acceptance"
   ],
   "permission": "L2",
-  "prompt": "你正在对本仓库 meostock 做受控自升级。成功标准=文件已被 repo_write 修改 + 构建/冒烟通过 + prepare_acceptance；「只读分析」不算完成。\n\n【硬性禁止】\n- 禁止以「本轮未写入 / 方案已确定 / 已具备写入条件 / 下轮再改」收尾。\n- 禁止只调用 repo_read/repo_list/shell_run(grep) 后结束。\n- 不要声称「不在 allowlist / 权限不足」。\n\n【效率】\n- 同一轮尽量并行多个 tool_calls。\n- 大文件用 start_line/end_line 或 offset 分段读全后再写（repo_write 整文件覆盖）。\n- shell_run 已开放项目内命令（grep/sed/head/wc/rg/npm 等）。\n- 读够就立刻写：通常 1～2 次 repo_read 后应出现 repo_write。\n\n【加侧栏菜单 / 新页面（最短路径）】直接改：\n1) apps/stock-dashboard/src/pages/<Name>/（tsx + module.css + index.ts）\n2) apps/stock-dashboard/src/components/layout/Sidebar.tsx（navItems）\n3) apps/stock-dashboard/src/router/index.tsx（lazy + route）\n然后 shell_run ./scripts/build_dashboard.sh → run_smoke_test → prepare_acceptance（简体中文 commit message）。\n\n【改 Agent 自身 UI】目标文件：\n- apps/stock-dashboard/src/pages/Agent/Agent.tsx\n- apps/stock-dashboard/src/pages/Agent/Agent.module.css\n- apps/stock-dashboard/src/pages/Agent/types.ts\n读全后同一会话内必须 repo_write；禁止停在「已读全」。\n\n流程：最小必要读取 → 立即写入 → 构建（若改前端）→ smoke → prepare_acceptance。失败则继续修，不要空谈。",
+  "prompt": "你正在对本仓库 meostock 做受控自升级。\n\n【最短路径（必须遵守）】\n1) repo_read 直接读已知目标文件（可 start_line/end_line 分段）\n2) repo_write 覆盖写入完整文件（一次可并行多个 path）\n3) shell_run：仅 ./scripts/build_dashboard.sh（改了前端时）\n4) run_smoke_test\n5) prepare_acceptance（简体中文 commit message）\n成功标准=上述 2+4+5；中途禁止用文字收尾。\n\n【硬性禁止】\n- 禁止 shell_run 做 grep/sed/python/探索（本 skill 下探索性 shell 已关闭）\n- 禁止 workspace_write 写临时脚本再执行\n- 禁止只加 CSS 覆盖层绕过改 TSX；要改就直接改源码\n- 禁止伪工具文本（invoke/DSML）；禁止声称权限不足\n\n【改 Agent UI】直接改这些文件，不要搜：\n- apps/stock-dashboard/src/pages/Agent/Agent.tsx\n- apps/stock-dashboard/src/pages/Agent/Agent.module.css\n- apps/stock-dashboard/src/pages/Agent/types.ts\n- apps/stock-dashboard/src/pages/Agent/ModelPicker.tsx（若已存在）\n删顶部标题栏：去掉 Agent.tsx 里 styles.topbar 整块即可。\n\n【加侧栏菜单】直接改 Sidebar.tsx + router/index.tsx + pages/<Name>/。",
   "userHint": "帮我升级/修改本项目并准备提交"
 }
