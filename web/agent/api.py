@@ -13,7 +13,7 @@ from ai import config as ai_config
 from ai import profiles as ai_profiles
 from agent.acceptance import get_acceptance, list_pending, update_acceptance
 from agent import ide_fs, ide_git
-from agent.projects import list_projects
+from agent.projects import create_project, hide_project, list_projects
 from agent.prompts import list_curated_prompts
 from agent.runtime import run_agent_sse
 from agent.skills_meta import list_skills_public
@@ -53,6 +53,11 @@ class GitCommitBody(BaseModel):
 
 class GitSuggestBody(BaseModel):
     projectId: str | None = None
+
+
+class CreateProjectBody(BaseModel):
+    name: str | None = None
+    description: str | None = None
 
 
 @router.get("/health")
@@ -112,6 +117,37 @@ def agent_projects() -> JSONResponse:
         return JSONResponse({"ok": True, "projects": list_projects()})
     except Exception as exc:  # noqa: BLE001
         _log.exception("agent projects failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/projects")
+def agent_create_project(body: CreateProjectBody) -> JSONResponse:
+    try:
+        project = create_project(body.name, description=body.description)
+        return JSONResponse({"ok": True, "project": project, "projects": list_projects()})
+    except FileExistsError:
+        return JSONResponse(
+            {"ok": False, "error": "项目目录已存在，请重试"}, status_code=409
+        )
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("agent create project failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.delete("/projects/{project_id}")
+def agent_hide_project(project_id: str) -> JSONResponse:
+    """从下拉列表移除；只写 hidden 标记，不删除工作区文件。"""
+    try:
+        hidden = hide_project(project_id)
+        return JSONResponse(
+            {"ok": True, "project": hidden, "projects": list_projects()}
+        )
+    except ValueError as exc:
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("agent hide project failed")
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
 
 

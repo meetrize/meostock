@@ -14,7 +14,9 @@ import os
 import pty
 import signal
 import struct
+import tempfile
 import termios
+from pathlib import Path
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -22,6 +24,14 @@ from agent.ide_fs import project_root
 
 _log = logging.getLogger("agent.terminal")
 _IDLE_SEC = 30 * 60
+
+_COLOR_RC = """# meostock agent terminal — enable colored ls/grep, then load user rc
+export CLICOLOR=1 CLICOLOR_FORCE=1 FORCE_COLOR=1 TERM=xterm-256color COLORTERM=truecolor
+alias ls='ls -G' 2>/dev/null
+alias ll='ls -Glah' 2>/dev/null
+alias grep='grep --color=auto' 2>/dev/null
+alias egrep='egrep --color=auto' 2>/dev/null
+"""
 
 
 def _set_winsize(fd: int, rows: int, cols: int) -> None:
@@ -35,6 +45,40 @@ def _set_winsize(fd: int, rows: int, cols: int) -> None:
 def _set_nonblock(fd: int) -> None:
     flags = fcntl.fcntl(fd, fcntl.F_GETFL)
     fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+
+
+def _color_shell_argv(shell: str) -> tuple[list[str], dict[str, str]]:
+    """交互 shell + 彩色 ls；尽量仍加载用户自己的 rc。"""
+    extra_env: dict[str, str] = {}
+    name = Path(shell).name
+    root = Path(tempfile.gettempdir()) / "meostock-agent-term"
+    root.mkdir(parents=True, exist_ok=True)
+
+    if name == "zsh" or shell.endswith("/zsh"):
+        zdot = root / "zdot"
+        zdot.mkdir(exist_ok=True)
+        zshrc = zdot / ".zshrc"
+        body = (
+            _COLOR_RC
+            + '[[ -f "$HOME/.zshrc" ]] && source "$HOME/.zshrc"\n'
+        )
+        if not zshrc.is_file() or zshrc.read_text(encoding="utf-8") != body:
+            zshrc.write_text(body, encoding="utf-8")
+        extra_env["ZDOTDIR"] = str(zdot)
+        return [shell, "-i"], extra_env
+
+    if name == "bash" or shell.endswith("/bash"):
+        rc = root / "bashrc"
+        body = (
+            _COLOR_RC
+            + '[[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"\n'
+            + '[[ -f "$HOME/.bash_profile" ]] && source "$HOME/.bash_profile"\n'
+        )
+        if not rc.is_file() or rc.read_text(encoding="utf-8") != body:
+            rc.write_text(body, encoding="utf-8")
+        return [shell, "--rcfile", str(rc), "-i"], extra_env
+
+    return [shell, "-i"], extra_env
 
 
 async def handle_terminal_ws(websocket: WebSocket) -> None:
@@ -57,13 +101,64 @@ async def handle_terminal_ws(websocket: WebSocket) -> None:
     _set_nonblock(master)
 
     env = os.environ.copy()
-    env["TERM"] = env.get("TERM") or "xterm-256color"
+    env["TERM"] = "xterm-256color"
+    env["COLORTERM"] = "truecolor"
     env["MEOSTOCK_AGENT_TERMINAL"] = "1"
+    # 强制/提示彩色输出（ls、grep、许多 CLI）
+    env["CLICOLOR"] = "1"
+    env["CLICOLOR_FORCE"] = "1"
+    env["FORCE_COLOR"] = "1"
+    # macOS BSD ls：目录蓝、可执行绿、链接青…
+    env.setdefault("LSCOLORS", "ExGxFxdxCxegedabagacad")
+    # GNU / 多数工具用的扩展名着色
+    env.setdefault(
+        "LS_COLORS",
+        ":".join(
+            [
+                "di=1;34",  # 目录
+                "ln=1;36",  # 符号链接
+                "so=1;35",
+                "pi=33",
+                "ex=1;32",  # 可执行
+                "bd=1;33",
+                "cd=1;33",
+                "su=1;31",
+                "sg=1;31",
+                "tw=1;34",
+                "ow=1;34",
+                "*.py=1;33",
+                "*.ts=1;34",
+                "*.tsx=1;34",
+                "*.js=1;33",
+                "*.jsx=1;33",
+                "*.mjs=1;33",
+                "*.json=0;33",
+                "*.md=1;36",
+                "*.sh=1;32",
+                "*.bash=1;32",
+                "*.zsh=1;32",
+                "*.css=1;35",
+                "*.scss=1;35",
+                "*.html=1;35",
+                "*.yml=0;33",
+                "*.yaml=0;33",
+                "*.toml=0;33",
+                "*.go=1;36",
+                "*.rs=1;31",
+                "*.sql=0;36",
+                "*.txt=0;37",
+                "*.log=0;90",
+                "*.gz=1;31",
+                "*.zip=1;31",
+            ]
+        ),
+    )
+    argv, shell_env = _color_shell_argv(shell)
+    env.update(shell_env)
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            shell,
-            "-i",
+            *argv,
             stdin=slave,
             stdout=slave,
             stderr=slave,

@@ -4,6 +4,7 @@ import { Terminal } from 'xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import 'xterm/css/xterm.css';
 import styles from '../Agent.module.css';
+import { AGENT_TERMINAL_THEME } from './terminalTheme';
 
 type Props = {
   projectId: string;
@@ -49,14 +50,14 @@ export function TerminalPanel({ projectId, active }: Props) {
     if (!hostRef.current) return;
     const term = new Terminal({
       cursorBlink: true,
-      fontSize: 12,
-      fontFamily: 'var(--font-mono), ui-monospace, monospace',
-      theme: {
-        background: '#0f1115',
-        foreground: '#d6d8de',
-        cursor: '#d6d8de',
-      },
+      fontSize: 13,
+      lineHeight: 1.25,
+      fontFamily: 'var(--font-mono), ui-monospace, Menlo, Monaco, monospace',
+      theme: AGENT_TERMINAL_THEME,
       convertEol: true,
+      allowTransparency: false,
+      drawBoldTextInBrightColors: true,
+      minimumContrastRatio: 4.5,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -104,7 +105,7 @@ export function TerminalPanel({ projectId, active }: Props) {
     setError(null);
     disconnect();
     term.reset();
-    term.writeln(`\r\n\x1b[90m连接终端 · ${projectId}…\x1b[0m\r\n`);
+    term.writeln(`\r\n\x1b[1;36m连接终端\x1b[0m · \x1b[1;33m${projectId}\x1b[0m…\r\n`);
 
     const ws = new WebSocket(wsUrl(projectId));
     ws.binaryType = 'arraybuffer';
@@ -135,7 +136,9 @@ export function TerminalPanel({ projectId, active }: Props) {
             return;
           }
           if (obj.type === 'ready') {
-            term.writeln(`\x1b[90mcwd=${obj.cwd} · ${obj.shell}\x1b[0m\r\n`);
+            term.writeln(
+              `\x1b[1;34mcwd\x1b[0m=\x1b[1;32m${obj.cwd}\x1b[0m · \x1b[1;35m${obj.shell}\x1b[0m\r\n`
+            );
             return;
           }
         } catch {
@@ -149,7 +152,7 @@ export function TerminalPanel({ projectId, active }: Props) {
     ws.onclose = () => {
       if (!alive()) return;
       setStatus('closed');
-      term.writeln('\r\n\x1b[90m[连接已关闭]\x1b[0m\r\n');
+      term.writeln('\r\n\x1b[1;33m[连接已关闭]\x1b[0m\r\n');
     };
     ws.onerror = () => {
       if (!alive()) return;

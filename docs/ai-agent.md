@@ -59,7 +59,9 @@ flowchart LR
 | `GET /api/agent/health` | 模型 + phase + 能力 |
 | `GET /api/agent/prompts` | 精选提示词 |
 | `GET /api/agent/skills` | skill 元数据 |
-| `GET /api/agent/projects` | 目标项目列表（meostock 本仓库 + Agent 工作区项目） |
+| `GET /api/agent/projects` | 目标项目列表（meostock 本仓库 + Agent 工作区项目；已隐藏的不返回） |
+| `POST /api/agent/projects` | 新建工作区项目（`name` 可空 → 默认名；目录落在 `data/agent_workspaces/`） |
+| `DELETE /api/agent/projects/{id}` | 从列表移除（仅 `project.json` 标 `hidden`，**不删**目录文件；本仓库不可删） |
 | `POST /api/agent/chat` | 工具循环 SSE（`sessionId` / `projectId` / `skillId`） |
 | — | 工具轮次默认不限制（安全上限 500；可用环境变量 `AGENT_MAX_TOOL_ROUNDS` 调高/调低） |
 | `GET /api/agent/fs/tree` | IDE：列目录（`projectId` + `path`） |
@@ -77,7 +79,7 @@ SSE 事件：`start` / `intent` / `tool_*` / `content` / `artifact` / `acceptanc
 
 ### 页面布局（工作台）
 
-`/dashboard/agent`：左会话 · 中央多标签（对话 / 代码 / Diff）· 右侧常驻侧栏（文件 / Git 变更 / 终端 / 产物 / 工具轨迹）。终端为网页 PTY，cwd 锁在当前项目；不替代验收提交流程。
+`/dashboard/agent`：左会话 · 中央多标签（对话 / 代码 / Diff）· 右侧常驻侧栏（文件 / Git 变更 / 终端 / 产物 / 工具轨迹）。终端为网页 PTY，cwd 锁在当前项目；不替代验收提交流程。代码标签按扩展名做 highlight.js 语法着色（超大文件回退纯文本）。「产物」侧栏只列本会话写入的文件，点击相对路径在中央代码标签打开（按 `projectId` 读内容，不依赖本机绝对路径）；验收操作在「变更」侧栏。
 
 ---
 

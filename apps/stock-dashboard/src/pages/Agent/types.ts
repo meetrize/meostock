@@ -29,6 +29,8 @@ export type AgentArtifact = {
   path?: string;
   absPath?: string;
   scope?: string;
+  /** 打开文件时使用的目标项目（相对 path 相对该项目根） */
+  projectId?: string;
   ok?: boolean;
   id?: string;
   status?: string;

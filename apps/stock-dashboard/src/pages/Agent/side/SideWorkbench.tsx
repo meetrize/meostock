@@ -14,13 +14,12 @@ type Props = {
   sideTab: SideTabId;
   onSideTab: (id: SideTabId) => void;
   projectId: string;
-  workspacePath: string | null;
   arts: AgentArtifact[];
   accepts: AcceptanceInfo[];
   busyAccept: string | null;
   toolItems: ToolTrailItem[];
   pendingAcceptCount: number;
-  onOpenFile: (path: string) => void;
+  onOpenFile: (path: string, projectId?: string) => void;
   onOpenDiff: (path: string) => void;
   onCitePath: (path: string) => void;
   onFinalize: (id: string, push: boolean, commitMessage?: string) => void;
@@ -42,7 +41,6 @@ export function SideWorkbench(props: Props) {
     sideTab,
     onSideTab,
     projectId,
-    workspacePath,
     arts,
     accepts,
     busyAccept,
@@ -78,7 +76,7 @@ export function SideWorkbench(props: Props) {
             >
               <Icon size={13} />
               <span className={styles.sideTabLabel}>{t.label}</span>
-              {t.id === 'artifacts' && pendingAcceptCount > 0 ? (
+              {t.id === 'git' && pendingAcceptCount > 0 ? (
                 <span className={styles.sideTabBadge}>{pendingAcceptCount}</span>
               ) : null}
             </button>
@@ -109,12 +107,9 @@ export function SideWorkbench(props: Props) {
         ) : null}
         {sideTab === 'artifacts' ? (
           <ArtifactsPanel
-            workspacePath={workspacePath}
             arts={arts}
-            accepts={accepts}
-            busyAccept={busyAccept}
-            onFinalize={onFinalize}
-            onReject={onReject}
+            fallbackProjectId={projectId}
+            onOpenFile={onOpenFile}
           />
         ) : null}
         {sideTab === 'tools' ? (

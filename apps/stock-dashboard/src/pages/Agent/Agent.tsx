@@ -198,6 +198,9 @@ export function Agent() {
   const [projects, setProjects] = useState<AgentProject[]>([]);
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [projectId, setProjectId] = useState<string>(() => loadSavedProjectId());
+  const [addingProject, setAddingProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [projectBusy, setProjectBusy] = useState(false);
   const [input, setInput] = useState('');
   const [pendingSkill, setPendingSkill] = useState<string | null>(null);
   const [streaming, setStreaming] = useState(false);
@@ -206,7 +209,6 @@ export function Agent() {
   const [aiProfiles, setAiProfiles] = useState<AiProfileOption[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string>('');
   const [switchingModel, setSwitchingModel] = useState(false);
-  const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [busyAccept, setBusyAccept] = useState<string | null>(null);
   const [sideTab, setSideTab] = useState<SideTabId>('files');
   const [sideWidth, setSideWidth] = useState(() => loadSideWidth());
@@ -293,22 +295,93 @@ export function Agent() {
     };
   }, []);
 
+  const applyProjects = useCallback((list: AgentProject[], preferId?: string) => {
+    setProjects(list);
+    const ids = new Set(list.map((p) => p.id));
+    setProjectId((cur) => {
+      if (preferId && ids.has(preferId)) return preferId;
+      if (ids.has(cur)) return cur;
+      return DEFAULT_PROJECT_ID;
+    });
+  }, []);
+
   const refreshProjects = useCallback(async () => {
     try {
       const res = await fetch('/api/agent/projects');
       const data = await res.json().catch(() => ({}));
       if (data?.ok && Array.isArray(data.projects)) {
-        setProjects(data.projects as AgentProject[]);
-        const ids = new Set((data.projects as AgentProject[]).map((p) => p.id));
-        setProjectId((cur) => {
-          if (ids.has(cur)) return cur;
-          return DEFAULT_PROJECT_ID;
-        });
+        applyProjects(data.projects as AgentProject[]);
       }
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [applyProjects]);
+
+  const createNewProject = useCallback(async () => {
+    if (projectBusy) return;
+    setProjectBusy(true);
+    try {
+      const res = await fetch('/api/agent/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newProjectName.trim() || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      const created = data.project as AgentProject | undefined;
+      if (Array.isArray(data.projects)) {
+        applyProjects(data.projects as AgentProject[], created?.id);
+      } else if (created?.id) {
+        setProjects((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
+        setProjectId(created.id);
+      }
+      setAddingProject(false);
+      setNewProjectName('');
+      toast.success(`已添加项目：${created?.name || '新项目'}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '添加项目失败');
+    } finally {
+      setProjectBusy(false);
+    }
+  }, [applyProjects, newProjectName, projectBusy, toast]);
+
+  const removeSelectedProject = useCallback(async () => {
+    if (projectBusy) return;
+    const target = selectedProject;
+    if (!target || target.kind === 'repo' || target.id === DEFAULT_PROJECT_ID) {
+      toast.error('本仓库项目不可移除');
+      return;
+    }
+    if (
+      !window.confirm(
+        `从列表移除「${target.name}」？\n仅隐藏显示，不会删除工作区目录与文件。`
+      )
+    ) {
+      return;
+    }
+    setProjectBusy(true);
+    try {
+      const res = await fetch(`/api/agent/projects/${encodeURIComponent(target.id)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      if (Array.isArray(data.projects)) {
+        applyProjects(data.projects as AgentProject[]);
+      } else {
+        await refreshProjects();
+      }
+      toast.success(`已从列表移除：${target.name}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '移除项目失败');
+    } finally {
+      setProjectBusy(false);
+    }
+  }, [applyProjects, projectBusy, refreshProjects, selectedProject, toast]);
 
   const loadAiProfiles = useCallback(async () => {
     try {
@@ -412,7 +485,6 @@ export function Agent() {
     setActiveId(s.id);
     setInput('');
     setPendingSkill(null);
-    setWorkspacePath(null);
   };
 
   const deleteSession = (id: string) => {
@@ -705,7 +777,6 @@ export function Agent() {
               projectName: (obj.projectName as string) || m.projectName,
               permission: String(obj.permission || ''),
             }));
-            if (obj.workspacePath) setWorkspacePath(String(obj.workspacePath));
             if (obj.projectKind === 'workspace') {
               void refreshProjects();
             }
@@ -778,7 +849,6 @@ export function Agent() {
             if (obj.hint) setHealthHint(String(obj.hint));
           } else if (event === 'done') {
             sawDone = true;
-            if (obj.workspacePath) setWorkspacePath(String(obj.workspacePath));
           }
         }
       }
@@ -864,25 +934,29 @@ export function Agent() {
     void send(p.prompt, p.skillId);
   };
 
-  const openCodeTab = (path: string) => {
+  const openCodeTab = (path: string, forProjectId?: string) => {
     const name = path.split('/').pop() || path;
+    const pid = forProjectId || projectId || DEFAULT_PROJECT_ID;
     const next = openOrFocusTab(mainTabs, {
-      id: codeTabId(path),
+      id: codeTabId(path, pid),
       kind: 'code',
       title: name,
       path,
+      projectId: pid,
     });
     setMainTabs(next.tabs);
     setActiveMainTabId(next.activeId);
   };
 
-  const openDiffTab = (path: string) => {
+  const openDiffTab = (path: string, forProjectId?: string) => {
     const name = path.split('/').pop() || path;
+    const pid = forProjectId || projectId || DEFAULT_PROJECT_ID;
     const next = openOrFocusTab(mainTabs, {
-      id: diffTabId(path),
+      id: diffTabId(path, pid),
       kind: 'diff',
       title: `Δ ${name}`,
       path,
+      projectId: pid,
     });
     setMainTabs(next.tabs);
     setActiveMainTabId(next.activeId);
@@ -891,9 +965,38 @@ export function Agent() {
   const closeMainTab = (id: string) => {
     if (id === CHAT_TAB_ID) return;
     setMainTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === id);
       const next = prev.filter((t) => t.id !== id);
       if (!next.some((t) => t.id === activeMainTabId)) {
-        setActiveMainTabId(CHAT_TAB_ID);
+        const fallback =
+          (idx > 0 ? prev[idx - 1]?.id : null) ||
+          next[Math.min(idx, next.length - 1)]?.id ||
+          CHAT_TAB_ID;
+        setActiveMainTabId(fallback);
+      }
+      return next.length ? next : [chatTab()];
+    });
+  };
+
+  const closeOtherMainTabs = (keepId: string) => {
+    setMainTabs((prev) => {
+      const next = prev.filter((t) => t.id === CHAT_TAB_ID || t.id === keepId);
+      if (!next.some((t) => t.id === activeMainTabId)) {
+        setActiveMainTabId(
+          next.some((t) => t.id === keepId) ? keepId : CHAT_TAB_ID
+        );
+      }
+      return next.length ? next : [chatTab()];
+    });
+  };
+
+  const closeMainTabsToRight = (fromId: string) => {
+    setMainTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === fromId);
+      if (idx < 0) return prev;
+      const next = prev.filter((t, i) => i <= idx || t.id === CHAT_TAB_ID);
+      if (!next.some((t) => t.id === activeMainTabId)) {
+        setActiveMainTabId(fromId);
       }
       return next.length ? next : [chatTab()];
     });
@@ -977,17 +1080,25 @@ export function Agent() {
           activeId={activeMainTabId}
           onSelect={setActiveMainTabId}
           onClose={closeMainTab}
+          onCloseOthers={closeOtherMainTabs}
+          onCloseToRight={closeMainTabsToRight}
         />
 
         {activeMainTab?.kind === 'code' && activeMainTab.path ? (
           <div className={styles.mainPane}>
-            <CodeViewer projectId={projectId} path={activeMainTab.path} />
+            <CodeViewer
+              projectId={activeMainTab.projectId || projectId}
+              path={activeMainTab.path}
+            />
           </div>
         ) : null}
 
         {activeMainTab?.kind === 'diff' && activeMainTab.path ? (
           <div className={styles.mainPane}>
-            <DiffViewer projectId={projectId} path={activeMainTab.path} />
+            <DiffViewer
+              projectId={activeMainTab.projectId || projectId}
+              path={activeMainTab.path}
+            />
           </div>
         ) : null}
 
@@ -1112,33 +1223,106 @@ export function Agent() {
           <div className={styles.composerBar}>
             <div className={styles.composerField}>
               <span className={styles.composerLabel}>目标项目</span>
-              <select
-                className={styles.projectSelect}
-                value={selectedProject?.id || projectId}
-                disabled={streaming}
-                onChange={(e) => setProjectId(e.target.value)}
-                title={selectedProject?.path || ''}
-              >
-                {(projects.length
-                  ? projects
-                  : [
-                      {
-                        id: DEFAULT_PROJECT_ID,
-                        name: 'meostock（本项目）',
-                        kind: 'repo',
-                        path: '',
-                      } as AgentProject,
-                    ]
-                ).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.kind === 'repo' ? '★ ' : ''}
-                    {p.name}
-                    {p.kind === 'workspace' && p.fileCount != null
-                      ? ` · ${p.fileCount} 文件`
-                      : ''}
-                  </option>
-                ))}
-              </select>
+              <div className={styles.projectRow}>
+                <select
+                  className={styles.projectSelect}
+                  value={selectedProject?.id || projectId}
+                  disabled={streaming || projectBusy || addingProject}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  title={selectedProject?.path || ''}
+                >
+                  {(projects.length
+                    ? projects
+                    : [
+                        {
+                          id: DEFAULT_PROJECT_ID,
+                          name: 'meostock（本项目）',
+                          kind: 'repo',
+                          path: '',
+                        } as AgentProject,
+                      ]
+                  ).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.kind === 'repo' ? '★ ' : ''}
+                      {p.name}
+                      {p.kind === 'workspace' && p.fileCount != null
+                        ? ` · ${p.fileCount} 文件`
+                        : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className={styles.projectIconBtn}
+                  title="添加项目"
+                  disabled={streaming || projectBusy}
+                  onClick={() => {
+                    setAddingProject(true);
+                    setNewProjectName('');
+                  }}
+                >
+                  <Plus size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.projectIconBtn}
+                  title={
+                    selectedProject?.kind === 'repo'
+                      ? '本仓库不可移除'
+                      : '从列表移除（不删除文件）'
+                  }
+                  disabled={
+                    streaming ||
+                    projectBusy ||
+                    !selectedProject ||
+                    selectedProject.kind === 'repo' ||
+                    selectedProject.id === DEFAULT_PROJECT_ID
+                  }
+                  onClick={() => void removeSelectedProject()}
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+              {addingProject ? (
+                <div className={styles.projectAddRow}>
+                  <input
+                    className={styles.projectNameInput}
+                    value={newProjectName}
+                    disabled={projectBusy}
+                    placeholder="项目名称（可留空用默认名）"
+                    autoFocus
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        void createNewProject();
+                      } else if (e.key === 'Escape') {
+                        setAddingProject(false);
+                        setNewProjectName('');
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={styles.projectAddConfirm}
+                    disabled={projectBusy}
+                    onClick={() => void createNewProject()}
+                  >
+                    {projectBusy ? '…' : '创建'}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.projectAddCancel}
+                    disabled={projectBusy}
+                    onClick={() => {
+                      setAddingProject(false);
+                      setNewProjectName('');
+                    }}
+                  >
+                    取消
+                  </button>
+                </div>
+              ) : null}
               {selectedProject?.description ? (
                 <span className={styles.projectHint} title={selectedProject.description}>
                   {selectedProject.description}
@@ -1255,7 +1439,6 @@ export function Agent() {
         sideTab={sideTab}
         onSideTab={setSideTab}
         projectId={projectId || DEFAULT_PROJECT_ID}
-        workspacePath={workspacePath}
         arts={panelArtifacts.arts}
         accepts={panelArtifacts.accepts}
         busyAccept={busyAccept}

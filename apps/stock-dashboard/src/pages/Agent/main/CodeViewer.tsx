@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import styles from '../Agent.module.css';
+import { highlightCode } from './codeHighlight';
 
 type Props = {
   projectId: string;
@@ -47,6 +48,8 @@ export function CodeViewer({ projectId, path }: Props) {
     };
   }, [projectId, path]);
 
+  const highlighted = useMemo(() => highlightCode(path, content), [path, content]);
+
   if (loading) {
     return (
       <div className={styles.viewerStatus}>
@@ -56,15 +59,26 @@ export function CodeViewer({ projectId, path }: Props) {
   }
   if (error) return <div className={styles.viewerError}>{error}</div>;
 
+  const headMeta = [highlighted.language, meta].filter(Boolean).join(' · ');
+
   return (
     <div className={styles.codeViewer}>
       <div className={styles.viewerHead}>
         <span className={styles.viewerPath}>{path}</span>
-        {meta ? <span className={styles.viewerMeta}>{meta}</span> : null}
+        {headMeta ? <span className={styles.viewerMeta}>{headMeta}</span> : null}
       </div>
-      <pre className={styles.codePre}>
-        <code>{content}</code>
-      </pre>
+      {highlighted.html ? (
+        <pre className={`${styles.codePre} ${styles.codeHljs}`}>
+          <code
+            className={`hljs language-${highlighted.language || 'plaintext'}`}
+            dangerouslySetInnerHTML={{ __html: highlighted.html }}
+          />
+        </pre>
+      ) : (
+        <pre className={styles.codePre}>
+          <code>{content}</code>
+        </pre>
+      )}
     </div>
   );
 }

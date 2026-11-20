@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import time
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,42 @@ _SKIP_DIR_PREFIX = "_"
 
 def _safe_id(raw: str) -> str:
     return "".join(c for c in (raw or "") if c.isalnum() or c in "-_")[:64]
+
+
+def _default_project_name() -> str:
+    return time.strftime("新项目 %m-%d %H:%M")
+
+
+def _ascii_slug(raw: str | None) -> str:
+    """目录 id 只用 ASCII，避免中文路径；展示名仍写在 project.json。"""
+    chars: list[str] = []
+    for c in raw or "":
+        if ("a" <= c.lower() <= "z") or c.isdigit() or c in "-_":
+            chars.append(c.lower() if c.isalpha() else c)
+        elif c.isspace() or c in "·./":
+            if chars and chars[-1] != "-":
+                chars.append("-")
+    slug = "".join(chars).strip("-_")[:32]
+    if not slug or slug == _MEOSTOCK_ID:
+        return "project"
+    return slug
+
+
+def _unique_workspace_id(preferred: str | None = None) -> str:
+    base = _ascii_slug(preferred)
+    for _ in range(8):
+        suffix = secrets.token_hex(3)
+        candidate = f"{base}-{suffix}"
+        if not (workspaces_root() / candidate).exists():
+            return candidate
+    return f"project-{int(time.time())}-{secrets.token_hex(2)}"
+
+
+def _write_meta(path: Path, payload: dict[str, Any]) -> None:
+    meta_path = path / "project.json"
+    meta_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 def _count_files(path: Path) -> int:
@@ -59,9 +96,80 @@ def ensure_workspace_project_meta(
         "createdAt": time.time(),
         "updatedAt": time.time(),
         "source": "agent",
+        "hidden": False,
     }
-    meta_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    _write_meta(path, payload)
     return path
+
+
+def create_project(
+    name: str | None = None,
+    *,
+    description: str | None = None,
+) -> dict[str, Any]:
+    """新建工作区项目目录 + project.json；名称为空时用默认名。"""
+    raw_name = (name or "").strip()[:80]
+    display = raw_name or _default_project_name()
+    # 仅用用户输入生成目录 slug；默认名走 project-xxxx，避免从时间戳抠数字
+    sid = _unique_workspace_id(raw_name or None)
+    path = workspaces_root() / sid
+    path.mkdir(parents=True, exist_ok=False)
+    now = time.time()
+    desc = (description or "").strip()[:200] or "用户手动创建的 Agent 工作区项目"
+    payload = {
+        "id": sid,
+        "name": display,
+        "kind": "workspace",
+        "createdAt": now,
+        "updatedAt": now,
+        "source": "user",
+        "hidden": False,
+        "description": desc,
+    }
+    _write_meta(path, payload)
+    return {
+        "id": sid,
+        "name": display,
+        "kind": "workspace",
+        "path": str(path),
+        "description": desc,
+        "fileCount": 0,
+        "updatedAt": now,
+        "source": "user",
+    }
+
+
+def hide_project(project_id: str | None) -> dict[str, Any]:
+    """从列表移除（仅标记 hidden，不删除目录文件）。本仓库不可移除。"""
+    pid = _safe_id(project_id or "")
+    if not pid or pid == _MEOSTOCK_ID:
+        raise ValueError("不能移除 meostock 本仓库项目")
+    path = workspaces_root() / pid
+    if not path.is_dir():
+        raise ValueError(f"项目不存在: {pid}")
+    meta = _read_meta(path)
+    now = time.time()
+    payload = {
+        **meta,
+        "id": pid,
+        "name": str(meta.get("name") or "").strip() or f"Agent 项目 · {pid[:16]}",
+        "kind": "workspace",
+        "hidden": True,
+        "hiddenAt": now,
+        "updatedAt": now,
+        "source": meta.get("source") or "user",
+    }
+    if "description" not in payload:
+        payload["description"] = "由 AI Agent 在隔离工作区生成"
+    _write_meta(path, payload)
+    return {
+        "id": pid,
+        "name": payload["name"],
+        "kind": "workspace",
+        "path": str(path),
+        "hidden": True,
+        "updatedAt": now,
+    }
 
 
 def list_projects() -> list[dict[str, Any]]:
@@ -88,6 +196,8 @@ def list_projects() -> list[dict[str, Any]]:
         if child.name.startswith(_SKIP_DIR_PREFIX):
             continue
         meta = _read_meta(child)
+        if meta.get("hidden") is True:
+            continue
         file_count = _count_files(child)
         # 空目录且无 meta 的跳过，减少噪音
         if file_count == 0 and not meta:

@@ -580,10 +580,18 @@
   letter-spacing: 0.02em;
 }
 
+.projectRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 340px;
+}
+
 .projectSelect {
   height: 30px;
-  max-width: 280px;
-  min-width: 160px;
+  flex: 1;
+  min-width: 140px;
+  max-width: 260px;
   padding: 0 10px;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
@@ -598,11 +606,89 @@
   border-color: color-mix(in srgb, var(--color-accent) 55%, var(--border-primary));
 }
 
+.projectIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.projectIconBtn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--border-primary));
+  color: var(--text-primary);
+}
+
+.projectIconBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.projectAddRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 340px;
+}
+
+.projectNameInput {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+}
+
+.projectNameInput:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--border-primary));
+}
+
+.projectAddConfirm,
+.projectAddCancel {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid var(--border-primary);
+  flex-shrink: 0;
+}
+
+.projectAddConfirm {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--border-primary));
+  color: var(--text-primary);
+}
+
+.projectAddCancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.projectAddConfirm:disabled,
+.projectAddCancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .projectHint {
   font-size: 11px;
   color: var(--text-muted);
   line-height: 1.35;
-  max-width: 280px;
+  max-width: 340px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -905,23 +991,51 @@
   height: 30px;
   padding: 0 4px 0 10px;
   border: 1px solid transparent;
-  border-bottom: none;
+  border-bottom: 1px solid transparent;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   background: transparent;
   color: var(--text-secondary);
+  font-weight: 400;
+  margin-bottom: -1px; /* 盖住 tabBar 底边，避免叠成粗线 */
 }
 
 .mainTabActive {
   background: var(--bg-primary);
   border-color: var(--border-primary);
+  border-bottom-color: var(--bg-primary);
   color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* 主对话标签：与代码/Diff 标签区分（未激活也略偏蓝） */
+.mainTabChat {
+  color: #1d4ed8;
+  background: color-mix(in srgb, #2563eb 8%, transparent);
+  border-color: transparent;
+}
+
+.mainTabChatActive {
+  background: color-mix(in srgb, #2563eb 18%, var(--bg-primary));
+  border-color: color-mix(in srgb, #2563eb 35%, var(--border-primary));
+  border-bottom-color: color-mix(in srgb, #2563eb 18%, var(--bg-primary));
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.mainTabChatIcon {
+  flex-shrink: 0;
+  margin-right: 4px;
+  vertical-align: -1px;
 }
 
 .mainTabBtn {
+  display: inline-flex;
+  align-items: center;
   border: none;
   background: transparent;
   color: inherit;
   font-size: 12px;
+  font-weight: inherit;
   cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -946,6 +1060,43 @@
 .mainTabClose:hover {
   background: var(--bg-tertiary, var(--bg-secondary));
   color: var(--text-primary);
+}
+
+.mainTabMenu {
+  position: fixed;
+  z-index: 80;
+  min-width: 148px;
+  padding: 4px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  box-shadow: 0 10px 28px #0000002e;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.mainTabMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.mainTabMenuItem:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.mainTabMenuItem:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .chatPane {
@@ -1028,6 +1179,77 @@
   white-space: pre;
 }
 
+.codePre code {
+  font-family: inherit;
+  font-size: inherit;
+  background: transparent;
+}
+
+/* highlight.js — 白底可读的深色 token（非暗色主题 pastel） */
+.codeHljs :global(.hljs-comment),
+.codeHljs :global(.hljs-quote) {
+  color: #57606a;
+  font-style: italic;
+}
+
+.codeHljs :global(.hljs-keyword),
+.codeHljs :global(.hljs-selector-tag),
+.codeHljs :global(.hljs-addition) {
+  color: #7a1fa2;
+}
+
+.codeHljs :global(.hljs-number),
+.codeHljs :global(.hljs-literal),
+.codeHljs :global(.hljs-variable),
+.codeHljs :global(.hljs-template-variable),
+.codeHljs :global(.hljs-tag .hljs-attr) {
+  color: #b35900;
+}
+
+.codeHljs :global(.hljs-string),
+.codeHljs :global(.hljs-doctag),
+.codeHljs :global(.hljs-regexp) {
+  color: #0a5c2e;
+}
+
+.codeHljs :global(.hljs-title),
+.codeHljs :global(.hljs-section),
+.codeHljs :global(.hljs-selector-id) {
+  color: #0550ae;
+}
+
+.codeHljs :global(.hljs-type),
+.codeHljs :global(.hljs-class .hljs-title),
+.codeHljs :global(.hljs-title.class_),
+.codeHljs :global(.hljs-built_in) {
+  color: #9a6700;
+}
+
+.codeHljs :global(.hljs-attr),
+.codeHljs :global(.hljs-attribute),
+.codeHljs :global(.hljs-symbol),
+.codeHljs :global(.hljs-bullet),
+.codeHljs :global(.hljs-link) {
+  color: #0a3069;
+}
+
+.codeHljs :global(.hljs-meta),
+.codeHljs :global(.hljs-meta .hljs-keyword) {
+  color: #1b4f72;
+}
+
+.codeHljs :global(.hljs-deletion) {
+  color: #a40e26;
+}
+
+.codeHljs :global(.hljs-emphasis) {
+  font-style: italic;
+}
+
+.codeHljs :global(.hljs-strong) {
+  font-weight: 600;
+}
+
 .diffPre {
   flex: 1;
   margin: 0;
@@ -1049,17 +1271,17 @@
 }
 
 .diffAdd {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #86efac;
+  background: color-mix(in srgb, #16a34a 12%, transparent);
+  color: #14532d;
 }
 
 .diffDel {
-  background: color-mix(in srgb, #e35d6a 14%, transparent);
-  color: #fca5a5;
+  background: color-mix(in srgb, #dc2626 12%, transparent);
+  color: #7f1d1d;
 }
 
 .diffHunk {
-  color: var(--color-accent);
+  color: #1d4ed8;
 }
 
 .diffSection {
@@ -1259,7 +1481,16 @@
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: #0f1115;
+  background: #1a1d24;
+}
+
+.terminalHost :global(.xterm) {
+  padding: 6px 8px;
+  height: 100%;
+}
+
+.terminalHost :global(.xterm-viewport) {
+  background-color: #1a1d24 !important;
 }
 
 .termStatus {
@@ -1292,6 +1523,73 @@
 .termActions {
   display: flex;
   gap: 2px;
+}
+
+.artifactList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artifactRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.artifactRow:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.artifactIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-accent);
+}
+
+.artifactMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.artifactName {
+  color: var(--text-primary);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifactPathLink {
+  color: var(--color-accent);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  word-break: break-all;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.artifactScope {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .artifactCard,

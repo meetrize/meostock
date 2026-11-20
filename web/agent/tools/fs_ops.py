@@ -118,15 +118,19 @@ def _write_file(base: Path, target: Path, content: str, *, mkdir: bool = True) -
     if mkdir:
         target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(raw, encoding="utf-8")
+    scope = "workspace" if "agent_workspaces" in str(base) else "repo"
+    rel = str(target.relative_to(base))
     return {
         "ok": True,
-        "path": str(target.relative_to(base)),
+        "path": rel,
         "bytes": target.stat().st_size,
         "artifact": {
             "type": "file",
-            "path": str(target.relative_to(base)),
+            "path": rel,
             "absPath": str(target),
-            "scope": "workspace" if "agent_workspaces" in str(base) else "repo",
+            "scope": scope,
+            # 供前端按项目打开（远程浏览器不能用本机 absPath）
+            "projectId": base.name if scope == "workspace" else "meostock",
         },
     }
 

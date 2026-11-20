@@ -5,6 +5,8 @@ export type MainTab = {
   kind: MainTabKind;
   title: string;
   path?: string;
+  /** 代码/Diff 标签绑定的项目；缺省则用当前下拉选中的项目 */
+  projectId?: string;
 };
 
 export const CHAT_TAB_ID = 'chat';
@@ -13,12 +15,12 @@ export function chatTab(): MainTab {
   return { id: CHAT_TAB_ID, kind: 'chat', title: '对话' };
 }
 
-export function codeTabId(path: string): string {
-  return `code:${path}`;
+export function codeTabId(path: string, projectId?: string): string {
+  return projectId ? `code:${projectId}:${path}` : `code:${path}`;
 }
 
-export function diffTabId(path: string): string {
-  return `diff:${path}`;
+export function diffTabId(path: string, projectId?: string): string {
+  return projectId ? `diff:${projectId}:${path}` : `diff:${path}`;
 }
 
 export function openOrFocusTab(
