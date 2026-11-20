@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 from typing import Any, Iterator
@@ -17,6 +18,9 @@ from agent.tools.registry import TOOL_DEFS, execute_tool
 
 _log = logging.getLogger("agent.runtime")
 
+# 0 / 未设置 = 不限制轮次（仅保留极端安全上限，防模型死循环刷 API）
+_ABS_CEILING = 500
+
 _SYSTEM_BASE = (
     "你是 meostock 看板里的 AI Agent（本机投研与工程副驾驶）。用简洁专业的中文回答。\n"
     "权限：本机单用户默认 workspace_and_repo 全权限（L2）——"
@@ -25,11 +29,34 @@ _SYSTEM_BASE = (
     "需要事实或改文件时必须调用工具，禁止编造，禁止声称「权限不足 / 只有 L0」。\n"
     "必须严格针对【目标项目】操作：kind=repo 时优先 repo_* / 本仓库构建；"
     "kind=workspace 时优先 workspace_*，不要误改本仓库除非用户明确要求。\n"
+    "工具效率：同一轮尽量并行多个 tool_calls；目标文件路径已知时直接 repo_read/write，"
+    "禁止反复 repo_list 盲目翻目录；改完立刻构建/冒烟，不要空转探索。\n"
     "前端重新发布：改 apps/stock-dashboard 后执行 shell_run：./scripts/build_dashboard.sh"
     "（产物落到 web/static/dashboard，刷新即可）。\n"
     "提到股票或商品时尽量带上代码与名称；不提供买卖指令或收益承诺。\n"
     "改仓库后：run_smoke_test → prepare_acceptance；禁止自行 commit/push（须 UI 人工验收）。"
 )
+
+
+def _resolve_max_rounds(intent_rounds: Any) -> int:
+    """意图 maxRounds：0/负数/缺省 = 不限制（用环境变量或绝对天花板）。"""
+    env_raw = (os.environ.get("AGENT_MAX_TOOL_ROUNDS") or "").strip()
+    env_cap: int | None = None
+    if env_raw.isdigit():
+        env_cap = int(env_raw)
+
+    try:
+        requested = int(intent_rounds) if intent_rounds is not None else 0
+    except (TypeError, ValueError):
+        requested = 0
+
+    if requested > 0:
+        cap = env_cap if env_cap and env_cap > 0 else _ABS_CEILING
+        return min(requested, cap)
+    # 不限制：仅保留环境上限或绝对天花板
+    if env_cap and env_cap > 0:
+        return env_cap
+    return _ABS_CEILING
 
 
 def _sse(obj: dict[str, Any]) -> bytes:
@@ -330,9 +357,11 @@ def run_agent_sse(
     working: list[dict[str, Any]] = [{"role": "system", "content": system}, *history]
     collected_tool_results: list[dict[str, Any]] = []
     final_text = ""
-    max_rounds = int(intent.get("maxRounds") or 6)
+    max_rounds = _resolve_max_rounds(intent.get("maxRounds"))
+    yield _sse({"event": "meta", "maxToolRounds": max_rounds})
 
     try:
+        stopped_by_cap = True
         for _round in range(max_rounds):
             upstream = _chat_with_tools(working, tools, cfg=cfg)
             msg = ((upstream.get("choices") or [{}])[0].get("message") or {})
@@ -384,6 +413,7 @@ def run_agent_sse(
             if content:
                 final_text = content
                 yield _sse({"event": "content", "content": content})
+                stopped_by_cap = False
                 break
 
             if collected_tool_results:
@@ -413,9 +443,20 @@ def run_agent_sse(
                             yield _sse({"event": "content", "content": final_text})
                     except Exception as e2:  # noqa: BLE001
                         raise stream_exc from e2
+            stopped_by_cap = False
             break
         else:
-            yield _sse({"event": "error", "error": "工具调用轮次过多，已停止"})
+            if stopped_by_cap:
+                yield _sse(
+                    {
+                        "event": "error",
+                        "error": (
+                            f"已达工具轮次安全上限（{max_rounds}）。"
+                            "可用环境变量 AGENT_MAX_TOOL_ROUNDS 调高；"
+                            "请减少盲目 list/read，直接改目标文件后构建验收。"
+                        ),
+                    }
+                )
 
         entities = _extract_entities_from_tool_results(collected_tool_results)
         if final_text and entities:

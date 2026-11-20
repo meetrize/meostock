@@ -22,7 +22,8 @@ _CODING_HINT = re.compile(
 )
 _UPGRADE_HINT = re.compile(
     r"(自升级|改本项目|改仓库|meostock|commit|push|升级本系统|修改本项目|"
-    r"发布|重新发布|构建|build|部署|前端|dashboard|删掉|删除文案|改页面|改样式)",
+    r"发布|重新发布|构建|build|部署|前端|dashboard|删掉|删除文案|改页面|改样式|"
+    r"菜单|侧栏|侧边栏|路由|加一个.*页|新增.*页)",
     re.IGNORECASE,
 )
 
@@ -35,6 +36,7 @@ def resolve_intent(
     """返回意图元数据；工具集始终为 L2（本仓库全权限）。"""
     full_tools = tools_for_permission(_DEFAULT_PERM)
     skill = get_skill(skill_id)
+    # maxRounds=0：不限制工具轮次（runtime 仅保留安全天花板 / AGENT_MAX_TOOL_ROUNDS）
     if skill:
         return {
             "intent": skill.get("intent") or "chat",
@@ -43,7 +45,7 @@ def resolve_intent(
             "permission": _DEFAULT_PERM,
             "systemExtra": skill.get("prompt") or "",
             "source": "skill",
-            "maxRounds": 14,
+            "maxRounds": 0,
         }
 
     raw = (text or "").strip()
@@ -56,7 +58,7 @@ def resolve_intent(
             "permission": _DEFAULT_PERM,
             "systemExtra": sk.get("prompt") or "",
             "source": "heuristic",
-            "maxRounds": 16,
+            "maxRounds": 0,
         }
     if _CODING_HINT.search(raw):
         sk = get_skill("coding_workspace") or {}
@@ -67,7 +69,7 @@ def resolve_intent(
             "permission": _DEFAULT_PERM,
             "systemExtra": sk.get("prompt") or "",
             "source": "heuristic",
-            "maxRounds": 14,
+            "maxRounds": 0,
         }
     if _DB_HINT.search(raw):
         return {
@@ -77,7 +79,7 @@ def resolve_intent(
             "permission": _DEFAULT_PERM,
             "systemExtra": (get_skill("db_explore") or {}).get("prompt") or "",
             "source": "heuristic",
-            "maxRounds": 10,
+            "maxRounds": 0,
         }
     if _RESEARCH_HINT.search(raw):
         return {
@@ -87,7 +89,7 @@ def resolve_intent(
             "permission": _DEFAULT_PERM,
             "systemExtra": (get_skill("research_brief") or {}).get("prompt") or "",
             "source": "heuristic",
-            "maxRounds": 10,
+            "maxRounds": 0,
         }
     return {
         "intent": "chat",
@@ -101,5 +103,5 @@ def resolve_intent(
             "前端重新发布：改源码后执行 shell_run ./scripts/build_dashboard.sh。"
         ),
         "source": "default",
-        "maxRounds": 14,
+        "maxRounds": 0,
     }

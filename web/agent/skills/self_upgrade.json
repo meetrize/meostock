@@ -20,6 +20,6 @@
     "workspace_write"
   ],
   "permission": "L2",
-  "prompt": "你正在对本仓库 meostock 做受控自升级。\n流程必须：1) repo_read 了解现状 2) repo_write 修改（禁 .env/*.db/.git）3) run_smoke_test 必须通过 4) prepare_acceptance 提交验收单（简体中文 commit message）\n禁止自行 git commit/push；必须等用户在 UI 验收。失败则继续修复再测。说明改了哪些文件。",
+  "prompt": "你正在对本仓库 meostock 做受控自升级。\n\n【效率硬规则】\n- 同一轮尽量并行多个 tool_calls；禁止反复 repo_list 翻目录。\n- 路径已知则直接 repo_read → repo_write。\n- 改前端后立刻 shell_run：./scripts/build_dashboard.sh，再 run_smoke_test，再 prepare_acceptance。\n- 禁止自行 git commit/push；须等用户在 UI 验收。\n\n【加侧栏菜单 / 新页面（最短路径）】只需改这些文件，不要漫游：\n1) apps/stock-dashboard/src/pages/<Name>/ 新建页面（tsx + module.css + index.ts）\n2) apps/stock-dashboard/src/components/layout/Sidebar.tsx —— navItems 增加一项（label/path/icon）\n3) apps/stock-dashboard/src/router/index.tsx —— lazy import + children 路由\n然后 build → smoke → prepare_acceptance。\n\n流程：了解现状 → 写入修改（禁 .env/*.db/.git）→ 构建（若改了 dashboard）→ run_smoke_test 必须通过 → prepare_acceptance（简体中文 commit message）。失败则继续修复再测。最终说明改了哪些文件。",
   "userHint": "帮我升级/修改本项目并准备提交"
 }

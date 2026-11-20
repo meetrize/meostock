@@ -61,6 +61,7 @@ flowchart LR
 | `GET /api/agent/skills` | skill 元数据 |
 | `GET /api/agent/projects` | 目标项目列表（meostock 本仓库 + Agent 工作区项目） |
 | `POST /api/agent/chat` | 工具循环 SSE（`sessionId` / `projectId` / `skillId`） |
+| — | 工具轮次默认不限制（安全上限 500；可用环境变量 `AGENT_MAX_TOOL_ROUNDS` 调高/调低） |
 | `GET /api/agent/workspace/{sessionId}` | 工作区文件列表 |
 | `GET /api/agent/acceptance` | 待处理验收单 |
 | `POST /api/agent/acceptance/{id}/approve` | 标记批准 |
