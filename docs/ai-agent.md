@@ -13,7 +13,7 @@
 | 入口 | 看板侧栏「AI Agent」→ `/dashboard/agent` |
 | 模型 | 复用设置页「当前生效」AI 档案 |
 | 与 K 线 AI | K 线页仍为「单标的助手」；本页为「全局任务台」 |
-| 权限默认 | `workspace_and_repo` |
+| 权限默认 | `workspace_and_repo` **全权限 L2**（每轮对话均开放完整工具集） |
 
 硬边界：
 
@@ -21,6 +21,7 @@
 - 禁止写 `.env` / `*.db` / `.git` / `node_modules` 等
 - 自升级 **commit/push 必须人工验收**（UI 按钮）
 - 不提供实盘下单
+- 前端发布：`./scripts/build_dashboard.sh`（allowlist，Agent 可直接执行）
 
 ---
 
@@ -28,11 +29,11 @@
 
 | 级别 | 范围 | 状态 |
 |------|------|------|
-| L0 只读 | DB SELECT、schema、标的搜索 | 已落地 |
-| L1 工作区写 | `data/agent_workspaces/<session>/` + shell allowlist | 已落地 |
-| L2 本仓库写 | meostock 树（受保护路径除外）+ smoke + 验收 | 已落地 |
+| L0 只读 | DB SELECT、schema、标的搜索 | 工具仍在，但默认不再降级到仅 L0 |
+| L1 工作区写 | `data/agent_workspaces/<session>/` + shell allowlist | 已并入默认 L2 |
+| L2 本仓库写 | meostock 树（受保护路径除外）+ smoke + 验收 + 前端构建 | **默认** |
 | L3 命令 allowlist | 构建脚本、git status/diff、py_compile、smoke | 已落地 |
-| L4 本机会话授权 | 更广路径 | 未做 |
+| L4 本机会话授权 | 更广路径（家目录任意） | 未做 |
 
 ---
 

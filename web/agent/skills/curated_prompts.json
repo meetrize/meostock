@@ -54,5 +54,13 @@
     "description": "改文档 → smoke → 准备验收（不自动 push）",
     "prompt": "请对本仓库做一次最小自升级演示：在 docs/ai-agent.md 末尾追加一小节「## Agent 自升级演练」写两句中文说明 Phase 2/3 已可用；然后 run_smoke_test；通过后 prepare_acceptance，commit message 用简体中文说明目的。不要自行 commit/push。",
     "skillId": "self_upgrade"
+  },
+  {
+    "id": "publish_frontend",
+    "title": "重新发布前端看板",
+    "category": "工程",
+    "description": "执行 build_dashboard 发布静态产物",
+    "prompt": "请重新发布本系统前端看板：先确认是否有未构建的源码改动；然后用 shell_run 执行 ./scripts/build_dashboard.sh；汇报构建结果与 web/static/dashboard 是否已更新。若无需改源码则只构建发布。不要声称权限不足。",
+    "skillId": "publish_frontend"
   }
 ]

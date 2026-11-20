@@ -1,0 +1,19 @@
+{
+  "id": "publish_frontend",
+  "title": "前端重新发布",
+  "description": "构建看板前端并落到 web/static/dashboard",
+  "intent": "self_upgrade",
+  "tools": [
+    "repo_list",
+    "repo_read",
+    "repo_write",
+    "shell_run",
+    "run_smoke_test",
+    "git_status",
+    "git_diff",
+    "prepare_acceptance"
+  ],
+  "permission": "L2",
+  "prompt": "你正在对本仓库做前端发布/改版。\n流程：1) 用 repo_read 定位要改的源码（多为 apps/stock-dashboard）2) 必要时 repo_write 最小改动 3) shell_run 执行 ./scripts/build_dashboard.sh 完成发布（静态产物到 web/static/dashboard）4) 若改了仓库源码则 run_smoke_test 后 prepare_acceptance。\n不要声称权限不足；不要自行 commit/push。刷新浏览器即可看到新前端。",
+  "userHint": "帮我重新发布前端看板"
+}

@@ -64,21 +64,6 @@ export function Layout() {
             <Outlet />
           </ErrorBoundary>
         </div>
-        <footer
-          className={`${styles.footer}${tightContent ? ` ${styles.footerTight}` : ''}`}
-          data-app-chrome="footer"
-        >
-          <span>数据来源：</span>
-          <a
-            href="https://stock-sdk.linkdiary.cn/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Stock SDK
-          </a>
-          <span className={styles.divider}>|</span>
-          <span>仅供学习参考，不构成投资建议</span>
-        </footer>
       </main>
     </div>
   );

@@ -21,8 +21,10 @@ _ALLOWED_PREFIXES = (
     "python -m py_compile",
     "python3 -m py_compile",
     "./scripts/build_dashboard.sh",
+    "./scripts/build_dapan.sh",
     "./scripts/agent_smoke_test.sh",
     "bash ./scripts/build_dashboard.sh",
+    "bash ./scripts/build_dapan.sh",
     "bash ./scripts/agent_smoke_test.sh",
 )
 

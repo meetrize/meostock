@@ -10,7 +10,7 @@
 
 | # | 决策 | 选择 |
 |---|------|------|
-| 1 | 权限默认 | `workspace_and_repo` |
+| 1 | 权限默认 | `workspace_and_repo` **每轮 L2 全工具**（本机单用户） |
 | 2 | 会话存储 | 前端 `localStorage`；工作区按 `sessionId` 落盘 |
 | 3 | 模型 | 现有 `ai_provider_profile` active |
 | 4 | 运行时 | FastAPI tool-calling + SSE |

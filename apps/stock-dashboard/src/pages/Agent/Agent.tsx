@@ -59,7 +59,7 @@ export function Agent() {
   const [streaming, setStreaming] = useState(false);
   const [healthHint, setHealthHint] = useState<string | null>(null);
   const [modelLabel, setModelLabel] = useState('未配置');
-  const [permLabel, setPermLabel] = useState('L0–L2');
+  const [permLabel, setPermLabel] = useState('L2 本仓库全权限');
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [busyAccept, setBusyAccept] = useState<string | null>(null);
   /** 流式正文单独状态，避免每个 token 都改 sessions 触发整树 reconcile */
@@ -110,7 +110,11 @@ export function Agent() {
         if (pData?.ok && Array.isArray(pData.prompts)) setPrompts(pData.prompts);
         if (hData?.configured) {
           setModelLabel(`${hData.provider || 'ai'} · ${hData.model || ''}`);
-          setPermLabel(String(hData.permissionLevel || 'L0-L2'));
+          setPermLabel(
+            hData.defaultPermission || hData.permissionLevel
+              ? `${hData.defaultPermission || hData.permissionLevel} 本仓库全权限`
+              : 'L2 本仓库全权限'
+          );
           setHealthHint(null);
         } else {
           setModelLabel('未配置');
