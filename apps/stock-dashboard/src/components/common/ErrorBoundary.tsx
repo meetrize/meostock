@@ -34,6 +34,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.error) {
       const msg = this.state.error.message || '';
       const isModuleFail = /importing a module script failed/i.test(msg);
+      const isTranslateDom =
+        /object can not be found here|not a child of this node|removeChild/i.test(msg);
       return (
         <div className={styles.boundary}>
           <h3 className={styles.title}>页面渲染出错</h3>
@@ -41,6 +43,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           {isModuleFail && (
             <p className={styles.message}>
               多半是浏览器缓存了旧的前端资源。请点「强制刷新」，或使用 Cmd+Shift+R。
+            </p>
+          )}
+          {isTranslateDom && (
+            <p className={styles.message}>
+              常见于 Safari / 浏览器「翻译此页」改动了页面文字。请关闭页面翻译后点「重试」或「强制刷新」。
             </p>
           )}
           <button className={styles.retryBtn} onClick={this.handleRetry}>

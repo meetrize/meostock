@@ -7,6 +7,7 @@ import { Bot, Loader2, Plus, Send, Trash2, CandlestickChart, FileCode2 } from 'l
 import { openKlineTool } from '@/utils/multipanel';
 import { useToast } from '@/components/common';
 import { MarkdownBody } from './MarkdownBody';
+import { StreamingPlain } from './StreamingPlain';
 import {
   appendMessage,
   loadActiveId,
@@ -61,6 +62,10 @@ export function Agent() {
   const [permLabel, setPermLabel] = useState('L0–L2');
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [busyAccept, setBusyAccept] = useState<string | null>(null);
+  /** 流式正文单独状态，避免每个 token 都改 sessions 触发整树 reconcile */
+  const [liveStream, setLiveStream] = useState<{ id: string; text: string } | null>(null);
+  const liveStreamAccRef = useRef('');
+  const liveStreamRafRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -80,8 +85,10 @@ export function Agent() {
   }, [active?.messages]);
 
   useEffect(() => {
+    // 流式过程中不写 localStorage，减少额外同步与重渲染
+    if (streaming) return;
     saveSessions(sessions);
-  }, [sessions]);
+  }, [sessions, streaming]);
 
   useEffect(() => {
     saveActiveId(activeId);
@@ -89,7 +96,7 @@ export function Agent() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [active?.messages, streaming]);
+  }, [active?.messages, streaming, liveStream?.text]);
 
   useEffect(() => {
     void (async () => {
@@ -239,6 +246,8 @@ export function Agent() {
     setInput('');
     setPendingSkill(null);
     setStreaming(true);
+    liveStreamAccRef.current = '';
+    setLiveStream({ id: assistantId, text: '' });
 
     const history = [...active.messages, userMsg]
       .filter((m) => m.role === 'user' || m.role === 'assistant')
@@ -246,6 +255,40 @@ export function Agent() {
 
     const ac = new AbortController();
     abortRef.current = ac;
+
+    const flushLiveToMessage = (linked?: string) => {
+      if (liveStreamRafRef.current != null) {
+        cancelAnimationFrame(liveStreamRafRef.current);
+        liveStreamRafRef.current = null;
+      }
+      const text = liveStreamAccRef.current;
+      patchActive((s) => ({
+        ...s,
+        updatedAt: Date.now(),
+        messages: s.messages.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                content: text || m.content,
+                contentLinked: linked || m.contentLinked,
+              }
+            : m
+        ),
+      }));
+      setLiveStream(null);
+      liveStreamAccRef.current = '';
+    };
+
+    const appendLiveContent = (delta: string) => {
+      if (!delta) return;
+      liveStreamAccRef.current += delta;
+      if (liveStreamRafRef.current != null) return;
+      liveStreamRafRef.current = requestAnimationFrame(() => {
+        liveStreamRafRef.current = null;
+        const text = liveStreamAccRef.current;
+        setLiveStream({ id: assistantId, text });
+      });
+    };
 
     try {
       const res = await fetch('/api/agent/chat', {
@@ -268,6 +311,7 @@ export function Agent() {
       if (!reader) throw new Error('无流式响应');
       const decoder = new TextDecoder();
       let buffer = '';
+      let linkedFinal: string | undefined;
 
       const updateAssistant = (fn: (m: ChatMessage) => ChatMessage) => {
         patchActive((s) => ({
@@ -325,15 +369,9 @@ export function Agent() {
               ),
             }));
           } else if (event === 'content') {
-            updateAssistant((m) => ({
-              ...m,
-              content: (m.content || '') + String(obj.content || ''),
-            }));
+            appendLiveContent(String(obj.content || ''));
           } else if (event === 'content_linked') {
-            updateAssistant((m) => ({
-              ...m,
-              contentLinked: String(obj.content || m.content),
-            }));
+            linkedFinal = String(obj.content || '');
           } else if (event === 'entities') {
             const items = Array.isArray(obj.items) ? (obj.items as AgentEntity[]) : [];
             updateAssistant((m) => ({ ...m, entities: items }));
@@ -361,9 +399,11 @@ export function Agent() {
           }
         }
       }
+      flushLiveToMessage(linkedFinal);
     } catch (err) {
       if ((err as Error).name === 'AbortError') return;
       const message = err instanceof Error ? err.message : '请求失败';
+      flushLiveToMessage();
       patchActive((s) => ({
         ...s,
         messages: s.messages.map((m) =>
@@ -373,6 +413,10 @@ export function Agent() {
     } finally {
       setStreaming(false);
       abortRef.current = null;
+      if (liveStreamRafRef.current != null) {
+        cancelAnimationFrame(liveStreamRafRef.current);
+        liveStreamRafRef.current = null;
+      }
     }
   };
 
@@ -386,7 +430,10 @@ export function Agent() {
     panelArtifacts.arts.length > 0 || panelArtifacts.accepts.length > 0 || !!workspacePath;
 
   return (
-    <div className={`${styles.page}${showPanel ? '' : ` ${styles.pageNoPanel}`}`}>
+    <div
+      className={`${styles.page}${showPanel ? '' : ` ${styles.pageNoPanel}`}`}
+      translate="no"
+    >
       <aside className={styles.sessions}>
         <div className={styles.sessionsHead}>
           <h2 className={styles.sessionsTitle}>会话</h2>
@@ -481,33 +528,37 @@ export function Agent() {
               >
                 {m.role === 'assistant' && (m.intent || m.permission) ? (
                   <div className={styles.intentTag}>
-                    {m.intent ? `意图 · ${m.intent}` : ''}
-                    {m.permission ? ` · ${m.permission}` : ''}
+                    <span>
+                      {m.intent ? `意图 · ${m.intent}` : ''}
+                      {m.permission ? ` · ${m.permission}` : ''}
+                    </span>
                   </div>
                 ) : null}
                 {m.role === 'assistant' && m.tools && m.tools.length > 0 ? (
                   <div className={styles.toolList}>
                     {m.tools.map((t) => (
                       <div key={t.id} className={styles.toolRow}>
-                        {t.status === 'running' ? '… ' : '✓ '}
-                        {t.tool}
-                        {t.status === 'done' && t.result
-                          ? ` · ${summarizeTool(t.result)}`
-                          : ''}
+                        <span>
+                          {t.status === 'running' ? '… ' : '✓ '}
+                          {t.tool}
+                          {t.status === 'done' && t.result
+                            ? ` · ${summarizeTool(t.result)}`
+                            : ''}
+                        </span>
                       </div>
                     ))}
                   </div>
                 ) : null}
                 {m.role === 'assistant' ? (
-                  <MarkdownBody
-                    text={
-                      m.contentLinked ||
-                      m.content ||
-                      (streaming ? '…' : '')
-                    }
-                  />
+                  liveStream && liveStream.id === m.id ? (
+                    <StreamingPlain text={liveStream.text} />
+                  ) : (
+                    <MarkdownBody text={m.contentLinked || m.content || ''} />
+                  )
                 ) : (
-                  <div className={styles.userPlain}>{m.content}</div>
+                  <div className={styles.userPlain}>
+                    <span>{m.content}</span>
+                  </div>
                 )}
                 {m.entities && m.entities.length > 0 ? (
                   <div className={styles.entityRow}>

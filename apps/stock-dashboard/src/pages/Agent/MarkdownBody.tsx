@@ -26,7 +26,8 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   let i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) {
-      nodes.push(text.slice(last, m.index));
+      // 裸文本包 span：避免 Safari/浏览器翻译改写文本节点后 React removeChild 崩溃
+      nodes.push(<span key={`${keyPrefix}-t${i}`}>{text.slice(last, m.index)}</span>);
     }
     const key = `${keyPrefix}-${i++}`;
     if (m[1]) {
@@ -41,7 +42,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
             className={styles.inlineLink}
             onClick={() => symbol && openKline(symbol)}
           >
-            {label}
+            <span>{label}</span>
           </button>
         );
       } else if (href.startsWith('/?symbol=') || href.startsWith('?symbol=')) {
@@ -55,13 +56,13 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
             className={styles.inlineLink}
             onClick={() => symbol && openKline(symbol)}
           >
-            {label}
+            <span>{label}</span>
           </button>
         );
       } else if (/^https?:\/\//i.test(href)) {
         nodes.push(
           <a key={key} href={href} target="_blank" rel="noopener noreferrer" className={styles.mdLink}>
-            {label}
+            <span>{label}</span>
           </a>
         );
       } else {
@@ -72,19 +73,29 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
         );
       }
     } else if (m[4]) {
-      nodes.push(<strong key={key}>{m[5]}</strong>);
+      nodes.push(
+        <strong key={key}>
+          <span>{m[5]}</span>
+        </strong>
+      );
     } else if (m[6]) {
-      nodes.push(<em key={key}>{m[7]}</em>);
+      nodes.push(
+        <em key={key}>
+          <span>{m[7]}</span>
+        </em>
+      );
     } else if (m[8]) {
       nodes.push(
         <code key={key} className={styles.mdInlineCode}>
-          {m[9]}
+          <span>{m[9]}</span>
         </code>
       );
     }
     last = m.index + m[0].length;
   }
-  if (last < text.length) nodes.push(text.slice(last));
+  if (last < text.length) {
+    nodes.push(<span key={`${keyPrefix}-t${i}`}>{text.slice(last)}</span>);
+  }
   return nodes;
 }
 
@@ -171,17 +182,37 @@ function parseBlocks(src: string): ReactNode[] {
       continue;
     }
 
-    // heading
+    // heading（固定标签，避免动态组件类型在部分环境下异常）
     const hm = /^(#{1,4})\s+(.+)$/.exec(line);
     if (hm) {
       const level = hm[1].length;
       const content = renderInline(hm[2], `h-${block}`);
-      const Tag = (`h${Math.min(level + 1, 5)}` as unknown) as 'h2' | 'h3' | 'h4' | 'h5';
-      out.push(
-        <Tag key={`h-${block++}`} className={styles.mdHeading}>
-          {content}
-        </Tag>
-      );
+      const key = `h-${block++}`;
+      if (level <= 1) {
+        out.push(
+          <h2 key={key} className={styles.mdHeading}>
+            {content}
+          </h2>
+        );
+      } else if (level === 2) {
+        out.push(
+          <h3 key={key} className={styles.mdHeading}>
+            {content}
+          </h3>
+        );
+      } else if (level === 3) {
+        out.push(
+          <h4 key={key} className={styles.mdHeading}>
+            {content}
+          </h4>
+        );
+      } else {
+        out.push(
+          <h5 key={key} className={styles.mdHeading}>
+            {content}
+          </h5>
+        );
+      }
       i += 1;
       continue;
     }
@@ -255,5 +286,12 @@ function parseBlocks(src: string): ReactNode[] {
 
 export function MarkdownBody({ text, className }: Props) {
   if (!text) return null;
-  return <div className={`${styles.mdBody}${className ? ` ${className}` : ''}`}>{parseBlocks(text)}</div>;
+  return (
+    <div
+      className={`${styles.mdBody}${className ? ` ${className}` : ''}`}
+      translate="no"
+    >
+      {parseBlocks(text)}
+    </div>
+  );
 }
