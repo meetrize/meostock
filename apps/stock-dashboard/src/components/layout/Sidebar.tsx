@@ -144,7 +144,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     >
       <div className={styles.logo}>
         <Logo size={36} />
-        <span className={styles.logoText}>A股看板</span>
+        <span className={styles.logoText}>Meo投研</span>
       </div>
 
       <nav className={styles.nav}>
