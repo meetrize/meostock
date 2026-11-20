@@ -3,11 +3,22 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, Loader2, Plus, Send, Trash2, CandlestickChart, FileCode2 } from 'lucide-react';
+import {
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+  Plus,
+  Send,
+  Trash2,
+  CandlestickChart,
+  FileCode2,
+} from 'lucide-react';
 import { openKlineTool } from '@/utils/multipanel';
 import { useToast } from '@/components/common';
 import { MarkdownBody } from './MarkdownBody';
 import { StreamingPlain } from './StreamingPlain';
+import { ModelPicker } from './ModelPicker';
 import {
   appendMessage,
   loadActiveId,
@@ -23,6 +34,7 @@ import type {
   AgentProject,
   AgentSession,
   AgentSkill,
+  AiProfileOption,
   ChatMessage,
   CuratedPrompt,
   ToolEvent,
@@ -34,6 +46,81 @@ const DEFAULT_PROJECT_ID = 'meostock';
 
 function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatToolPayload(raw: unknown, limit = 4000): string {
+  if (raw == null) return '（无）';
+  let text: string;
+  if (typeof raw === 'string') {
+    text = raw;
+    try {
+      text = JSON.stringify(JSON.parse(raw), null, 2);
+    } catch {
+      /* keep raw string */
+    }
+  } else {
+    try {
+      text = JSON.stringify(raw, null, 2);
+    } catch {
+      text = String(raw);
+    }
+  }
+  if (text.length > limit) return `${text.slice(0, limit)}\n…(截断 ${text.length - limit} 字符)`;
+  return text;
+}
+
+function ToolCallsPanel({ tools }: { tools: ToolEvent[] }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  return (
+    <div className={styles.toolList}>
+      <div className={styles.toolListHead}>工具调用 · 共 {tools.length} 轮（点击展开详情）</div>
+      {tools.map((t, i) => {
+        const open = openId === t.id;
+        const round = t.round ?? i + 1;
+        return (
+          <div
+            key={t.id}
+            className={`${styles.toolRow}${open ? ` ${styles.toolRowOpen}` : ''}`}
+          >
+            <button
+              type="button"
+              className={styles.toolRowBtn}
+              onClick={() => setOpenId((cur) => (cur === t.id ? null : t.id))}
+              aria-expanded={open}
+            >
+              <span className={styles.toolRound}>#{round}</span>
+              <span className={styles.toolName}>
+                {t.status === 'running' ? '… ' : t.status === 'error' ? '✗ ' : '✓ '}
+                {t.tool}
+              </span>
+              <span className={styles.toolSummary} title={summarizeTool(t.result)}>
+                {t.status === 'running'
+                  ? '执行中…'
+                  : t.result != null
+                    ? summarizeTool(t.result)
+                    : t.arguments
+                      ? '已发起'
+                      : ''}
+              </span>
+              <span className={styles.toolChevron}>
+                {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              </span>
+            </button>
+            {open ? (
+              <div className={styles.toolDetail}>
+                <div className={styles.toolDetailLabel}>参数</div>
+                <pre className={styles.toolPre}>{formatToolPayload(t.arguments)}</pre>
+                <div className={styles.toolDetailLabel}>结果</div>
+                <pre className={styles.toolPre}>
+                  {t.status === 'running' ? '执行中…' : formatToolPayload(t.result)}
+                </pre>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function loadSavedProjectId(): string {
@@ -84,6 +171,9 @@ export function Agent() {
   const [streaming, setStreaming] = useState(false);
   const [healthHint, setHealthHint] = useState<string | null>(null);
   const [modelLabel, setModelLabel] = useState('未配置');
+  const [aiProfiles, setAiProfiles] = useState<AiProfileOption[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string>('');
+  const [switchingModel, setSwitchingModel] = useState(false);
   const [permLabel, setPermLabel] = useState('L2 本仓库全权限');
   const [workspacePath, setWorkspacePath] = useState<string | null>(null);
   const [busyAccept, setBusyAccept] = useState<string | null>(null);
@@ -145,6 +235,29 @@ export function Agent() {
     }
   }, []);
 
+  const loadAiProfiles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ai/config');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) return;
+      const list = Array.isArray(data.profiles) ? (data.profiles as AiProfileOption[]) : [];
+      setAiProfiles(list);
+      const active = (data.active as AiProfileOption | null) || list.find((p) => p.active) || null;
+      if (active?.id) setActiveProfileId(active.id);
+      if (data.configured && (active || data.model)) {
+        setModelLabel(
+          `${active?.provider || data.provider || 'ai'} · ${active?.model || data.model || ''}`
+        );
+        setHealthHint(null);
+      } else {
+        setModelLabel('未配置');
+        setHealthHint(data?.hint || '请先在设置中配置 AI 模型');
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     void (async () => {
       try {
@@ -179,11 +292,38 @@ export function Agent() {
           setModelLabel('未配置');
           setHealthHint(hData?.hint || '请先在设置中配置 AI 模型');
         }
+        await loadAiProfiles();
       } catch {
         setHealthHint('无法连接 Agent 服务');
       }
     })();
-  }, []);
+  }, [loadAiProfiles]);
+
+  const switchAiProfile = async (id: string) => {
+    if (!id || id === activeProfileId || switchingModel) return;
+    setSwitchingModel(true);
+    try {
+      const res = await fetch(`/api/ai/profiles/${id}/activate`, { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || '切换模型失败');
+      }
+      const profile = data.profile as AiProfileOption | undefined;
+      setActiveProfileId(id);
+      if (profile) {
+        setAiProfiles((prev) =>
+          prev.map((p) => ({ ...p, active: p.id === id }))
+        );
+        setModelLabel(`${profile.provider || 'ai'} · ${profile.model || ''}`);
+      }
+      toast.success(`已切换：${profile?.name || profile?.model || id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '切换模型失败');
+      await loadAiProfiles();
+    } finally {
+      setSwitchingModel(false);
+    }
+  };
 
   useEffect(() => {
     saveProjectId(projectId);
@@ -427,15 +567,19 @@ export function Agent() {
               arguments: String(obj.arguments || ''),
               status: 'running',
             };
-            updateAssistant((m) => ({
-              ...m,
-              tools: [...(m.tools || []).filter((t) => t.id !== te.id), te],
-            }));
+            updateAssistant((m) => {
+              const prev = (m.tools || []).filter((t) => t.id !== te.id);
+              return {
+                ...m,
+                tools: [...prev, { ...te, round: prev.length + 1 }],
+              };
+            });
           } else if (event === 'tool_result') {
             updateAssistant((m) => ({
               ...m,
               tools: (m.tools || []).map((t) =>
-                t.id === String(obj.id || '') || t.tool === String(obj.tool || '')
+                t.id === String(obj.id || '') ||
+                (t.status === 'running' && t.tool === String(obj.tool || ''))
                   ? { ...t, status: 'done', result: obj.result }
                   : t
               ),
@@ -462,6 +606,23 @@ export function Agent() {
           } else if (event === 'acceptance') {
             const acc = obj.acceptance as AcceptanceInfo;
             updateAssistant((m) => ({ ...m, acceptance: acc }));
+          } else if (event === 'status') {
+            const tip = String(obj.message || '').trim();
+            if (tip) {
+              updateAssistant((m) => ({
+                ...m,
+                tools: [
+                  ...(m.tools || []),
+                  {
+                    id: `status-${uid()}`,
+                    tool: 'status',
+                    arguments: tip,
+                    status: 'done',
+                    result: { ok: true, message: tip },
+                  },
+                ],
+              }));
+            }
           } else if (event === 'error') {
             updateAssistant((m) => ({ ...m, error: String(obj.error || '错误') }));
             if (obj.hint) setHealthHint(String(obj.hint));
@@ -609,19 +770,7 @@ export function Agent() {
                   </div>
                 ) : null}
                 {m.role === 'assistant' && m.tools && m.tools.length > 0 ? (
-                  <div className={styles.toolList}>
-                    {m.tools.map((t) => (
-                      <div key={t.id} className={styles.toolRow}>
-                        <span>
-                          {t.status === 'running' ? '… ' : '✓ '}
-                          {t.tool}
-                          {t.status === 'done' && t.result
-                            ? ` · ${summarizeTool(t.result)}`
-                            : ''}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  <ToolCallsPanel tools={m.tools} />
                 ) : null}
                 {m.role === 'assistant' ? (
                   liveStream && liveStream.id === m.id ? (
@@ -773,15 +922,26 @@ export function Agent() {
                 }
               }}
             />
-            <button
-              type="button"
-              className={styles.sendBtn}
-              disabled={streaming || !input.trim()}
-              onClick={() => void send()}
-            >
-              {streaming ? <Loader2 size={16} /> : <Send size={16} />}
-              发送
-            </button>
+            <div className={styles.composerAside}>
+              <button
+                type="button"
+                className={styles.sendBtn}
+                disabled={streaming || !input.trim()}
+                onClick={() => void send()}
+              >
+                {streaming ? <Loader2 size={16} /> : <Send size={16} />}
+                发送
+              </button>
+            </div>
+          </div>
+          <div className={styles.composerFoot}>
+            <ModelPicker
+              options={aiProfiles}
+              activeId={activeProfileId}
+              label={modelLabel}
+              switching={switchingModel}
+              onSelect={(id) => void switchAiProfile(id)}
+            />
           </div>
         </div>
       </section>
@@ -854,9 +1014,24 @@ export function Agent() {
 }
 
 function summarizeTool(result: unknown): string {
-  if (!result || typeof result !== 'object') return '';
+  if (result == null) return '';
+  if (typeof result !== 'object') return String(result).slice(0, 80);
   const r = result as Record<string, unknown>;
+  if (r.message && typeof r.message === 'string') return r.message.slice(0, 120);
   if (r.ok === false) return String(r.error || '失败');
+  if (typeof r.path === 'string') {
+    const more =
+      r.truncated === true
+        ? ` · 截断${r.nextOffset != null ? ` next=${r.nextOffset}` : ''}`
+        : typeof r.totalChars === 'number'
+          ? ` · ${r.totalChars} 字符`
+          : '';
+    return `${r.path}${more}`;
+  }
+  if (typeof r.command === 'string') {
+    const cmd = r.command.length > 60 ? `${r.command.slice(0, 60)}…` : r.command;
+    return typeof r.exitCode === 'number' ? `${cmd} · exit ${r.exitCode}` : cmd;
+  }
   if (Array.isArray(r.tables)) return `${r.tables.length} 张表`;
   if (Array.isArray(r.columns)) return `${r.columns.length} 列`;
   if (typeof r.rowCount === 'number') return `${r.rowCount} 行`;

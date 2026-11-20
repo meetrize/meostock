@@ -66,10 +66,19 @@ TOOL_DEFS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "workspace_read",
-            "description": "读取工作区内文件。",
+            "description": (
+                "读取工作区内文件。大文件请用 start_line/end_line 或 offset/max_chars 分段读；"
+                "若 truncated=true，按 hint/nextOffset/nextStartLine 继续。"
+            ),
             "parameters": {
                 "type": "object",
-                "properties": {"path": {"type": "string"}},
+                "properties": {
+                    "path": {"type": "string"},
+                    "offset": {"type": "integer", "description": "字符偏移（0 起）"},
+                    "max_chars": {"type": "integer", "description": "本次最多返回字符数"},
+                    "start_line": {"type": "integer", "description": "起始行（1 起，含）"},
+                    "end_line": {"type": "integer", "description": "结束行（含）"},
+                },
                 "required": ["path"],
             },
         },
@@ -104,10 +113,19 @@ TOOL_DEFS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "repo_read",
-            "description": "读取 meostock 仓库内文件。",
+            "description": (
+                "读取 meostock 仓库内文件。大文件必须分段："
+                "start_line/end_line 或 offset/max_chars；truncated 时继续读完全文再 repo_write。"
+            ),
             "parameters": {
                 "type": "object",
-                "properties": {"path": {"type": "string"}},
+                "properties": {
+                    "path": {"type": "string"},
+                    "offset": {"type": "integer", "description": "字符偏移（0 起）"},
+                    "max_chars": {"type": "integer", "description": "本次最多返回字符数，建议 ≤80000"},
+                    "start_line": {"type": "integer", "description": "起始行（1 起，含）"},
+                    "end_line": {"type": "integer", "description": "结束行（含）"},
+                },
                 "required": ["path"],
             },
         },
@@ -131,7 +149,10 @@ TOOL_DEFS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "shell_run",
-            "description": "在仓库或工作区执行 allowlist 命令（构建脚本、git status/diff、py_compile 等）。禁止任意 shell。",
+            "description": (
+                "在本仓库或会话工作区执行 shell（已开放：grep/sed/head/wc/npm/python/构建脚本等，支持管道）。"
+                "cwd 固定在项目内。禁止 git commit/push/reset（走验收）与 sudo。"
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -256,8 +277,24 @@ def _workspace_list(args: dict[str, Any], ctx: dict[str, Any] | None) -> dict[st
     return fs_ops.workspace_list(_ctx_session(args, ctx), str(args.get("path") or "."))
 
 
+def _opt_int(args: dict[str, Any], key: str) -> int | None:
+    if key not in args or args.get(key) is None:
+        return None
+    try:
+        return int(args.get(key))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
 def _workspace_read(args: dict[str, Any], ctx: dict[str, Any] | None) -> dict[str, Any]:
-    return fs_ops.workspace_read(_ctx_session(args, ctx), str(args.get("path") or ""))
+    return fs_ops.workspace_read(
+        _ctx_session(args, ctx),
+        str(args.get("path") or ""),
+        offset=_opt_int(args, "offset"),
+        max_chars=_opt_int(args, "max_chars"),
+        start_line=_opt_int(args, "start_line"),
+        end_line=_opt_int(args, "end_line"),
+    )
 
 
 def _workspace_write(args: dict[str, Any], ctx: dict[str, Any] | None) -> dict[str, Any]:
@@ -273,7 +310,13 @@ def _repo_list(args: dict[str, Any], _ctx: dict[str, Any] | None) -> dict[str, A
 
 
 def _repo_read(args: dict[str, Any], _ctx: dict[str, Any] | None) -> dict[str, Any]:
-    return fs_ops.repo_read(str(args.get("path") or ""))
+    return fs_ops.repo_read(
+        str(args.get("path") or ""),
+        offset=_opt_int(args, "offset"),
+        max_chars=_opt_int(args, "max_chars"),
+        start_line=_opt_int(args, "start_line"),
+        end_line=_opt_int(args, "end_line"),
+    )
 
 
 def _repo_write(args: dict[str, Any], _ctx: dict[str, Any] | None) -> dict[str, Any]:

@@ -21,7 +21,7 @@
 - 禁止写 `.env` / `*.db` / `.git` / `node_modules` 等
 - 自升级 **commit/push 必须人工验收**（UI 按钮）
 - 不提供实盘下单
-- 前端发布：`./scripts/build_dashboard.sh`（allowlist，Agent 可直接执行）
+- 前端发布：`./scripts/build_dashboard.sh`（项目内 shell，Agent 可直接执行）
 
 ---
 
@@ -30,9 +30,9 @@
 | 级别 | 范围 | 状态 |
 |------|------|------|
 | L0 只读 | DB SELECT、schema、标的搜索 | 工具仍在，但默认不再降级到仅 L0 |
-| L1 工作区写 | `data/agent_workspaces/<session>/` + shell allowlist | 已并入默认 L2 |
+| L1 工作区写 | `data/agent_workspaces/<session>/` + 项目内 shell | 已并入默认 L2 |
 | L2 本仓库写 | meostock 树（受保护路径除外）+ smoke + 验收 + 前端构建 | **默认** |
-| L3 命令 allowlist | 构建脚本、git status/diff、py_compile、smoke | 已落地 |
+| L3 项目内 shell | 仓库/工作区 cwd 全开；禁 commit/push/sudo | 已落地 |
 | L4 本机会话授权 | 更广路径（家目录任意） | 未做 |
 
 ---
@@ -78,7 +78,8 @@ SSE 事件：`start` / `intent` / `tool_*` / `content` / `artifact` / `acceptanc
 |------|------|
 | `schema_inspect` / `sql_readonly` / `symbol_search` | L0 |
 | `workspace_*` / `shell_run` | L1+ |
-| `repo_*` / `run_smoke_test` / `git_status` / `git_diff` / `prepare_acceptance` | L2 |
+| `repo_*`（支持 `start_line`/`offset` 分段读） / `run_smoke_test` / `git_*` / `prepare_acceptance` | L2 |
+| `shell_run` | 项目内开放（cwd=repo/workspace）；禁 commit/push/sudo |
 
 ---
 
@@ -92,7 +93,7 @@ SSE 事件：`start` / `intent` / `tool_*` / `content` / `artifact` / `acceptanc
 
 ## Agent 自升级演练
 
-本节为最小自升级演示：Phase 2（工作区 coding + shell allowlist）与 Phase 3（自升级验收闭环）均已可用，Agent 可在受保护路径之外写入仓库并跑冒烟测试。
+本节为最小自升级演示：Phase 2（工作区 coding + 项目内 shell）与 Phase 3（自升级验收闭环）均已可用，Agent 可在受保护路径之外写入仓库并跑冒烟测试。
 
 改动仍需人工在 UI 验收后才 commit/push，Agent 自身不具备 push 权限。
 

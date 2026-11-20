@@ -1,36 +1,23 @@
-"""受限 shell（allowlist）。"""
+"""本仓库 / 工作区内 shell（项目范围开放；禁 commit/push 与明显越界破坏）。"""
 
 from __future__ import annotations
 
 import os
 import re
-import shlex
 import subprocess
 from typing import Any
 
 from agent.paths import repo_root, workspace_dir
 
-# 仅允许这些「规范化后」的命令前缀（空白压缩后）
-_ALLOWED_PREFIXES = (
-    "git status",
-    "git diff",
-    "git log",
-    "git add",
-    "ls",
-    "pwd",
-    "python -m py_compile",
-    "python3 -m py_compile",
-    "./scripts/build_dashboard.sh",
-    "./scripts/build_dapan.sh",
-    "./scripts/agent_smoke_test.sh",
-    "bash ./scripts/build_dashboard.sh",
-    "bash ./scripts/build_dapan.sh",
-    "bash ./scripts/agent_smoke_test.sh",
-)
-
-_FORBIDDEN = re.compile(
-    r"(;|\||&|`|\$\(|>|>>|<|rm\s+-rf|curl\s|wget\s|ssh\s|scp\s|chmod\s|chown\s|"
-    r"sudo\s|eval\s|source\s|\.\/run_web|uvicorn|kill\s|pkill|nohup)",
+# 仍走专用工具 / 人工验收；以及明显危险的越界操作
+_BLOCKED = re.compile(
+    r"("
+    r"git\s+commit|git\s+push|git\s+reset\b|git\s+rebase\b|git\s+checkout\s+--|"
+    r"sudo\s|pkexec\b|doas\s|"
+    r"rm\s+(-[a-zA-Z]*f[a-zA-Z]*\s+)?/(\s|$)|"
+    r"mkfs\b|dd\s+if=|"
+    r":\(\)\s*\{|: \(\)\s*\{"  # fork bomb
+    r")",
     re.IGNORECASE,
 )
 
@@ -41,12 +28,11 @@ def _normalize(cmd: str) -> str:
 
 def _allowed(cmd: str) -> bool:
     n = _normalize(cmd)
-    if not n or _FORBIDDEN.search(n):
+    if not n:
         return False
-    # git commit / push 走专用工具
-    if n.startswith("git commit") or n.startswith("git push") or n.startswith("git reset"):
+    if _BLOCKED.search(n):
         return False
-    return any(n == p or n.startswith(p + " ") for p in _ALLOWED_PREFIXES)
+    return True
 
 
 def run_shell(
@@ -60,7 +46,10 @@ def run_shell(
     if not _allowed(cmd):
         return {
             "ok": False,
-            "error": "命令不在 allowlist 或含危险字符（git commit/push 请用专用工具）",
+            "error": (
+                "命令被拒绝：禁止 git commit/push/reset（请用验收工具）、"
+                "sudo、以及明显越界破坏。其余本项目内 shell 已开放。"
+            ),
             "command": cmd,
         }
     if cwd_scope == "workspace":
@@ -68,28 +57,27 @@ def run_shell(
     else:
         cwd = repo_root()
 
-    to = max(5.0, min(float(timeout_sec or 120), 300.0))
+    to = max(5.0, min(float(timeout_sec or 120), 600.0))
     env = os.environ.copy()
     env["PYTHONPATH"] = f"{repo_root() / 'web'}{os.pathsep}{env.get('PYTHONPATH', '')}"
 
     try:
-        # 用 shell=False + shlex 更安全；但脚本相对路径需要 shell 时用 list
-        try:
-            argv = shlex.split(cmd)
-        except ValueError as exc:
-            return {"ok": False, "error": f"命令解析失败: {exc}", "command": cmd}
-
+        # 用 bash + 关闭 glob 失败：避免 zsh「no matches found: --include=*.tsx」
+        bash = "/bin/bash" if os.path.exists("/bin/bash") else "/bin/sh"
+        wrapped = f"set +f; setopt NULL_GLOB 2>/dev/null; {cmd}"
         proc = subprocess.run(
-            argv,
+            wrapped,
             cwd=str(cwd),
             capture_output=True,
             text=True,
             timeout=to,
             env=env,
             check=False,
+            shell=True,
+            executable=bash,
         )
-        out = (proc.stdout or "")[-8000:]
-        err = (proc.stderr or "")[-4000:]
+        out = (proc.stdout or "")[-40000:]
+        err = (proc.stderr or "")[-12000:]
         return {
             "ok": proc.returncode == 0,
             "command": cmd,
@@ -97,6 +85,7 @@ def run_shell(
             "exitCode": proc.returncode,
             "stdout": out,
             "stderr": err,
+            "scope": "project_shell",
         }
     except subprocess.TimeoutExpired:
         return {"ok": False, "error": f"超时（{to}s）", "command": cmd}

@@ -63,7 +63,7 @@ def agent_health() -> JSONResponse:
                     "db_readonly",
                     "workspace_fs",
                     "repo_write",
-                    "shell_allowlist",
+                    "project_shell",
                     "frontend_build",
                     "self_upgrade_acceptance",
                 ],

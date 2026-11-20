@@ -12,6 +12,16 @@ export type ToolEvent = {
   arguments?: string;
   result?: unknown;
   status: 'running' | 'done' | 'error';
+  /** 展示用轮次（从 1 起） */
+  round?: number;
+};
+
+export type AiProfileOption = {
+  id: string;
+  name: string;
+  provider?: string;
+  model?: string;
+  active?: boolean;
 };
 
 export type AgentArtifact = {

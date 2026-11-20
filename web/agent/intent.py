@@ -8,7 +8,7 @@ from typing import Any
 from agent.skills_meta import get_skill
 from agent.tools.registry import tools_for_permission
 
-# 本机 Agent：一律 L2（只读库 + 工作区 + 本仓库写 + allowlist shell + 自升级验收）
+# 本机 Agent：一律 L2（只读库 + 工作区 + 本仓库写 + 项目内 shell + 自升级验收）
 _DEFAULT_PERM = "L2"
 
 _DB_HINT = re.compile(
@@ -23,7 +23,9 @@ _CODING_HINT = re.compile(
 _UPGRADE_HINT = re.compile(
     r"(自升级|改本项目|改仓库|meostock|commit|push|升级本系统|修改本项目|"
     r"发布|重新发布|构建|build|部署|前端|dashboard|删掉|删除文案|改页面|改样式|"
-    r"菜单|侧栏|侧边栏|路由|加一个.*页|新增.*页)",
+    r"菜单|侧栏|侧边栏|路由|加一个.*页|新增.*页|"
+    r"本\s*ai\s*agent|本agent|agent.*(界面|页面|对话框|做成|改成|加上)|"
+    r"直接实现|点击选择|模型.*(选择|切换|下拉)|对话框.*(右下|模型))",
     re.IGNORECASE,
 )
 
@@ -98,8 +100,9 @@ def resolve_intent(
         "permission": _DEFAULT_PERM,
         "systemExtra": (
             "本机 Agent 默认具备 meostock 本仓库全权限（L2）。"
-            "可读写仓库（禁 .env/*.db/.git）、隔离工作区、allowlist shell（含 ./scripts/build_dashboard.sh）、"
+            "可读写仓库（禁 .env/*.db/.git）、隔离工作区、项目内完整 shell（grep/sed/构建等）、"
             "冒烟与准备验收。改仓库后应 run_smoke_test；commit/push 须经 UI 人工验收。"
+            "大文件用 repo_read 的 start_line/offset 分段读全再写。"
             "前端重新发布：改源码后执行 shell_run ./scripts/build_dashboard.sh。"
         ),
         "source": "default",
