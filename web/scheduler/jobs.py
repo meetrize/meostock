@@ -47,6 +47,14 @@ DEFAULT_JOBS: list[dict[str, Any]] = [
         "interval_minutes": 30,
         "align_zt_eod": True,
     },
+    {
+        "id": "cn_daily_eod_patch",
+        "name": "A股收盘日K补全",
+        "job_type": "cn_daily_eod_patch",
+        "enabled": 1,
+        "interval_minutes": 30,
+        "align_cn_kline_eod": True,
+    },
 ]
 
 
@@ -67,6 +75,13 @@ def _default_next_run(job: dict[str, Any], now: float) -> float:
             from zt_history.schedule import next_slot_ts
 
             return next_slot_ts(now)
+        except Exception:  # noqa: BLE001
+            pass
+    if job.get("align_cn_kline_eod") or job.get("id") == "cn_daily_eod_patch":
+        try:
+            from scheduler.cn_daily_eod_patch import next_cn_kline_eod_ts
+
+            return next_cn_kline_eod_ts(now)
         except Exception:  # noqa: BLE001
             pass
     return now + int(job.get("interval_minutes") or 360) * 60
@@ -213,6 +228,13 @@ def _next_run_after_finish(job_id: str, now: float, interval_minutes: int) -> fl
             from zt_history.schedule import next_slot_ts
 
             return next_slot_ts(now)
+        except Exception:  # noqa: BLE001
+            pass
+    if job_id == "cn_daily_eod_patch":
+        try:
+            from scheduler.cn_daily_eod_patch import next_cn_kline_eod_ts
+
+            return next_cn_kline_eod_ts(now)
         except Exception:  # noqa: BLE001
             pass
     return now + max(5, interval_minutes) * 60
