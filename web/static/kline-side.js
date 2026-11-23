@@ -17,7 +17,8 @@
   ];
 
   const state = {
-    open: true,
+    // 默认关闭；是否打开、上次 Tab 由 localStorage 恢复
+    open: false,
     ratio: 0.36,
     tab: "ai",
     symbol: "",
@@ -36,8 +37,9 @@
   function readStored() {
     try {
       const openRaw = localStorage.getItem(LS.open);
-      if (openRaw === "0" || openRaw === "false") state.open = false;
-      else if (openRaw === "1" || openRaw === "true") state.open = true;
+      // 无记录 → 保持默认关闭；有记录则严格按上次开/关
+      if (openRaw === "1" || openRaw === "true") state.open = true;
+      else if (openRaw === "0" || openRaw === "false") state.open = false;
       const ratio = localStorage.getItem(LS.ratio);
       if (ratio != null) state.ratio = clampRatio(ratio);
       const tab = localStorage.getItem(LS.tab);
