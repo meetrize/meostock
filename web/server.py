@@ -2488,6 +2488,65 @@ def zt_xnge_proxy(
     )
 
 
+def _normalize_zt_code(raw: str | None) -> str | None:
+    """涨停异动 code：优先提取 6 位数字，否则保留安全路径段。"""
+    s = (raw or "").strip()
+    if not s:
+        return None
+    m = re.search(r"(\d{6})", s)
+    if m:
+        return m.group(1)
+    # 允许原站其它 slug（字母数字下划线短横）
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "", s)
+    return slug or None
+
+
+@app.get("/zt", response_model=None)
+def zt_reason_query(
+    request: Request,
+    code: str | None = Query(None, description="股票代码，对应 t.xnge.cn/zt/{code}/"),
+    bg: str = Query("ffffff", description="背景色"),
+    hidenav: int = Query(1),
+) -> Response:
+    """
+    查询参数版中转：
+    /zt?code=600519&bg=ffffff
+    → http://t.xnge.cn/zt/600519/?bg=ffffff
+    """
+    cid = _normalize_zt_code(code)
+    if not cid:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "缺少 code 参数，示例 /zt?code=600519&bg=ffffff 或 /zt/600519?bg=ffffff",
+            },
+            status_code=400,
+        )
+    bg_n = _normalize_xnge_bg(bg)
+    return RedirectResponse(
+        url=f"/zt/{urllib.parse.quote(cid)}?hidenav={hidenav}&bg={urllib.parse.quote(bg_n)}",
+        status_code=307,
+    )
+
+
+@app.get("/zt/{code}", response_model=None)
+@app.get("/zt/{code}/", response_model=None)
+def zt_reason_proxy(code: str, request: Request) -> Response:
+    """
+    路径参数版中转（与涨停复盘 /xnge/fupan/ 同机制）：
+    /zt/600519?bg=ffffff
+    → http://t.xnge.cn/zt/600519/?bg=ffffff
+    亦可用通用入口 /xnge/zt/600519/?bg=ffffff
+    """
+    cid = _normalize_zt_code(code)
+    if not cid:
+        return JSONResponse({"ok": False, "error": "无效 code"}, status_code=400)
+    query = {k: v for k, v in request.query_params.multi_items()}
+    if "bg" not in query:
+        query["bg"] = "ffffff"
+    return _proxy_xnge_html(f"zt/{cid}", query)
+
+
 if __name__ == "__main__":
     import uvicorn
 

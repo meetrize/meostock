@@ -34,6 +34,9 @@ const NewsTimeline = lazy(() =>
 const FupanReview = lazy(() =>
   import('@/pages/FupanReview').then((mod) => ({ default: mod.FupanReview }))
 );
+const ZtReason = lazy(() =>
+  import('@/pages/ZtReason').then((mod) => ({ default: mod.ZtReason }))
+);
 const MarketFundFlow = lazy(() =>
   import('@/pages/MarketFundFlow').then((mod) => ({ default: mod.MarketFundFlow }))
 );
@@ -104,6 +107,14 @@ const browserRouter = createBrowserRouter(
         {
           path: 'fupan',
           element: withSuspense(<FupanReview />),
+        },
+        {
+          path: 'zt',
+          element: withSuspense(<ZtReason />),
+        },
+        {
+          path: 'zt/:code',
+          element: withSuspense(<ZtReason />),
         },
         {
           path: 'market-flow',

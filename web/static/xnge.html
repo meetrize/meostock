@@ -81,7 +81,15 @@
       连板天梯 · <code>/xnge/jieli/</code> ← <code>t.xnge.cn/jieli/</code><br />
       人气股 · <code>/xnge/rank/</code> ← <code>t.xnge.cn/rank/</code><br />
       涨停复盘 · <code>/xnge/fupan/</code> ← <code>t.xnge.cn/fupan/</code><br />
+      涨停异动 · <code>/zt/600519?bg=ffffff</code> ← <code>t.xnge.cn/zt/600519/?bg=ffffff</code><br />
+      亦支持查询参数 · <code>/zt?code=600519&amp;bg=ffffff</code><br />
+      看板页 · <code>/dashboard/zt/600519</code><br />
       另有本地 Demo（不经原站）：<code>/fupan</code>
+    </div>
+
+    <div class="form" style="margin-top:10px">
+      <input id="ztCode" placeholder="涨停异动代码，如 600519" />
+      <button type="button" id="ztGo">打开异动</button>
     </div>
   </div>
   <script>
@@ -132,6 +140,16 @@
     document.getElementById('go').onclick = () => {
       const href = toProxyUrl(document.getElementById('path').value);
       if (href) window.open(href, '_blank', 'noopener');
+    };
+    document.getElementById('ztGo').onclick = () => {
+      const raw = (document.getElementById('ztCode').value || '').trim();
+      const m = raw.match(/(\d{6})/);
+      const code = m ? m[1] : raw.replace(/[^A-Za-z0-9_-]+/g, '');
+      if (!code) {
+        alert('请输入股票代码，如 600519');
+        return;
+      }
+      window.open('/zt/' + encodeURIComponent(code) + '?bg=ffffff&hidenav=1', '_blank', 'noopener');
     };
   </script>
 </body>

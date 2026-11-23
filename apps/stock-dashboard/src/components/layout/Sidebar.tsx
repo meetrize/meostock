@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
   { path: '/research', label: '研判', icon: <Microscope size={18} /> },
   { path: '/quotes', label: '行情', icon: <CandlestickChart size={18} /> },
   { path: '/fupan', label: '涨停复盘', icon: <Flame size={18} /> },
+  { path: '/zt', label: '涨停异动', icon: <Flame size={18} /> },
   { path: '/heatmap', label: '热力图', icon: <Grid3X3 size={18} /> },
   {
     path: '/dapan/',
