@@ -369,6 +369,44 @@ def start_sync_all(
     }
 
 
+def _cn_seed_rows() -> list[dict[str, Any]]:
+    """A 股腾讯补价种子：优先完整代码表，再与上一份快照合并名称/报价。"""
+    seeds = models.read_symbol_seeds("cn")
+    prev = models.read_snapshot("cn")
+    if not seeds and not prev:
+        return []
+    if not seeds:
+        return prev
+    # 代码表为主（约 5900），快照同码覆盖 name/行情字段
+    by_code = {str(s.get("code") or ""): dict(s) for s in seeds if s.get("code")}
+    for row in prev:
+        code = str(row.get("code") or "")
+        if not code:
+            continue
+        if code in by_code:
+            merged = {**by_code[code], **{k: v for k, v in row.items() if v is not None}}
+            by_code[code] = merged
+        else:
+            by_code[code] = row
+    return list(by_code.values())
+
+
+def _finalize_full_rows(market: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """落库前用代码表补齐，避免半截同步把全表裁短。"""
+    if market != "cn":
+        return rows
+    seeds = models.read_symbol_seeds("cn")
+    if not seeds:
+        return rows
+    padded = models.pad_snapshot_with_seeds(rows, seeds)
+    # 若补价结果仍远少于代码表，拒绝覆盖（保留库内旧数据由上层处理）
+    if len(seeds) >= 3000 and len(padded) < int(len(seeds) * 0.7):
+        raise RuntimeError(
+            f"cn snapshot too small after pad: {len(padded)}/{len(seeds)}"
+        )
+    return padded
+
+
 def _fetch_full_with_fallback(
     market: str,
     *,
@@ -386,26 +424,26 @@ def _fetch_full_with_fallback(
             on_progress=_on_item_progress,
         )
         if rows:
-            return rows, source
+            return _finalize_full_rows(market, rows), source
         raise RuntimeError("eastmoney empty")
     except Exception as em_err:
-        # A 股：东财失败 → 腾讯（需上一份代码表）→ 新浪
+        # A 股：东财失败 → 腾讯（代码表+旧快照作种子）→ 新浪
         if market == "cn":
-            prev = models.read_snapshot("cn")
-            if prev:
+            seed = _cn_seed_rows()
+            if seed:
                 try:
                     _set_progress(
-                        message=f"东财失败，改用腾讯同步{label}…",
+                        message=f"东财失败，改用腾讯同步{label}（{len(seed)} 只代码表）…",
                         source="tencent",
                     )
                     rows, source = fetch_tencent_cn_snapshot(
-                        prev,
+                        seed,
                         on_batch=on_batch,
                         on_progress=_on_item_progress,
                     )
                     _set_progress(source=source)
                     _ = em_err
-                    return rows, source
+                    return _finalize_full_rows(market, rows), source
                 except Exception as tc_err:
                     _ = tc_err
             if market not in SINA_HQ_NODE:
@@ -418,7 +456,7 @@ def _fetch_full_with_fallback(
             )
             _set_progress(source=source)
             _ = em_err
-            return rows, source
+            return _finalize_full_rows(market, rows), source
 
         if market not in SINA_HQ_NODE:
             raise
@@ -461,6 +499,13 @@ def _run_sync(market: str, *, force: bool = False) -> dict[str, Any]:
 
             # 单市场入队也走东财→新浪回退（原先仅 sync-all 进度任务走 fallback）
             rows, source = _fetch_full_with_fallback(market, on_batch=_batch)
+            # 二次保险：全量替换前若明显短于代码表，禁止裁短已有全市场列表
+            if market == "cn":
+                sym_n = models.symbol_row_count("cn")
+                if sym_n >= 3000 and len(rows) < int(sym_n * 0.7):
+                    raise RuntimeError(
+                        f"refuse replace cn snapshot: got {len(rows)}, symbol table {sym_n}"
+                    )
             n = models.replace_snapshot(market, rows, source=source)
         elif market == "fund":
             if progress_cb:

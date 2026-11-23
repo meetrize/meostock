@@ -1351,6 +1351,8 @@ export function QuotesMarket() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [error, setError] = useState('');
   const [cacheMeta, setCacheMeta] = useState<CacheSnapshotMeta | null>(null);
+  /** 本轨刚同步完成时短暂展示「同步成功」（不以 snapshot 的 sticky syncing 为准） */
+  const [syncSucceeded, setSyncSucceeded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT.key);
   const [sortDir, setSortDir] = useState<1 | -1>(DEFAULT_SORT.dir);
   const [page, setPage] = useState(1);
@@ -1362,6 +1364,7 @@ export function QuotesMarket() {
   const nonUsSortRef = useRef<SortState>(DEFAULT_SORT);
   const marketLane = laneOf(market);
   const laneTrack = tracks.find((t) => t.lane === marketLane);
+  /** 真实后台同步：仅顶栏轨进度 active，不用 snapshot 乐观 syncing */
   const nodeSyncing = Boolean(laneTrack?.active);
 
   const displayColumns = useMemo(() => {
@@ -1565,8 +1568,8 @@ export function QuotesMarket() {
         if (!soft) setPage(1);
         if (fullSnap) {
           setLoadHint(
-            meta.stale || meta.syncing
-              ? `${label}已显示缓存（${next.length} 只），后台同步中…`
+            meta.stale
+              ? `${label}已显示缓存（${next.length} 只）`
               : `${label}行情加载完成（${next.length} 只）`
           );
           setProgress({ done: next.length, total: next.length });
@@ -1656,13 +1659,28 @@ export function QuotesMarket() {
     };
   }, [showConceptPicker, updateConceptPickerPos]);
 
-  // 后台同步完成后 softReload 当前市场（无蒙层）
+  // 后台同步完成后 softReload 当前市场（无蒙层）+ 提示同步成功
   useEffect(() => {
     if (!softVersion || !completedLanes.length) return;
     if (!completedLanes.includes(marketLane)) return;
+    setSyncSucceeded(true);
     void loadMarket(market, false, undefined, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [softVersion]);
+
+  // snapshot 可能乐观返回 syncing=true；轨已空闲时清掉粘住的标记
+  useEffect(() => {
+    if (nodeSyncing) {
+      setSyncSucceeded(false);
+      return;
+    }
+    setCacheMeta((prev) => (prev?.syncing ? { ...prev, syncing: false } : prev));
+  }, [nodeSyncing]);
+
+  // 切换市场时复位成功提示
+  useEffect(() => {
+    setSyncSucceeded(false);
+  }, [market]);
 
   const handleRefresh = () => {
     if (loading || pageLoading) return;
@@ -2347,11 +2365,13 @@ export function QuotesMarket() {
                   className={styles.cacheHint}
                   title={`模式 ${settings.cacheMode || 'balanced'} · 源 ${cacheMeta.source || '--'} · ${LANE_META[marketLane].title}`}
                 >
-                  {nodeSyncing || cacheMeta.syncing
+                  {nodeSyncing
                     ? '后台同步中 · '
-                    : cacheMeta.stale
-                      ? '缓存 · '
-                      : ''}
+                    : syncSucceeded
+                      ? '同步成功 · '
+                      : cacheMeta.stale
+                        ? '缓存 · '
+                        : ''}
                   {formatCacheTime(cacheMeta.asOf ?? cacheMeta.syncedAt)}
                 </span>
               )}

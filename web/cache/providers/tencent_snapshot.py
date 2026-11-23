@@ -219,11 +219,46 @@ def fetch_tencent_cn_snapshot(
         for fut in as_completed(futs):
             _absorb(fut.result())
 
-    coverage = len(merged) / float(total) if total else 0.0
+    priced = len(merged)
+    coverage = priced / float(total) if total else 0.0
     if coverage < min_coverage:
         raise RuntimeError(
-            f"tencent snapshot incomplete: {len(merged)}/{total} ({coverage:.0%})"
+            f"tencent snapshot incomplete: {priced}/{total} priced ({coverage:.0%})"
         )
+
+    # 停牌/无价也保留代码，避免 replace_snapshot 把近 6000 裁短
+    missing: list[dict[str, Any]] = []
+    for sym, seed in seed_by_sym.items():
+        code = str(seed.get("code") or (sym[2:] if len(sym) > 2 else sym))
+        if code in seen:
+            continue
+        missing.append(
+            {
+                "code": code,
+                "name": str(seed.get("name") or code),
+                "klineSymbol": sym,
+                "quoteReady": False,
+                "price": None,
+                "change": None,
+                "changePercent": None,
+                "volume": None,
+                "amount": None,
+                "amplitude": seed.get("amplitude"),
+                "turnoverRate": seed.get("turnoverRate"),
+                "pe": seed.get("pe"),
+                "volumeRatio": seed.get("volumeRatio"),
+                "high": seed.get("high"),
+                "low": seed.get("low"),
+                "open": seed.get("open"),
+                "prevClose": seed.get("prevClose"),
+                "totalMarketCap": seed.get("totalMarketCap"),
+                "circulatingMarketCap": seed.get("circulatingMarketCap"),
+                "pb": seed.get("pb"),
+            }
+        )
+    if missing:
+        _absorb(missing)
+
     if on_progress:
         on_progress(len(merged), len(merged))
     # 轻微停顿，避免连续失败重试打爆接口

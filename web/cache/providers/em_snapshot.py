@@ -287,9 +287,22 @@ def fetch_market_snapshot(
         _pn, rows = _safe(pn)
         if rows is not None:
             _absorb(rows)
+        else:
+            # 二次仍失败：再串行重试一次，尽量凑齐 total
+            time.sleep(0.5)
+            _pn2, rows2 = _safe(pn)
+            if rows2 is not None:
+                _absorb(rows2)
 
     if not merged:
         raise RuntimeError(f"clist snapshot empty for {market}")
+
+    # 分页失败时勿把半截结果当成功（否则 replace_snapshot 会把近 6000 裁成一两千）
+    if total >= 1000 and len(merged) < int(total * 0.85):
+        raise RuntimeError(
+            f"clist snapshot incomplete for {market}: {len(merged)}/{total}"
+        )
+
     if on_progress:
         on_progress(len(merged), len(merged))
     return merged, "eastmoney"

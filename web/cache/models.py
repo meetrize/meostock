@@ -371,6 +371,88 @@ def snapshot_row_count(market: str) -> int:
     return int(row["c"] if row else 0)
 
 
+def symbol_row_count(market: str) -> int:
+    conn = get_conn()
+    with _lock:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM symbol WHERE market = ? AND status = 'active'",
+            (market,),
+        ).fetchone()
+    return int(row["c"] if row else 0)
+
+
+def read_symbol_seeds(market: str) -> list[dict[str, Any]]:
+    """代码表种子（code / name / klineSymbol），用于腾讯等按码补价。"""
+    conn = get_conn()
+    with _lock:
+        rows = conn.execute(
+            """
+            SELECT code, symbol, name FROM symbol
+            WHERE market = ? AND status = 'active'
+            ORDER BY code
+            """,
+            (market,),
+        ).fetchall()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        code = str(r["code"] or "").strip()
+        if not code:
+            continue
+        kline = str(r["symbol"] or "").strip() or code
+        out.append(
+            {
+                "code": code,
+                "name": str(r["name"] or "") or code,
+                "klineSymbol": kline,
+                "quoteReady": False,
+            }
+        )
+    return out
+
+
+def pad_snapshot_with_seeds(
+    rows: list[dict[str, Any]],
+    seeds: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """用代码表补齐缺失标的（无报价也保留，避免全表被裁成一两千只）。"""
+    if not seeds:
+        return list(rows or [])
+    by_code: dict[str, dict[str, Any]] = {}
+    for r in rows or []:
+        if not isinstance(r, dict):
+            continue
+        code = str(r.get("code") or "").strip()
+        if code:
+            by_code[code] = r
+    for seed in seeds:
+        code = str(seed.get("code") or "").strip()
+        if not code or code in by_code:
+            continue
+        by_code[code] = {
+            "code": code,
+            "name": str(seed.get("name") or code),
+            "klineSymbol": str(seed.get("klineSymbol") or seed.get("symbol") or code),
+            "quoteReady": False,
+            "price": None,
+            "change": None,
+            "changePercent": None,
+            "volume": None,
+            "amount": None,
+            "pb": None,
+            "pe": None,
+            "totalMarketCap": None,
+            "circulatingMarketCap": None,
+            "open": None,
+            "prevClose": None,
+            "high": None,
+            "low": None,
+            "turnoverRate": None,
+            "volumeRatio": None,
+            "amplitude": None,
+        }
+    return list(by_code.values())
+
+
 def read_snapshot(
     market: str,
     *,
