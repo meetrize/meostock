@@ -3638,31 +3638,158 @@
       }
     }
 
+    /** 翻页加速：浏览器内存 LRU（命中则零 RTT） */
+    const KLINE_MEM_MAX = 48;
+    const KLINE_MEM_TTL_MS = 45 * 60 * 1000;
+    const klineMemCache = new Map(); // key -> { data, ts }
+
+    function klineMemKey(symbol, period) {
+      return `${String(symbol || "").trim().toLowerCase()}|${period || "1d"}`;
+    }
+
+    function getKlineMem(symbol, period) {
+      const k = klineMemKey(symbol, period);
+      const hit = klineMemCache.get(k);
+      if (!hit) return null;
+      if (Date.now() - hit.ts > KLINE_MEM_TTL_MS) {
+        klineMemCache.delete(k);
+        return null;
+      }
+      klineMemCache.delete(k);
+      klineMemCache.set(k, hit);
+      return hit.data;
+    }
+
+    function setKlineMem(symbol, period, data) {
+      if (!data || !Array.isArray(data.bars) || !data.bars.length) return;
+      const k = klineMemKey(symbol, period);
+      if (klineMemCache.has(k)) klineMemCache.delete(k);
+      klineMemCache.set(k, { data, ts: Date.now() });
+      while (klineMemCache.size > KLINE_MEM_MAX) {
+        const oldest = klineMemCache.keys().next().value;
+        klineMemCache.delete(oldest);
+      }
+    }
+
+    /** A 股是否已闭市（周末/节假日粗判 + 盘后）；翻页时优先只读本地 */
+    function isCnSessionClosedNow() {
+      try {
+        const fmt = new Intl.DateTimeFormat("en-US", {
+          timeZone: "Asia/Shanghai",
+          weekday: "short",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        const parts = Object.fromEntries(
+          fmt.formatToParts(new Date()).map((p) => [p.type, p.value])
+        );
+        const wd = String(parts.weekday || "");
+        if (wd === "Sat" || wd === "Sun") return true;
+        const hh = Number(parts.hour);
+        const mm = Number(parts.minute);
+        if (!Number.isFinite(hh) || !Number.isFinite(mm)) return false;
+        const mins = hh * 60 + mm;
+        // 与后端 ttl 对齐：9:15–11:35、12:55–15:05 为盘中
+        const am = mins >= 9 * 60 + 15 && mins <= 11 * 60 + 35;
+        const pm = mins >= 12 * 60 + 55 && mins <= 15 * 60 + 5;
+        return !(am || pm);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function preferLocalKline(symbol, period) {
+      if (chartSettings.cacheMode) return true;
+      if (period === "fs") return false;
+      try {
+        return resolveMarket(symbol) === "CN" && isCnSessionClosedNow();
+      } catch (_) {
+        return false;
+      }
+    }
+
     /**
      * 首屏加载：优先本地缓存秒开，脏数据再后台 force 刷新。
      * 分时例外：直接 force 打腾讯分钟（~200ms，自开盘），避免本地多日
      * 5 分钟缓存既慢又把视口卡在下午。
+     * 行情列表翻页 + A 股盘后：优先 cache_only / local_first，少打网。
      */
     async function fetchKlineFast(symbol, period) {
+      const mem = getKlineMem(symbol, period);
+      if (mem) return mem;
+
       if (chartSettings.cacheMode) {
-        return await fetchKlineFromCache(symbol, period, { cacheOnly: true });
+        const data = await fetchKlineFromCache(symbol, period, { cacheOnly: true });
+        setKlineMem(symbol, period, data);
+        return data;
       }
       if (period === "fs") {
         try {
-          return await fetchKlineFromCache(symbol, period, { force: true });
+          const data = await fetchKlineFromCache(symbol, period, { force: true });
+          setKlineMem(symbol, period, data);
+          return data;
         } catch (_) {
           try {
-            return await fetchKlineFromCache(symbol, period, { localFirst: true });
+            const data = await fetchKlineFromCache(symbol, period, { localFirst: true });
+            setKlineMem(symbol, period, data);
+            return data;
           } catch (cacheErr) {
-            return await fetchKline(symbol, period, { force: true, localFirst: false });
+            const data = await fetchKline(symbol, period, { force: true, localFirst: false });
+            setKlineMem(symbol, period, data);
+            return data;
           }
         }
       }
-      try {
-        return await fetchKlineFromCache(symbol, period, { localFirst: true });
-      } catch (_) {
-        return await fetchKline(symbol, period, { force: false, localFirst: false });
+      // 盘后：有库直接返回，不触发后台刷新；无库再 local_first / 拉网落库
+      if (preferLocalKline(symbol, period)) {
+        try {
+          const data = await fetchKlineFromCache(symbol, period, { cacheOnly: true });
+          setKlineMem(symbol, period, data);
+          return data;
+        } catch (_) {
+          /* miss → 继续 */
+        }
       }
+      try {
+        const data = await fetchKlineFromCache(symbol, period, { localFirst: true });
+        setKlineMem(symbol, period, data);
+        return data;
+      } catch (_) {
+        const data = await fetchKline(symbol, period, { force: false, localFirst: false });
+        setKlineMem(symbol, period, data);
+        return data;
+      }
+    }
+
+    /** 预取 nav 相邻标的：暖内存 + 暖 SQLite，下一次 ↑↓ 秒开 */
+    let navPrefetchTimer = 0;
+    function prefetchNavNeighbors() {
+      if (!navId || navSymbols.length < 2) return;
+      if (navPrefetchTimer) {
+        clearTimeout(navPrefetchTimer);
+        navPrefetchTimer = 0;
+      }
+      navPrefetchTimer = window.setTimeout(() => {
+        navPrefetchTimer = 0;
+        const period = currentPeriod;
+        const n = navSymbols.length;
+        const offsets = [-2, -1, 1, 2];
+        const targets = [];
+        for (const off of offsets) {
+          const i = (navIndex + off + n) % n;
+          const sym = navSymbols[i];
+          if (!sym || i === navIndex) continue;
+          if (getKlineMem(sym, period)) continue;
+          if (!targets.includes(sym)) targets.push(sym);
+        }
+        targets.forEach((sym, idx) => {
+          window.setTimeout(() => {
+            if (!navId || currentPeriod !== period) return;
+            void fetchKlineFast(sym, period).catch(() => {});
+          }, 80 * idx);
+        });
+      }, 120);
     }
 
     function hitToSymbol(hit) {
@@ -5739,14 +5866,22 @@
         });
     }
 
-    function bindDataLoader(symbol) {
+    function bindDataLoader(symbol, opts = {}) {
       let market = "CN";
       try {
         market = resolveMarket(symbol);
       } catch (_) {}
       const c = ensureChart(market);
       const seq = ++chartLoadSeq;
-      pendingChartBars = null;
+      // 翻页内存命中：直接注入，避免再等一轮 HTTP
+      const seedData =
+        opts.seedData && Array.isArray(opts.seedData.bars) && opts.seedData.bars.length
+          ? opts.seedData
+          : null;
+      pendingChartBars = seedData ? seedData.bars : null;
+      if (seedData) {
+        chartHistoryExhausted = Boolean(seedData.exhausted);
+      }
       if (currentPeriod !== "fs") resetFsCache();
       // 先装空 loader 再改 symbol/period：setSymbol/setPeriod 会 resetData，
       // 若仍挂着上一只的 loader，会闪出不属于本股票的分时/K 线。
@@ -5952,8 +6087,10 @@
             setStatus(
               `${symbol} · ${currentPeriod} · ${bars.length} 根K线 · 数据源 ${klineStatusTag(data)}`
             );
+            // 盘后 / 缓存模式：有本地数据不再强制后台打网，翻页更跟手
             if (
               !chartSettings.cacheMode &&
+              !preferLocalKline(symbol, currentPeriod) &&
               data.fromCache &&
               (data.stale || data.refreshing)
             ) {
@@ -6120,8 +6257,13 @@
       persistKlineNavIndex();
       const el = document.getElementById("symbol");
       if (el) el.value = nextSym;
-      setStatus(`${navIndex + 1}/${n} · ${nextSym}`);
-      load({ pushUrl: false });
+      const mem = getKlineMem(nextSym, currentPeriod);
+      setStatus(
+        mem
+          ? `${navIndex + 1}/${n} · ${nextSym} · 缓存秒开`
+          : `${navIndex + 1}/${n} · ${nextSym}`
+      );
+      load({ pushUrl: false, seedData: mem || null, fromNav: true });
     }
 
     function readUrlParams() {
@@ -6255,7 +6397,7 @@
     }
 
     async function load(options = {}) {
-      const { pushUrl = false, skipUrlSync = false } = options;
+      const { pushUrl = false, skipUrlSync = false, seedData = null, fromNav = false } = options;
       const symbol = (document.getElementById("symbol").value || "").trim();
       if (!symbol) {
         setStatus("请输入代码，如 600036 / 00700 / AAPL / yf:GC=F");
@@ -6273,9 +6415,21 @@
         window.KlineAI?.setSymbol(symbol, { period: currentPeriod });
         window.KlineAI?.setPeriod(currentPeriod);
       } catch (_) {}
-      bindDataLoader(symbol);
-      await refreshQuote(symbol);
-      startRealtimePoll(symbol);
+      bindDataLoader(symbol, { seedData });
+      // 翻页：行情报价不挡 K 线；盘后可跳过实时轮询
+      if (fromNav) {
+        void refreshQuote(symbol);
+        if (!preferLocalKline(symbol, currentPeriod)) startRealtimePoll(symbol);
+        else if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+        prefetchNavNeighbors();
+      } else {
+        await refreshQuote(symbol);
+        startRealtimePoll(symbol);
+        if (navId) prefetchNavNeighbors();
+      }
     }
 
     function bootstrapFromUrl() {
