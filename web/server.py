@@ -2223,6 +2223,9 @@ TDX_UA = (
 )
 XUANGUBAO_POOL = "https://flash-api.xuangubao.cn/api/pool/detail"
 XNGE_ORIGIN = "http://t.xnge.cn"
+# 涨停异动页的行业/概念/历史涨停原因来自 ace.xnge.cn/json/{dm,zt}/...
+# 该 CDN 仅对 Origin=t.xnge.cn 回 CORS；本站中转后浏览器被拦，需同源反代。
+ACE_ORIGIN = "http://ace.xnge.cn"
 
 
 def _normalize_xnge_bg(raw: str | None) -> str:
@@ -2355,12 +2358,37 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
   });
 })();
 </script>"""
-    head_bits: list[str] = []
+    # 锁定全局 ace → 本站 /ace 反代（必须用 location.origin 绝对地址，
+    # 否则会被 <base href="t.xnge.cn"> 解析回原站而再次踩 CORS）。
+    ace_lock_js = """<script id="mootdx-ace-cors">
+(function () {
+  var v = location.origin + "/ace";
+  try {
+    Object.defineProperty(window, "ace", {
+      configurable: true,
+      enumerable: true,
+      get: function () { return v; },
+      set: function () {}
+    });
+  } catch (e) {
+    window.ace = v;
+  }
+})();
+</script>"""
+    head_bits: list[str] = [ace_lock_js]
     if "<base " not in html.lower():
-        # 让 //ace.xnge.cn 与相对路径按原站解析
+        # 让相对路径按原站解析；JSON 已走绝对 /ace，不受 base 影响
         head_bits.append(f'<base href="{base}" />')
     head_bits.append(patch_css)
     injected = "<head>\n" + "\n".join(head_bits)
+    # tdx.js 里 var ace='//ace.xnge.cn' 之后再钉一次（defineProperty 失败时兜底）
+    html = re.sub(
+        r'(<script[^>]+(?:ace\.xnge\.cn/js/tdx\.js)[^>]*>\s*</script>)',
+        r'\1<script>try{ace=location.origin+"/ace"}catch(e){}</script>',
+        html,
+        count=1,
+        flags=re.IGNORECASE,
+    )
     if "<head>" in html:
         html = html.replace("<head>", injected, 1)
     elif "<Head>" in html:
@@ -2402,6 +2430,83 @@ def xnge_proxy(path: str, request: Request) -> Response:
     """
     query = {k: v for k, v in request.query_params.multi_items()}
     return _proxy_xnge_html(path, query)
+
+
+def _guess_ace_media_type(path: str, content_type: str | None) -> str:
+    """上游偶发把 JSON 标成 application/javascript，按扩展名纠正。"""
+    ct = (content_type or "").split(";")[0].strip().lower()
+    lower = path.lower()
+    if lower.endswith(".js") and ("/json/" in lower or lower.endswith(".json")):
+        return "application/json; charset=utf-8"
+    if "/json/" in lower and lower.endswith(".js"):
+        # ace 的 dm/zt 数据文件：*.js 实为 JSON
+        return "application/json; charset=utf-8"
+    if ct in ("", "application/octet-stream"):
+        guessed, _ = mimetypes.guess_type(path)
+        if guessed:
+            return guessed
+        if lower.endswith(".js"):
+            return "application/javascript; charset=utf-8"
+        return "application/octet-stream"
+    if ct in ("application/javascript", "text/javascript", "application/json") and "charset" not in ct:
+        return f"{ct}; charset=utf-8"
+    return content_type or "application/octet-stream"
+
+
+@app.get("/ace/{path:path}", response_model=None)
+def ace_cdn_proxy(path: str, request: Request) -> Response:
+    """
+    同源反代 ace.xnge.cn，供涨停异动页拉取行业/概念/历史涨停 JSON。
+    示例：/ace/json/zt/a/187d9a.js ← http://ace.xnge.cn/json/zt/a/187d9a.js
+    """
+    path = (path or "").lstrip("/")
+    if not path or ".." in path.split("/"):
+        return JSONResponse({"ok": False, "error": "invalid path"}, status_code=400)
+    qs = request.url.query
+    upstream = f"{ACE_ORIGIN}/{path}"
+    if qs:
+        upstream = f"{upstream}?{qs}"
+    headers = {
+        "User-Agent": TDX_UA,
+        "Accept": "*/*",
+        "Referer": f"{XNGE_ORIGIN}/",
+        "Origin": XNGE_ORIGIN,
+    }
+    try:
+        req = urllib.request.Request(upstream, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            body = resp.read()
+            upstream_ct = resp.headers.get("Content-Type")
+            status = getattr(resp, "status", 200) or 200
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse(
+            {"ok": False, "error": str(e), "url": upstream},
+            status_code=502,
+        )
+    media = _guess_ace_media_type(path, upstream_ct)
+    # loader 若经本站拉取，document.write 的 //ace 需改成绝对同源地址
+    # （页面有 <base href=t.xnge.cn>，相对 /ace 会被解析回原站）
+    if "javascript" in media and body and b"ace.xnge.cn" in body:
+        try:
+            ace_abs = str(request.base_url).rstrip("/") + "/ace"
+            text = body.decode("utf-8", errors="replace")
+            text = (
+                text.replace("https://ace.xnge.cn", ace_abs)
+                .replace("http://ace.xnge.cn", ace_abs)
+                .replace("//ace.xnge.cn", ace_abs)
+            )
+            body = text.encode("utf-8")
+        except Exception:  # noqa: BLE001
+            pass
+    return Response(
+        content=body,
+        status_code=int(status),
+        media_type=media,
+        headers={
+            "Cache-Control": "public, max-age=300",
+            "X-Ace-Upstream": upstream,
+        },
+    )
 
 
 def _xuangubao_pool(pool_name: str) -> JSONResponse:
