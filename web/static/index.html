@@ -1190,6 +1190,7 @@
         <div id="chart"></div>
         <div class="candle-tip" id="candleTip" aria-hidden="true"></div>
         <div class="ai-report-tip" id="aiReportTip" aria-hidden="true"></div>
+        <div class="zt-reason-tip" id="ztReasonTip" aria-hidden="true"></div>
       </div>
       <div class="side-splitter" id="sideSplitter" title="拖拽调整宽度"></div>
       <aside class="side-panel" id="sidePanel" aria-label="侧栏">
@@ -1917,6 +1918,572 @@
       });
     }
     window.placeAiReportTags = placeAiReportTags;
+
+    // —— 涨停原因 chip（图上轻量标记 + HTML 浮层详情）——
+    const ZT_REASON_OVERLAY = "ztReasonChipStack";
+    const ZT_CHIP_PILL_H = 20;
+    const ZT_CHIP_STACK_GAP = 8;
+    const ZT_CHIP_BASE_LIFT = 14;
+    let ztReasonOverlayReady = false;
+    let ztReasonOverlayIds = [];
+    let ztReasonCache = { code: "", items: [], seq: 0 };
+    let ztReasonTipPinned = false;
+    let ztReasonTipHideTimer = 0;
+
+    function ztChipPalette() {
+      const dark = document.documentElement.getAttribute("data-theme") === "dark";
+      return dark
+        ? {
+            bg: "rgba(32,32,36,0.95)",
+            border: "rgba(255,255,255,0.14)",
+            text: "#f4f4f5",
+            accent: "#fb7185",
+            badgeBg: "rgba(251,113,133,0.2)",
+            badgeText: "#fda4af",
+            line: "rgba(251,113,133,0.65)",
+          }
+        : {
+            bg: "rgba(255,255,255,0.96)",
+            border: "rgba(0,0,0,0.08)",
+            text: "#18181b",
+            accent: "#e11d48",
+            badgeBg: "rgba(225,29,72,0.1)",
+            badgeText: "#e11d48",
+            line: "rgba(225,29,72,0.55)",
+          };
+    }
+
+    function ztChipLabel(item) {
+      const theme = String(item?.plate_name || "").trim();
+      if (theme) return theme.length > 8 ? `${theme.slice(0, 8)}…` : theme;
+      return "涨停";
+    }
+
+    function ensureZtReasonOverlay() {
+      if (ztReasonOverlayReady) return;
+      registerOverlay({
+        name: ZT_REASON_OVERLAY,
+        totalStep: 2,
+        needDefaultPointFigure: false,
+        createPointFigures: ({ overlay, coordinates }) => {
+          if (!coordinates?.length) return [];
+          const ext = overlay.extendData || {};
+          const label = String(ext.label || "涨停");
+          const pal = ext.palette || ztChipPalette();
+          const stack = Math.max(0, Number(ext.stack) || 0);
+          const startX = coordinates[0].x;
+          const startY = coordinates[0].y;
+          const textSize = 10;
+          const badgeW = 16;
+          const gap = 4;
+          const padL = 4;
+          const padR = 7;
+          const pillH = ZT_CHIP_PILL_H;
+          const textW = Math.max(22, label.length * textSize * 0.9);
+          const accentBarW = 3;
+          const boxW = padL + accentBarW + badgeW + gap + textW + padR;
+          // 正上方居中；stack>0 继续抬高，避免多标签重叠 / 压住邻线
+          const lift =
+            ZT_CHIP_BASE_LIFT + stack * (pillH + ZT_CHIP_STACK_GAP);
+          const tipY = startY - lift;
+          const pillBottom = tipY - 3;
+          const boxTop = pillBottom - pillH;
+          const boxLeft = startX - boxW / 2;
+          const boxCy = boxTop + pillH / 2;
+          return [
+            {
+              type: "line",
+              attrs: {
+                coordinates: [
+                  { x: startX, y: startY },
+                  { x: startX, y: tipY },
+                ],
+              },
+              styles: {
+                style: "dashed",
+                color: pal.line,
+                size: 1,
+                dashedValue: [3, 3],
+              },
+              ignoreEvent: true,
+            },
+            {
+              type: "polygon",
+              attrs: {
+                coordinates: [
+                  { x: startX, y: tipY },
+                  { x: startX - 3.2, y: pillBottom },
+                  { x: startX + 3.2, y: pillBottom },
+                ],
+              },
+              styles: { style: "fill", color: pal.accent },
+              ignoreEvent: true,
+            },
+            {
+              type: "rect",
+              attrs: { x: boxLeft, y: boxTop, width: boxW, height: pillH },
+              styles: {
+                style: "stroke_fill",
+                color: pal.bg,
+                borderColor: pal.border,
+                borderSize: 1,
+                borderRadius: 6,
+              },
+            },
+            {
+              type: "rect",
+              attrs: {
+                x: boxLeft,
+                y: boxTop,
+                width: accentBarW,
+                height: pillH,
+              },
+              styles: {
+                style: "fill",
+                color: pal.accent,
+                borderRadius: 0,
+                borderSize: 0,
+              },
+              ignoreEvent: true,
+            },
+            {
+              type: "rect",
+              attrs: {
+                x: boxLeft + padL + accentBarW,
+                y: boxTop + 2,
+                width: badgeW,
+                height: pillH - 4,
+              },
+              styles: {
+                style: "fill",
+                color: pal.badgeBg,
+                borderRadius: 4,
+                borderSize: 0,
+              },
+              ignoreEvent: true,
+            },
+            {
+              type: "text",
+              attrs: {
+                x: boxLeft + padL + accentBarW + badgeW / 2,
+                y: boxCy - 1,
+                text: "涨",
+                align: "center",
+                baseline: "middle",
+              },
+              styles: {
+                color: pal.badgeText,
+                size: 9,
+                family: "PingFang SC, Microsoft YaHei, sans-serif",
+                weight: "700",
+                backgroundColor: "transparent",
+                borderSize: 0,
+                paddingLeft: 0,
+                paddingRight: 0,
+                paddingTop: 0,
+                paddingBottom: 0,
+              },
+              ignoreEvent: true,
+            },
+            {
+              type: "text",
+              attrs: {
+                x: boxLeft + padL + accentBarW + badgeW + gap,
+                y: boxCy - 1,
+                text: label,
+                align: "left",
+                baseline: "middle",
+              },
+              styles: {
+                color: pal.text,
+                size: textSize,
+                family: "PingFang SC, Microsoft YaHei, sans-serif",
+                weight: "600",
+                backgroundColor: "transparent",
+                borderSize: 0,
+                paddingLeft: 0,
+                paddingRight: 0,
+                paddingTop: 0,
+                paddingBottom: 0,
+              },
+              ignoreEvent: true,
+            },
+          ];
+        },
+      });
+      ztReasonOverlayReady = true;
+    }
+
+    function ztChipWidth(label) {
+      const textSize = 10;
+      const textW = Math.max(22, String(label || "").length * textSize * 0.9);
+      return 4 + 3 + 16 + 4 + textW + 7;
+    }
+
+    /** 按柱宽估算水平碰撞，邻近标签抬高错层 */
+    function assignZtChipStacks(candidates, barSpace) {
+      const gap = 6;
+      const bs = Math.max(4, Number(barSpace) || 8);
+      const placed = [];
+      candidates.forEach((c) => {
+        let stack = 0;
+        for (;;) {
+          const hit = placed.some((p) => {
+            if (p.stack !== stack) return false;
+            const dx = Math.abs(p.barIndex - c.barIndex) * bs;
+            return dx < (p.w + c.w) / 2 + gap;
+          });
+          if (!hit) break;
+          stack += 1;
+          if (stack > 12) break;
+        }
+        c.stack = stack;
+        placed.push(c);
+      });
+      return candidates;
+    }
+
+    function hideZtReasonTip(force = false) {
+      if (ztReasonTipPinned && !force) return;
+      if (ztReasonTipHideTimer) {
+        clearTimeout(ztReasonTipHideTimer);
+        ztReasonTipHideTimer = 0;
+      }
+      const tip = document.getElementById("ztReasonTip");
+      if (!tip) return;
+      tip.classList.remove("show", "pinned");
+      tip.setAttribute("aria-hidden", "true");
+      tip.innerHTML = "";
+      ztReasonTipPinned = false;
+    }
+
+    function scheduleHideZtReasonTip() {
+      if (ztReasonTipPinned) return;
+      if (ztReasonTipHideTimer) clearTimeout(ztReasonTipHideTimer);
+      ztReasonTipHideTimer = window.setTimeout(() => hideZtReasonTip(false), 180);
+    }
+
+    function resolveZtChipAnchor(event, ext) {
+      const wrap = document.getElementById("chartWrap");
+      const label = String(ext?.label || "涨停");
+      const stack = Math.max(0, Number(ext?.stack) || 0);
+      const pillH = ZT_CHIP_PILL_H;
+      const lift = ZT_CHIP_BASE_LIFT + stack * (pillH + ZT_CHIP_STACK_GAP);
+      const boxW = ztChipWidth(label);
+      try {
+        const pts = event?.overlay?.points;
+        if (chart && pts?.length && typeof chart.convertToPixel === "function") {
+          const px = chart.convertToPixel(pts, { paneId: "candle_pane" });
+          const p = Array.isArray(px) ? px[0] : px;
+          if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+            const tipY = p.y - lift;
+            const pillBottom = tipY - 3;
+            const labelCenterY = pillBottom - pillH / 2;
+            return {
+              x: p.x,
+              y: labelCenterY,
+              candleY: p.y,
+              boxW,
+            };
+          }
+        }
+      } catch (_) {}
+      const rect = wrap?.getBoundingClientRect();
+      if (!rect) return { x: 80, y: 80, candleY: 120, boxW };
+      return {
+        x: (event?.clientX != null ? event.clientX : rect.left + 80) - rect.left,
+        y: (event?.clientY != null ? event.clientY : rect.top + 80) - rect.top,
+        candleY: 120,
+        boxW,
+      };
+    }
+
+    function openZtSideFromTip() {
+      try {
+        window.SidePanel?.setOpen?.(true);
+        window.SidePanel?.setTab?.("zt");
+        window.SideZt?.refresh?.({ force: true });
+      } catch (_) {}
+    }
+
+    function showZtReasonTip(ext, event, { pin = false } = {}) {
+      const tip = document.getElementById("ztReasonTip");
+      const wrap = document.getElementById("chartWrap");
+      if (!tip || !wrap) return;
+      hideAiReportTip();
+      if (ztReasonTipHideTimer) {
+        clearTimeout(ztReasonTipHideTimer);
+        ztReasonTipHideTimer = 0;
+      }
+
+      const theme = String(ext?.plate_name || "").trim();
+      const drive = ztTruncate(ext?.plate_reason, 100);
+      const reason = ztTruncate(ext?.stock_reason, 100);
+      const dateLabel = String(ext?.tradeDate || "").replace(
+        /^(\d{4})-(\d{2})-(\d{2})$/,
+        "$1/$2/$3"
+      );
+      const escTip = (s) =>
+        String(s || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+      const row = (k, v, cls = "") => {
+        if (!v) return "";
+        return `<div class="zt-reason-tip-row">
+          <div class="zt-reason-tip-k">${escTip(k)}</div>
+          <div class="zt-reason-tip-v ${cls}">${escTip(v)}</div>
+        </div>`;
+      };
+
+      const body =
+        row("主题概念", theme || "—", "theme") +
+        (drive ? row("驱动理由", drive) : "") +
+        (reason ? row("涨停原因", reason, "reason") : !drive && !theme
+          ? `<div class="zt-reason-tip-empty">暂无详细原因</div>`
+          : !reason
+            ? ""
+            : "");
+
+      tip.innerHTML = `
+        <div class="zt-reason-tip-hd">
+          <span class="zt-reason-tip-badge">涨停</span>
+          <span class="zt-reason-tip-date">${escTip(dateLabel)}</span>
+          <span class="zt-reason-tip-hd-spacer"></span>
+          <button type="button" class="zt-reason-tip-open" data-zt-open-side>侧栏</button>
+        </div>
+        <div class="zt-reason-tip-body">${body}</div>
+        <div class="zt-reason-tip-ft">悬停查看 · 点击标签打开涨停侧栏</div>
+      `;
+      tip.classList.add("show");
+      if (pin) {
+        tip.classList.add("pinned");
+        ztReasonTipPinned = true;
+      }
+      tip.setAttribute("aria-hidden", "false");
+
+      const rect = wrap.getBoundingClientRect();
+      const anchor = resolveZtChipAnchor(event, ext);
+      const tw = tip.offsetWidth || 300;
+      const th = tip.offsetHeight || 160;
+      const halfW = Math.max(36, (anchor.boxW || 80) / 2);
+      const gap = 10;
+      let placement = "right";
+      let left = anchor.x + halfW + gap;
+      let top = Math.max(8, anchor.y - 24);
+      if (left + tw > rect.width - 8) {
+        placement = "left";
+        left = anchor.x - halfW - gap - tw;
+      }
+      if (left < 8) {
+        left = Math.max(8, Math.min(anchor.x - tw / 2, rect.width - tw - 8));
+        placement = "bottom";
+        top = anchor.y + 16;
+      }
+      if (top + th > rect.height - 8) top = Math.max(8, rect.height - th - 8);
+      if (left + tw > rect.width - 8) left = Math.max(8, rect.width - tw - 8);
+      tip.dataset.placement = placement;
+      tip.style.left = `${Math.round(left)}px`;
+      tip.style.top = `${Math.round(top)}px`;
+    }
+
+    function clearZtReasonTags() {
+      hideZtReasonTip(true);
+      if (!chart) return;
+      (ztReasonOverlayIds || []).forEach((id) => {
+        try {
+          chart.removeOverlay({ id });
+        } catch (_) {}
+      });
+      ztReasonOverlayIds = [];
+    }
+
+    function ztTruncate(s, n = 100) {
+      const t = String(s || "").replace(/\s+/g, " ").trim();
+      if (!t) return "";
+      return t.length > n ? `${t.slice(0, n)}…` : t;
+    }
+
+    async function fetchZtReasonItems(symbol) {
+      const code = resolveBareCode(symbol);
+      if (!code || code.length !== 6) return [];
+      if (ztReasonCache.code === code && Array.isArray(ztReasonCache.items)) {
+        return ztReasonCache.items;
+      }
+      const seq = ++ztReasonCache.seq;
+      try {
+        const res = await fetch(
+          `/api/zt/history/stock?code=${encodeURIComponent(code)}&pool=limit_up&limit=120`,
+          { cache: "no-store" }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (seq !== ztReasonCache.seq) return ztReasonCache.items || [];
+        const items = Array.isArray(data?.items) ? data.items : [];
+        const byDay = new Map();
+        items.forEach((it) => {
+          const d = String(it?.trade_date || "").replace(/\D/g, "");
+          if (d.length !== 8) return;
+          const prev = byDay.get(d);
+          const score =
+            (it?.plate_name ? 4 : 0) +
+            (it?.plate_reason ? 2 : 0) +
+            (it?.stock_reason ? 1 : 0);
+          const prevScore = prev
+            ? (prev.plate_name ? 4 : 0) +
+              (prev.plate_reason ? 2 : 0) +
+              (prev.stock_reason ? 1 : 0)
+            : -1;
+          if (!prev || score >= prevScore) byDay.set(d, it);
+        });
+        const merged = [...byDay.entries()]
+          .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+          .map(([, v]) => v);
+        ztReasonCache = { code, items: merged, seq: ztReasonCache.seq };
+        return merged;
+      } catch (_) {
+        if (seq === ztReasonCache.seq) {
+          ztReasonCache = { code, items: [], seq: ztReasonCache.seq };
+        }
+        return [];
+      }
+    }
+
+    async function placeZtReasonTags(bars) {
+      if (!chart) return;
+      if (currentPeriod !== "1d") {
+        clearZtReasonTags();
+        return;
+      }
+      const list =
+        Array.isArray(bars) && bars.length
+          ? bars
+          : chart.getDataList?.() || [];
+      if (!list.length) {
+        clearZtReasonTags();
+        return;
+      }
+      const symbol = currentSymbol || "";
+      if (!isAshareStockSymbol(symbol)) {
+        clearZtReasonTags();
+        return;
+      }
+      ensureZtReasonOverlay();
+      const items = await fetchZtReasonItems(symbol);
+      if ((currentSymbol || "") !== symbol || currentPeriod !== "1d") return;
+      clearZtReasonTags();
+      if (!items.length) return;
+      const palette = ztChipPalette();
+      const dayIndex = new Map();
+      list.forEach((b, i) => {
+        const k = barDayKey(b?.timestamp);
+        if (k) dayIndex.set(k, i);
+      });
+
+      const candidates = [];
+      items.forEach((it) => {
+        const compact = String(it?.trade_date || "").replace(/\D/g, "");
+        if (compact.length !== 8) return;
+        const ymd = `${compact.slice(0, 4)}-${compact.slice(4, 6)}-${compact.slice(6, 8)}`;
+        const barIndex = dayIndex.has(ymd) ? dayIndex.get(ymd) : -1;
+        if (barIndex < 0) return;
+        const bar = list[barIndex];
+        if (!bar || !Number.isFinite(Number(bar.timestamp))) return;
+        const high = Number(bar.high);
+        const close = Number(bar.close);
+        const value = Number.isFinite(high)
+          ? high
+          : Number.isFinite(close)
+            ? close
+            : null;
+        if (value == null) return;
+        const label = ztChipLabel(it);
+        candidates.push({
+          it,
+          compact,
+          ymd,
+          bar,
+          barIndex,
+          value,
+          label,
+          w: ztChipWidth(label),
+          stack: 0,
+        });
+      });
+      if (!candidates.length) return;
+
+      // 从左到右分配高度，避免水平碰撞时叠在一起
+      candidates.sort((a, b) => a.barIndex - b.barIndex);
+      const barSpace =
+        Number(chart.getBarSpace?.()?.bar) ||
+        Number(chart.getBarSpace?.()?.gapBar) ||
+        8;
+      assignZtChipStacks(candidates, barSpace);
+
+      candidates.forEach((c) => {
+        const oid = `zt_reason_${c.compact}`;
+        const ext = {
+          label: c.label,
+          palette,
+          stack: c.stack,
+          tradeDate: c.ymd,
+          plate_name: c.it.plate_name,
+          plate_reason: c.it.plate_reason,
+          stock_reason: c.it.stock_reason,
+        };
+        try {
+          const id = chart.createOverlay({
+            name: ZT_REASON_OVERLAY,
+            id: oid,
+            paneId: "candle_pane",
+            lock: true,
+            points: [{ timestamp: Number(c.bar.timestamp), value: c.value }],
+            extendData: ext,
+            onClick: (event) => {
+              const data = event?.overlay?.extendData || ext;
+              showZtReasonTip(data, event, { pin: true });
+              openZtSideFromTip();
+              return true;
+            },
+            onMouseEnter: (event) => {
+              const data = event?.overlay?.extendData || ext;
+              showZtReasonTip(data, event, { pin: false });
+              return false;
+            },
+            onMouseLeave: () => {
+              scheduleHideZtReasonTip();
+              return false;
+            },
+            onRightClick: (event) => {
+              event?.preventDefault?.();
+              return true;
+            },
+          });
+          ztReasonOverlayIds.push(id || oid);
+        } catch (_) {}
+      });
+    }
+    window.placeZtReasonTags = placeZtReasonTags;
+
+    // 浮层内按钮 / 悬停保持
+    document.getElementById("ztReasonTip")?.addEventListener("mouseenter", () => {
+      if (ztReasonTipHideTimer) {
+        clearTimeout(ztReasonTipHideTimer);
+        ztReasonTipHideTimer = 0;
+      }
+    });
+    document.getElementById("ztReasonTip")?.addEventListener("mouseleave", () => {
+      scheduleHideZtReasonTip();
+    });
+    document.getElementById("ztReasonTip")?.addEventListener("click", (e) => {
+      if (e.target?.closest?.("[data-zt-open-side]")) {
+        openZtSideFromTip();
+      }
+    });
+    document.getElementById("chartWrap")?.addEventListener("click", (e) => {
+      if (e.target?.closest?.("#ztReasonTip")) return;
+      if (ztReasonTipPinned) hideZtReasonTip(true);
+    });
 
     // 叠加比较线（半透明，与主图蜡烛区分）
     const OVERLAY_COLORS = [
@@ -2789,6 +3356,10 @@
       applyChartSettings();
       // 刷新 feature 颜色
       refreshAllIndicatorFeatures();
+      // 涨停 chip 配色随主题重画
+      try {
+        void placeZtReasonTags();
+      } catch (_) {}
     }
 
     function toggleTheme() {
@@ -5675,6 +6246,22 @@
         }
         updateCandleTip(data);
       });
+      // 缩放/平移后柱宽变化，重新错层避免标签重叠
+      let ztStackRelayoutTimer = 0;
+      const scheduleZtStackRelayout = () => {
+        if (ztStackRelayoutTimer) clearTimeout(ztStackRelayoutTimer);
+        ztStackRelayoutTimer = window.setTimeout(() => {
+          ztStackRelayoutTimer = 0;
+          if (currentPeriod !== "1d") return;
+          try {
+            void placeZtReasonTags();
+          } catch (_) {}
+        }, 220);
+      };
+      try {
+        chart.subscribeAction("onZoom", scheduleZtStackRelayout);
+        chart.subscribeAction("onScroll", scheduleZtStackRelayout);
+      } catch (_) {}
       document.getElementById("chartWrap")?.addEventListener("mouseleave", hideCandleTip);
 
       chart.subscribeAction("onIndicatorTooltipFeatureClick", (data) => {
@@ -5865,6 +6452,7 @@
             refreshCandleStatus();
             refreshCompareOverlays();
             placeAiReportTags(period === "fs" ? bars : raw);
+            void placeZtReasonTags(period === "fs" ? bars : raw);
             try {
               chart.resize();
             } catch (_) {}
@@ -5914,6 +6502,12 @@
                   const bars = pendingChartBars;
                   pendingChartBars = null;
                   callback(bars, { forward: false, backward: false });
+                  queueMicrotask(() => {
+                    if (seq !== chartLoadSeq) return;
+                    refreshCompareOverlays();
+                    placeAiReportTags(bars);
+                    void placeZtReasonTags(bars);
+                  });
                   return;
                 }
                 setStatus(`加载 ${symbol} 分时 …`);
@@ -5975,6 +6569,7 @@
                     mkt
                   );
                   placeAiReportTags(prepared.bars || fsDayBars);
+                  void placeZtReasonTags(prepared.bars || fsDayBars);
                   try {
                     chart.resize();
                   } catch (_) {}
@@ -6033,6 +6628,11 @@
                 setStatus(
                   `${symbol} · ${currentPeriod} · 已续拉 ${older.length} 根更早K线 · ${data.source || ""}`
                 );
+                queueMicrotask(() => {
+                  if (seq !== chartLoadSeq) return;
+                  placeAiReportTags();
+                  void placeZtReasonTags();
+                });
               }
             } catch (e) {
               setStatus(`向前加载失败: ${e.message || e}`);
@@ -6058,7 +6658,7 @@
             return;
           }
           try {
-            // resetData 注入的新数据：直接出图
+            // resetData 注入的新数据：直接出图（翻页内存命中也会走这里）
             if (pendingChartBars) {
               const bars = pendingChartBars;
               pendingChartBars = null;
@@ -6067,15 +6667,22 @@
                 backward: false,
               });
               syncLoadHistoryBtn();
-              if (pendingFocusDate && currentPeriod !== "fs") {
-                const focus = pendingFocusDate;
-                queueMicrotask(() => {
-                  if (seq !== chartLoadSeq) return;
+              queueMicrotask(() => {
+                if (seq !== chartLoadSeq) return;
+                refreshCandleStatus();
+                refreshCompareOverlays();
+                placeAiReportTags(bars);
+                void placeZtReasonTags(bars);
+                try {
+                  chart.resize();
+                } catch (_) {}
+                if (pendingFocusDate && currentPeriod !== "fs") {
+                  const focus = pendingFocusDate;
                   void focusChartOnDate(focus).then((ok) => {
                     if (ok) pendingFocusDate = "";
                   });
-                });
-              }
+                }
+              });
               return;
             }
             setStatus(`加载 ${symbol} ${currentPeriod} …`);
@@ -6111,6 +6718,7 @@
               refreshCandleStatus();
               refreshCompareOverlays();
               placeAiReportTags(bars);
+              void placeZtReasonTags(bars);
               try {
                 chart.resize();
               } catch (_) {}
@@ -6416,6 +7024,10 @@
       if (!canLoadSymbol(symbol)) {
         setStatus(`无效代码: ${symbol}（支持 A/H/美股、fut:主连、yf:Yahoo 如 yf:GC=F）`);
         return;
+      }
+      if (symbol !== currentSymbol) {
+        ztReasonCache = { code: "", items: [], seq: ztReasonCache.seq + 1 };
+        clearZtReasonTags();
       }
       currentSymbol = symbol;
       hideCandleTip();
