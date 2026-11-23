@@ -151,9 +151,21 @@ class KlineWarmupBody(BaseModel):
     force: bool = False
 
 
+class KlineBulkSyncBody(BaseModel):
+    """A 股日 K 全量入库（约半年，默认 ≥120 根交易日）。"""
+
+    market: str = "cn"
+    period: str = "1d"
+    min_bars: int = 120
+    force: bool = False
+    concurrency: int = 3
+    max_symbols: int | None = None  # 调试可截断
+
+
 class GcBody(BaseModel):
     max_age_days: float = 30.0
-    max_series: int = 200
+    # 全量日 K 入库后可达近 6000 组，默认放宽以免误删
+    max_series: int = 10000
 
 
 def _market_key(market: str) -> str:
@@ -1030,3 +1042,38 @@ def cache_kline_warmup(body: KlineWarmupBody | None = None) -> JSONResponse:
             "period": b.period,
         }
     )
+
+
+@router.post("/kline/bulk-sync")
+def cache_kline_bulk_sync(body: KlineBulkSyncBody | None = None) -> JSONResponse:
+    """按代码表全量拉取 A 股日 K（约半年）入库，后台执行。"""
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
+    from cache.kline_bulk_sync import start_bulk_kline_sync
+
+    b = body or KlineBulkSyncBody()
+    result = start_bulk_kline_sync(
+        market=b.market,
+        period=b.period,
+        min_bars=b.min_bars,
+        force=bool(b.force),
+        concurrency=b.concurrency,
+        max_symbols=b.max_symbols,
+    )
+    status = 200 if result.get("ok") else 409 if result.get("error") == "already_running" else 400
+    return JSONResponse(result, status_code=status)
+
+
+@router.get("/kline/bulk-sync/progress")
+def cache_kline_bulk_sync_progress() -> JSONResponse:
+    from cache.kline_bulk_sync import get_bulk_progress
+
+    # ok 必须放最后，避免进度计数字段覆盖
+    return JSONResponse({**get_bulk_progress(), "ok": True})
+
+
+@router.post("/kline/bulk-sync/cancel")
+def cache_kline_bulk_sync_cancel() -> JSONResponse:
+    from cache.kline_bulk_sync import cancel_bulk_kline_sync
+
+    return JSONResponse(cancel_bulk_kline_sync())

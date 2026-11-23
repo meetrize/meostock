@@ -2,7 +2,7 @@
  * 设置页面
  */
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { RefreshCw, Palette, BarChart2, Info, Database, Layers } from 'lucide-react';
 import { Card, NumberField, useToast } from '@/components/common';
@@ -12,6 +12,18 @@ import { syncQuoteSourceToServer } from '@/services/quoteCache';
 import { AiModelSettings } from './AiModelSettings';
 import { SourceLaneMatrix } from './SourceLaneMatrix';
 import styles from './Settings.module.css';
+
+type KlineBulkProgress = {
+  active?: boolean;
+  total?: number;
+  done?: number;
+  ok?: number;
+  skip?: number;
+  fail?: number;
+  message?: string;
+  current?: string | null;
+  min_bars?: number;
+};
 
 function parsePeriods(value: string, fallback: number[]) {
   const periods = value
@@ -81,6 +93,39 @@ export function Settings() {
       : 'auto';
   const [maDraft, setMaDraft] = useState(maPeriods.join(', '));
   const [rsiDraft, setRsiDraft] = useState(rsiPeriods.join(', '));
+  const [klineBulk, setKlineBulk] = useState<KlineBulkProgress | null>(null);
+
+  const refreshKlineBulk = useCallback(async () => {
+    try {
+      const res = await fetch('/api/cache/kline/bulk-sync/progress');
+      const data = await res.json();
+      if (data?.ok) {
+        setKlineBulk({
+          active: Boolean(data.active),
+          total: Number(data.total) || 0,
+          done: Number(data.done) || 0,
+          ok: Number(data.ok_count ?? data.ok) || 0,
+          skip: Number(data.skip_count ?? data.skip) || 0,
+          fail: Number(data.fail_count ?? data.fail) || 0,
+          message: String(data.message || ''),
+          current: data.current ?? null,
+          min_bars: Number(data.min_bars) || 120,
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshKlineBulk();
+  }, [refreshKlineBulk]);
+
+  useEffect(() => {
+    if (!klineBulk?.active) return;
+    const id = window.setInterval(() => void refreshKlineBulk(), 1200);
+    return () => window.clearInterval(id);
+  }, [klineBulk?.active, refreshKlineBulk]);
 
   const setCacheMode = async (mode: QuoteCacheMode) => {
     updateSettings({ cacheMode: mode });
@@ -290,6 +335,55 @@ export function Settings() {
                 <button
                   type="button"
                   className={styles.colorModeBtn}
+                  disabled={Boolean(klineBulk?.active)}
+                  title="按代码表拉取约半年日K（≥120根）入库，后台执行，方便行情翻页秒开"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/cache/kline/bulk-sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          market: 'cn',
+                          period: '1d',
+                          min_bars: 120,
+                          force: false,
+                          concurrency: 3,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!data.ok) throw new Error(data.error || '启动失败');
+                      toast.success(data.message || '日K全量入库已开始');
+                      void refreshKlineBulk();
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : String(e));
+                    }
+                  }}
+                >
+                  {klineBulk?.active ? '日K入库中…' : '日K全量入库'}
+                </button>
+                {klineBulk?.active ? (
+                  <button
+                    type="button"
+                    className={styles.colorModeBtn}
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/cache/kline/bulk-sync/cancel', {
+                          method: 'POST',
+                        });
+                        const data = await res.json();
+                        toast.info(data.message || '已请求取消');
+                        void refreshKlineBulk();
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : String(e));
+                      }
+                    }}
+                  >
+                    取消入库
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={styles.colorModeBtn}
                   onClick={async () => {
                     try {
                       const res = await fetch('/api/cache/clear', {
@@ -315,7 +409,7 @@ export function Settings() {
                       const res = await fetch('/api/cache/gc', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ max_age_days: 30, max_series: 200 }),
+                        body: JSON.stringify({ max_age_days: 90, max_series: 10000 }),
                       });
                       const data = await res.json();
                       if (!data.ok) throw new Error(data.error || '清理失败');
@@ -331,6 +425,18 @@ export function Settings() {
                 </button>
               </div>
             </div>
+            {(klineBulk?.active || (klineBulk?.done ?? 0) > 0) && (
+              <div className={styles.settingItem}>
+                <div className={styles.settingInfo}>
+                  <span className={styles.settingLabel}>日K全量入库进度</span>
+                  <span className={styles.settingDesc}>
+                    {klineBulk?.message ||
+                      `${klineBulk?.done ?? 0}/${klineBulk?.total ?? 0} · 成功${klineBulk?.ok ?? 0} 跳过${klineBulk?.skip ?? 0} 失败${klineBulk?.fail ?? 0}`}
+                    {klineBulk?.current ? ` · 当前 ${klineBulk.current}` : ''}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </Card>

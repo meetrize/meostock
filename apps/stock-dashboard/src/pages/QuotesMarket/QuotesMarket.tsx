@@ -1353,6 +1353,17 @@ export function QuotesMarket() {
   const [cacheMeta, setCacheMeta] = useState<CacheSnapshotMeta | null>(null);
   /** 本轨刚同步完成时短暂展示「同步成功」（不以 snapshot 的 sticky syncing 为准） */
   const [syncSucceeded, setSyncSucceeded] = useState(false);
+  /** A 股日 K 全量入库进度 */
+  const [klineBulk, setKlineBulk] = useState<{
+    active: boolean;
+    total: number;
+    done: number;
+    ok: number;
+    skip: number;
+    fail: number;
+    message: string;
+    current: string | null;
+  } | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>(DEFAULT_SORT.key);
   const [sortDir, setSortDir] = useState<1 | -1>(DEFAULT_SORT.dir);
   const [page, setPage] = useState(1);
@@ -1718,6 +1729,84 @@ export function QuotesMarket() {
       toast.error(e instanceof Error ? e.message : String(e));
     }
   }, [nodeSyncing, marketLane, requestSyncLane, toast]);
+
+  const refreshKlineBulk = useCallback(async () => {
+    try {
+      const res = await fetch('/api/cache/kline/bulk-sync/progress');
+      const data = await res.json();
+      if (!data?.ok) return;
+      setKlineBulk({
+        active: Boolean(data.active),
+        total: Number(data.total) || 0,
+        done: Number(data.done) || 0,
+        ok: Number(data.ok_count ?? data.ok) || 0,
+        skip: Number(data.skip_count ?? data.skip) || 0,
+        fail: Number(data.fail_count ?? data.fail) || 0,
+        message: String(data.message || ''),
+        current: data.current ? String(data.current) : null,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (market !== 'cn') return;
+    void refreshKlineBulk();
+  }, [market, refreshKlineBulk]);
+
+  useEffect(() => {
+    if (market !== 'cn' || !klineBulk?.active) return;
+    const id = window.setInterval(() => void refreshKlineBulk(), 1200);
+    return () => window.clearInterval(id);
+  }, [market, klineBulk?.active, refreshKlineBulk]);
+
+  const handleKlineBulkSync = useCallback(async () => {
+    if (market !== 'cn' || klineBulk?.active) return;
+    try {
+      const res = await fetch('/api/cache/kline/bulk-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          market: 'cn',
+          period: '1d',
+          min_bars: 120,
+          force: false,
+          concurrency: 3,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        const detail =
+          data.error ||
+          data.message ||
+          (typeof data.detail === 'string' ? data.detail : '') ||
+          `HTTP ${res.status}`;
+        throw new Error(
+          detail === 'Not Found' || res.status === 404
+            ? '接口未加载，请重启后端服务后再试'
+            : detail === 'already_running'
+              ? '日K入库正在进行中'
+              : detail || '启动失败'
+        );
+      }
+      toast.success(data.message || '日K全量入库已开始');
+      void refreshKlineBulk();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }, [market, klineBulk?.active, toast, refreshKlineBulk]);
+
+  const handleKlineBulkCancel = useCallback(async () => {
+    try {
+      const res = await fetch('/api/cache/kline/bulk-sync/cancel', { method: 'POST' });
+      const data = await res.json();
+      toast.info(data.message || '已请求取消');
+      void refreshKlineBulk();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
+  }, [toast, refreshKlineBulk]);
 
   // 仅首次空表加载显示蒙层；同步绝不挡 UI
   const showOverlay = (loading || pageLoading) && rows.length === 0 && !placeholderHint;
@@ -2327,6 +2416,33 @@ export function QuotesMarket() {
                   同步本节点
                 </button>
               )}
+              {market === 'cn' && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.refreshBtn}
+                    onClick={() => void handleKlineBulkSync()}
+                    disabled={Boolean(klineBulk?.active)}
+                    title="按代码表后台入库约半年日K（≥120根），方便翻页秒开"
+                  >
+                    <Database
+                      size={14}
+                      className={klineBulk?.active ? styles.spin : undefined}
+                    />
+                    {klineBulk?.active ? '日K入库中…' : '日K全量入库'}
+                  </button>
+                  {klineBulk?.active && (
+                    <button
+                      type="button"
+                      className={styles.refreshBtn}
+                      onClick={() => void handleKlineBulkCancel()}
+                      title="取消日K全量入库"
+                    >
+                      取消入库
+                    </button>
+                  )}
+                </>
+              )}
               <button
                 type="button"
                 className={styles.refreshBtn}
@@ -2360,6 +2476,17 @@ export function QuotesMarket() {
                 全屏
               </button>
               <span className={styles.count}>共 {sorted.length} 条</span>
+              {market === 'cn' && klineBulk && (klineBulk.active || klineBulk.done > 0) && (
+                <span
+                  className={styles.cacheHint}
+                  title={klineBulk.message || '日K全量入库'}
+                >
+                  {klineBulk.active
+                    ? `日K入库 ${klineBulk.done}/${klineBulk.total}`
+                    : klineBulk.message ||
+                      `日K入库完成 · 成功${klineBulk.ok} 跳过${klineBulk.skip} 失败${klineBulk.fail}`}
+                </span>
+              )}
               {cacheMeta && (
                 <span
                   className={styles.cacheHint}
