@@ -50,6 +50,8 @@ const navItems: NavItem[] = [
   { path: '/quotes', label: '行情', icon: <CandlestickChart size={18} /> },
   { path: '/fupan', label: '涨停复盘', icon: <Flame size={18} /> },
   { path: '/limit-up', label: '当前涨停', icon: <Flame size={18} /> },
+  { path: '/limit-down', label: '当前跌停', icon: <Flame size={18} /> },
+  { path: '/yesterday-limit-up', label: '昨日涨停', icon: <Flame size={18} /> },
   { path: '/zt', label: '涨停异动', icon: <Flame size={18} /> },
   { path: '/heatmap', label: '热力图', icon: <Grid3X3 size={18} /> },
   {

@@ -2,9 +2,9 @@
 
 > 上游：`https://flash-api.xuangubao.cn/api/pool/detail?pool_name=limit_up`  
 > 探测日期：2026-11-23  
-> 本站代理：`GET /api/zt/limit-up`（见 `web/server.py`）  
-> 本站页面：[`/limit-up`](../web/static/limit-up.html)（看板 `/dashboard/limit-up`）— 按关联概念分组、组内首封时间排序、展示全字段  
-> 使用方：当前涨停页、犀利涨停复盘 `/fupan`、`/xnge/fupan/`、涨停异动 `/zt/{code}` 当日原因
+> 本站代理：`GET /api/zt/pool?pool=…`（兼 `GET /api/zt/limit-up`）  
+> 本站页面：[`/xgb-pool.html`](../web/static/xgb-pool.html) — `/limit-up` · `/limit-down` · `/yesterday-limit-up`（看板同路径；`stock_chance` 与涨停高度重合，本站已去掉页面）  
+> 使用方：上述池页、犀利涨停复盘 `/fupan`、`/xnge/fupan/`、涨停异动 `/zt/{code}` 当日原因
 
 本文记录该接口的定位、响应结构、字段维度，以及与本站其它涨停数据源的边界。
 
@@ -39,7 +39,7 @@
 | `limit_down` | 7 | 当前跌停 |
 | `yesterday_limit_up` | 30 | 昨日涨停 |
 | `limit_up_broken` | 14 | 曾涨停后打开（炸板） |
-| `stock_chance` | 59 | 机会池（与涨停池同量级） |
+| `stock_chance` | 与 `limit_up` 同成分 | 机会池；实测与涨停池高度重合，**本站不单独做页**（API 仍可调） |
 
 本站当前明确代理的是 `limit_up`；`/api/zt/limit-pool?pool=up|down|both` 可拉涨停/跌停。
 
@@ -241,10 +241,11 @@
 | 位置 | 作用 |
 |------|------|
 | `web/server.py` → `XUANGUBAO_POOL`、`_xuangubao_pool_items` | 上游拉取 |
-| `GET /api/zt/limit-up` | 涨停池代理 |
-| `GET /api/zt/limit-pool` | `up` / `down` / `both` |
-| `GET /limit-up` · `web/static/limit-up.html` | 当前涨停页（概念分组 + 全字段） |
-| `GET /dashboard/limit-up` | 看板嵌入同上 |
+| `GET /api/zt/limit-up` | 涨停池代理（兼容） |
+| `GET /api/zt/pool?pool=` | 同系列池代理 |
+| `GET /api/zt/limit-pool` | `up` / `down` / `both` 或具体 pool_name |
+| `GET /limit-up` 等 · `web/static/xgb-pool.html` | 概念分组表格页（多池共用） |
+| `GET /dashboard/limit-up` 等 | 看板嵌入同上 |
 | `web/static/fupan.html` | 本地复盘 Demo |
 | `GET /ace/{path}` | ace CDN 反代（行业/历史） |
 | `GET /zt/{code}` | 犀利涨停异动页中转 |

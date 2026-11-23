@@ -2415,11 +2415,29 @@ def fupan_demo() -> FileResponse:
     return FileResponse(STATIC_DIR / "fupan.html")
 
 
+_XGB_POOL_PAGE = STATIC_DIR / "xgb-pool.html"
+_XGB_POOL_NAMES = frozenset(
+    {
+        "limit_up",
+        "limit_down",
+        "yesterday_limit_up",
+        "stock_chance",
+        "limit_up_broken",
+    }
+)
+
+
 @app.get("/limit-up", response_model=None)
 @app.get("/limit-up/", response_model=None)
-def limit_up_page() -> FileResponse:
-    """当前涨停池：按题材概念分组，组内按首封时间排序（选股宝 limit_up）。"""
-    return FileResponse(STATIC_DIR / "limit-up.html")
+@app.get("/limit-down", response_model=None)
+@app.get("/limit-down/", response_model=None)
+@app.get("/yesterday-limit-up", response_model=None)
+@app.get("/yesterday-limit-up/", response_model=None)
+@app.get("/xgb-pool", response_model=None)
+@app.get("/xgb-pool/", response_model=None)
+def xgb_pool_page() -> FileResponse:
+    """选股宝同系列池页（涨停/跌停/昨涨停），按概念分组表格。"""
+    return FileResponse(_XGB_POOL_PAGE)
 
 
 @app.get("/xnge", response_model=None)
@@ -2538,6 +2556,24 @@ def zt_limit_up() -> JSONResponse:
     return _xuangubao_pool("limit_up")
 
 
+@app.get("/api/zt/pool")
+def zt_xuangubao_pool(
+    pool: str = Query("limit_up", description="limit_up | limit_down | yesterday_limit_up | stock_chance | limit_up_broken"),
+) -> JSONResponse:
+    """代理选股宝 flash-api 同系列 pool_name。"""
+    key = (pool or "limit_up").strip().lower()
+    if key not in _XGB_POOL_NAMES:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "pool 须为 " + " | ".join(sorted(_XGB_POOL_NAMES)),
+                "error_code": "bad_pool",
+            },
+            status_code=400,
+        )
+    return _xuangubao_pool(key)
+
+
 def _xuangubao_pool_items(pool_name: str) -> list[Any]:
     url = f"{XUANGUBAO_POOL}?{urllib.parse.urlencode({'pool_name': pool_name})}"
     raw = _http_get_text(
@@ -2557,17 +2593,19 @@ def _xuangubao_pool_items(pool_name: str) -> list[Any]:
 
 @app.get("/api/zt/limit-pool")
 def zt_limit_pool(
-    pool: str = Query("both", description="up | down | both"),
+    pool: str = Query("both", description="up | down | both | yesterday_limit_up | stock_chance | …"),
 ) -> JSONResponse:
-    """调试用：选股宝涨停/跌停池；首页主路径仍走 /api/tushare/market?id=ts:limit。"""
+    """调试用：选股宝涨停/跌停池；也可传具体 pool_name。"""
     key = (pool or "both").strip().lower()
     if key in ("up", "limit_up"):
         return _xuangubao_pool("limit_up")
     if key in ("down", "limit_down", "dt"):
         return _xuangubao_pool("limit_down")
+    if key in _XGB_POOL_NAMES:
+        return _xuangubao_pool(key)
     if key != "both":
         return JSONResponse(
-            {"ok": False, "error": "pool 须为 up | down | both", "error_code": "bad_pool"},
+            {"ok": False, "error": "pool 须为 up | down | both 或具体 pool_name", "error_code": "bad_pool"},
             status_code=400,
         )
     try:
