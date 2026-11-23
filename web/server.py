@@ -2267,7 +2267,27 @@ def _fetch_xnge_html(upstream: str) -> str:
             raise RuntimeError(f"{first}; fallback: {second}") from second
 
 
-def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
+def _rewrite_ace_asset_urls(html: str, ace_abs: str) -> str:
+    """把页面里的 ace.xnge.cn 资源改写为本站 /ace 绝对地址。
+
+    局域网用 192.168.x.x 打开时，浏览器往往直连不到 ace CDN；
+    且 <base href=t.xnge.cn> 会把相对 /ace 解析回原站。必须写死当前 Host。
+    """
+    if not html or not ace_abs:
+        return html
+    return (
+        html.replace("https://ace.xnge.cn", ace_abs)
+        .replace("http://ace.xnge.cn", ace_abs)
+        .replace("//ace.xnge.cn", ace_abs)
+    )
+
+
+def _proxy_xnge_html(
+    path: str,
+    query: dict[str, str],
+    *,
+    request: Request | None = None,
+) -> Response:
     """用 TdxW UA 拉取 t.xnge.cn 任意路径 HTML。"""
     path = (path or "").lstrip("/")
     # 目录页补尾斜杠，避免相对资源错位
@@ -2294,7 +2314,12 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
         flags=re.IGNORECASE,
     )
 
-    base = f"{XNGE_ORIGIN}/{path}" if path else f"{XNGE_ORIGIN}/"
+    # 按访问 Host 生成同源 ace 绝对前缀（局域网 192.168.x.x / 本机 127.0.0.1 都对）
+    if request is not None:
+        ace_abs = str(request.base_url).rstrip("/") + "/ace"
+    else:
+        ace_abs = "/ace"
+
     # 浅色模式下 .fupan-tit .tab 仍用深灰底(#353A40) + --WhiteBlack(#000)，对比度差；强制白字。
     # 宽表支持横向滚动，便于嵌入看板 iframe。
     # 隐藏「使用说明」及以下页脚广告/免责声明
@@ -2377,18 +2402,34 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
   }
 })();
 </script>"""
-    head_bits: list[str] = [ace_lock_js]
-    if "<base " not in html.lower():
-        # 让相对路径按原站解析；JSON 已走绝对 /ace，不受 base 影响
-        head_bits.append(f'<base href="{base}" />')
-    head_bits.append(patch_css)
+    # base 必须落在本站 /xnge/...，否则绝对路径 /404.html 会跟到 t.xnge.cn
+    # （tdx.js 曾对 192.168 强制跳 /404.html）
+    if request is not None:
+        local_base = str(request.base_url).rstrip("/") + "/xnge/" + path
+    else:
+        local_base = "/xnge/" + path
+    if not local_base.endswith("/"):
+        local_base += "/"
+    # 去掉上游自带 base，避免再指回 t.xnge.cn
+    html = re.sub(r"<base\b[^>]*>", "", html, flags=re.IGNORECASE)
+
+    head_bits: list[str] = [ace_lock_js, f'<base href="{local_base}" />', patch_css]
     injected = "<head>\n" + "\n".join(head_bits)
     # tdx.js 里 var ace='//ace.xnge.cn' 之后再钉一次（defineProperty 失败时兜底）
+    # 此时 HTML 里可能已是绝对 /ace 地址，两种都匹配
     html = re.sub(
-        r'(<script[^>]+(?:ace\.xnge\.cn/js/tdx\.js)[^>]*>\s*</script>)',
+        r'(<script[^>]+(?:(?:ace\.xnge\.cn|/ace)/js/tdx\.js)[^>]*>\s*</script>)',
         r'\1<script>try{ace=location.origin+"/ace"}catch(e){}</script>',
         html,
         count=1,
+        flags=re.IGNORECASE,
+    )
+    # 保险：页面内若还有内联局域网跳转也干掉
+    html = re.sub(
+        r"if\s*\(\s*window\.location\.href\.indexOf\(\s*['\"]192\.168['\"]\s*\)\s*>\s*0\s*\)\s*"
+        r"window\.location\.href\s*=\s*['\"][^'\"]*404\.html['\"]\s*;?",
+        "/* mootdx: skip lan 404 redirect */",
+        html,
         flags=re.IGNORECASE,
     )
     if "<head>" in html:
@@ -2404,10 +2445,15 @@ def _proxy_xnge_html(path: str, query: dict[str, str]) -> Response:
         html = html.replace("</Body>", patch_js + "\n</Body>", 1)
     else:
         html = html + patch_js
+    # CSS/JS 等静态资源也走本站反代，避免局域网客户端直连不上 ace CDN
+    html = _rewrite_ace_asset_urls(html, ace_abs)
     return Response(
         content=html,
         media_type="text/html; charset=utf-8",
-        headers={"X-Xnge-Upstream": upstream},
+        headers={
+            "X-Xnge-Upstream": upstream,
+            "X-Ace-Base": ace_abs,
+        },
     )
 
 
@@ -2456,7 +2502,7 @@ def xnge_proxy(path: str, request: Request) -> Response:
     对应原站 http://t.xnge.cn/qsg/?hidenav=1&bg=##tdxbkcolor##
     """
     query = {k: v for k, v in request.query_params.multi_items()}
-    return _proxy_xnge_html(path, query)
+    return _proxy_xnge_html(path, query, request=request)
 
 
 def _guess_ace_media_type(path: str, content_type: str | None) -> str:
@@ -2511,26 +2557,45 @@ def ace_cdn_proxy(path: str, request: Request) -> Response:
             status_code=502,
         )
     media = _guess_ace_media_type(path, upstream_ct)
-    # loader 若经本站拉取，document.write 的 //ace 需改成绝对同源地址
-    # （页面有 <base href=t.xnge.cn>，相对 /ace 会被解析回原站）
-    if "javascript" in media and body and b"ace.xnge.cn" in body:
+    # JS：改写 ace CDN 地址 + 去掉局域网封禁跳转
+    # tdx.js 原有：if (href.indexOf('192.168')>0) location.href='/404.html'
+    # 配上 <base href=t.xnge.cn> 会跳到 http://t.xnge.cn/404.html
+    if "javascript" in media and body:
         try:
             ace_abs = str(request.base_url).rstrip("/") + "/ace"
             text = body.decode("utf-8", errors="replace")
-            text = (
-                text.replace("https://ace.xnge.cn", ace_abs)
-                .replace("http://ace.xnge.cn", ace_abs)
-                .replace("//ace.xnge.cn", ace_abs)
+            if "ace.xnge.cn" in text:
+                text = (
+                    text.replace("https://ace.xnge.cn", ace_abs)
+                    .replace("http://ace.xnge.cn", ace_abs)
+                    .replace("//ace.xnge.cn", ace_abs)
+                )
+            # 中和犀利对 192.168 / 10.x 等内网地址的强制跳转
+            text = re.sub(
+                r"if\s*\(\s*window\.location\.href\.indexOf\(\s*['\"]192\.168['\"]\s*\)\s*>\s*0\s*\)\s*"
+                r"window\.location\.href\s*=\s*['\"][^'\"]*404\.html['\"]\s*;?",
+                "/* mootdx: skip lan 404 redirect */",
+                text,
+                flags=re.IGNORECASE,
+            )
+            text = re.sub(
+                r"if\s*\(\s*window\.location\.href\.indexOf\(\s*['\"]10\.['\"]\s*\)\s*>\s*0\s*\)\s*"
+                r"window\.location\.href\s*=\s*['\"][^'\"]*404\.html['\"]\s*;?",
+                "/* mootdx: skip lan 404 redirect */",
+                text,
+                flags=re.IGNORECASE,
             )
             body = text.encode("utf-8")
         except Exception:  # noqa: BLE001
             pass
+    # tdx.js 被改写（去局域网 404 跳转），禁止长缓存
+    cache_ctrl = "no-cache" if "tdx.js" in path.lower() else "public, max-age=300"
     return Response(
         content=body,
         status_code=int(status),
         media_type=media,
         headers={
-            "Cache-Control": "public, max-age=300",
+            "Cache-Control": cache_ctrl,
             "X-Ace-Upstream": upstream,
         },
     )
@@ -2973,7 +3038,7 @@ def zt_reason_proxy(code: str, request: Request) -> Response:
     query = {k: v for k, v in request.query_params.multi_items()}
     if "bg" not in query:
         query["bg"] = "ffffff"
-    return _proxy_xnge_html(f"zt/{cid}", query)
+    return _proxy_xnge_html(f"zt/{cid}", query, request=request)
 
 
 if __name__ == "__main__":

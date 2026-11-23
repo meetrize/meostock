@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>K线演示 · stock-sdk + KLineChart</title>
   <script src="/static/klinecharts.min.js"></script>
-  <link rel="stylesheet" href="/static/kline-side.css?v=20261123e" />
+  <link rel="stylesheet" href="/static/kline-side.css?v=20261123h" />
   <style>
     :root,
     html[data-theme="light"] {
@@ -1244,6 +1244,20 @@
             </div>
           </div>
 
+          <div class="side-tab-pane" data-tab="zthist" id="sideTabZtHist">
+            <div class="f10-wrap">
+              <div class="f10-toolbar">
+                <span id="ztHistHint">犀利涨跌停历史</span>
+                <a class="side-link-btn" id="ztHistOpenBtn" href="#" target="_blank" rel="noopener">新窗口打开</a>
+              </div>
+              <iframe
+                class="f10-frame"
+                id="ztHistFrame"
+                title="犀利涨跌停历史"
+              ></iframe>
+            </div>
+          </div>
+
           <div class="side-tab-pane" data-tab="f10" id="sideTabF10">
             <div class="f10-wrap">
               <div class="f10-toolbar">
@@ -1266,6 +1280,10 @@
           <button type="button" class="side-rail-btn" data-tab="zt" title="涨停原因">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.2 6.6H21l-5.4 3.9 2.1 6.5L12 15.8 6.3 19l2.1-6.5L3 8.6h6.8L12 2z"/></svg>
             <span>涨停</span>
+          </button>
+          <button type="button" class="side-rail-btn" data-tab="zthist" title="涨跌停历史（犀利）">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v2H5V4zm0 4h14v12H5V8zm2 2v8h10v-8H7zm2 2h6v2H9v-2zm0 3h6v2H9v-2z"/></svg>
+            <span>履历</span>
           </button>
           <button type="button" class="side-rail-btn" data-tab="news" title="资讯">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
@@ -1559,7 +1577,7 @@
   </div>
 
   <script src="/static/marked.min.js"></script>
-  <script src="/static/kline-side.js?v=20261123e"></script>
+  <script src="/static/kline-side.js?v=20261123h"></script>
   <script src="/static/kline-ai.js?v=20261116d"></script>
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
@@ -7428,6 +7446,7 @@
             window.KlineAI?.setSymbol(currentSymbol, { period: currentPeriod });
             window.KlineAI?.onTab(tabId);
             if (tabId === "zt") window.SideZt?.refresh?.();
+            if (tabId === "zthist") window.SidePanel?.refreshZtHist?.({ force: true });
             if (tabId === "news") window.SideNews?.refresh?.();
           } catch (_) {}
         },

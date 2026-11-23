@@ -13,6 +13,7 @@
     { id: "ai", title: "AI" },
     { id: "report", title: "AI报告" },
     { id: "zt", title: "涨停原因" },
+    { id: "zthist", title: "涨跌停历史" },
     { id: "news", title: "资讯" },
     { id: "f10", title: "F10" },
   ];
@@ -155,8 +156,11 @@
 
   function cnCodeFromSymbol(symbol) {
     const s = String(symbol || "").trim().toLowerCase();
-    const m = s.match(/^(?:sh|sz|bj)?(\d{6})$/);
-    return m ? m[1] : null;
+    // 兼容 300413 / sz300413 / 300413.sz / sz300413.sz
+    const m = s.match(/^(?:sh|sz|bj)?(\d{6})(?:\.(?:ss|sh|sz|bj))?$/);
+    if (m) return m[1];
+    const digits = s.replace(/\D/g, "");
+    return digits.length >= 6 ? digits.slice(-6) : null;
   }
 
   function f10Url(symbol) {
@@ -164,18 +168,31 @@
     return code ? `https://basic.10jqka.com.cn/${code}/` : null;
   }
 
-  function refreshF10() {
-    const frame = el("f10Frame");
-    const hint = el("f10Hint");
-    const openBtn = el("f10OpenBtn");
-    const url = f10Url(state.symbol);
+  function ztHistUrl(symbol) {
+    const code = cnCodeFromSymbol(symbol);
+    // 犀利涨跌停异动页（本站 /zt 中转；用当前页 origin，避免写成 127.0.0.1）
+    if (!code) return null;
+    const path = `/zt/${encodeURIComponent(code)}?bg=ffffff&hidenav=1`;
+    try {
+      return `${window.location.origin}${path}`;
+    } catch (_) {
+      return path;
+    }
+  }
+
+  function refreshEmbedFrame({ frameId, hintId, openBtnId, url, emptyHint, okHint, force = false }) {
+    const frame = el(frameId);
+    const hint = el(hintId);
+    const openBtn = el(openBtnId);
     if (!url) {
       if (frame) {
         frame.removeAttribute("src");
+        frame.removeAttribute("srcdoc");
+        frame.removeAttribute("data-src");
         frame.style.display = "none";
       }
       if (hint) {
-        hint.textContent = "F10 暂仅支持 A 股六位代码（如 605378）";
+        hint.textContent = emptyHint;
         hint.style.display = "";
       }
       if (openBtn) {
@@ -185,7 +202,7 @@
       return;
     }
     if (hint) {
-      hint.textContent = `同花顺 F10 · ${url}`;
+      hint.textContent = okHint(url);
       hint.style.display = "";
     }
     if (openBtn) {
@@ -194,11 +211,38 @@
     }
     if (frame) {
       frame.style.display = "";
-      if (frame.dataset.src !== url) {
+      // 局域网 /zt 已可直开；履历用 iframe.src（勿用 srcdoc，document.write 会把文档冲掉）
+      if (force || frame.dataset.src !== url) {
         frame.dataset.src = url;
+        frame.removeAttribute("srcdoc");
         frame.src = url;
       }
     }
+  }
+
+  function refreshF10() {
+    const url = f10Url(state.symbol);
+    refreshEmbedFrame({
+      frameId: "f10Frame",
+      hintId: "f10Hint",
+      openBtnId: "f10OpenBtn",
+      url,
+      emptyHint: "F10 暂仅支持 A 股六位代码（如 605378）",
+      okHint: (u) => `同花顺 F10 · ${u}`,
+    });
+  }
+
+  function refreshZtHist({ force = false } = {}) {
+    const url = ztHistUrl(state.symbol);
+    refreshEmbedFrame({
+      frameId: "ztHistFrame",
+      hintId: "ztHistHint",
+      openBtnId: "ztHistOpenBtn",
+      url,
+      emptyHint: "涨跌停历史暂仅支持 A 股六位代码",
+      okHint: (u) => `犀利 · ${u}`,
+      force,
+    });
   }
 
   function setSymbol(symbol, market) {
@@ -208,6 +252,7 @@
     if (market) state.market = market;
     if (changed) {
       refreshF10();
+      refreshZtHist();
       if (typeof state.onSymbolChange === "function") {
         try {
           state.onSymbolChange(state.symbol, state.market);
@@ -215,6 +260,7 @@
       }
     } else {
       refreshF10();
+      refreshZtHist();
     }
   }
 
@@ -260,6 +306,7 @@
     }
 
     refreshF10();
+    refreshZtHist();
 
     try {
       global.SideNews?.mount?.(el("newsSideRoot"), {
@@ -281,6 +328,8 @@
     setTab,
     getState: () => ({ ...state }),
     f10Url,
+    ztHistUrl,
+    refreshZtHist,
     TABS,
   };
 })(window);
