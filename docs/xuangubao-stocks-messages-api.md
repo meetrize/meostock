@@ -3,7 +3,8 @@
 > 上游：`https://api.xuangubao.com.cn/api/stocks/messages?Symbol=603960.SS&Limit=20`  
 > 探测日期：2026-11-23  
 > 探测标的：克来机电 `603960.SS`  
-> 本站代理：无（仓库内尚无引用）  
+> 本站代理：`GET /api/xgb/stocks/messages?symbol=sz300508&limit=20&mark=`  
+> 本站页面：K 线右侧栏「资讯」标签（[`index.html`](../web/static/index.html) + [`kline-side.js`](../web/static/kline-side.js) `SideNews`）  
 > 关联文档：[选股宝涨停池接口](./xuangubao-limit-up-pool-api.md)（`flash-api` 行情/涨停池，与本接口域名与定位均不同）
 
 本文记录该接口的定位、请求/分页、响应结构、字段维度、样本内容类型，以及与行情类接口的边界。
@@ -27,7 +28,13 @@
 **是**：与该股相关的选股通栏目文章、板块异动快讯、交易所公告提醒、早餐/复盘/早知道等时间线。  
 **不是**：行情快照、K 线、财务指标、涨停封单、龙虎榜。字段名里的 `Price` 是**文章解锁价**，不是股价。
 
-建议请求头：`Accept: application/json`，`Referer: https://xuangubao.cn/`。浏览器直连可能遇 CORS。
+建议请求头：`Accept: application/json`，`Referer: https://xuangubao.cn/`。浏览器直连可能遇 CORS；本站经 `/api/xgb/stocks/messages` 同源代理。
+
+本站代理入参：`symbol`（`sz300508` / `300508` / `300508.SZ`）、`limit`、`mark`；服务端转为上游 `Symbol`（`.SS`/`.SZ`）并裁剪关联股长列表后返回：
+
+```json
+{ "ok": true, "source": "xuangubao", "symbol": "sz300508", "yahoo_symbol": "300508.SZ", "messages": [ /* 裁剪后 */ ], "next_mark": "20", "total": 20 }
+```
 
 ---
 
@@ -301,7 +308,8 @@ NextMark                       # 顶层，用于翻页
 
 | 接口 | 主机 | 定位 |
 |------|------|------|
-| 本接口 ` /api/stocks/messages` | `api.xuangubao.com.cn` | 个股资讯/公告消息流 |
+| 上游 `/api/stocks/messages` | `api.xuangubao.com.cn` | 个股资讯/公告消息流 |
+| 本站 `/api/xgb/stocks/messages` | 同源 | 上述上游代理；供 K 线右侧「资讯」 |
 | 涨停池 `/api/pool/detail` | `flash-api.xuangubao.cn` | 盘中涨停/跌停等池快照与涨停原因 |
 
 两者不可互换；做研判工作台时通常：**池/行情一条线 + 消息流一条线**。

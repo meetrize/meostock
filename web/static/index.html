@@ -1232,8 +1232,8 @@
           </div>
 
           <div class="side-tab-pane" data-tab="news" id="sideTabNews">
-            <div class="side-empty" id="newsPlaceholder">
-              资讯列表即将接入 feedgen（<code>/api/news/by-symbol</code>）。
+            <div class="news-side" id="newsSideRoot">
+              <div class="side-empty" id="newsSideEmpty">切换到资讯标签后加载…</div>
             </div>
           </div>
 
@@ -6789,6 +6789,7 @@
             window.KlineAI?.setSymbol(currentSymbol, { period: currentPeriod });
             window.KlineAI?.onTab(tabId);
             if (tabId === "zt") window.SideZt?.refresh?.();
+            if (tabId === "news") window.SideNews?.refresh?.();
           } catch (_) {}
         },
         onSymbolChange: (symbol) => {
@@ -6796,6 +6797,7 @@
             window.KlineAI?.setSymbol(symbol, { period: currentPeriod });
             window.KlineAI?.refreshReports?.();
             window.SideZt?.onSymbol?.(symbol);
+            window.SideNews?.onSymbol?.(symbol);
           } catch (_) {}
         },
       });

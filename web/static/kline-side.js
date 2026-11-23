@@ -261,16 +261,8 @@
 
     refreshF10();
 
-    // 资讯 tab 预留挂载点（本期空态）
-    global.SideNews = global.SideNews || {
-      mount(el, _opts) {
-        if (el && !el.dataset.mounted) {
-          el.dataset.mounted = "1";
-        }
-      },
-    };
     try {
-      global.SideNews.mount(el("newsPlaceholder"), {
+      global.SideNews?.mount?.(el("newsSideRoot"), {
         getSymbol: () => state.symbol,
       });
     } catch (_) {}
@@ -601,6 +593,350 @@
   }
 
   global.SideZt = {
+    mount,
+    refresh,
+    onSymbol,
+  };
+})(window);
+
+/**
+ * 资讯侧栏：选股宝个股消息流。
+ * API: GET /api/xgb/stocks/messages?symbol=&limit=&mark=
+ */
+(function (global) {
+  const PAGE_SIZE = 20;
+  const FILTERS = [
+    { id: "all", label: "全部", style: null },
+    { id: "flash", label: "异动", style: 1 },
+    { id: "column", label: "栏目", style: 2 },
+    { id: "notice", label: "公告", style: 3 },
+  ];
+
+  const esc = (s) =>
+    String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  let root = null;
+  let getSymbol = () => "";
+  let abortCtrl = null;
+  let loading = false;
+  let loadingMore = false;
+  let lastKey = "";
+  let filterId = "all";
+  let items = [];
+  let nextMark = "";
+  let yahooSymbol = "";
+  let pageSymbol = "";
+
+  function codeOf(symbol) {
+    const s = String(symbol || "").trim();
+    if (!s) return "";
+    const bare = s.replace(/^(sh|sz|bj)/i, "");
+    const digits = bare.replace(/\D/g, "");
+    return digits.length >= 6 ? digits.slice(-6) : "";
+  }
+
+  function styleMeta(style) {
+    const n = Number(style) || 0;
+    if (n === 1) return { key: "flash", label: "异动" };
+    if (n === 3) return { key: "notice", label: "公告" };
+    return { key: "column", label: "栏目" };
+  }
+
+  function fmtTimeFull(ts) {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const ms = n < 1e12 ? n * 1000 : n;
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return "";
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${y}-${mo}-${day} ${hh}:${mm}`;
+  }
+
+  /** 最短时间：今日 HH:mm；同年 M/D；跨年 YY/M/D */
+  function fmtTimeShort(ts) {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const ms = n < 1e12 ? n * 1000 : n;
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return "";
+    const now = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    const sameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    if (sameDay) return `${hh}:${mm}`;
+    const mo = d.getMonth() + 1;
+    const day = d.getDate();
+    if (d.getFullYear() === now.getFullYear()) return `${mo}/${day}`;
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${yy}/${mo}/${day}`;
+  }
+
+  function renderDot(kind, tip) {
+    const t = String(tip || "").trim();
+    if (!t) return "";
+    return `<span class="news-dot news-dot-${kind}" title="${esc(t)}" aria-label="${esc(
+      t
+    )}"></span>`;
+  }
+
+  function linkOf(m) {
+    return (
+      String(m?.OriginalUrl || "").trim() ||
+      String(m?.ShareUrl2 || "").trim() ||
+      String(m?.Url || "").trim() ||
+      String(m?.ShareUrl || "").trim() ||
+      ""
+    );
+  }
+
+  function filteredItems() {
+    const f = FILTERS.find((x) => x.id === filterId) || FILTERS[0];
+    if (f.style == null) return items;
+    return items.filter((m) => Number(m.Style) === f.style);
+  }
+
+  function setHtml(html) {
+    if (!root) return;
+    root.innerHTML = html;
+  }
+
+  function renderEmpty(msg) {
+    setHtml(`<div class="side-empty">${esc(msg)}</div>`);
+  }
+
+  function renderFilters() {
+    return `<div class="news-filters" role="tablist">
+      ${FILTERS.map(
+        (f) =>
+          `<button type="button" class="news-filter-btn${
+            f.id === filterId ? " active" : ""
+          }" data-news-filter="${f.id}">${esc(f.label)}</button>`
+      ).join("")}
+    </div>`;
+  }
+
+  function renderRow(m) {
+    const meta = styleMeta(m.Style);
+    const tShort = fmtTimeShort(m.CreatedAt);
+    const tFull = fmtTimeFull(m.CreatedAt);
+    const subj = String(m?.FromSubject?.Title || "").trim();
+    const source = String(m.Source || "").trim();
+    const href = linkOf(m);
+    const relatedN = Number(m.related_count) || 0;
+    const weak =
+      relatedN > 30 &&
+      !(m.Stocks || []).some(
+        (s) => s?.Symbol && yahooSymbol && s.Symbol === yahooSymbol
+      );
+    const titleText = m.Title || "（无标题）";
+    const titleHtml = href
+      ? `<a class="news-title" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(
+          titleText
+        )}">${esc(titleText)}</a>`
+      : `<span class="news-title" title="${esc(titleText)}">${esc(titleText)}</span>`;
+
+    const dots = [
+      renderDot(meta.key, `类型：${meta.label}`),
+      subj ? renderDot("subj", `栏目：${subj}`) : "",
+      source ? renderDot("source", `来源：${source}`) : "",
+      relatedN > 0 ? renderDot("related", `关联 ${relatedN} 只`) : "",
+      m.IsPremium ? renderDot("premium", "付费") : "",
+      weak ? renderDot("weak", "弱相关") : "",
+    ].join("");
+
+    return `<tr class="news-row${weak ? " news-weak" : ""}" data-style="${meta.key}">
+      <td class="news-col-title">${titleHtml}</td>
+      <td class="news-col-time" title="${esc(tFull)}">${esc(tShort)}</td>
+      <td class="news-col-dots"><div class="news-dots">${dots}</div></td>
+    </tr>`;
+  }
+
+  function renderTable(list) {
+    return `<div class="news-table-wrap">
+      <table class="news-table">
+        <thead>
+          <tr>
+            <th class="news-col-title">标题</th>
+            <th class="news-col-time">时间</th>
+            <th class="news-col-dots" title="类型 / 栏目 / 来源 / 关联">标记</th>
+          </tr>
+        </thead>
+        <tbody>${list.map(renderRow).join("")}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function render() {
+    const code = codeOf(pageSymbol);
+    const list = filteredItems();
+    const canMore = Boolean(nextMark) && filterId === "all";
+    const moreBtn = canMore
+      ? `<button type="button" class="news-more-btn" data-news-more${
+          loadingMore ? " disabled" : ""
+        }>${loadingMore ? "加载中…" : "加载更多"}</button>`
+      : nextMark && filterId !== "all"
+        ? `<div class="news-more-hint">筛选下仅展示已加载条目；切回「全部」可继续翻页</div>`
+        : "";
+
+    const body =
+      list.length === 0
+        ? `<div class="side-empty">${
+            items.length ? "当前筛选下暂无资讯" : "暂无相关资讯"
+          }</div>`
+        : `${renderTable(list)}${moreBtn}`;
+
+    setHtml(`<div class="news-side-inner">
+      <div class="news-side-summary">${esc(code || pageSymbol || "—")} · 选股宝消息 · ${items.length} 条</div>
+      ${renderFilters()}
+      ${body}
+    </div>`);
+  }
+
+  async function fetchPage({ mark = "", append = false } = {}) {
+    const symbol = getSymbol() || global.SidePanel?.getState?.()?.symbol || "";
+    const code = codeOf(symbol);
+    if (!code) {
+      lastKey = "";
+      items = [];
+      nextMark = "";
+      yahooSymbol = "";
+      pageSymbol = symbol;
+      renderEmpty("请选择 A 股六位代码");
+      return;
+    }
+
+    if (abortCtrl && !append) {
+      try {
+        abortCtrl.abort();
+      } catch (_) {}
+    }
+    const ctrl = new AbortController();
+    if (!append) abortCtrl = ctrl;
+
+    if (append) loadingMore = true;
+    else {
+      loading = true;
+      setHtml(`<div class="side-empty">加载资讯…</div>`);
+    }
+
+    try {
+      const qs = new URLSearchParams({
+        symbol: String(symbol),
+        limit: String(PAGE_SIZE),
+      });
+      if (mark) qs.set("mark", String(mark));
+      const res = await fetch(`/api/xgb/stocks/messages?${qs}`, {
+        cache: "no-store",
+        signal: append ? undefined : ctrl.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        if (!append) {
+          renderEmpty(data?.error || `加载失败（HTTP ${res.status}）`);
+          lastKey = "";
+        }
+        return;
+      }
+      const batch = Array.isArray(data.messages) ? data.messages : [];
+      pageSymbol = symbol;
+      yahooSymbol = String(data.yahoo_symbol || "");
+      nextMark = String(data.next_mark || "");
+      if (append) {
+        const seen = new Set(items.map((m) => m.Id));
+        for (const m of batch) {
+          if (m?.Id && !seen.has(m.Id)) {
+            items.push(m);
+            seen.add(m.Id);
+          }
+        }
+      } else {
+        items = batch;
+        lastKey = code;
+      }
+      render();
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      if (!append) {
+        renderEmpty(e?.message || "加载失败");
+        lastKey = "";
+      }
+    } finally {
+      loading = false;
+      loadingMore = false;
+      if (append && root?.querySelector?.("[data-news-more]")) render();
+    }
+  }
+
+  async function refresh({ force = false } = {}) {
+    if (!root) return;
+    const symbol = getSymbol() || global.SidePanel?.getState?.()?.symbol || "";
+    const code = codeOf(symbol);
+    if (!code) {
+      lastKey = "";
+      items = [];
+      renderEmpty("请选择 A 股六位代码");
+      return;
+    }
+    if (!force && code === lastKey && items.length && root.querySelector(".news-side-inner")) {
+      render();
+      return;
+    }
+    filterId = "all";
+    nextMark = "";
+    await fetchPage({ append: false });
+  }
+
+  function onSymbol(symbol) {
+    const st = global.SidePanel?.getState?.();
+    if (st?.tab === "news" && st?.open) {
+      refresh({ force: true });
+    } else {
+      lastKey = "";
+      items = [];
+      nextMark = "";
+      if (root && !loading) {
+        const code = codeOf(symbol);
+        renderEmpty(code ? "打开资讯标签查看消息" : "请选择 A 股六位代码");
+      }
+    }
+  }
+
+  function mount(el, opts = {}) {
+    root = el || document.getElementById("newsSideRoot");
+    if (typeof opts.getSymbol === "function") getSymbol = opts.getSymbol;
+    if (root && !root.dataset.mounted) {
+      root.dataset.mounted = "1";
+      renderEmpty("打开资讯标签查看消息");
+      root.addEventListener("click", (e) => {
+        const filterBtn = e.target?.closest?.("[data-news-filter]");
+        if (filterBtn && root.contains(filterBtn)) {
+          const id = filterBtn.getAttribute("data-news-filter");
+          if (id && id !== filterId) {
+            filterId = id;
+            render();
+          }
+          return;
+        }
+        const moreBtn = e.target?.closest?.("[data-news-more]");
+        if (moreBtn && root.contains(moreBtn) && !loadingMore && nextMark) {
+          fetchPage({ mark: nextMark, append: true });
+        }
+      });
+    }
+  }
+
+  global.SideNews = {
     mount,
     refresh,
     onSymbol,

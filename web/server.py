@@ -2223,6 +2223,7 @@ TDX_UA = (
 )
 XUANGUBAO_POOL = "https://flash-api.xuangubao.cn/api/pool/detail"
 XUANGUBAO_PLATE_DATA = "https://flash-api.xuangubao.cn/api/plate/data"
+XUANGUBAO_STOCK_MESSAGES = "https://api.xuangubao.com.cn/api/stocks/messages"
 XNGE_ORIGIN = "http://t.xnge.cn"
 # 涨停异动页的行业/概念/历史涨停原因来自 ace.xnge.cn/json/{dm,zt}/...
 # 该 CDN 仅对 Origin=t.xnge.cn 回 CORS；本站中转后浏览器被拦，需同源反代。
@@ -2648,6 +2649,136 @@ def _xuangubao_pool_items(pool_name: str) -> list[Any]:
     if not isinstance(items, list):
         raise ValueError(f"unexpected upstream payload for {pool_name}")
     return items
+
+
+def _xgb_yahoo_symbol(symbol: str) -> str | None:
+    """页面 symbol → 选股宝 Symbol（300508.SZ / 600000.SS）。无效返回 None。"""
+    from cache.providers.kline_fetch import _cn_to_yahoo
+
+    raw = (symbol or "").strip()
+    if not raw:
+        return None
+    # 已是 Yahoo/选股宝形态
+    up = raw.upper()
+    if re.fullmatch(r"\d{6}\.(SS|SZ|BJ)", up):
+        return up
+    code = re.sub(r"\D", "", raw.lower()[2:] if raw.lower().startswith(("sh", "sz", "bj")) else raw)
+    if len(code) != 6:
+        return None
+    yf = _cn_to_yahoo(raw)
+    if not re.fullmatch(r"\d{6}\.(SS|SZ|BJ)", yf):
+        return None
+    return yf
+
+
+def _trim_xgb_stock_message(msg: dict[str, Any], target: str) -> dict[str, Any]:
+    """裁剪单条消息，去掉超长关联股与客户端噪音字段。"""
+    related = msg.get("RelatedStocks") if isinstance(msg.get("RelatedStocks"), list) else []
+    stocks = msg.get("Stocks") if isinstance(msg.get("Stocks"), list) else []
+    subj = msg.get("FromSubject") if isinstance(msg.get("FromSubject"), dict) else {}
+
+    def _stock_row(s: Any) -> dict[str, str] | None:
+        if not isinstance(s, dict):
+            return None
+        sym = str(s.get("Symbol") or "").strip()
+        name = str(s.get("Name") or "").strip()
+        if not sym and not name:
+            return None
+        return {"Name": name, "Symbol": sym}
+
+    related_rows = [r for r in (_stock_row(s) for s in related) if r]
+    stock_rows = [r for r in (_stock_row(s) for s in stocks) if r]
+    has_target = any(r.get("Symbol") == target for r in related_rows) or any(
+        r.get("Symbol") == target for r in stock_rows
+    )
+
+    return {
+        "Id": str(msg.get("Id") or ""),
+        "Title": str(msg.get("Title") or ""),
+        "Summary": str(msg.get("Summary") or ""),
+        "Source": str(msg.get("Source") or ""),
+        "Style": int(msg.get("Style") or 0),
+        "Labels": msg.get("Labels") if isinstance(msg.get("Labels"), list) else None,
+        "CreatedAt": int(msg.get("CreatedAt") or 0),
+        "UpdatedAt": int(msg.get("UpdatedAt") or 0),
+        "Url": str(msg.get("Url") or ""),
+        "ShareUrl": str(msg.get("ShareUrl") or ""),
+        "ShareUrl2": str(msg.get("ShareUrl2") or ""),
+        "OriginalUrl": str(msg.get("OriginalUrl") or ""),
+        "IsPremium": bool(msg.get("IsPremium")),
+        "LikeCount": int(msg.get("LikeCount") or 0),
+        "FromSubject": {
+            "Id": str(subj.get("Id") or ""),
+            "Title": str(subj.get("Title") or ""),
+        },
+        "related_count": len(related_rows),
+        "RelatedStocks": related_rows[:12],
+        "Stocks": stock_rows[:12],
+        "has_target": has_target,
+    }
+
+
+@app.get("/api/xgb/stocks/messages")
+def xgb_stocks_messages(
+    symbol: str = Query(..., description="如 sz300508 / 300508 / 300508.SZ"),
+    limit: int = Query(20, ge=1, le=50),
+    mark: str | None = Query(None, description="上一页 NextMark，翻页用"),
+) -> JSONResponse:
+    """代理选股宝个股消息流（资讯/公告/异动）。"""
+    yahoo = _xgb_yahoo_symbol(symbol)
+    if not yahoo:
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "请提供 A 股六位代码（如 sz300508）",
+                "error_code": "bad_symbol",
+            },
+            status_code=400,
+        )
+    # 选股宝消息流样本以沪深为主；北交所仍转发，空列表由前端展示
+    params: dict[str, str] = {"Symbol": yahoo, "Limit": str(limit)}
+    if mark is not None and str(mark).strip() != "":
+        params["Mark"] = str(mark).strip()
+    url = f"{XUANGUBAO_STOCK_MESSAGES}?{urllib.parse.urlencode(params)}"
+    try:
+        raw = _http_get_text(
+            url,
+            timeout=20.0,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; meostock-xgb/0.1)",
+                "Accept": "application/json",
+                "Referer": "https://xuangubao.cn/",
+            },
+        )
+        payload = json.loads(raw)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError) as e:
+        return JSONResponse(
+            {"ok": False, "error": str(e), "symbol": symbol, "yahoo_symbol": yahoo},
+            status_code=502,
+        )
+    if not isinstance(payload, dict):
+        return JSONResponse(
+            {"ok": False, "error": "unexpected upstream payload", "yahoo_symbol": yahoo},
+            status_code=502,
+        )
+    messages_raw = payload.get("Messages")
+    if not isinstance(messages_raw, list):
+        messages_raw = []
+    messages = [
+        _trim_xgb_stock_message(m, yahoo) for m in messages_raw if isinstance(m, dict)
+    ]
+    next_mark = payload.get("NextMark")
+    return JSONResponse(
+        {
+            "ok": True,
+            "source": "xuangubao",
+            "symbol": symbol,
+            "yahoo_symbol": yahoo,
+            "messages": messages,
+            "next_mark": "" if next_mark is None else str(next_mark),
+            "total": len(messages),
+        }
+    )
 
 
 @app.get("/api/zt/history/dates")
