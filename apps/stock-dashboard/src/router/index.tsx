@@ -34,6 +34,9 @@ const NewsTimeline = lazy(() =>
 const FupanReview = lazy(() =>
   import('@/pages/FupanReview').then((mod) => ({ default: mod.FupanReview }))
 );
+const LimitUpPool = lazy(() =>
+  import('@/pages/LimitUpPool').then((mod) => ({ default: mod.LimitUpPool }))
+);
 const ZtReason = lazy(() =>
   import('@/pages/ZtReason').then((mod) => ({ default: mod.ZtReason }))
 );
@@ -107,6 +110,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'fupan',
           element: withSuspense(<FupanReview />),
+        },
+        {
+          path: 'limit-up',
+          element: withSuspense(<LimitUpPool />),
         },
         {
           path: 'zt',

@@ -2415,6 +2415,13 @@ def fupan_demo() -> FileResponse:
     return FileResponse(STATIC_DIR / "fupan.html")
 
 
+@app.get("/limit-up", response_model=None)
+@app.get("/limit-up/", response_model=None)
+def limit_up_page() -> FileResponse:
+    """当前涨停池：按题材概念分组，组内按首封时间排序（选股宝 limit_up）。"""
+    return FileResponse(STATIC_DIR / "limit-up.html")
+
+
 @app.get("/xnge", response_model=None)
 @app.get("/xnge/", response_model=None)
 def xnge_hub() -> FileResponse:
