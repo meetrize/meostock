@@ -296,6 +296,47 @@ def load_day(trade_date: str, pool: str) -> dict[str, Any] | None:
     }
 
 
+def load_theme_detail(
+    *,
+    trade_date: str,
+    pool: str,
+    plate_id: str,
+) -> dict[str, Any] | None:
+    """某日某池某题材：题材字段 + 成分股（含原因）。"""
+    init_db()
+    td = "".join(c for c in (trade_date or "") if c.isdigit())
+    pid = str(plate_id or "").strip()
+    if len(td) != 8 or not pid or pool not in ("limit_up", "limit_down"):
+        return None
+    conn = get_conn()
+    with _lock:
+        theme = conn.execute(
+            """
+            SELECT * FROM zt_day_theme
+            WHERE trade_date = ? AND pool = ? AND plate_id = ?
+            """,
+            (td, pool, pid),
+        ).fetchone()
+        if not theme:
+            return None
+        links = conn.execute(
+            """
+            SELECT m.symbol, m.is_primary, s.code, s.name, s.price, s.change_percent,
+                   s.limit_up_days, s.limit_down_days, s.break_times, s.stock_reason,
+                   s.first_limit_ts, s.last_limit_ts
+            FROM zt_day_stock_theme m
+            JOIN zt_day_stock s
+              ON s.trade_date = m.trade_date AND s.pool = m.pool AND s.symbol = m.symbol
+            WHERE m.trade_date = ? AND m.pool = ? AND m.plate_id = ?
+            ORDER BY m.is_primary DESC, s.limit_up_days DESC, s.change_percent DESC
+            """,
+            (td, pool, pid),
+        ).fetchall()
+    d = dict(theme)
+    d["stocks"] = [dict(r) for r in links]
+    return d
+
+
 def load_stock_history(
     *,
     code: str,

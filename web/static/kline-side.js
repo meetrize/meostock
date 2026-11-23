@@ -12,6 +12,7 @@
   const TABS = [
     { id: "ai", title: "AI" },
     { id: "report", title: "AI报告" },
+    { id: "zt", title: "涨停原因" },
     { id: "news", title: "资讯" },
     { id: "f10", title: "F10" },
   ];
@@ -273,6 +274,12 @@
         getSymbol: () => state.symbol,
       });
     } catch (_) {}
+
+    try {
+      global.SideZt?.mount?.(el("ztSideRoot"), {
+        getSymbol: () => state.symbol,
+      });
+    } catch (_) {}
   }
 
   global.SidePanel = {
@@ -283,5 +290,284 @@
     getState: () => ({ ...state }),
     f10Url,
     TABS,
+  };
+})(window);
+
+/**
+ * 涨停原因侧栏：履历 + 题材详情。
+ * API: GET /api/zt/history/stock-panel?code=
+ */
+(function (global) {
+  const esc = (s) =>
+    String(s ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+
+  const fmtDate = (ymd) => {
+    const s = String(ymd || "").replace(/\D/g, "");
+    if (s.length !== 8) return esc(ymd || "—");
+    return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  };
+
+  const fmtPct = (v) => {
+    if (v == null || v === "") return "—";
+    const n = Number(v);
+    if (!Number.isFinite(n)) return esc(v);
+    const sign = n > 0 ? "+" : "";
+    return `${sign}${n.toFixed(2)}%`;
+  };
+
+  const fmtTs = (ts) => {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const ms = n < 1e12 ? n * 1000 : n;
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return "";
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  };
+
+  const poolLabel = (pool) =>
+    pool === "limit_down" ? "跌停" : pool === "limit_up" ? "涨停" : esc(pool || "");
+
+  const poolClass = (pool) =>
+    pool === "limit_down" ? "zt-pool-dn" : "zt-pool-up";
+
+  let root = null;
+  let getSymbol = () => "";
+  let abortCtrl = null;
+  let lastKey = "";
+  let loading = false;
+
+  function codeOf(symbol) {
+    const s = String(symbol || "").trim().toLowerCase();
+    const m = s.match(/^(?:sh|sz|bj)?(\d{6})(?:\.\w+)?$/);
+    return m ? m[1] : "";
+  }
+
+  function setHtml(html) {
+    if (root) root.innerHTML = html;
+  }
+
+  function renderEmpty(msg) {
+    setHtml(`<div class="side-empty">${esc(msg)}</div>`);
+  }
+
+  function renderTheme(t) {
+    const stocks = Array.isArray(t.stocks) ? t.stocks : [];
+    const meta = [
+      t.stock_count != null ? `${t.stock_count} 只` : "",
+      t.limit_up_count != null ? `涨停 ${t.limit_up_count}` : "",
+      t.core_avg_pcp != null ? `核心均涨 ${fmtPct(t.core_avg_pcp)}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    const peers = stocks
+      .slice(0, 12)
+      .map((s) => {
+        const days =
+          s.limit_up_days != null
+            ? `${s.limit_up_days}板`
+            : s.limit_down_days != null
+              ? `跌${s.limit_down_days}`
+              : "";
+        const reason = s.stock_reason
+          ? `<div class="zt-peer-reason">${esc(s.stock_reason)}</div>`
+          : "";
+        return `<div class="zt-peer">
+          <div class="zt-peer-hd">
+            <span class="zt-peer-name">${esc(s.name || s.code || "")}</span>
+            <span class="zt-peer-code">${esc(s.code || "")}</span>
+            <span class="zt-peer-pct">${fmtPct(s.change_percent)}</span>
+            ${days ? `<span class="zt-peer-days">${esc(days)}</span>` : ""}
+            ${s.is_primary ? `<span class="zt-peer-tag">主</span>` : ""}
+          </div>
+          ${reason}
+        </div>`;
+      })
+      .join("");
+
+    return `<article class="zt-theme-card">
+      <div class="zt-theme-hd">
+        <span class="zt-badge ${poolClass(t.pool)}">${poolLabel(t.pool)}</span>
+        <span class="zt-theme-date">${fmtDate(t.trade_date)}</span>
+        <span class="zt-theme-name">${esc(t.plate_name || "题材")}</span>
+      </div>
+      ${meta ? `<div class="zt-theme-meta">${esc(meta)}</div>` : ""}
+      ${
+        t.plate_reason
+          ? `<div class="zt-theme-reason">${esc(t.plate_reason)}</div>`
+          : ""
+      }
+      ${
+        peers
+          ? `<div class="zt-peers">${peers}${
+              stocks.length > 12
+                ? `<div class="zt-more">另有 ${stocks.length - 12} 只…</div>`
+                : ""
+            }</div>`
+          : ""
+      }
+    </article>`;
+  }
+
+  function renderItem(it) {
+    const days =
+      it.pool === "limit_down"
+        ? it.limit_down_days != null
+          ? `连跌 ${it.limit_down_days}`
+          : ""
+        : it.limit_up_days != null
+          ? `${it.limit_up_days} 板`
+          : "";
+    const times = [
+      fmtTs(it.first_limit_ts) ? `首封 ${fmtTs(it.first_limit_ts)}` : "",
+      fmtTs(it.last_limit_ts) ? `末封 ${fmtTs(it.last_limit_ts)}` : "",
+      it.break_times != null && Number(it.break_times) > 0
+        ? `开板 ${it.break_times}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    const plateRow =
+      it.plate_name || it.plate_reason
+        ? `<div class="zt-hist-plate-row">
+            <span class="zt-hist-plate">${esc(it.plate_name || "题材")}</span>${
+              it.plate_reason
+                ? `<span class="zt-hist-plate-reason" title="${esc(
+                    it.plate_reason
+                  )}">${esc(it.plate_reason)}</span>`
+                : ""
+            }
+          </div>`
+        : "";
+
+    return `<article class="zt-hist-card">
+      <div class="zt-hist-hd">
+        <span class="zt-badge ${poolClass(it.pool)}">${poolLabel(it.pool)}</span>
+        <span class="zt-hist-date">${fmtDate(it.trade_date)}</span>
+        <span class="zt-hist-pct">${fmtPct(it.change_percent)}</span>
+        ${days ? `<span class="zt-hist-days">${esc(days)}</span>` : ""}
+      </div>
+      ${plateRow}
+      ${
+        it.stock_reason
+          ? `<div class="zt-hist-reason">${esc(it.stock_reason)}</div>`
+          : ""
+      }
+      ${times ? `<div class="zt-hist-meta">${esc(times)}</div>` : ""}
+    </article>`;
+  }
+
+  function render(data) {
+    const items = Array.isArray(data.items) ? data.items : [];
+    const themes = Array.isArray(data.themes) ? data.themes : [];
+    const title = [data.name, data.code].filter(Boolean).join(" · ") || "涨停原因";
+
+    if (!items.length && !themes.length) {
+      renderEmpty(`暂无涨跌停记录（${title}）`);
+      return;
+    }
+
+    const histHtml = `<section class="zt-sec">
+      <div class="zt-sec-hd">涨跌停历史 <span>${items.length}</span></div>
+      <div class="zt-sec-bd">${
+        items.length
+          ? items.map(renderItem).join("")
+          : `<div class="zt-muted">暂无历史记录</div>`
+      }</div>
+    </section>`;
+
+    const themeHtml = themes.length
+      ? `<section class="zt-sec">
+          <div class="zt-sec-hd">关联题材 <span>${themes.length}</span></div>
+          <div class="zt-sec-bd">${themes.map(renderTheme).join("")}</div>
+        </section>`
+      : "";
+
+    setHtml(`<div class="zt-side-inner">
+      <div class="zt-side-summary">${esc(title)} · 含当日快照</div>
+      ${histHtml}
+      ${themeHtml}
+    </div>`);
+  }
+
+  async function refresh({ force = false } = {}) {
+    if (!root) return;
+    const symbol = getSymbol() || global.SidePanel?.getState?.()?.symbol || "";
+    const code = codeOf(symbol);
+    if (!code) {
+      lastKey = "";
+      renderEmpty("请选择 A 股六位代码");
+      return;
+    }
+    const key = code;
+    if (!force && key === lastKey && root.querySelector(".zt-side-inner")) return;
+
+    if (abortCtrl) {
+      try {
+        abortCtrl.abort();
+      } catch (_) {}
+    }
+    abortCtrl = new AbortController();
+    loading = true;
+    setHtml(`<div class="side-empty">加载涨停原因…</div>`);
+
+    try {
+      const url = `/api/zt/history/stock-panel?code=${encodeURIComponent(
+        code
+      )}&limit=90&theme_limit=8`;
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: abortCtrl.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        renderEmpty(data?.error || `加载失败（HTTP ${res.status}）`);
+        lastKey = "";
+        return;
+      }
+      lastKey = key;
+      render(data);
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+      renderEmpty(e?.message || "加载失败");
+      lastKey = "";
+    } finally {
+      loading = false;
+    }
+  }
+
+  function onSymbol(symbol) {
+    const st = global.SidePanel?.getState?.();
+    if (st?.tab === "zt" && st?.open) {
+      refresh({ force: true });
+    } else {
+      lastKey = "";
+      if (root && !loading) {
+        const code = codeOf(symbol);
+        renderEmpty(code ? "打开涨停标签查看原因" : "请选择 A 股六位代码");
+      }
+    }
+  }
+
+  function mount(el, opts = {}) {
+    root = el || document.getElementById("ztSideRoot");
+    if (typeof opts.getSymbol === "function") getSymbol = opts.getSymbol;
+    if (root && !root.dataset.mounted) {
+      root.dataset.mounted = "1";
+      renderEmpty("打开涨停标签查看原因");
+    }
+  }
+
+  global.SideZt = {
+    mount,
+    refresh,
+    onSymbol,
   };
 })(window);

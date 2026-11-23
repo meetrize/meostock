@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>K线演示 · stock-sdk + KLineChart</title>
   <script src="/static/klinecharts.min.js"></script>
-  <link rel="stylesheet" href="/static/kline-side.css?v=20261116e" />
+  <link rel="stylesheet" href="/static/kline-side.css?v=20261123d" />
   <style>
     :root,
     html[data-theme="light"] {
@@ -1237,6 +1237,12 @@
             </div>
           </div>
 
+          <div class="side-tab-pane" data-tab="zt" id="sideTabZt">
+            <div class="zt-side" id="ztSideRoot">
+              <div class="side-empty" id="ztSideEmpty">切换到涨停标签后加载…</div>
+            </div>
+          </div>
+
           <div class="side-tab-pane" data-tab="f10" id="sideTabF10">
             <div class="f10-wrap">
               <div class="f10-toolbar">
@@ -1255,6 +1261,10 @@
           <button type="button" class="side-rail-btn" data-tab="report" title="AI报告">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm1 7V3.5L19.5 9H15zM8 13h8v2H8v-2zm0 4h8v2H8v-2zm0-8h5v2H8V9z"/></svg>
             <span>报告</span>
+          </button>
+          <button type="button" class="side-rail-btn" data-tab="zt" title="涨停原因">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.2 6.6H21l-5.4 3.9 2.1 6.5L12 15.8 6.3 19l2.1-6.5L3 8.6h6.8L12 2z"/></svg>
+            <span>涨停</span>
           </button>
           <button type="button" class="side-rail-btn" data-tab="news" title="资讯">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16v2H4V6zm0 5h16v2H4v-2zm0 5h10v2H4v-2z"/></svg>
@@ -1548,7 +1558,7 @@
   </div>
 
   <script src="/static/marked.min.js"></script>
-  <script src="/static/kline-side.js?v=20261123a"></script>
+  <script src="/static/kline-side.js?v=20261123d"></script>
   <script src="/static/kline-ai.js?v=20261116d"></script>
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
@@ -6769,12 +6779,14 @@
           try {
             window.KlineAI?.setSymbol(currentSymbol, { period: currentPeriod });
             window.KlineAI?.onTab(tabId);
+            if (tabId === "zt") window.SideZt?.refresh?.();
           } catch (_) {}
         },
         onSymbolChange: (symbol) => {
           try {
             window.KlineAI?.setSymbol(symbol, { period: currentPeriod });
             window.KlineAI?.refreshReports?.();
+            window.SideZt?.onSymbol?.(symbol);
           } catch (_) {}
         },
       });

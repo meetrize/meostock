@@ -66,3 +66,51 @@ def list_stock_history(
         "total": len(rows),
         "items": rows,
     }
+
+
+def get_stock_panel(
+    code: str,
+    *,
+    limit: int = 90,
+    theme_limit: int = 8,
+) -> dict[str, Any]:
+    """K 线侧栏：单票涨跌停履历 + 关联题材详情（含成分）。"""
+    code6 = store.symbol_to_code(code)
+    if not code6:
+        return {"ok": False, "error": "code required"}
+    rows = store.load_stock_history(code=code6, pool=None, limit=limit)
+
+    # 按最近出现顺序收集题材，展开详情
+    themes: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for r in rows:
+        pid = r.get("plate_id")
+        if not pid:
+            continue
+        key = (str(r.get("trade_date") or ""), str(r.get("pool") or ""), str(pid))
+        if key in seen:
+            continue
+        seen.add(key)
+        detail = store.load_theme_detail(
+            trade_date=key[0], pool=key[1], plate_id=key[2]
+        )
+        if detail:
+            themes.append(detail)
+        if len(themes) >= max(1, min(int(theme_limit or 8), 20)):
+            break
+
+    name = ""
+    for r in rows:
+        if r.get("name"):
+            name = str(r["name"])
+            break
+
+    return {
+        "ok": True,
+        "code": code6,
+        "name": name,
+        "total": len(rows),
+        "items": rows,
+        "themes": themes,
+        "theme_count": len(themes),
+    }

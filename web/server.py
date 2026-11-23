@@ -2696,6 +2696,22 @@ def zt_history_stock(
         return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
 
+@app.get("/api/zt/history/stock-panel")
+def zt_history_stock_panel(
+    code: str = Query(..., description="6 位代码或带后缀 symbol"),
+    limit: int = Query(90, ge=1, le=365),
+    theme_limit: int = Query(8, ge=1, le=20),
+) -> JSONResponse:
+    """K 线侧栏：涨跌停履历 + 题材详情（成分/原因）。"""
+    try:
+        from zt_history.service import get_stock_panel
+
+        data = get_stock_panel(code, limit=limit, theme_limit=theme_limit)
+        return JSONResponse(data, status_code=200 if data.get("ok") else 400)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 @app.post("/api/zt/history/capture")
 def zt_history_capture(
     date: str | None = Query(None, description="YYYYMMDD；默认最近交易日"),
