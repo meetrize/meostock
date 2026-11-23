@@ -6574,6 +6574,33 @@
         }
       }
     });
+    // 图区滚轮：无修饰键 → 翻下一只（↑↓ 同向）；Cmd/Ctrl+滚轮仍交给 klinecharts 缩放
+    (function bindChartNavWheel() {
+      const wrap = document.getElementById("chartWrap");
+      if (!wrap) return;
+      let cooldownUntil = 0;
+      let acc = 0;
+      wrap.addEventListener(
+        "wheel",
+        (e) => {
+          if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+          if (!navId || navSymbols.length < 2) return;
+          // 仅拦截纵向为主的滚轮；横向滑动留给触控板其它用途
+          if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          acc += e.deltaY;
+          const now = Date.now();
+          if (now < cooldownUntil) return;
+          if (Math.abs(acc) < 36) return;
+          const delta = acc > 0 ? 1 : -1;
+          acc = 0;
+          cooldownUntil = now + 260;
+          navigateNavSymbol(delta);
+        },
+        { capture: true, passive: false }
+      );
+    })();
     window.addEventListener("resize", () => {
       const wrap = document.getElementById("extMenuWrap");
       if (wrap && wrap.classList.contains("open")) positionExtDropdown();
