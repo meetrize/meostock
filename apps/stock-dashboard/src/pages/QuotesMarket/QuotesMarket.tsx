@@ -59,7 +59,7 @@ import {
   getChangeColorClass,
   normalizeStockCode,
 } from '@/utils/format';
-import { openMultipanel } from '@/utils/multipanel';
+import { openKlineTool, openMultipanel } from '@/utils/multipanel';
 import {
   fetchTushareCatalog,
   fetchTushareMarket,
@@ -2109,8 +2109,20 @@ export function QuotesMarket() {
       toast.info('当前行无可打开的 K 线标的');
       return;
     }
-    const url = `/?symbol=${encodeURIComponent(sym)}&period=1d`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    const codes = sorted
+      .map((r) => String(r.klineSymbol || r.code || ''))
+      .filter(Boolean);
+    let index = codes.indexOf(sym);
+    if (index < 0) {
+      index = sorted.findIndex(
+        (r) =>
+          String(r.klineSymbol || '') === sym || String(r.code || '') === sym
+      );
+    }
+    openKlineTool(sym, '1d', {
+      symbols: codes,
+      index: index >= 0 ? index : 0,
+    });
   };
 
   const openNews = (e: React.MouseEvent, row: TopicRow) => {

@@ -2,11 +2,29 @@
  * 打开多面板 / 单标的 K 线工具
  */
 
-/** 打开根路径 K 线工具（与行情页、详情页一致：/?symbol=&period=1d） */
-export function openKlineTool(symbol: string, period = '1d'): void {
+import { writeKlineNavList } from './klineNav';
+
+export type OpenKlineToolOptions = {
+  /** 当前筛选排序后的完整列表；长度 ≥ 2 时写入 localStorage 并附带 ?nav= */
+  symbols?: string[];
+  /** 当前标的在 symbols 中的下标 */
+  index?: number;
+};
+
+/** 打开根路径 K 线工具（与行情页、详情页一致：/?symbol=&period=1d[&nav=]） */
+export function openKlineTool(
+  symbol: string,
+  period = '1d',
+  options?: OpenKlineToolOptions
+): void {
   const sym = String(symbol || '').trim();
   if (!sym) return;
   const qs = new URLSearchParams({ symbol: sym, period });
+  const list = options?.symbols;
+  if (list && list.length >= 2) {
+    const navId = writeKlineNavList(list, options?.index ?? 0);
+    if (navId) qs.set('nav', navId);
+  }
   window.open(`/?${qs.toString()}`, '_blank', 'noopener,noreferrer');
 }
 
