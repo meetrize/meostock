@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>K线演示 · stock-sdk + KLineChart</title>
   <script src="/static/klinecharts.min.js"></script>
-  <link rel="stylesheet" href="/static/kline-side.css?v=20261123d" />
+  <link rel="stylesheet" href="/static/kline-side.css?v=20261123e" />
   <style>
     :root,
     html[data-theme="light"] {
@@ -1558,7 +1558,7 @@
   </div>
 
   <script src="/static/marked.min.js"></script>
-  <script src="/static/kline-side.js?v=20261123d"></script>
+  <script src="/static/kline-side.js?v=20261123e"></script>
   <script src="/static/kline-ai.js?v=20261116d"></script>
   <script type="module">
     import { StockSDK, normalizeSymbol } from "/static/stock-sdk.mjs";
@@ -6441,6 +6441,15 @@
         if (navId) prefetchNavNeighbors();
       }
     }
+
+    /** 侧栏等入口：同页切换标的 */
+    window.openKlineSymbol = function (sym, opts = {}) {
+      const code = String(sym || "").trim();
+      if (!code) return;
+      const input = document.getElementById("symbol");
+      if (input) input.value = code;
+      return load({ pushUrl: opts.pushUrl !== false, ...opts });
+    };
 
     function bootstrapFromUrl() {
       const { symbol, period, date, nav } = readUrlParams();

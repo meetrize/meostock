@@ -378,10 +378,23 @@
         const reason = s.stock_reason
           ? `<div class="zt-peer-reason">${esc(s.stock_reason)}</div>`
           : "";
+        const sym = codeOf(s.symbol || s.code) || String(s.code || "").trim();
+        const nameText = esc(s.name || s.code || "");
+        const codeText = esc(s.code || sym || "");
+        const nameEl = sym
+          ? `<a class="zt-peer-name zt-peer-link" href="/?symbol=${encodeURIComponent(
+              sym
+            )}&period=1d" data-zt-symbol="${esc(sym)}" title="打开 K 线">${nameText}</a>`
+          : `<span class="zt-peer-name">${nameText}</span>`;
+        const codeEl = sym
+          ? `<a class="zt-peer-code zt-peer-link" href="/?symbol=${encodeURIComponent(
+              sym
+            )}&period=1d" data-zt-symbol="${esc(sym)}" title="打开 K 线">${codeText}</a>`
+          : `<span class="zt-peer-code">${codeText}</span>`;
         return `<div class="zt-peer">
           <div class="zt-peer-hd">
-            <span class="zt-peer-name">${esc(s.name || s.code || "")}</span>
-            <span class="zt-peer-code">${esc(s.code || "")}</span>
+            ${nameEl}
+            ${codeEl}
             <span class="zt-peer-pct">${fmtPct(s.change_percent)}</span>
             ${days ? `<span class="zt-peer-days">${esc(days)}</span>` : ""}
             ${s.is_primary ? `<span class="zt-peer-tag">主</span>` : ""}
@@ -556,12 +569,34 @@
     }
   }
 
+  function openPeerKline(sym, e) {
+    const code = codeOf(sym) || String(sym || "").replace(/\D/g, "").slice(-6);
+    if (!code) return;
+    if (typeof global.openKlineSymbol === "function") {
+      e?.preventDefault?.();
+      try {
+        global.openKlineSymbol(code, { pushUrl: true });
+      } catch (_) {
+        location.href = `/?symbol=${encodeURIComponent(code)}&period=1d`;
+      }
+      return;
+    }
+    // 无同页加载钩子时走默认链接跳转
+  }
+
   function mount(el, opts = {}) {
     root = el || document.getElementById("ztSideRoot");
     if (typeof opts.getSymbol === "function") getSymbol = opts.getSymbol;
     if (root && !root.dataset.mounted) {
       root.dataset.mounted = "1";
       renderEmpty("打开涨停标签查看原因");
+      root.addEventListener("click", (e) => {
+        const a = e.target?.closest?.("a[data-zt-symbol]");
+        if (!a || !root.contains(a)) return;
+        // 保留 Cmd/Ctrl/中键新窗口
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+        openPeerKline(a.getAttribute("data-zt-symbol"), e);
+      });
     }
   }
 
