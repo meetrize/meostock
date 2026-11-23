@@ -2222,6 +2222,7 @@ TDX_UA = (
     "(KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36 TdxW"
 )
 XUANGUBAO_POOL = "https://flash-api.xuangubao.cn/api/pool/detail"
+XUANGUBAO_PLATE_DATA = "https://flash-api.xuangubao.cn/api/plate/data"
 XNGE_ORIGIN = "http://t.xnge.cn"
 # 涨停异动页的行业/概念/历史涨停原因来自 ace.xnge.cn/json/{dm,zt}/...
 # 该 CDN 仅对 Origin=t.xnge.cn 回 CORS；本站中转后浏览器被拦，需同源反代。
@@ -2572,6 +2573,64 @@ def zt_xuangubao_pool(
             status_code=400,
         )
     return _xuangubao_pool(key)
+
+
+@app.get("/api/zt/plate-data")
+def zt_plate_data(
+    plates: str = Query(..., description="题材 plate_id，逗号分隔，如 26346142,123"),
+    fields: str = Query(
+        "core_avg_pcp,plate_name,rise_count,fall_count,stay_count,limit_up_count",
+        description="选股宝 plate/data 字段列表",
+    ),
+) -> JSONResponse:
+    """代理选股宝题材概况（涨跌幅/上涨下跌平盘家数），同源 flash-api /api/plate/data。"""
+    ids = [p.strip() for p in (plates or "").split(",") if p.strip().isdigit()]
+    if not ids:
+        return JSONResponse({"ok": False, "error": "plates 须为数字 id"}, status_code=400)
+    # 限制批量，避免滥用
+    ids = ids[:40]
+    field_list = [f.strip() for f in (fields or "").split(",") if f.strip()]
+    if not field_list:
+        field_list = [
+            "core_avg_pcp",
+            "plate_name",
+            "rise_count",
+            "fall_count",
+            "stay_count",
+            "limit_up_count",
+        ]
+    url = (
+        f"{XUANGUBAO_PLATE_DATA}?"
+        + urllib.parse.urlencode(
+            {"plates": ",".join(ids), "fields": ",".join(field_list)}
+        )
+    )
+    try:
+        raw = _http_get_text(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; mootdx-plate/0.1)",
+                "Accept": "application/json",
+                "Referer": "https://xuangutong.com.cn/",
+            },
+        )
+        payload = json.loads(raw)
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, dict):
+        return JSONResponse(
+            {"ok": False, "error": "unexpected upstream payload", "upstream": payload},
+            status_code=502,
+        )
+    return JSONResponse(
+        {
+            "ok": True,
+            "source": "xuangubao",
+            "plates": ids,
+            "data": data,
+        }
+    )
 
 
 def _xuangubao_pool_items(pool_name: str) -> list[Any]:

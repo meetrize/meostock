@@ -243,6 +243,7 @@
 | `web/server.py` → `XUANGUBAO_POOL`、`_xuangubao_pool_items` | 上游拉取 |
 | `GET /api/zt/limit-up` | 涨停池代理（兼容） |
 | `GET /api/zt/pool?pool=` | 同系列池代理 |
+| `GET /api/zt/plate-data?plates=&fields=` | 题材概况（`core_avg_pcp` / 涨跌平家数），代理 `flash-api …/api/plate/data` |
 | `GET /api/zt/limit-pool` | `up` / `down` / `both` 或具体 pool_name |
 | `GET /limit-up` 等 · `web/static/xgb-pool.html` | 概念分组表格页（多池共用） |
 | `GET /dashboard/limit-up` 等 | 看板嵌入同上 |

@@ -66,7 +66,7 @@
     .toc .n { color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
     .group {
       background: var(--panel); border: 1px solid var(--line);
-      border-radius: 8px; margin-bottom: 12px; overflow: hidden;
+      border-radius: 4px; margin-bottom: 2px; overflow: hidden;
     }
     .group-hd {
       display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline;
@@ -86,11 +86,33 @@
       margin: 0; font-size: 14px; font-weight: 650;
       display: inline; flex: 1 1 auto; min-width: 0;
     }
+    .group-hd a.group-name-link {
+      color: inherit; text-decoration: none;
+    }
+    .group-hd a.group-name-link:hover {
+      color: var(--blue); text-decoration: underline;
+    }
     .group-hd .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
     .group-hd .plate-reason {
       color: var(--orange); font-size: 12px; font-weight: 400;
       margin-left: 6px;
     }
+    .group-hd .plate-stats {
+      display: inline-flex; flex-wrap: wrap; gap: 4px 10px;
+      align-items: baseline; margin-left: 8px;
+      font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums;
+    }
+    .group-hd .plate-stats .pcp.up { color: var(--red); font-weight: 650; }
+    .group-hd .plate-stats .pcp.down { color: var(--green); font-weight: 650; }
+    .group-hd .plate-stats .pcp.flat { color: var(--muted); }
+    .group-hd .plate-stats .rise { color: var(--red); }
+    .group-hd .plate-stats .fall { color: var(--green); }
+    .group-hd .plate-stats .stay { color: var(--muted); }
+    .group-hd .plate-stats a.theme-link {
+      color: var(--blue); text-decoration: none; font-size: 11px;
+    }
+    .group-hd .plate-stats a.theme-link:hover { text-decoration: underline; }
+    .group-hd .plate-stats .stale { opacity: .55; }
     .scroll {
       overflow-x: auto;
       overflow-y: visible;
@@ -234,8 +256,7 @@
     <div class="toolbar">
       <button id="btnRefresh" type="button">刷新</button>
       <button id="btnCols" type="button" title="自定义显示哪些列">列显隐</button>
-      <button id="btnCollapseAll" type="button" title="折叠全部概念组">全部折叠</button>
-      <button id="btnExpandAll" type="button" title="展开全部概念组">全部展开</button>
+      <button id="btnCollapseToggle" type="button" title="折叠/展开全部概念组">全部折叠</button>
       <label class="pill muted" title="开启后每只股票只归入第一个关联概念">
         <input id="chkPrimary" type="checkbox" style="margin:0" />
         仅主概念
@@ -856,6 +877,17 @@
     function buildGroups(rows, primaryOnly) {
       const groups = new Map();
       const plateReasonMap = new Map();
+      const plateIdMap = new Map();
+
+      function rememberPlate(p) {
+        if (!p || !p.plate_name) return;
+        if (p.plate_reason && !plateReasonMap.has(p.plate_name)) {
+          plateReasonMap.set(p.plate_name, p.plate_reason);
+        }
+        if (p.plate_id != null && p.plate_id !== '' && !plateIdMap.has(p.plate_name)) {
+          plateIdMap.set(p.plate_name, String(p.plate_id));
+        }
+      }
 
       for (const item of rows) {
         const plates = platesOf(item);
@@ -864,12 +896,10 @@
           names = ['其他'];
         } else if (primaryOnly) {
           names = [plates[0].plate_name];
-          if (plates[0].plate_reason) plateReasonMap.set(plates[0].plate_name, plates[0].plate_reason);
+          rememberPlate(plates[0]);
         } else {
           names = plates.map((p) => {
-            if (p.plate_reason && !plateReasonMap.has(p.plate_name)) {
-              plateReasonMap.set(p.plate_name, p.plate_reason);
-            }
+            rememberPlate(p);
             return p.plate_name;
           });
         }
@@ -887,7 +917,13 @@
           if (!t) return m;
           return m === 0 ? t : Math.min(m, t);
         }, 0);
-        return { name, list: sorted, earliest, reason: plateReasonMap.get(name) || '' };
+        return {
+          name,
+          list: sorted,
+          earliest,
+          reason: plateReasonMap.get(name) || '',
+          plateId: plateIdMap.get(name) || '',
+        };
       });
 
       ordered.sort((a, b) => {
@@ -1071,12 +1107,29 @@
           ? fmtTime(Math.min(...firstTimes)) + ' → ' + fmtTime(Math.max(...firstTimes))
           : '';
         const isCollapsed = collapsedGroups.has(g.name);
+        const plateAttr = g.plateId ? ' data-plate-id="' + esc(g.plateId) + '"' : '';
+        const themeUrl = g.plateId
+          ? 'https://xuangutong.com.cn/theme/' + encodeURIComponent(g.plateId)
+          : '';
+        const nameHtml = themeUrl
+          ? '<a class="group-name-link" href="' + themeUrl + '" target="_blank" rel="noopener" ' +
+              'onclick="event.stopPropagation()" title="打开选股宝主题页">' + esc(g.name) + '</a>'
+          : esc(g.name);
+        const statsHtml = g.plateId
+          ? '<span class="plate-stats" data-plate-stats="' + esc(g.plateId) + '">' +
+              '<span class="pcp flat">--</span>' +
+              '<span class="rise">涨 --</span>' +
+              '<span class="fall">跌 --</span>' +
+              '<span class="stay">平 --</span>' +
+            '</span>'
+          : '';
         return (
           '<section class="group' + (isCollapsed ? ' collapsed' : '') + '" id="' + groupId(g.name, i) +
-            '" data-group-name="' + esc(g.name) + '">' +
+            '" data-group-name="' + esc(g.name) + '"' + plateAttr + '>' +
             '<div class="group-hd" data-group-toggle="1" title="点击折叠/展开">' +
               '<span class="caret">▼</span>' +
-              '<h2>' + esc(g.name) +
+              '<h2>' + nameHtml +
+                statsHtml +
                 (g.reason ? '<span class="plate-reason">' + esc(g.reason) + '</span>' : '') +
               '</h2>' +
               '<span class="meta">' + g.list.length + ' 只' +
@@ -1090,6 +1143,7 @@
       }).join('') || '<div class="empty">暂无涨停数据</div>';
 
       updateCollapseButtons();
+      refreshPlateStats();
       // 显隐/改序/排序后统一各组列宽
       requestAnimationFrame(() => {
         syncColumnWidths();
@@ -1097,13 +1151,91 @@
       });
     }
 
+    const PLATE_FIELDS = 'core_avg_pcp,plate_name,rise_count,fall_count,stay_count,limit_up_count';
+    const PLATE_POLL_MS = 8000;
+    let platePollTimer = null;
+    let plateFetchGen = 0;
+
+    function fmtPlatePcp(x) {
+      if (x == null || Number.isNaN(Number(x))) return { text: '--', cls: 'flat' };
+      const v = Number(x) * (Math.abs(Number(x)) < 1.5 ? 100 : 1);
+      const text = (v > 0 ? '+' : '') + v.toFixed(2) + '%';
+      const cls = v > 0 ? 'up' : (v < 0 ? 'down' : 'flat');
+      return { text, cls };
+    }
+
+    function applyPlateStats(dataMap) {
+      document.querySelectorAll('#root [data-plate-stats]').forEach((el) => {
+        const id = el.getAttribute('data-plate-stats');
+        const row = dataMap && dataMap[id];
+        el.classList.remove('stale');
+        if (!row) {
+          el.classList.add('stale');
+          return;
+        }
+        const pcp = fmtPlatePcp(row.core_avg_pcp);
+        const rise = row.rise_count != null ? String(row.rise_count) : '--';
+        const fall = row.fall_count != null ? String(row.fall_count) : '--';
+        const stay = row.stay_count != null ? String(row.stay_count) : '--';
+        const lim = row.limit_up_count != null ? String(row.limit_up_count) : null;
+        el.innerHTML =
+          '<span class="pcp ' + pcp.cls + '">' + esc(pcp.text) + '</span>' +
+          '<span class="rise">涨 ' + esc(rise) + '</span>' +
+          '<span class="fall">跌 ' + esc(fall) + '</span>' +
+          '<span class="stay">平 ' + esc(stay) + '</span>' +
+          (lim != null ? '<span class="rise">板 ' + esc(lim) + '</span>' : '');
+      });
+    }
+
+    async function refreshPlateStats() {
+      const ids = [...new Set(
+        [...document.querySelectorAll('#root [data-plate-id]')]
+          .map((el) => el.getAttribute('data-plate-id'))
+          .filter(Boolean)
+      )];
+      if (!ids.length) return;
+      const gen = ++plateFetchGen;
+      try {
+        const url = '/api/zt/plate-data?plates=' + encodeURIComponent(ids.join(',')) +
+          '&fields=' + encodeURIComponent(PLATE_FIELDS);
+        const res = await fetch(url, { cache: 'no-store' });
+        const data = await res.json();
+        if (gen !== plateFetchGen) return;
+        if (!data.ok || !data.data) throw new Error(data.error || 'plate-data failed');
+        applyPlateStats(data.data);
+      } catch (_) {
+        if (gen !== plateFetchGen) return;
+        document.querySelectorAll('#root [data-plate-stats]').forEach((el) => {
+          el.classList.add('stale');
+        });
+      }
+    }
+
+    function startPlatePolling() {
+      if (platePollTimer) clearInterval(platePollTimer);
+      platePollTimer = setInterval(() => {
+        if (document.hidden) return;
+        refreshPlateStats();
+      }, PLATE_POLL_MS);
+    }
+
+    function allGroupsCollapsed() {
+      return lastGroupNames.length > 0 &&
+        lastGroupNames.every((name) => collapsedGroups.has(name));
+    }
+
     function updateCollapseButtons() {
+      const btn = document.getElementById('btnCollapseToggle');
+      if (!btn) return;
       const total = lastGroupNames.length;
-      const n = lastGroupNames.filter((n) => collapsedGroups.has(n)).length;
-      const btnAll = document.getElementById('btnCollapseAll');
-      const btnExp = document.getElementById('btnExpandAll');
-      if (btnAll) btnAll.disabled = total === 0 || n === total;
-      if (btnExp) btnExp.disabled = total === 0 || n === 0;
+      btn.disabled = total === 0;
+      if (allGroupsCollapsed()) {
+        btn.textContent = '全部展开';
+        btn.title = '展开全部概念组';
+      } else {
+        btn.textContent = '全部折叠';
+        btn.title = '折叠全部概念组';
+      }
     }
 
     function setGroupCollapsed(name, collapsed) {
@@ -1117,17 +1249,15 @@
       updateCollapseButtons();
     }
 
-    function collapseAllGroups() {
-      for (const name of lastGroupNames) collapsedGroups.add(name);
+    function toggleCollapseAllGroups() {
+      if (allGroupsCollapsed()) {
+        collapsedGroups.clear();
+        document.querySelectorAll('#root .group').forEach((el) => el.classList.remove('collapsed'));
+      } else {
+        for (const name of lastGroupNames) collapsedGroups.add(name);
+        document.querySelectorAll('#root .group').forEach((el) => el.classList.add('collapsed'));
+      }
       saveCollapsed();
-      document.querySelectorAll('#root .group').forEach((el) => el.classList.add('collapsed'));
-      updateCollapseButtons();
-    }
-
-    function expandAllGroups() {
-      collapsedGroups.clear();
-      saveCollapsed();
-      document.querySelectorAll('#root .group').forEach((el) => el.classList.remove('collapsed'));
       updateCollapseButtons();
     }
 
@@ -1253,8 +1383,7 @@
     }
 
     document.getElementById('btnRefresh').addEventListener('click', loadData);
-    document.getElementById('btnCollapseAll').addEventListener('click', collapseAllGroups);
-    document.getElementById('btnExpandAll').addEventListener('click', expandAllGroups);
+    document.getElementById('btnCollapseToggle').addEventListener('click', toggleCollapseAllGroups);
     document.getElementById('chkPrimary').addEventListener('change', () => {
       if (cacheRows.length) render(cacheRows);
     });
@@ -1333,6 +1462,10 @@
 
     renderColPanel();
     bindRootInteractions();
+    startPlatePolling();
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshPlateStats();
+    });
     loadData();
   </script>
 </body>
