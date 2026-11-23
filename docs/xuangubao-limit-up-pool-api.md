@@ -220,11 +220,50 @@
 
 ---
 
-## 5. 与本站其它涨停数据源的边界
+## 5. 日终历史快照（盘后落库）
+
+实时池**不写库**；交易日盘后把「当前涨停 / 当前跌停」页面完整态固化到 `data/quote_cache.db`。
+
+### 5.1 存什么
+
+- 题材：`plate_id` / 名称 / 驱动理由（`plate_reason`）
+- 题材盘后概况：`core_avg_pcp`、涨/跌/平家数、`limit_up_count`（来自 `plate/data`）
+- 个股：选股宝单票**全字段**（`raw_json`）+ 常用查询列（价、涨跌幅、连板、开板次数、首末封、个股原因）
+- 股↔题材多对多归属（与页面一股多概念一致）
+
+表：`zt_day_snap` / `zt_day_theme` / `zt_day_stock` / `zt_day_stock_theme`（见 `web/cache/schema.sql`）。
+
+### 5.2 何时落库
+
+| 项 | 说明 |
+|----|------|
+| 定时任务 | `zt_pool_eod_snapshot`（默认启用） |
+| 时刻 | 工作日 **15:30** 主跑 + **16:00** 补跑（Asia/Shanghai） |
+| 模块 | `web/zt_history/`（`capture` / `store` / `service`） |
+| 幂等 | 同一 `(trade_date, pool)` 覆盖写入，保留最新定稿 |
+| 手动 | `POST /api/zt/history/capture?force=1`（盘中联调可强制） |
+
+### 5.3 历史 API / 页面
+
+| 入口 | 作用 |
+|------|------|
+| `GET /api/zt/history/dates?pool=` | 有快照的交易日 |
+| `GET /api/zt/history/day?date=&pool=` | 一日完整回放（themes + items） |
+| `GET /api/zt/history/stock?code=&pool=` | 单票涨跌停履历 |
+| `POST /api/zt/history/capture` | 手动落库 |
+| `/limit-up?date=YYYYMMDD` | 静态页历史模式 |
+| `/dashboard/zt-history` | 看板：选日期 + 涨停/跌停历史 |
+
+与犀利 ace「个股多日涨停原因」不同：本快照是**全日池截面**（题材结构 + 当日全市场涨/跌停成分），便于复盘与个股「哪天进过涨停池」查询。
+
+---
+
+## 6. 与本站其它涨停数据源的边界
 
 | 数据 | 来源 | 本站入口 |
 |------|------|----------|
 | 今日涨停池 + 原因/时间线 | 本接口 `pool_name=limit_up` | `/api/zt/limit-up`、`/fupan` |
+| 盘后涨跌停池截面 | 本接口日终固化 | `/api/zt/history/*`、`/dashboard/zt-history` |
 | 个股行业 / 概念词条 | `ace.xnge.cn/json/dm/...` | `/zt/{code}` 经 `/ace` 反代 |
 | 个股历史涨停原因列表 | `ace.xnge.cn/json/zt/...` | 同上 |
 | 犀利原站 HTML（需 TdxW UA） | `t.xnge.cn/zt/{code}/` | `/zt/{code}`、`/xnge/...` |
@@ -236,7 +275,7 @@
 
 ---
 
-## 6. 本站代码锚点
+## 7. 本站代码锚点
 
 | 位置 | 作用 |
 |------|------|
@@ -245,17 +284,19 @@
 | `GET /api/zt/pool?pool=` | 同系列池代理 |
 | `GET /api/zt/plate-data?plates=&fields=` | 题材概况（`core_avg_pcp` / 涨跌平家数），代理 `flash-api …/api/plate/data` |
 | `GET /api/zt/limit-pool` | `up` / `down` / `both` 或具体 pool_name |
-| `GET /limit-up` 等 · `web/static/xgb-pool.html` | 概念分组表格页（多池共用） |
-| `GET /dashboard/limit-up` 等 | 看板嵌入同上 |
+| `web/zt_history/` · `GET/POST /api/zt/history/*` | 盘后快照落库与查询 |
+| `scheduled_job` → `zt_pool_eod_snapshot` | 15:30 / 16:00 自动落库 |
+| `GET /limit-up` 等 · `web/static/xgb-pool.html` | 概念分组表格页（多池共用；`?date=` 历史） |
+| `GET /dashboard/limit-up` 等 · `/dashboard/zt-history` | 看板实时池 / 历史回放 |
 | `web/static/fupan.html` | 本地复盘 Demo |
 | `GET /ace/{path}` | ace CDN 反代（行业/历史） |
 | `GET /zt/{code}` | 犀利涨停异动页中转 |
 
 ---
 
-## 7. 使用注意
+## 8. 使用注意
 
-1. **实时性**：盘中列表与封单会变；适合短 TTL 或直拉，不宜长缓存（参见 `docs/local-quote-cache.md` L4）。  
+1. **实时性**：盘中列表与封单会变；适合短 TTL 或直拉，不宜长缓存（参见 `docs/local-quote-cache.md` L4）。日终快照才是可复盘的定稿。  
 2. **单位**：`change_percent` / 换手 / 封单比为**小数**；市值为**元**。  
 3. **`stock_type` / `status`**：上表为样本推断，上游未提供公开枚举文档；接入时做防御性分支。  
 4. **合规与依赖**：第三方公开 flash API，无 SLA；生产路径需失败降级（空池、超时、结构变更）。

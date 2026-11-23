@@ -269,3 +269,75 @@ CREATE TABLE IF NOT EXISTS ai_platform (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_platform_provider ON ai_platform (provider);
+
+-- 选股宝涨跌停盘后日终快照（页面完整态）
+CREATE TABLE IF NOT EXISTS zt_day_snap (
+  trade_date TEXT NOT NULL,
+  pool TEXT NOT NULL,
+  captured_at REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'ok',
+  stock_count INTEGER NOT NULL DEFAULT 0,
+  theme_count INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'xuangubao',
+  error TEXT,
+  PRIMARY KEY (trade_date, pool)
+);
+
+CREATE INDEX IF NOT EXISTS idx_zt_day_snap_pool_date
+  ON zt_day_snap (pool, trade_date DESC);
+
+CREATE TABLE IF NOT EXISTS zt_day_theme (
+  trade_date TEXT NOT NULL,
+  pool TEXT NOT NULL,
+  plate_id TEXT NOT NULL,
+  plate_name TEXT NOT NULL DEFAULT '',
+  plate_reason TEXT NOT NULL DEFAULT '',
+  core_avg_pcp REAL,
+  rise_count INTEGER,
+  fall_count INTEGER,
+  stay_count INTEGER,
+  limit_up_count INTEGER,
+  stock_count INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (trade_date, pool, plate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_zt_day_theme_name
+  ON zt_day_theme (trade_date, pool, plate_name);
+
+CREATE TABLE IF NOT EXISTS zt_day_stock (
+  trade_date TEXT NOT NULL,
+  pool TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  code TEXT NOT NULL DEFAULT '',
+  name TEXT NOT NULL DEFAULT '',
+  price REAL,
+  change_percent REAL,
+  limit_up_days INTEGER,
+  limit_down_days INTEGER,
+  break_times INTEGER,
+  first_limit_ts INTEGER,
+  last_limit_ts INTEGER,
+  stock_reason TEXT NOT NULL DEFAULT '',
+  raw_json TEXT NOT NULL,
+  PRIMARY KEY (trade_date, pool, symbol)
+);
+
+CREATE INDEX IF NOT EXISTS idx_zt_day_stock_code
+  ON zt_day_stock (code, trade_date DESC);
+CREATE INDEX IF NOT EXISTS idx_zt_day_stock_symbol
+  ON zt_day_stock (symbol, trade_date DESC);
+CREATE INDEX IF NOT EXISTS idx_zt_day_stock_pool_date
+  ON zt_day_stock (pool, trade_date DESC);
+
+CREATE TABLE IF NOT EXISTS zt_day_stock_theme (
+  trade_date TEXT NOT NULL,
+  pool TEXT NOT NULL,
+  symbol TEXT NOT NULL,
+  plate_id TEXT NOT NULL,
+  is_primary INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (trade_date, pool, symbol, plate_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_zt_day_stock_theme_plate
+  ON zt_day_stock_theme (trade_date, pool, plate_id);

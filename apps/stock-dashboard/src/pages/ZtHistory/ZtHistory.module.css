@@ -1,0 +1,118 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  width: calc(100% + var(--spacing-xl) * 2);
+  max-width: none;
+  margin: calc(var(--spacing-xl) * -1);
+  height: calc(100vh - var(--header-height));
+  min-width: 0;
+  background: var(--bg-primary);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px var(--spacing-md);
+  border-bottom: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.poolTabs {
+  display: inline-flex;
+  gap: 0;
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.poolBtn,
+.poolActive {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.poolActive {
+  background: var(--bg-primary);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.dateLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+}
+
+.dateLabel input,
+.dateSelect {
+  height: 30px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  padding: 0 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.captureBtn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.captureBtn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.captureBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.liveLink {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.liveLink:hover {
+  text-decoration: underline;
+}
+
+.msg {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.frame {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: #f4f6f8;
+}
+
+.empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}

@@ -9,6 +9,7 @@ const TABS = [
   { to: '/limit-up', label: '当前涨停' },
   { to: '/limit-down', label: '当前跌停' },
   { to: '/yesterday-limit-up', label: '昨天涨停' },
+  { to: '/zt-history', label: '涨跌停历史' },
   { to: '/fupan', label: '复盘' },
 ] as const;
 

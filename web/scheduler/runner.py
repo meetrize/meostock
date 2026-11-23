@@ -34,9 +34,15 @@ def _register_handlers() -> None:
     def cal_handler() -> dict[str, Any]:
         return run_finance_calendar_sync(page_delay=0.12)
 
+    def zt_eod_handler() -> dict[str, Any]:
+        from zt_history.capture import capture_eod
+
+        return capture_eod(force=False)
+
     jobs_mod.register_handler("ths_concept_sync", ths_handler)
     jobs_mod.register_handler("em_board_sync", em_handler)
     jobs_mod.register_handler("finance_calendar_sync", cal_handler)
+    jobs_mod.register_handler("zt_pool_eod_snapshot", zt_eod_handler)
 
 
 def _tick() -> None:

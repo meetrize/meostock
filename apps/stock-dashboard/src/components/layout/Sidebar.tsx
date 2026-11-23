@@ -49,6 +49,7 @@ const navItems: NavItem[] = [
   { path: '/research', label: '研判', icon: <Microscope size={18} /> },
   { path: '/quotes', label: '行情', icon: <CandlestickChart size={18} /> },
   { path: '/limit-up', label: '涨停池', icon: <Flame size={18} /> },
+  { path: '/zt-history', label: '涨跌停历史', icon: <Flame size={18} /> },
   { path: '/fupan', label: '复盘', icon: <Flame size={18} /> },
   { path: '/zt', label: '涨停异动', icon: <Flame size={18} /> },
   { path: '/heatmap', label: '热力图', icon: <Grid3X3 size={18} /> },
@@ -122,7 +123,9 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         ? location.pathname === '/'
         : item.path === '/limit-up'
           ? poolPaths.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))
-          : location.pathname.startsWith(item.path);
+          : item.path === '/zt-history'
+            ? location.pathname === '/zt-history' || location.pathname.startsWith('/zt-history/')
+            : location.pathname.startsWith(item.path);
 
     return (
       <NavLink

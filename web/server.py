@@ -2650,6 +2650,79 @@ def _xuangubao_pool_items(pool_name: str) -> list[Any]:
     return items
 
 
+@app.get("/api/zt/history/dates")
+def zt_history_dates(
+    pool: str | None = Query(None, description="limit_up | limit_down；空=全部"),
+    limit: int = Query(120, ge=1, le=500),
+) -> JSONResponse:
+    """已落库的涨跌停快照交易日列表。"""
+    try:
+        from zt_history.service import list_dates
+
+        return JSONResponse(list_dates(pool, limit=limit))
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/zt/history/day")
+def zt_history_day(
+    date: str = Query(..., description="YYYYMMDD"),
+    pool: str = Query("limit_up", description="limit_up | limit_down"),
+) -> JSONResponse:
+    """某日涨/跌停完整快照（题材 + 个股），供历史回放。"""
+    try:
+        from zt_history.service import get_day
+
+        data = get_day(date, pool)
+        status = 404 if data.get("error") == "not_found" else (200 if data.get("ok") else 400)
+        return JSONResponse(data, status_code=status)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/zt/history/stock")
+def zt_history_stock(
+    code: str = Query(..., description="6 位代码或带后缀 symbol"),
+    pool: str | None = Query(None, description="limit_up | limit_down；空=两侧"),
+    limit: int = Query(60, ge=1, le=365),
+) -> JSONResponse:
+    """单票涨跌停历史时间线。"""
+    try:
+        from zt_history.service import list_stock_history
+
+        data = list_stock_history(code, pool=pool, limit=limit)
+        return JSONResponse(data, status_code=200 if data.get("ok") else 400)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/zt/history/capture")
+def zt_history_capture(
+    date: str | None = Query(None, description="YYYYMMDD；默认最近交易日"),
+    pool: str | None = Query(None, description="limit_up | limit_down；空=两侧"),
+    force: int = Query(1, description="1=非交易日也可强制按当日抓"),
+) -> JSONResponse:
+    """手动抓取并覆盖写入日终快照（联调/补跑）。"""
+    try:
+        from zt_history.capture import capture_eod, capture_pool
+        from zt_history.xgb_client import POOLS
+
+        do_force = bool(int(force))
+        if pool:
+            key = pool.strip().lower()
+            if key not in POOLS:
+                return JSONResponse(
+                    {"ok": False, "error": "pool 须为 limit_up | limit_down"},
+                    status_code=400,
+                )
+            data = capture_pool(key, trade_date=date, force=do_force)
+        else:
+            data = capture_eod(trade_date=date, force=do_force)
+        return JSONResponse(data, status_code=200 if data.get("ok") or data.get("skipped") else 502)
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
 @app.get("/api/zt/limit-pool")
 def zt_limit_pool(
     pool: str = Query("both", description="up | down | both | yesterday_limit_up | stock_chance | …"),

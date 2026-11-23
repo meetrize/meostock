@@ -37,6 +37,9 @@ const FupanReview = lazy(() =>
 const XgbPool = lazy(() =>
   import('@/pages/XgbPool').then((mod) => ({ default: mod.XgbPool }))
 );
+const ZtHistory = lazy(() =>
+  import('@/pages/ZtHistory').then((mod) => ({ default: mod.ZtHistory }))
+);
 const ZtReason = lazy(() =>
   import('@/pages/ZtReason').then((mod) => ({ default: mod.ZtReason }))
 );
@@ -122,6 +125,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'yesterday-limit-up',
           element: withSuspense(<XgbPool />),
+        },
+        {
+          path: 'zt-history',
+          element: withSuspense(<ZtHistory />),
         },
         {
           path: 'zt',

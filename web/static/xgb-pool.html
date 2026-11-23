@@ -123,6 +123,32 @@
     .group-hd .plate-reason.copied {
       color: var(--blue); background: #eef6fc; text-decoration: none;
     }
+    .hist-bar {
+      display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 8px; font-size: 12px; color: var(--muted);
+    }
+    body.history .hist-bar { display: flex; }
+    .hist-bar strong { color: var(--text); }
+    .hist-modal-bg {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      z-index: 40; align-items: center; justify-content: center; padding: 16px;
+    }
+    .hist-modal-bg.open { display: flex; }
+    .hist-modal {
+      background: #fff; border-radius: 10px; max-width: 560px; width: 100%;
+      max-height: 80vh; overflow: auto; box-shadow: 0 12px 40px rgba(0,0,0,.18);
+      padding: 14px 16px 16px;
+    }
+    .hist-modal h3 { margin: 0 0 8px; font-size: 15px; }
+    .hist-modal .close {
+      float: right; border: 0; background: transparent; cursor: pointer;
+      font-size: 18px; line-height: 1; color: var(--muted);
+    }
+    .hist-modal table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .hist-modal th, .hist-modal td {
+      border-bottom: 1px solid var(--line); padding: 6px 4px; text-align: left;
+    }
+    .hist-modal th { color: var(--muted); font-weight: 500; }
     .group-hd .plate-stats {
       display: inline-flex; flex-wrap: wrap; gap: 4px 10px;
       align-items: baseline; margin-left: 8px;
@@ -279,6 +305,11 @@
     <div class="sub" id="pageSub"></div>
     <div class="pool-nav" id="poolNav"></div>
 
+    <div class="hist-bar" id="histBar">
+      <strong>历史快照</strong>
+      <span id="histDateLabel"></span>
+      <span id="histCaptured"></span>
+    </div>
     <div class="toolbar" id="mainToolbar">
       <button id="btnRefresh" type="button">刷新</button>
       <button id="btnCols" type="button" title="自定义显示哪些列">列显隐</button>
@@ -310,8 +341,16 @@
     <p class="note">
       字段说明见 <code>docs/xuangubao-limit-up-pool-api.md</code>。
       同系列：<code>/limit-up</code> · <code>/limit-down</code> · <code>/yesterday-limit-up</code>。
-      点击名称打开 K 线；「涨因」打开 <code>/zt/{code}</code>。
+      点击名称打开 K 线；历史模式下点名称看涨跌停履历；「涨因」打开 <code>/zt/{code}</code>。
     </p>
+  </div>
+
+  <div class="hist-modal-bg" id="histModalBg" role="dialog" aria-modal="true">
+    <div class="hist-modal">
+      <button type="button" class="close" id="histModalClose" title="关闭">×</button>
+      <h3 id="histModalTitle">涨跌停历史</h3>
+      <div id="histModalBody"></div>
+    </div>
   </div>
 
   <script>
@@ -393,17 +432,35 @@
     /** @type {string[]} */
     let lastGroupNames = [];
 
-    const isEmbed = new URLSearchParams(location.search).get('embed') === '1';
+    const pageQs = new URLSearchParams(location.search);
+    const isEmbed = pageQs.get('embed') === '1';
+    const historyDate = (() => {
+      const raw = (pageQs.get('date') || '').replace(/\D/g, '');
+      return raw.length === 8 ? raw : '';
+    })();
+    const historyMode = !!historyDate;
     if (isEmbed) document.body.classList.add('embed');
+    if (historyMode) document.body.classList.add('history');
 
-    document.title = pool.title + ' · 选股宝';
-    document.getElementById('pageTitle').textContent = pool.title;
-    document.getElementById('pageSub').innerHTML =
-      '数据源 <code>/api/zt/pool?pool=' + pool.id + '</code>。按<strong>概念分组</strong>；表头排序（升序→降序→取消）；拖动表头改列序。';
+    /** @type {Record<string, any>} */
+    let historyPlateMap = {};
+
+    document.title = (historyMode ? '历史 · ' : '') + pool.title + ' · 选股宝';
+    document.getElementById('pageTitle').textContent =
+      (historyMode ? '历史' + historyDate + ' · ' : '') + pool.title;
+    document.getElementById('pageSub').innerHTML = historyMode
+      ? '历史快照 <code>/api/zt/history/day?date=' + historyDate + '&amp;pool=' + pool.id + '</code>。'
+      : '数据源 <code>/api/zt/pool?pool=' + pool.id + '</code>。按<strong>概念分组</strong>；表头排序（升序→降序→取消）；拖动表头改列序。';
     document.getElementById('poolNav').innerHTML = Object.values(POOL_META).map((p) =>
-      '<a class="pill' + (p.id === poolId ? ' active' : '') + '" href="' + p.path + '">' + p.title + '</a>'
+      '<a class="pill' + (p.id === poolId ? ' active' : '') + '" href="' + p.path +
+        (historyMode ? '?date=' + historyDate : '') + '">' + p.title + '</a>'
     ).join('') +
+      '<a class="pill" href="/dashboard/zt-history">涨跌停历史</a>' +
       '<a class="pill" href="/dashboard/fupan">复盘</a>';
+    if (historyMode) {
+      document.getElementById('histDateLabel').textContent = historyDate;
+      document.getElementById('btnRefresh').textContent = '重新加载';
+    }
 
     /** @type {null|'all'|'lianban'|'broken'|'maxboard'|'liandie'|'maxdown'} */
     let filterMode = null;
@@ -550,15 +607,75 @@
       window.open('/?symbol=' + encodeURIComponent(code) + '&period=1d', '_blank', 'noopener');
     };
 
+    window.openStockHist = function (sym, name) {
+      const code = codeOf(sym);
+      if (!code) return;
+      const bg = document.getElementById('histModalBg');
+      const title = document.getElementById('histModalTitle');
+      const body = document.getElementById('histModalBody');
+      title.textContent = (name || code) + ' · 涨跌停历史';
+      body.innerHTML = '<div class="muted">加载中…</div>';
+      bg.classList.add('open');
+      const q = 'code=' + encodeURIComponent(code) +
+        (pool.id === 'limit_up' || pool.id === 'limit_down'
+          ? '&pool=' + encodeURIComponent(pool.id)
+          : '');
+      fetch('/api/zt/history/stock?' + q + '&limit=90', { cache: 'no-store' })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.ok) throw new Error(data.error || '加载失败');
+          const rows = data.items || [];
+          if (!rows.length) {
+            body.innerHTML = '<div class="muted">暂无历史快照（需盘后落库后才有）</div>' +
+              '<p><a href="/?symbol=' + encodeURIComponent(code) + '&period=1d" target="_blank">打开 K 线</a></p>';
+            return;
+          }
+          body.innerHTML =
+            '<p style="margin:0 0 8px"><a href="/?symbol=' + encodeURIComponent(code) +
+            '&period=1d" target="_blank">打开 K 线</a></p>' +
+            '<table><thead><tr>' +
+            '<th>日期</th><th>池</th><th>涨跌幅</th><th>连板/连跌</th><th>主因</th><th>题材</th>' +
+            '</tr></thead><tbody>' +
+            rows.map((r) => {
+              const pct = r.change_percent == null ? '--' : fmtPct(r.change_percent);
+              const board = pool.mode === 'down' || r.pool === 'limit_down'
+                ? (r.limit_down_days != null ? r.limit_down_days + '天' : '--')
+                : (r.limit_up_days != null ? r.limit_up_days + '板' : '--');
+              const poolLab = r.pool === 'limit_down' ? '跌停' : '涨停';
+              return '<tr>' +
+                '<td><a href="' + (r.pool === 'limit_down' ? '/limit-down' : '/limit-up') +
+                  '?date=' + esc(r.trade_date) + '" target="_blank">' + esc(r.trade_date) + '</a></td>' +
+                '<td>' + poolLab + '</td>' +
+                '<td>' + esc(pct) + '</td>' +
+                '<td>' + esc(String(board)) + '</td>' +
+                '<td title="' + esc(r.stock_reason || '') + '">' +
+                  esc((r.stock_reason || '--').slice(0, 36)) + '</td>' +
+                '<td>' + esc(r.plate_name || '--') + '</td>' +
+                '</tr>';
+            }).join('') +
+            '</tbody></table>';
+        })
+        .catch((e) => {
+          body.innerHTML = '<div class="err">' + esc(e.message || e) + '</div>';
+        });
+    };
+
     /** @type {{id:string,label:string,def:boolean,fixed?:boolean,sticky?:string,align?:string,sortType:'num'|'str'|'time',getSort:(item:any,ctx?:any)=>any,render:(item:any,ctx?:any)=>string}[]} */
     const COLS = [
       {
         id: 'name', label: '名称', def: true, fixed: true, sticky: 'sticky-l',
         sortType: 'str',
         getSort: (it) => it.stock_chi_name || codeOf(it.symbol),
-        render: (it) =>
-          '<span class="name" onclick="openKline(\'' + esc(it.symbol) + '\')">' +
-          esc(it.stock_chi_name || codeOf(it.symbol)) + '</span>',
+        render: (it) => {
+          const nm = it.stock_chi_name || codeOf(it.symbol);
+          if (historyMode) {
+            return '<span class="name" title="查看涨跌停历史" onclick="openStockHist(\'' +
+              esc(it.symbol) + '\',\'' + esc(nm).replace(/'/g, '') + '\')">' +
+              esc(nm) + '</span>';
+          }
+          return '<span class="name" onclick="openKline(\'' + esc(it.symbol) + '\')">' +
+            esc(nm) + '</span>';
+        },
       },
       {
         id: 'code', label: '代码', def: true, fixed: true, sticky: 'sticky-l2',
@@ -1256,6 +1373,10 @@
     }
 
     async function refreshPlateStats() {
+      if (historyMode) {
+        applyPlateStats(historyPlateMap);
+        return;
+      }
       const ids = [...new Set(
         [...document.querySelectorAll('#root [data-plate-id]')]
           .map((el) => el.getAttribute('data-plate-id'))
@@ -1280,6 +1401,7 @@
     }
 
     function startPlatePolling() {
+      if (historyMode) return;
       if (platePollTimer) clearInterval(platePollTimer);
       platePollTimer = setInterval(() => {
         if (document.hidden) return;
@@ -1476,12 +1598,34 @@
       btn.disabled = true;
       status.textContent = '加载中…';
       try {
-        const res = await fetch('/api/zt/pool?pool=' + encodeURIComponent(pool.id), { cache: 'no-store' });
-        const data = await res.json();
+        let data;
+        if (historyMode) {
+          const res = await fetch(
+            '/api/zt/history/day?date=' + encodeURIComponent(historyDate) +
+              '&pool=' + encodeURIComponent(pool.id),
+            { cache: 'no-store' }
+          );
+          data = await res.json();
+          if (!data.ok) throw new Error(data.error || '历史快照不存在');
+          historyPlateMap = {};
+          for (const t of data.themes || []) {
+            if (t && t.plate_id != null) historyPlateMap[String(t.plate_id)] = t;
+          }
+          const cap = data.captured_at
+            ? new Date(Number(data.captured_at) * 1000).toLocaleString()
+            : '';
+          document.getElementById('histCaptured').textContent = cap ? '落库 ' + cap : '';
+        } else {
+          const res = await fetch('/api/zt/pool?pool=' + encodeURIComponent(pool.id), { cache: 'no-store' });
+          data = await res.json();
+          historyPlateMap = {};
+        }
         if (!data.ok) throw new Error(data.error || '加载失败');
-        cacheRows = data.items || [];
+        cacheRows = data.items || data.stocks || [];
         render(cacheRows);
-        status.textContent = pool.short + ' ' + cacheRows.length + ' 只 · ' + new Date().toLocaleTimeString();
+        status.textContent = historyMode
+          ? pool.short + ' ' + cacheRows.length + ' 只 · 快照 ' + historyDate
+          : pool.short + ' ' + cacheRows.length + ' 只 · ' + new Date().toLocaleTimeString();
       } catch (e) {
         status.textContent = '失败: ' + (e.message || e);
         document.getElementById('root').innerHTML =
@@ -1490,6 +1634,15 @@
         btn.disabled = false;
       }
     }
+
+    document.getElementById('histModalClose').addEventListener('click', () => {
+      document.getElementById('histModalBg').classList.remove('open');
+    });
+    document.getElementById('histModalBg').addEventListener('click', (ev) => {
+      if (ev.target === document.getElementById('histModalBg')) {
+        document.getElementById('histModalBg').classList.remove('open');
+      }
+    });
 
     document.getElementById('btnRefresh').addEventListener('click', loadData);
     document.getElementById('btnCollapseToggle').addEventListener('click', toggleCollapseAllGroups);
