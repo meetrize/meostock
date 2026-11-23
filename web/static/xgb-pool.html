@@ -46,13 +46,31 @@
     button:hover, a.pill:hover { border-color: var(--blue); color: var(--blue); }
     button:disabled { opacity: .45; cursor: not-allowed; }
     .pill.muted { color: var(--muted); cursor: default; }
-    .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-    .stat {
-      background: var(--panel); border: 1px solid var(--line);
-      border-radius: 8px; padding: 6px 10px; min-width: 72px;
+    .toolbar .stat-chip {
+      height: 30px; padding: 0 10px; border-radius: 6px;
+      border: 1px solid var(--line); background: var(--panel);
+      color: var(--text); cursor: pointer; font-size: 12px;
+      display: inline-flex; align-items: center; gap: 4px;
+      font-variant-numeric: tabular-nums;
     }
-    .stat b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; }
-    .stat span { color: var(--muted); font-size: 11px; }
+    .toolbar .stat-chip:hover { border-color: var(--blue); color: var(--blue); }
+    .toolbar .stat-chip.active {
+      border-color: var(--blue); background: #eef6fc; color: var(--blue); font-weight: 600;
+    }
+    .toolbar .stat-chip b { font-weight: 650; }
+    .toolbar .stat-chip .lab { color: var(--muted); font-weight: 400; }
+    .toolbar .stat-chip.active .lab { color: var(--blue); }
+    .toolbar .stat-chip.muted { opacity: .55; cursor: default; }
+    .toolbar-stats {
+      display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    }
+    body.embed .wrap { padding: 8px 10px 24px; }
+    body.embed .toolbar { margin-bottom: 8px; }
+    body.embed .toc { margin-bottom: 8px; }
+    body.embed #pageTitle,
+    body.embed #pageSub,
+    body.embed #poolNav,
+    body.embed .note { display: none !important; }
     .toc {
       display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
       padding: 8px 10px; background: var(--panel); border: 1px solid var(--line);
@@ -95,7 +113,15 @@
     .group-hd .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
     .group-hd .plate-reason {
       color: var(--orange); font-size: 12px; font-weight: 400;
-      margin-left: 6px;
+      margin-left: 6px; cursor: pointer; border-radius: 3px;
+      padding: 1px 4px; margin-left: 4px;
+      transition: background .15s, color .15s;
+    }
+    .group-hd .plate-reason:hover {
+      background: #fff3e8; text-decoration: underline;
+    }
+    .group-hd .plate-reason.copied {
+      color: var(--blue); background: #eef6fc; text-decoration: none;
     }
     .group-hd .plate-stats {
       display: inline-flex; flex-wrap: wrap; gap: 4px 10px;
@@ -253,7 +279,7 @@
     <div class="sub" id="pageSub"></div>
     <div class="pool-nav" id="poolNav"></div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="mainToolbar">
       <button id="btnRefresh" type="button">刷新</button>
       <button id="btnCols" type="button" title="自定义显示哪些列">列显隐</button>
       <button id="btnCollapseToggle" type="button" title="折叠/展开全部概念组">全部折叠</button>
@@ -261,10 +287,8 @@
         <input id="chkPrimary" type="checkbox" style="margin:0" />
         仅主概念
       </label>
+      <span id="stats" class="toolbar-stats"></span>
       <span class="pill muted" id="status">准备中…</span>
-      <a class="pill" href="/fupan" target="_blank">复盘 Demo</a>
-      <a class="pill" id="dashLink" href="/dashboard/limit-up" target="_blank">看板入口</a>
-      <a class="pill" href="/" target="_blank">K 线</a>
     </div>
 
     <div id="colPanel" class="col-panel" aria-label="列显隐">
@@ -281,7 +305,6 @@
       <div class="hint">勾选控制显隐；拖动条目或表头调整列顺序，均自动保存。名称/代码默认固定显示。</div>
     </div>
 
-    <div class="stats" id="stats"></div>
     <div class="toc" id="toc"></div>
     <div id="root"><div class="empty">加载中…</div></div>
     <p class="note">
@@ -370,14 +393,51 @@
     /** @type {string[]} */
     let lastGroupNames = [];
 
+    const isEmbed = new URLSearchParams(location.search).get('embed') === '1';
+    if (isEmbed) document.body.classList.add('embed');
+
     document.title = pool.title + ' · 选股宝';
     document.getElementById('pageTitle').textContent = pool.title;
     document.getElementById('pageSub').innerHTML =
-      '数据源 <code>/api/zt/pool?pool=' + pool.id + '</code>。按<strong>概念分组</strong>；表头排序（升序→降序→取消）；拖动表头改列序。偏好按池分别保存在 <code>localStorage</code>。';
-    document.getElementById('dashLink').href = pool.dash;
+      '数据源 <code>/api/zt/pool?pool=' + pool.id + '</code>。按<strong>概念分组</strong>；表头排序（升序→降序→取消）；拖动表头改列序。';
     document.getElementById('poolNav').innerHTML = Object.values(POOL_META).map((p) =>
       '<a class="pill' + (p.id === poolId ? ' active' : '') + '" href="' + p.path + '">' + p.title + '</a>'
-    ).join('');
+    ).join('') +
+      '<a class="pill" href="/dashboard/fupan">复盘</a>';
+
+    /** @type {null|'all'|'lianban'|'broken'|'maxboard'|'liandie'|'maxdown'} */
+    let filterMode = null;
+    let lastFilterMeta = { maxBoard: 0, maxDown: 0 };
+
+    function applyRowFilter(rows) {
+      if (!filterMode || filterMode === 'all') return rows;
+      if (filterMode === 'lianban') return rows.filter((x) => (x.limit_up_days || 0) > 1);
+      if (filterMode === 'broken') return rows.filter((x) => (x.break_limit_up_times || 0) > 0);
+      if (filterMode === 'maxboard') {
+        const m = lastFilterMeta.maxBoard;
+        return m > 0 ? rows.filter((x) => (x.limit_up_days || 0) === m) : rows;
+      }
+      if (filterMode === 'liandie') return rows.filter((x) => (x.limit_down_days || 0) > 1);
+      if (filterMode === 'maxdown') {
+        const m = lastFilterMeta.maxDown;
+        return m > 0 ? rows.filter((x) => (x.limit_down_days || 0) === m) : rows;
+      }
+      return rows;
+    }
+
+    function chipHtml(key, value, label, clickable) {
+      const active = filterMode === key || (key === 'all' && !filterMode);
+      const cls = 'stat-chip' + (active ? ' active' : '') + (clickable ? '' : ' muted');
+      const attrs = clickable
+        ? ' type="button" data-filter="' + key + '"'
+        : ' type="button" disabled';
+      return (
+        '<button class="' + cls + '"' + attrs + '>' +
+          '<b>' + esc(String(value)) + '</b>' +
+          '<span class="lab">' + esc(label) + '</span>' +
+        '</button>'
+      );
+    }
 
     function esc(s) {
       return String(s ?? '')
@@ -1056,35 +1116,31 @@
       return 'g-' + idx + '-' + String(name).replace(/[^\w\u4e00-\u9fff-]+/g, '_').slice(0, 40);
     }
 
-    function render(rows) {
+    function render(allRows) {
+      const maxBoard = allRows.reduce((m, x) => Math.max(m, x.limit_up_days || 0), 0);
+      const lianban = allRows.filter((x) => (x.limit_up_days || 0) > 1).length;
+      const broken = allRows.filter((x) => (x.break_limit_up_times || 0) > 0).length;
+      const maxDown = allRows.reduce((m, x) => Math.max(m, x.limit_down_days || 0), 0);
+      const lianDie = allRows.filter((x) => (x.limit_down_days || 0) > 1).length;
+      lastFilterMeta = { maxBoard, maxDown };
+
+      const statsEl = document.getElementById('stats');
+      if (pool.mode === 'down') {
+        statsEl.innerHTML =
+          chipHtml('all', allRows.length, pool.countLabel, true) +
+          chipHtml('liandie', lianDie, '连跌', true) +
+          chipHtml('maxdown', maxDown ? maxDown + '天' : '--', '最长', !!maxDown);
+      } else {
+        statsEl.innerHTML =
+          chipHtml('all', allRows.length, pool.countLabel, true) +
+          chipHtml('lianban', lianban, pool.boardLabel, true) +
+          chipHtml('maxboard', maxBoard ? maxBoard + '板' : '--', '最高', !!maxBoard) +
+          chipHtml('broken', broken, '曾开', true);
+      }
+
+      const rows = applyRowFilter(allRows);
       const primaryOnly = document.getElementById('chkPrimary').checked;
       const groups = buildGroups(rows, primaryOnly);
-
-      const maxBoard = rows.reduce((m, x) => Math.max(m, x.limit_up_days || 0), 0);
-      const lianban = rows.filter((x) => (x.limit_up_days || 0) > 1).length;
-      const broken = rows.filter((x) => (x.break_limit_up_times || 0) > 0).length;
-
-      const maxDown = rows.reduce((m, x) => Math.max(m, x.limit_down_days || 0), 0);
-      const lianDie = rows.filter((x) => (x.limit_down_days || 0) > 1).length;
-      const stats = pool.mode === 'down'
-        ? [
-            [pool.countLabel, rows.length],
-            ['连跌', lianDie],
-            ['最长连跌', maxDown ? maxDown + '天' : '--'],
-            ['概念组', groups.length],
-            ['可见列', visibleCols().length],
-          ]
-        : [
-            [pool.countLabel, rows.length],
-            [pool.boardLabel, lianban],
-            ['最高板', maxBoard ? maxBoard + '板' : '--'],
-            ['曾开板', broken],
-            ['概念组', groups.length],
-            ['可见列', visibleCols().length],
-          ];
-      document.getElementById('stats').innerHTML = stats.map(([k, v]) =>
-        '<div class="stat"><b>' + esc(String(v)) + '</b><span>' + esc(k) + '</span></div>'
-      ).join('');
 
       document.getElementById('toc').innerHTML = groups.map((g, i) =>
         '<a href="#' + groupId(g.name, i) + '">' + esc(g.name) +
@@ -1097,6 +1153,13 @@
         sortHint = '排序 ' + (col ? col.label : sortState.key) + (sortState.dir === 'asc' ? '↑' : '↓');
       } else {
         sortHint = '默认' + (COL_BY_ID[DEFAULT_SORT.key]?.label || DEFAULT_SORT.key) + '↑';
+      }
+      if (filterMode && filterMode !== 'all') {
+        const labels = {
+          lianban: '连板', broken: '曾开', maxboard: '最高板',
+          liandie: '连跌', maxdown: '最长连跌',
+        };
+        sortHint = (labels[filterMode] || filterMode) + '筛选 · ' + sortHint;
       }
       lastGroupNames = groups.map((g) => g.name);
       document.getElementById('root').innerHTML = groups.map((g, i) => {
@@ -1130,7 +1193,10 @@
               '<span class="caret">▼</span>' +
               '<h2>' + nameHtml +
                 statsHtml +
-                (g.reason ? '<span class="plate-reason">' + esc(g.reason) + '</span>' : '') +
+                (g.reason
+                  ? '<span class="plate-reason" data-copy-reason="1" title="点击复制主题驱动理由">' +
+                      esc(g.reason) + '</span>'
+                  : '') +
               '</h2>' +
               '<span class="meta">' + g.list.length + ' 只' +
                 (span ? ' · 首封区间 ' + esc(span) : '') +
@@ -1140,7 +1206,9 @@
             '<div class="group-body">' + renderTable(g.list, g.name) + '</div>' +
           '</section>'
         );
-      }).join('') || '<div class="empty">暂无涨停数据</div>';
+      }).join('') || '<div class="empty">' +
+        (filterMode && filterMode !== 'all' ? '当前筛选无匹配股票，点击工具栏统计可取消' : '暂无数据') +
+        '</div>';
 
       updateCollapseButtons();
       refreshPlateStats();
@@ -1295,6 +1363,28 @@
     function bindRootInteractions() {
       const root = document.getElementById('root');
 
+      async function copyText(text) {
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return true;
+          }
+        } catch (_) { /* fall through */ }
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.cssText = 'position:fixed;left:-9999px;top:0';
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+          return ok;
+        } catch (_) {
+          return false;
+        }
+      }
+
       root.addEventListener('click', (ev) => {
         const toggle = ev.target.closest('[data-reason-toggle]');
         if (toggle && root.contains(toggle)) {
@@ -1303,6 +1393,25 @@
           reasonFull = !reasonFull;
           saveReasonFull(reasonFull);
           if (cacheRows.length) render(cacheRows);
+          return;
+        }
+        const reasonEl = ev.target.closest('[data-copy-reason]');
+        if (reasonEl && root.contains(reasonEl)) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const text = (reasonEl.textContent || '').trim();
+          if (!text) return;
+          void copyText(text).then((ok) => {
+            if (!ok) return;
+            reasonEl.classList.add('copied');
+            const prev = reasonEl.getAttribute('title') || '';
+            reasonEl.setAttribute('title', '已复制');
+            clearTimeout(reasonEl._copyTimer);
+            reasonEl._copyTimer = setTimeout(() => {
+              reasonEl.classList.remove('copied');
+              reasonEl.setAttribute('title', prev || '点击复制主题驱动理由');
+            }, 1200);
+          });
           return;
         }
         const groupHd = ev.target.closest('[data-group-toggle]');
@@ -1384,6 +1493,15 @@
 
     document.getElementById('btnRefresh').addEventListener('click', loadData);
     document.getElementById('btnCollapseToggle').addEventListener('click', toggleCollapseAllGroups);
+    document.getElementById('stats').addEventListener('click', (ev) => {
+      const btn = ev.target.closest('[data-filter]');
+      if (!btn) return;
+      const mode = btn.getAttribute('data-filter');
+      if (!mode) return;
+      if (mode === 'all' || filterMode === mode) filterMode = null;
+      else filterMode = mode;
+      if (cacheRows.length) render(cacheRows);
+    });
     document.getElementById('chkPrimary').addEventListener('change', () => {
       if (cacheRows.length) render(cacheRows);
     });
