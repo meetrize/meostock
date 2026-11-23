@@ -69,13 +69,28 @@
       border-radius: 8px; margin-bottom: 12px; overflow: hidden;
     }
     .group-hd {
-      display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline;
+      display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline;
       padding: 8px 12px; background: var(--head); border-bottom: 1px solid var(--line);
       position: sticky; top: 0; z-index: 5;
+      cursor: pointer; user-select: none;
     }
-    .group-hd h2 { margin: 0; font-size: 14px; font-weight: 650; }
-    .group-hd .meta { color: var(--muted); font-size: 12px; }
-    .group-hd .plate-reason { color: var(--orange); font-size: 12px; flex: 1 1 220px; }
+    .group-hd:hover { background: #e6ebf2; }
+    .group.collapsed .group-hd { border-bottom: none; }
+    .group.collapsed .group-body { display: none; }
+    .group-hd .caret {
+      display: inline-block; width: 1em; color: var(--muted); font-size: 12px;
+      transition: transform .15s ease;
+    }
+    .group.collapsed .group-hd .caret { transform: rotate(-90deg); }
+    .group-hd h2 {
+      margin: 0; font-size: 14px; font-weight: 650;
+      display: inline; flex: 1 1 auto; min-width: 0;
+    }
+    .group-hd .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .group-hd .plate-reason {
+      color: var(--orange); font-size: 12px; font-weight: 400;
+      margin-left: 6px;
+    }
     .scroll {
       overflow-x: auto;
       overflow-y: visible;
@@ -219,6 +234,8 @@
     <div class="toolbar">
       <button id="btnRefresh" type="button">刷新</button>
       <button id="btnCols" type="button" title="自定义显示哪些列">列显隐</button>
+      <button id="btnCollapseAll" type="button" title="折叠全部概念组">全部折叠</button>
+      <button id="btnExpandAll" type="button" title="展开全部概念组">全部展开</button>
       <label class="pill muted" title="开启后每只股票只归入第一个关联概念">
         <input id="chkPrimary" type="checkbox" style="margin:0" />
         仅主概念
@@ -296,6 +313,7 @@
     const LS_ORDER = 'mootdx.xgb.' + poolId + '.order.v2';
     const LS_SORT = 'mootdx.xgb.' + poolId + '.sort.v2';
     const LS_REASON_FULL = 'mootdx.xgb.' + poolId + '.reason-full.v1';
+    const LS_COLLAPSED = 'mootdx.xgb.' + poolId + '.collapsed.v1';
     // 兼容旧版当前涨停页的 localStorage
     const LS_COLS_LEGACY = poolId === 'limit_up' ? 'mootdx.limit-up.cols.v2' : '';
     const LS_ORDER_LEGACY = poolId === 'limit_up' ? 'mootdx.limit-up.order.v2' : '';
@@ -315,6 +333,21 @@
       try { localStorage.setItem(LS_REASON_FULL, v ? '1' : '0'); } catch (_) { /* ignore */ }
     }
     let reasonFull = loadReasonFull();
+
+    function loadCollapsed() {
+      try {
+        const raw = localStorage.getItem(LS_COLLAPSED);
+        if (!raw) return new Set();
+        const arr = JSON.parse(raw);
+        return new Set(Array.isArray(arr) ? arr.map(String) : []);
+      } catch (_) { return new Set(); }
+    }
+    function saveCollapsed() {
+      try { localStorage.setItem(LS_COLLAPSED, JSON.stringify([...collapsedGroups])); } catch (_) { /* ignore */ }
+    }
+    let collapsedGroups = loadCollapsed();
+    /** @type {string[]} */
+    let lastGroupNames = [];
 
     document.title = pool.title + ' · 选股宝';
     document.getElementById('pageTitle').textContent = pool.title;
@@ -1029,31 +1062,73 @@
       } else {
         sortHint = '默认' + (COL_BY_ID[DEFAULT_SORT.key]?.label || DEFAULT_SORT.key) + '↑';
       }
+      lastGroupNames = groups.map((g) => g.name);
       document.getElementById('root').innerHTML = groups.map((g, i) => {
-        const firstTimes = g.list.map((x) => Number(x.first_limit_up) || 0).filter(Boolean);
+        const firstTimes = g.list
+          .map((x) => Number(pool.mode === 'down' ? x.first_limit_down : x.first_limit_up) || 0)
+          .filter(Boolean);
         const span = firstTimes.length
           ? fmtTime(Math.min(...firstTimes)) + ' → ' + fmtTime(Math.max(...firstTimes))
           : '';
+        const isCollapsed = collapsedGroups.has(g.name);
         return (
-          '<section class="group" id="' + groupId(g.name, i) + '">' +
-            '<div class="group-hd">' +
-              '<h2>' + esc(g.name) + '</h2>' +
+          '<section class="group' + (isCollapsed ? ' collapsed' : '') + '" id="' + groupId(g.name, i) +
+            '" data-group-name="' + esc(g.name) + '">' +
+            '<div class="group-hd" data-group-toggle="1" title="点击折叠/展开">' +
+              '<span class="caret">▼</span>' +
+              '<h2>' + esc(g.name) +
+                (g.reason ? '<span class="plate-reason">' + esc(g.reason) + '</span>' : '') +
+              '</h2>' +
               '<span class="meta">' + g.list.length + ' 只' +
                 (span ? ' · 首封区间 ' + esc(span) : '') +
                 ' · ' + esc(sortHint) +
               '</span>' +
-              (g.reason ? '<span class="plate-reason">' + esc(g.reason) + '</span>' : '') +
             '</div>' +
-            renderTable(g.list, g.name) +
+            '<div class="group-body">' + renderTable(g.list, g.name) + '</div>' +
           '</section>'
         );
       }).join('') || '<div class="empty">暂无涨停数据</div>';
 
+      updateCollapseButtons();
       // 显隐/改序/排序后统一各组列宽
       requestAnimationFrame(() => {
         syncColumnWidths();
         requestAnimationFrame(syncColumnWidths);
       });
+    }
+
+    function updateCollapseButtons() {
+      const total = lastGroupNames.length;
+      const n = lastGroupNames.filter((n) => collapsedGroups.has(n)).length;
+      const btnAll = document.getElementById('btnCollapseAll');
+      const btnExp = document.getElementById('btnExpandAll');
+      if (btnAll) btnAll.disabled = total === 0 || n === total;
+      if (btnExp) btnExp.disabled = total === 0 || n === 0;
+    }
+
+    function setGroupCollapsed(name, collapsed) {
+      if (collapsed) collapsedGroups.add(name);
+      else collapsedGroups.delete(name);
+      saveCollapsed();
+      const sec = [...document.querySelectorAll('#root .group')].find(
+        (el) => el.getAttribute('data-group-name') === name
+      );
+      if (sec) sec.classList.toggle('collapsed', collapsed);
+      updateCollapseButtons();
+    }
+
+    function collapseAllGroups() {
+      for (const name of lastGroupNames) collapsedGroups.add(name);
+      saveCollapsed();
+      document.querySelectorAll('#root .group').forEach((el) => el.classList.add('collapsed'));
+      updateCollapseButtons();
+    }
+
+    function expandAllGroups() {
+      collapsedGroups.clear();
+      saveCollapsed();
+      document.querySelectorAll('#root .group').forEach((el) => el.classList.remove('collapsed'));
+      updateCollapseButtons();
     }
 
     function renderColPanel() {
@@ -1098,6 +1173,14 @@
           reasonFull = !reasonFull;
           saveReasonFull(reasonFull);
           if (cacheRows.length) render(cacheRows);
+          return;
+        }
+        const groupHd = ev.target.closest('[data-group-toggle]');
+        if (groupHd && root.contains(groupHd)) {
+          ev.preventDefault();
+          const sec = groupHd.closest('.group');
+          const name = sec && sec.getAttribute('data-group-name');
+          if (name) setGroupCollapsed(name, !collapsedGroups.has(name));
           return;
         }
         if (suppressSortClick) {
@@ -1170,6 +1253,8 @@
     }
 
     document.getElementById('btnRefresh').addEventListener('click', loadData);
+    document.getElementById('btnCollapseAll').addEventListener('click', collapseAllGroups);
+    document.getElementById('btnExpandAll').addEventListener('click', expandAllGroups);
     document.getElementById('chkPrimary').addEventListener('change', () => {
       if (cacheRows.length) render(cacheRows);
     });
