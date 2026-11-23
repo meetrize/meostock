@@ -1,10 +1,312 @@
-/* 尾盘选股法页面样式 */
+/* 策略选股页面样式（原尾盘选股升级） */
 
 .container {
   display: flex;
   flex-direction: column;
   min-height: 100%;
   gap: var(--spacing-xl);
+}
+
+.strategyChrome {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.horizonTabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  width: fit-content;
+}
+
+.horizonTab {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+.horizonTab:hover {
+  color: var(--text-primary);
+}
+
+.horizonTab.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.presetStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.presetEmpty {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+
+.presetChip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  text-align: left;
+  min-width: 140px;
+  transition: all var(--transition-fast);
+}
+
+.presetChip:hover {
+  border-color: var(--border-focus);
+}
+
+.presetChip.active {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.presetChip.pending {
+  opacity: 0.85;
+}
+
+.presetChipName {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.presetChipMeta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.workspaceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: var(--spacing-xl);
+  width: 100%;
+  max-width: 1100px;
+  align-items: start;
+}
+
+.filterReadOnly {
+  cursor: default;
+}
+
+.filterReadOnly:hover {
+  border-color: var(--border-primary);
+  box-shadow: none;
+}
+
+.ruleReadonlyList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.copyPanel {
+  padding: var(--spacing-xl);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  max-height: 640px;
+  overflow: auto;
+}
+
+.copyHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.copyHeadline {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.copyDirtyBadge {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.copyOneLiner {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.copySection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.copySection h4 {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.copySection p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.copyLabel {
+  display: inline-block;
+  min-width: 3em;
+  margin-right: 6px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.copyConditions {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.copyDisclaimer {
+  margin: var(--spacing-sm) 0 0;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border-secondary);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.copyMuted {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.startButtonPending {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  box-shadow: 0 8px 32px rgba(100, 116, 139, 0.25);
+}
+
+.runHint {
+  margin: var(--spacing-md) 0 0;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  max-width: 220px;
+}
+
+.whyHitList {
+  margin: 0 0 var(--spacing-sm);
+  padding: 8px 10px 8px 1.2rem;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.untradeableBadge {
+  margin-bottom: var(--spacing-sm);
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--color-warning, #d97706);
+  background: color-mix(in srgb, var(--color-warning, #d97706) 12%, transparent);
+}
+
+.tradeableBadge {
+  margin-bottom: var(--spacing-sm);
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  width: fit-content;
+}
+
+.dataGapBadge {
+  margin-bottom: var(--spacing-sm);
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  line-height: 1.35;
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--spacing-sm);
+}
+
+.cardActions .addWatchlistBtn {
+  flex: 1;
+  margin-top: 0;
+}
+
+.secondaryActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  transition: all var(--transition-fast);
+}
+
+.secondaryActionBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.secondaryActionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 页面头部 */
@@ -118,7 +420,7 @@
 /* 筛选条件卡片 */
 .filterCard {
   width: 100%;
-  max-width: 700px;
+  max-width: none;
   padding: var(--spacing-xl);
   background: var(--bg-secondary);
   border: 1px solid var(--border-primary);
@@ -1013,9 +1315,25 @@
 }
 
 /* 响应式 */
+@media (max-width: 900px) {
+  .workspaceRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .filterGrid {
     grid-template-columns: 1fr;
+  }
+
+  .presetStrip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .presetChip {
+    min-width: 132px;
   }
 
   .stockGrid {

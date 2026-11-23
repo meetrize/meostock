@@ -58,7 +58,11 @@ web/research/*  BFF 聚合
 | GET/PUT | `/stock/{code}/business-mode` | 2 | 商业模式三态 |
 | GET | `/stock/{code}/timeline` | 3 | 事件轴 |
 | GET | `/scanner/templates` | 2 | 扫描模板列表 |
-| POST | `/scanner/run` | 2 | 质量+低估值扫描 |
+| POST | `/scanner/run` | 2→M3 | 质量+低估值；技术三件套；长线 `dividend_roe` / `growth_trend`（含 why_hit / tradability） |
+| GET | `/strategy-presets` | M1 | 官方选股预设（短/波/长） |
+| GET | `/strategy-presets/schema` | M1 | RuleBlock / Copy 字段目录 |
+| GET | `/strategy-presets/{id}` | M1 | 单预设 + resolved_copy |
+| POST | `/strategy-presets/resolve-copy` | M1 | 参数覆盖后重算文案/条件清单 |
 | POST | `/ai/brief` | 3 | Scope 简报（经校验层） |
 | GET | `/review/report` | 3→4 | 复盘报表（含基准超额） |
 | POST | `/backtest/run` | 4 | MA 趋势回测 |

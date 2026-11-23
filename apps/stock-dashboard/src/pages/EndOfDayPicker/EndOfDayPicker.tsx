@@ -1,6 +1,5 @@
 /**
- * 尾盘选股法（一日持股法）页面
- * 参考 __refer__ 目录逻辑实现
+ * 策略选股页（由尾盘选股法升级，M1：多预设 + 文案 + 保留尾盘/质量扫描跑批）
  */
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
@@ -40,10 +39,24 @@ import {
   type TimelinePoint,
 } from '@/services/analysis';
 import { getEodPickerState, saveEodPickerState } from '@/services/storage';
+import {
+  buildResolvedCopy,
+  eodFiltersFromPreset,
+  fetchStrategyPresets,
+  isEodEngine,
+  presetRulesFromEodFilters,
+  runButtonLabel,
+  type PresetHorizon,
+  type StrategyCopy,
+  type StrategyPreset,
+} from '@/services/strategyPresets';
 import { watchlistActions } from '@/services/watchlistStore';
 import { useIsInWatchlist } from '@/hooks';
 import { formatAmount } from '@/utils/format';
+import { HorizonTabs, PresetStrip, StrategyCopyPanel } from './StrategyChrome';
 import styles from './EndOfDayPicker.module.css';
+
+const DEFAULT_PRESET_ID = 'eod_intraday_strength';
 
 // ========== 类型定义 ==========
 
@@ -77,6 +90,102 @@ const DEFAULT_FILTERS: EndOfDayFilters = {
   excludeST: true,
   timelineAboveAvgRatio: 80,
 };
+
+function mapScannerHitToStock(hit: Record<string, unknown>): EndOfDayStock {
+  const rawCode = String(hit.symbol || hit.code || '');
+  const routeFromApi = typeof hit.route_code === 'string' ? hit.route_code : '';
+  const routeCode =
+    routeFromApi ||
+    (rawCode.includes('.')
+      ? rawCode
+      : rawCode.startsWith('6') || rawCode.startsWith('5') || rawCode.startsWith('9')
+        ? `${rawCode}.SH`
+        : `${rawCode}.SZ`);
+  const display = routeCode.split('.')[0] || rawCode;
+  const price = typeof hit.price === 'number' ? hit.price : Number(hit.price) || 0;
+  const changePercent =
+    typeof hit.change_percent === 'number'
+      ? hit.change_percent
+      : Number(hit.change_percent) || 0;
+  const amount =
+    typeof hit.amount === 'number' ? hit.amount : hit.amount == null ? 0 : Number(hit.amount) || 0;
+  const whyHit = Array.isArray(hit.why_hit)
+    ? hit.why_hit.filter((x): x is string => typeof x === 'string')
+    : undefined;
+  const trad = hit.tradability as {
+    tradable?: boolean;
+    label?: string;
+    reason?: string;
+    reasons?: string[];
+  } | undefined;
+  const tradeable =
+    typeof hit.tradeable === 'boolean'
+      ? hit.tradeable
+      : typeof trad?.tradable === 'boolean'
+        ? trad.tradable
+        : undefined;
+  const tradabilityLabel =
+    trad?.label ||
+    trad?.reason ||
+    (trad?.reasons && trad.reasons.length ? trad.reasons.join('/') : undefined);
+  return {
+    code: display,
+    routeCode,
+    name: String(hit.name || display),
+    price,
+    changePercent,
+    change: 0,
+    volume: 0,
+    amount,
+    turnoverRate:
+      typeof hit.turnover_rate === 'number'
+        ? hit.turnover_rate
+        : hit.turnover_rate == null
+          ? null
+          : Number(hit.turnover_rate),
+    volumeRatio:
+      typeof hit.volume_ratio === 'number'
+        ? hit.volume_ratio
+        : hit.volume_ratio == null
+          ? null
+          : Number(hit.volume_ratio),
+    circulatingMarketCap:
+      typeof hit.circulating_market_cap === 'number'
+        ? hit.circulating_market_cap
+        : hit.circulating_market_cap == null
+          ? null
+          : Number(hit.circulating_market_cap),
+    totalMarketCap: null,
+    pe: typeof hit.pe === 'number' ? hit.pe : hit.pe == null ? null : Number(hit.pe),
+    pb: typeof hit.pb === 'number' ? hit.pb : hit.pb == null ? null : Number(hit.pb),
+    high: price,
+    low: price,
+    open: price,
+    prevClose: price,
+    whyHit,
+    tradeable,
+    tradabilityLabel,
+    dividendYield:
+      typeof hit.dividend_yield === 'number'
+        ? hit.dividend_yield
+        : hit.dividend_yield == null
+          ? null
+          : Number(hit.dividend_yield),
+    roe: typeof hit.roe === 'number' ? hit.roe : hit.roe == null ? null : Number(hit.roe),
+    growth:
+      typeof hit.growth === 'number' ? hit.growth : hit.growth == null ? null : Number(hit.growth),
+    peg: typeof hit.peg === 'number' ? hit.peg : hit.peg == null ? null : Number(hit.peg),
+    dataGaps: Array.isArray(hit.data_gaps)
+      ? hit.data_gaps.filter((x): x is string => typeof x === 'string')
+      : undefined,
+  };
+}
+
+function horizonToStrategyTemplateId(horizon: PresetHorizon | undefined): string {
+  if (horizon === 'short') return 'short';
+  if (horizon === 'swing') return 'swing';
+  return 'long';
+}
 
 const SORT_OPTIONS: { field: SortField; label: string }[] = [
   { field: 'changePercent', label: '涨幅' },
@@ -286,6 +395,9 @@ function StockCard({
   index,
   inWatchlist,
   onAddWatchlist,
+  onOpenResearch,
+  onCreateCard,
+  cardBusy,
   isSelected,
   onToggleSelect,
   showSelect,
@@ -294,6 +406,9 @@ function StockCard({
   index: number;
   inWatchlist: boolean;
   onAddWatchlist: (routeCode: string, name: string) => void;
+  onOpenResearch?: (routeCode: string) => void;
+  onCreateCard?: (stock: EndOfDayStock) => void;
+  cardBusy?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (code: string) => void;
   showSelect?: boolean;
@@ -374,38 +489,121 @@ function StockCard({
         </div>
       )}
 
+      {stock.whyHit && stock.whyHit.length > 0 && (
+        <ul className={styles.whyHitList}>
+          {stock.whyHit.slice(0, 4).map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
+
+      {stock.tradeable === false && (
+        <div className={styles.untradeableBadge}>
+          不可成交{stock.tradabilityLabel ? ` · ${stock.tradabilityLabel}` : ''}
+        </div>
+      )}
+      {stock.tradeable === true && (
+        <div className={styles.tradeableBadge}>可成交</div>
+      )}
+      {stock.dataGaps && stock.dataGaps.length > 0 && (
+        <div className={styles.dataGapBadge}>{stock.dataGaps[0]}</div>
+      )}
+
       <div className={styles.dataGrid}>
+        {stock.dividendYield != null ? (
+          <div className={styles.dataItem}>
+            <span className={styles.dataLabel}>股息率</span>
+            <span className={styles.dataValue}>{formatNumber(stock.dividendYield)}%</span>
+          </div>
+        ) : stock.circulatingMarketCap != null ? (
+          <div className={styles.dataItem}>
+            <span className={styles.dataLabel}>流通市值</span>
+            <span className={styles.dataValue}>{formatNumber(stock.circulatingMarketCap)}亿</span>
+          </div>
+        ) : (
+          <div className={styles.dataItem}>
+            <span className={styles.dataLabel}>PE</span>
+            <span className={styles.dataValue}>{formatNumber(stock.pe)}</span>
+          </div>
+        )}
+        {stock.roe != null ? (
+          <div className={styles.dataItem}>
+            <span className={styles.dataLabel}>ROE</span>
+            <span className={styles.dataValue}>{formatNumber(stock.roe)}%</span>
+          </div>
+        ) : stock.volumeRatio != null ? (
+          <div className={styles.dataItem}>
+            <span className={styles.dataLabel}>量比</span>
+            <span className={styles.dataValue}>{formatNumber(stock.volumeRatio)}</span>
+          </div>
+        ) : (
+          <div className={styles.dataItem}>
+            <span className={styles.dataLabel}>PB</span>
+            <span className={styles.dataValue}>{formatNumber(stock.pb)}</span>
+          </div>
+        )}
         <div className={styles.dataItem}>
-          <span className={styles.dataLabel}>流通市值</span>
-          <span className={styles.dataValue}>{formatNumber(stock.circulatingMarketCap)}亿</span>
+          <span className={styles.dataLabel}>
+            {stock.growth != null ? '增速' : stock.peg != null ? 'PEG' : '换手率'}
+          </span>
+          <span className={styles.dataValue}>
+            {stock.growth != null
+              ? `${formatNumber(stock.growth)}%`
+              : stock.peg != null
+                ? formatNumber(stock.peg)
+                : stock.turnoverRate == null
+                  ? '-'
+                  : `${formatNumber(stock.turnoverRate)}%`}
+          </span>
         </div>
         <div className={styles.dataItem}>
-          <span className={styles.dataLabel}>量比</span>
-          <span className={styles.dataValue}>{formatNumber(stock.volumeRatio)}</span>
-        </div>
-        <div className={styles.dataItem}>
-          <span className={styles.dataLabel}>换手率</span>
-          <span className={styles.dataValue}>{formatNumber(stock.turnoverRate)}%</span>
-        </div>
-        <div className={styles.dataItem}>
-          <span className={styles.dataLabel}>成交额</span>
-          <span className={styles.dataValue}>{formatAmount(stock.amount)}</span>
+          <span className={styles.dataLabel}>
+            {stock.peg != null && stock.growth != null ? 'PEG' : '成交额'}
+          </span>
+          <span className={styles.dataValue}>
+            {stock.peg != null && stock.growth != null
+              ? formatNumber(stock.peg)
+              : stock.amount
+                ? formatAmount(stock.amount)
+                : '-'}
+          </span>
         </div>
       </div>
 
-      <button
-        className={`${styles.addWatchlistBtn} ${inWatchlist ? styles.added : ''}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (!inWatchlist) {
-            onAddWatchlist(stock.routeCode, stock.name);
-          }
-        }}
-        disabled={inWatchlist}
-      >
-        {inWatchlist ? <Check size={14} /> : <Plus size={14} />}
-        {inWatchlist ? '已自选' : '加自选'}
-      </button>
+      <div className={styles.cardActions}>
+        <button
+          className={`${styles.addWatchlistBtn} ${inWatchlist ? styles.added : ''}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!inWatchlist) {
+              onAddWatchlist(stock.routeCode, stock.name);
+            }
+          }}
+          disabled={inWatchlist}
+        >
+          {inWatchlist ? <Check size={14} /> : <Plus size={14} />}
+          {inWatchlist ? '已自选' : '加自选'}
+        </button>
+        <button
+          className={styles.secondaryActionBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenResearch?.(stock.routeCode);
+          }}
+        >
+          研判
+        </button>
+        <button
+          className={styles.secondaryActionBtn}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateCard?.(stock);
+          }}
+          disabled={cardBusy}
+        >
+          草稿卡片
+        </button>
+      </div>
     </motion.div>
   );
 }
@@ -479,6 +677,16 @@ function LoadingOverlay({
 
 export function EndOfDayPicker() {
   const toast = useToast();
+  const [horizon, setHorizon] = useState<PresetHorizon>(() =>
+    getEodPickerState<PresetHorizon>('horizon', 'short')
+  );
+  const [presets, setPresets] = useState<StrategyPreset[]>([]);
+  const [activePresetId, setActivePresetId] = useState(() =>
+    getEodPickerState<string>('preset', DEFAULT_PRESET_ID)
+  );
+  const [activePreset, setActivePreset] = useState<StrategyPreset | null>(null);
+  const [resolvedCopy, setResolvedCopy] = useState<StrategyCopy | null>(null);
+  const [dirty, setDirty] = useState(false);
   const [filters, setFilters] = useState<EndOfDayFilters>(loadFiltersFromStorage);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -489,6 +697,7 @@ export function EndOfDayPicker() {
   });
   const [stocks, setStocks] = useState<EndOfDayStock[]>([]);
   const [hasAnalyzed, setHasAnalyzed] = useState(false);
+  const [resultMode, setResultMode] = useState<'eod' | 'scanner'>('eod');
   const abortRef = useRef<AbortController | null>(null);
 
   // 离开页面即中止分析：全市场扫描请求量大，不中止会在后台跑完
@@ -514,47 +723,218 @@ export function EndOfDayPicker() {
   const [selectedStocks, setSelectedStocks] = useState<Set<string>>(new Set());
   const [showSelectMode, setShowSelectMode] = useState(false);
 
+  const canEditEodRules = isEodEngine(activePreset);
+  const canRun =
+    !!activePreset &&
+    (activePreset.run_engine === 'eod_intraday' ||
+      (activePreset.run_engine === 'research_scanner' && activePreset.runnable));
+
+  // 拉取官方预设
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const rows = await fetchStrategyPresets(horizon);
+      if (cancelled) return;
+      setPresets(rows);
+      const preferred =
+        rows.find((p) => p.id === activePresetId) ||
+        rows.find((p) => p.enabled_by_default !== false) ||
+        rows[0];
+      if (preferred) {
+        setActivePresetId(preferred.id);
+        setActivePreset(preferred);
+        setResolvedCopy(buildResolvedCopy(preferred));
+        setDirty(false);
+        if (preferred.run_engine === 'eod_intraday') {
+          // 保留用户已持久化的 filters；仅在与默认预设首次对齐时不强制覆盖
+        } else {
+          setIsEditing(false);
+        }
+      } else {
+        setActivePreset(null);
+        setResolvedCopy(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // 仅随 horizon 刷新列表；选中逻辑在 rows 内处理
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [horizon]);
+
+  useEffect(() => {
+    saveEodPickerState('horizon', horizon);
+  }, [horizon]);
+
+  useEffect(() => {
+    saveEodPickerState('preset', activePresetId);
+  }, [activePresetId]);
+
   // 保存筛选条件（debounce：filters 随交互高频变化，不必每次都同步写盘）
   useEffect(() => {
     const timer = window.setTimeout(() => saveFiltersToStorage(filters), 500);
     return () => clearTimeout(timer);
   }, [filters]);
 
+  // EOD 参数变更 → 刷新条件文案
+  useEffect(() => {
+    if (!activePreset || activePreset.run_engine !== 'eod_intraday') return;
+    const rules = presetRulesFromEodFilters(filters);
+    const baseline = eodFiltersFromPreset(activePreset);
+    const changed = JSON.stringify(filters) !== JSON.stringify(baseline);
+    setDirty(changed);
+    setResolvedCopy(buildResolvedCopy(activePreset, rules));
+  }, [filters, activePreset]);
+
+  const handleSelectPreset = useCallback(
+    (id: string) => {
+      const preset = presets.find((p) => p.id === id);
+      if (!preset) return;
+      setActivePresetId(id);
+      setActivePreset(preset);
+      setResolvedCopy(buildResolvedCopy(preset));
+      setDirty(false);
+      setHasAnalyzed(false);
+      setStocks([]);
+      if (preset.run_engine === 'eod_intraday') {
+        setFilters(eodFiltersFromPreset(preset));
+        setSortField('timelineAboveAvgRatio');
+        setResultMode('eod');
+      } else {
+        setIsEditing(false);
+        setResultMode(preset.run_engine === 'research_scanner' ? 'scanner' : 'eod');
+      }
+    },
+    [presets]
+  );
+
+  const handleHorizonChange = useCallback((h: PresetHorizon) => {
+    setHorizon(h);
+    setHasAnalyzed(false);
+    setStocks([]);
+    setDirty(false);
+  }, []);
+
   // 恢复默认设置
   const handleResetFilters = useCallback(() => {
-    setFilters(DEFAULT_FILTERS);
-  }, []);
+    if (activePreset?.run_engine === 'eod_intraday') {
+      setFilters(eodFiltersFromPreset(activePreset));
+    } else {
+      setFilters(DEFAULT_FILTERS);
+    }
+    setDirty(false);
+  }, [activePreset]);
 
   // 开始分析
   const handleStartAnalysis = useCallback(async () => {
+    if (!activePreset) {
+      toast.warning('请先选择策略预设');
+      return;
+    }
+    if (!canRun) {
+      toast.info(`「${activePreset.name}」跑批能力将在后续版本接入，可先阅读右侧策略说明`);
+      return;
+    }
+
     setIsLoading(true);
-    setLoadingProgress({ completed: 0, total: 0, stage: '获取行情数据' });
+    setLoadingProgress({ completed: 0, total: 0, stage: '准备运行' });
     setStocks([]);
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // 记录最近使用
-    addRecentUsage(filters);
-    setRecentUsage(loadRecentUsageFromStorage());
-
     try {
-      const finalStocks = await analyzeEndOfDayStocks(filters, {
-        signal: controller.signal,
-        onProgress: setLoadingProgress,
-      });
+      if (activePreset.run_engine === 'eod_intraday') {
+        addRecentUsage(filters);
+        setRecentUsage(loadRecentUsageFromStorage());
+        setResultMode('eod');
+        setLoadingProgress({ completed: 0, total: 0, stage: '获取行情数据' });
+        const finalStocks = await analyzeEndOfDayStocks(filters, {
+          signal: controller.signal,
+          onProgress: setLoadingProgress,
+        });
 
-      if (finalStocks.length === 0) {
-        toast.info('没有符合基础条件的股票，请尝试调整筛选条件');
+        if (finalStocks.length === 0) {
+          toast.info('没有符合基础条件的股票，请尝试调整筛选条件');
+          setHasAnalyzed(true);
+          return;
+        }
+
+        if (!controller.signal.aborted) {
+          setStocks(finalStocks);
+        }
         setHasAnalyzed(true);
         return;
       }
 
-      if (!controller.signal.aborted) {
-        setStocks(finalStocks);
+      if (activePreset.run_engine === 'research_scanner') {
+        setResultMode('scanner');
+        const templateId = activePreset.scanner_template_id || activePreset.id;
+        const isTech = ['ma_bull_stack', 'dual_ma_coil', 'breakout_volume'].includes(templateId);
+        const isDividend = templateId === 'dividend_roe';
+        const isGrowth = templateId === 'growth_trend';
+        setLoadingProgress({
+          completed: 0,
+          total: 1,
+          stage: isTech
+            ? `扫描「${activePreset.name}」（流动性靠前股票池 + K线，约数十秒）`
+            : isDividend
+              ? `扫描「${activePreset.name}」（全市场股息 + 抽样 ROE）`
+              : isGrowth
+                ? `扫描「${activePreset.name}」（增速 + 均线，约一分钟）`
+                : `运行「${activePreset.name}」`,
+        });
+        const params = isTech
+          ? { universe_size: 250, concurrency: 8, limit: 50 }
+          : isDividend
+            ? { limit: 40, roe_probe_n: 100, concurrency: 6 }
+            : isGrowth
+              ? { universe_size: 120, limit: 30, concurrency: 6 }
+              : undefined;
+        const res = await fetch('/api/research/scanner/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ template_id: templateId, params }),
+          signal: controller.signal,
+        });
+        const data = (await res.json()) as {
+          ok?: boolean;
+          results?: Record<string, unknown>[];
+          error?: string;
+          scanned?: number;
+          universe?: number;
+          hit_count?: number;
+          data_gaps?: string[];
+          degraded?: boolean;
+        };
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || '扫描失败');
+        }
+        const mapped = (data.results || []).map(mapScannerHitToStock);
+        setLoadingProgress({ completed: 1, total: 1, stage: '扫描完成' });
+        if (data.degraded || (data.data_gaps && data.data_gaps.length > 0)) {
+          toast.info(data.data_gaps?.[0] || '本次扫描存在数据降级');
+        }
+        if (mapped.length === 0) {
+          toast.info(
+            isTech
+              ? '当前股票池内无命中；可换时段或稍后重试（需拉取日K）'
+              : '没有符合条件的股票，请稍后重试或换预设'
+          );
+        } else if (isTech && data.universe) {
+          toast.success(
+            `在 ${data.universe} 只候选中命中 ${data.hit_count ?? mapped.length} 只（展示 ${mapped.length}）`
+          );
+        } else {
+          toast.success(`命中 ${data.hit_count ?? mapped.length} 只（展示 ${mapped.length}）`);
+        }
+        if (!controller.signal.aborted) {
+          setStocks(mapped);
+          setSortField('changePercent');
+        }
+        setHasAnalyzed(true);
       }
-      setHasAnalyzed(true);
     } catch (error) {
-      if (isAnalysisAborted(error)) {
+      if (isAnalysisAborted(error) || (error instanceof DOMException && error.name === 'AbortError')) {
         toast.info('已取消分析');
       } else {
         console.error('获取股票数据失败:', error);
@@ -564,7 +944,7 @@ export function EndOfDayPicker() {
       abortRef.current = null;
       setIsLoading(false);
     }
-  }, [filters, toast]);
+  }, [activePreset, canRun, filters, toast]);
 
   const handleCancelAnalysis = useCallback(() => {
     abortRef.current?.abort();
@@ -577,6 +957,65 @@ export function EndOfDayPicker() {
       toast.success(`已将 ${name} 加入自选`);
     },
     [toast]
+  );
+
+  const navigate = useNavigate();
+  const [cardBusy, setCardBusy] = useState(false);
+
+  const handleOpenResearch = useCallback(
+    (routeCode: string) => {
+      navigate(`/s/${routeCode}`);
+    },
+    [navigate]
+  );
+
+  const handleCreateTradeCard = useCallback(
+    async (stock: EndOfDayStock) => {
+      if (!activePreset) {
+        toast.warning('请先选择策略预设');
+        return;
+      }
+      setCardBusy(true);
+      try {
+        const thesisParts = [
+          `来自策略选股「${activePreset.name}」`,
+          resolvedCopy?.one_liner,
+          ...(stock.whyHit || []).slice(0, 3),
+        ].filter(Boolean);
+        const res = await fetch('/api/research/cards', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: stock.routeCode,
+            thesis: thesisParts.join('；'),
+            status: 'draft',
+            strategy_template_id: horizonToStrategyTemplateId(activePreset.horizon),
+            stop_rule: resolvedCopy?.how_to_exit || '逻辑证伪或破关键位离场',
+            falsify_conditions: stock.whyHit?.slice(0, 3) || [],
+            business_mode_state: 'unverified',
+            entry_price: stock.price || null,
+            pricing:
+              stock.dividendYield != null
+                ? `股息率 ${stock.dividendYield.toFixed(2)}%`
+                : stock.pe != null
+                  ? `PE ${stock.pe}`
+                  : undefined,
+            position_pct: 5,
+            evidence: [],
+          }),
+        });
+        const data = (await res.json()) as { ok?: boolean; error?: string; card?: { id?: string } };
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || '创建失败');
+        }
+        toast.success(`已生成草稿卡片 ${data.card?.id?.slice(0, 8) || ''}…`);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : '创建交易卡片失败');
+      } finally {
+        setCardBusy(false);
+      }
+    },
+    [activePreset, resolvedCopy, toast]
   );
 
   // 更新筛选条件
@@ -699,15 +1138,29 @@ export function EndOfDayPicker() {
         <div className={styles.titleSection}>
           <h1 className={styles.title}>
             <TrendingUp size={24} />
-            尾盘选股法
+            策略选股
           </h1>
           <p className={styles.subtitle}>
-            一日持股法分析工具 · 筛选分时强势股票
+            {activePreset
+              ? `${activePreset.name} · ${resolvedCopy?.one_liner || '规则候选池'}`
+              : '多策略扫描 · 预设 / 自定义 / 自动文案'}
           </p>
         </div>
       </motion.header>
 
       <main className={styles.main}>
+        {!hasAnalyzed && (
+          <div className={styles.strategyChrome}>
+            <HorizonTabs value={horizon} onChange={handleHorizonChange} />
+            <PresetStrip
+              presets={presets}
+              activeId={activePresetId}
+              dirty={dirty}
+              onSelect={handleSelectPreset}
+            />
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
           {!hasAnalyzed ? (
             <motion.div
@@ -726,7 +1179,7 @@ export function EndOfDayPicker() {
                 transition={{ duration: 0.5 }}
               >
                 <motion.button
-                  className={styles.startButton}
+                  className={`${styles.startButton} ${!canRun ? styles.startButtonPending : ''}`}
                   onClick={handleStartAnalysis}
                   disabled={isLoading}
                   whileHover={{ scale: 1.03 }}
@@ -735,28 +1188,36 @@ export function EndOfDayPicker() {
                   <span className={styles.buttonGlow} />
                   <span className={styles.buttonContent}>
                     <Zap size={28} />
-                    <span>开始分析</span>
+                    <span>{runButtonLabel(activePreset)}</span>
                   </span>
                 </motion.button>
+                {!canRun && activePreset && (
+                  <p className={styles.runHint}>M2/M3 将接入该预设跑批；当前可浏览规则与文案</p>
+                )}
               </motion.div>
 
+              <div className={styles.workspaceRow}>
               {/* 筛选条件卡片 */}
               <motion.div
-                className={`${styles.filterCard} ${isEditing ? styles.editing : ''}`}
-                onClick={() => !isEditing && setIsEditing(true)}
+                className={`${styles.filterCard} ${isEditing ? styles.editing : ''} ${
+                  !canEditEodRules ? styles.filterReadOnly : ''
+                }`}
+                onClick={() => {
+                  if (canEditEodRules && !isEditing) setIsEditing(true);
+                }}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.2 }}
-                whileHover={!isEditing ? { scale: 1.01 } : undefined}
+                whileHover={canEditEodRules && !isEditing ? { scale: 1.01 } : undefined}
               >
                 <div className={styles.filterHeader}>
                   <div className={styles.filterTitle}>
                     <SlidersHorizontal size={20} />
-                    <span>筛选条件</span>
+                    <span>{canEditEodRules ? '筛选条件' : '规则概览'}</span>
                   </div>
                   <div className={styles.filterActions}>
                     <AnimatePresence mode="wait">
-                      {isEditing ? (
+                      {canEditEodRules && isEditing ? (
                         <motion.div
                           key="editing"
                           className={styles.editActions}
@@ -820,7 +1281,7 @@ export function EndOfDayPicker() {
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                         >
-                          点击编辑
+                          {canEditEodRules ? '点击编辑' : '只读规则'}
                         </motion.span>
                       )}
                     </AnimatePresence>
@@ -931,6 +1392,13 @@ export function EndOfDayPicker() {
                   )}
                 </AnimatePresence>
 
+                {!canEditEodRules ? (
+                  <ul className={styles.ruleReadonlyList}>
+                    {(resolvedCopy?.conditions || []).map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                ) : (
                 <div className={styles.filterGrid}>
                   {/* 流通市值 */}
                   <div className={styles.filterItem}>
@@ -1104,7 +1572,11 @@ export function EndOfDayPicker() {
                     </div>
                   </div>
                 </div>
+                )}
               </motion.div>
+
+              <StrategyCopyPanel copy={resolvedCopy} preset={activePreset} dirty={dirty} />
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -1124,7 +1596,9 @@ export function EndOfDayPicker() {
                 >
                   <Target size={20} />
                   <span className={styles.summaryText}>
-                    共筛选出 <strong>{stocks.length}</strong> 只符合条件的股票
+                    {activePreset ? `「${activePreset.name}」` : ''}共筛选出{' '}
+                    <strong>{stocks.length}</strong> 只候选
+                    {resultMode === 'scanner' ? '（质量扫描）' : ''}
                   </span>
                 </motion.div>
                 <motion.div
@@ -1174,7 +1648,11 @@ export function EndOfDayPicker() {
                   <div className={styles.sortSection}>
                     <ArrowUpDown size={14} />
                     <span className={styles.sortLabel}>排序：</span>
-                    {SORT_OPTIONS.map((option) => (
+                    {SORT_OPTIONS.filter((option) =>
+                      resultMode === 'scanner'
+                        ? option.field === 'changePercent'
+                        : true
+                    ).map((option) => (
                       <button
                         key={option.field}
                         className={`${styles.sortOption} ${sortField === option.field ? styles.active : ''}`}
@@ -1220,6 +1698,9 @@ export function EndOfDayPicker() {
                       index={index}
                       inWatchlist={isInWatchlist(stock.routeCode)}
                       onAddWatchlist={handleAddWatchlist}
+                      onOpenResearch={handleOpenResearch}
+                      onCreateCard={handleCreateTradeCard}
+                      cardBusy={cardBusy}
                       isSelected={selectedStocks.has(stock.code)}
                       onToggleSelect={handleToggleSelect}
                       showSelect={showSelectMode}

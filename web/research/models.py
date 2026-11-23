@@ -104,6 +104,47 @@ class StrategyTemplate(TypedDict, total=False):
     universe: str
 
 
+class RuleBlock(TypedDict, total=False):
+    """选股规则积木：op + params。MVP 仅顶层 AND。"""
+
+    op: str
+    params: dict[str, Any]
+
+
+class StrategyCopy(TypedDict, total=False):
+    headline: str
+    one_liner: str
+    fit_when: str
+    avoid_when: str
+    how_to_buy: str
+    how_to_exit: str
+    position_hint: str
+    conditions: list[str]
+    disclaimer: str
+
+
+class StrategyPreset(TypedDict, total=False):
+    """策略扫描预设（与六维 StrategyTemplate 分离）。"""
+
+    id: str
+    name: str
+    horizon: Literal["short", "swing", "long"]
+    version: int
+    risk_level: str
+    enabled_by_default: bool
+    runnable: bool
+    run_engine: str
+    scanner_template_id: str
+    tags: list[str]
+    environment: dict[str, Any]
+    gates: dict[str, Any]
+    rules: dict[str, Any]
+    copy: StrategyCopy
+    result_columns: list[str]
+    sort_default: dict[str, str]
+    outputs: dict[str, Any]
+
+
 class PortfolioSnapshot(TypedDict, total=False):
     id: str
     holdings: list[dict[str, Any]]

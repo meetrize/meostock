@@ -25,6 +25,13 @@ from research.review import build_review_report
 from research.risk_rules import risk_rules_payload
 from research.scanner_run import list_scan_templates, run_scanner
 from research.scorecard import build_scorecard
+from research.strategy_presets import (
+    apply_param_overrides,
+    get_preset,
+    list_presets,
+    resolve_copy,
+    schema_public,
+)
 from research.strategy_spec import build_strategy_spec
 from research.strategy_templates import list_templates
 from research.themes import build_theme_leaders
@@ -109,6 +116,13 @@ class StrategySpecBody(BaseModel):
     format: str = "json"
 
 
+class ResolveCopyBody(BaseModel):
+    preset_id: str = Field(..., min_length=1)
+    param_overrides: dict[str, Any] | None = None
+    copy_overrides: dict[str, Any] | None = None
+    locked_fields: list[str] | None = None
+
+
 @router.get("/health")
 def research_health() -> JSONResponse:
     probe = {}
@@ -144,6 +158,7 @@ def research_health() -> JSONResponse:
                 "backtest",
                 "behavior_bias",
                 "strategy_spec",
+                "strategy_presets",
             ],
             "fina_probe": {
                 "mode": probe.get("mode"),
@@ -313,6 +328,49 @@ def research_fina_probe(
 @router.get("/strategy-templates")
 def research_strategy_templates() -> JSONResponse:
     return JSONResponse({"ok": True, "templates": list_templates()})
+
+
+@router.get("/strategy-presets/schema")
+def research_strategy_presets_schema() -> JSONResponse:
+    return JSONResponse({"ok": True, **schema_public()})
+
+
+@router.get("/strategy-presets")
+def research_strategy_presets(
+    horizon: str | None = Query(None, description="short|swing|long"),
+) -> JSONResponse:
+    return JSONResponse({"ok": True, "presets": list_presets(horizon=horizon)})
+
+
+@router.get("/strategy-presets/{preset_id}")
+def research_strategy_preset_get(preset_id: str) -> JSONResponse:
+    preset = get_preset(preset_id)
+    if not preset:
+        return JSONResponse({"ok": False, "error": "preset not found"}, status_code=404)
+    copy = resolve_copy(preset)
+    return JSONResponse({"ok": True, "preset": preset, "resolved_copy": copy})
+
+
+@router.post("/strategy-presets/resolve-copy")
+def research_strategy_presets_resolve_copy(body: ResolveCopyBody) -> JSONResponse:
+    preset = get_preset(body.preset_id)
+    if not preset:
+        return JSONResponse({"ok": False, "error": "preset not found"}, status_code=404)
+    patched = apply_param_overrides(preset, body.param_overrides)
+    copy = resolve_copy(
+        patched,
+        overrides=body.copy_overrides,
+        locked_fields=body.locked_fields,
+    )
+    return JSONResponse(
+        {
+            "ok": True,
+            "preset_id": body.preset_id,
+            "rules": patched.get("rules"),
+            "resolved_copy": copy,
+            "conditions": copy.get("conditions") or [],
+        }
+    )
 
 
 @router.get("/stock/{code}/scorecard")

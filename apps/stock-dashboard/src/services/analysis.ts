@@ -139,6 +139,15 @@ export interface EndOfDayStock {
   prevClose: number;
   timeline?: TimelinePoint[];
   timelineAboveAvgRatio?: number;
+  /** 策略命中解释（扫描器 why_hit） */
+  whyHit?: string[];
+  tradeable?: boolean;
+  tradabilityLabel?: string;
+  dividendYield?: number | null;
+  roe?: number | null;
+  growth?: number | null;
+  peg?: number | null;
+  dataGaps?: string[];
 }
 
 export type ScannerSignalKey =

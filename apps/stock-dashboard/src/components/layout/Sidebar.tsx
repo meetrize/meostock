@@ -62,7 +62,7 @@ const navItems: NavItem[] = [
   { path: '/calendar', label: '财经日历', icon: <CalendarDays size={18} /> },
   { path: '/favorites', label: '收藏夹', icon: <Bookmark size={18} /> },
   { path: '/scanner', label: '扫描', icon: <TrendingUp size={18} /> },
-  { path: '/eod-picker', label: '尾盘选股', icon: <TrendingUp size={18} /> },
+  { path: '/eod-picker', label: '策略选股', icon: <TrendingUp size={18} /> },
   { path: '/scheduler', label: '定时任务', icon: <Clock size={18} /> },
   { path: '/agent', label: 'AI Agent', icon: <Bot size={18} /> },
 ];
