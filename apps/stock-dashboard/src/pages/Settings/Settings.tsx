@@ -336,7 +336,7 @@ export function Settings() {
                   type="button"
                   className={styles.colorModeBtn}
                   disabled={Boolean(klineBulk?.active)}
-                  title="按代码表拉取约半年日K（≥120根）入库，后台执行，方便行情翻页秒开"
+                  title="A股：按代码表拉取约半年日K（≥120根）入库"
                   onClick={async () => {
                     try {
                       const res = await fetch('/api/cache/kline/bulk-sync', {
@@ -359,7 +359,36 @@ export function Settings() {
                     }
                   }}
                 >
-                  {klineBulk?.active ? '日K入库中…' : '日K全量入库'}
+                  {klineBulk?.active ? '日K入库中…' : 'A股日K全量'}
+                </button>
+                <button
+                  type="button"
+                  className={styles.colorModeBtn}
+                  disabled={Boolean(klineBulk?.active)}
+                  title="美股精选池：宽基ETF+大盘+近期访问，约半年日K（非全市场约1.4万只）"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/cache/kline/bulk-sync', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          market: 'us',
+                          period: '1d',
+                          min_bars: 120,
+                          force: false,
+                          concurrency: 2,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!data.ok) throw new Error(data.error || '启动失败');
+                      toast.success(data.message || '美股精选日K入库已开始');
+                      void refreshKlineBulk();
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : String(e));
+                    }
+                  }}
+                >
+                  美股精选日K
                 </button>
                 {klineBulk?.active ? (
                   <button

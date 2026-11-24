@@ -152,9 +152,9 @@ class KlineWarmupBody(BaseModel):
 
 
 class KlineBulkSyncBody(BaseModel):
-    """A 股日 K 全量入库（约半年，默认 ≥120 根交易日）。"""
+    """日 K 入库（约半年，默认 ≥120 根交易日）。cn=全 A；us=精选池（非全市场）。"""
 
-    market: str = "cn"
+    market: str = "cn"  # cn | us
     period: str = "1d"
     min_bars: int = 120
     force: bool = False
@@ -1046,7 +1046,7 @@ def cache_kline_warmup(body: KlineWarmupBody | None = None) -> JSONResponse:
 
 @router.post("/kline/bulk-sync")
 def cache_kline_bulk_sync(body: KlineBulkSyncBody | None = None) -> JSONResponse:
-    """按代码表全量拉取 A 股日 K（约半年）入库，后台执行。"""
+    """日 K 入库（约半年）后台执行：cn=全 A 代码表；us=精选 ETF/大盘+近期访问。"""
     if not _ENABLED:
         return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
     from cache.kline_bulk_sync import start_bulk_kline_sync

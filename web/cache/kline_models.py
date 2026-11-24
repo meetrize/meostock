@@ -39,6 +39,38 @@ def get_kline_meta(market: str, symbol: str, period: str) -> dict[str, Any] | No
     return dict(row) if row else None
 
 
+def list_recent_kline_symbols(
+    market: str,
+    *,
+    period: str = "1d",
+    limit: int = 80,
+) -> list[str]:
+    """按 last_access_at 倒序取近期打开过的标的（用于美股精选补全）。"""
+    market = (market or "").lower()
+    lim = max(1, min(int(limit or 80), 500))
+    conn = get_conn()
+    with _lock:
+        rows = conn.execute(
+            """
+            SELECT symbol FROM kline_meta
+            WHERE market=? AND period=?
+              AND symbol IS NOT NULL AND TRIM(symbol) != ''
+            ORDER BY COALESCE(last_access_at, 0) DESC
+            LIMIT ?
+            """,
+            (market, period, lim),
+        ).fetchall()
+    out: list[str] = []
+    seen: set[str] = set()
+    for r in rows:
+        sym = str(r["symbol"] or "").strip()
+        if not sym or sym in seen:
+            continue
+        seen.add(sym)
+        out.append(sym)
+    return out
+
+
 def read_kline_bars(
     market: str,
     symbol: str,

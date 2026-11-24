@@ -1,4 +1,4 @@
-"""A 股日 K 全量入库：按代码表串行/有限并发拉约半年日线落 SQLite。"""
+"""日 K 全量/精选入库：A 股按代码表约半年；美股仅精选宇宙（勿全市场 1 万+）。"""
 
 from __future__ import annotations
 
@@ -38,6 +38,116 @@ _progress: dict[str, Any] = {
 _cancel = threading.Event()
 _runner: threading.Thread | None = None
 
+# 美股半年日 K 精选：宽基/行业 ETF + 大盘股 + 热门 ADR（对齐常见看盘软件「核心池」）
+_US_CORE_TICKERS: tuple[str, ...] = (
+    # 宽基 / 风格
+    "SPY",
+    "QQQ",
+    "IWM",
+    "DIA",
+    "VOO",
+    "VTI",
+    "IVV",
+    "RSP",
+    # 债 / 商品 / 波动代理
+    "TLT",
+    "IEF",
+    "HYG",
+    "LQD",
+    "GLD",
+    "SLV",
+    "USO",
+    "UNG",
+    "VIXY",
+    # 行业 ETF
+    "XLK",
+    "XLF",
+    "XLE",
+    "XLV",
+    "XLI",
+    "XLY",
+    "XLP",
+    "XLB",
+    "XLU",
+    "XLRE",
+    "SMH",
+    "SOXX",
+    "XBI",
+    "ARKK",
+    "XOP",
+    "KWEB",
+    # Mag7 / 超大盘
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "GOOGL",
+    "GOOG",
+    "AMZN",
+    "META",
+    "TSLA",
+    "AVGO",
+    "BRK-B",
+    "JPM",
+    "V",
+    "MA",
+    "UNH",
+    "XOM",
+    "JNJ",
+    "WMT",
+    "PG",
+    "HD",
+    "COST",
+    "NFLX",
+    "AMD",
+    "ORCL",
+    "CRM",
+    "INTC",
+    "QCOM",
+    "TXN",
+    "PEP",
+    "KO",
+    "MRK",
+    "ABBV",
+    "LLY",
+    "BAC",
+    "WFC",
+    "DIS",
+    "ADBE",
+    "CSCO",
+    "IBM",
+    "GE",
+    "CAT",
+    "BA",
+    # 半导体 / 成长热门
+    "TSM",
+    "ASML",
+    "MU",
+    "AMAT",
+    "LRCX",
+    "KLAC",
+    "ARM",
+    "PLTR",
+    "COIN",
+    "MSTR",
+    "UBER",
+    "SHOP",
+    "SNOW",
+    "NET",
+    "CRWD",
+    "PANW",
+    # 中概 / ADR
+    "BABA",
+    "PDD",
+    "JD",
+    "NIO",
+    "LI",
+    "XPEV",
+    "BIDU",
+    "NTES",
+    "BILI",
+    "TME",
+)
+
 
 def get_bulk_progress() -> dict[str, Any]:
     with _lock:
@@ -58,28 +168,78 @@ def _append_error(symbol: str, err: str) -> None:
         _progress["updated_at"] = time.time()
 
 
-def _target_symbols(market: str) -> list[str]:
-    """优先代码表 klineSymbol；否则快照。"""
-    market = (market or "cn").lower()
-    seeds = models.read_symbol_seeds(market) if hasattr(models, "read_symbol_seeds") else []
+def _dedupe_append(out: list[str], seen: set[str], raw: str) -> None:
+    sym = str(raw or "").strip()
+    if not sym or sym in seen:
+        return
+    seen.add(sym)
+    out.append(sym)
+
+
+def _target_symbols_cn() -> list[str]:
+    """A 股：优先代码表 klineSymbol；否则快照。"""
+    seeds = models.read_symbol_seeds("cn") if hasattr(models, "read_symbol_seeds") else []
     out: list[str] = []
     seen: set[str] = set()
     for s in seeds:
-        sym = str(s.get("klineSymbol") or s.get("code") or "").strip()
-        if not sym or sym in seen:
-            continue
-        seen.add(sym)
-        out.append(sym)
+        _dedupe_append(out, seen, str(s.get("klineSymbol") or s.get("code") or ""))
     if out:
         return out
-    rows = models.read_snapshot(market)
+    rows = models.read_snapshot("cn")
     for r in rows:
-        sym = str(r.get("klineSymbol") or r.get("code") or "").strip()
-        if not sym or sym in seen:
-            continue
-        seen.add(sym)
-        out.append(sym)
+        _dedupe_append(out, seen, str(r.get("klineSymbol") or r.get("code") or ""))
     return out
+
+
+def _looks_like_us_ticker(ticker: str) -> bool:
+    """过滤误入 us 市场的脏代码（板块 BK、带交易所后缀的 A 股等）。"""
+    t = (ticker or "").strip().upper()
+    if not t or len(t) > 8:
+        return False
+    if t.startswith("BK") or t.startswith("EM:"):
+        return False
+    if "." in t:  # 000607.SZ 等
+        return False
+    # 字母开头，允许数字与连字符（BRK-B）
+    if not t[0].isalpha():
+        return False
+    return all(ch.isalnum() or ch == "-" for ch in t)
+
+
+def _target_symbols_us(*, recent_limit: int = 80) -> list[str]:
+    """美股精选：核心 ETF/大盘 + 近期打开过的标的。绝不扫全市场代码表。"""
+    out: list[str] = []
+    seen: set[str] = set()
+    for t in _US_CORE_TICKERS:
+        ticker = str(t).strip().upper()
+        if not ticker or not _looks_like_us_ticker(ticker):
+            continue
+        _dedupe_append(out, seen, f"us{ticker}")
+        seen.add(ticker)
+    for sym in kline_models.list_recent_kline_symbols(
+        "us", period="1d", limit=recent_limit
+    ):
+        s = str(sym or "").strip()
+        if not s:
+            continue
+        key = s[2:].upper() if s.lower().startswith("us") else s.upper()
+        if not _looks_like_us_ticker(key):
+            continue
+        if key in seen or f"us{key}" in seen:
+            continue
+        raw = s if s.lower().startswith("us") else f"us{s}"
+        _dedupe_append(out, seen, raw)
+        seen.add(key)
+    return out
+
+
+def _target_symbols(market: str) -> list[str]:
+    market = (market or "cn").lower()
+    if market == "us":
+        return _target_symbols_us()
+    if market == "cn":
+        return _target_symbols_cn()
+    return []
 
 
 def _already_enough(market: str, symbol: str, period: str, min_bars: int) -> tuple[bool, int]:
@@ -160,6 +320,7 @@ def _run_job(
     if max_symbols and max_symbols > 0:
         targets = targets[: int(max_symbols)]
     total = len(targets)
+    label = "A股全表" if market == "cn" else "美股精选"
     _set(
         active=True,
         market=market,
@@ -170,21 +331,26 @@ def _run_job(
         skip_count=0,
         fail_count=0,
         current=None,
-        message=f"开始全量入库 {market} {period_n}（目标≥{min_bars} 根）…",
+        message=f"开始{label}入库 {market} {period_n}（目标≥{min_bars} 根）…",
         started_at=time.time(),
         min_bars=min_bars,
         errors=[],
     )
     if total <= 0:
-        _set(active=False, message="无代码可同步（请先同步 A 股行情/代码表）")
+        tip = (
+            "无代码可同步（请先同步 A 股行情/代码表）"
+            if market == "cn"
+            else "无美股精选代码（内部清单为空）"
+        )
+        _set(active=False, message=tip)
         return
 
     workers = max(1, min(int(concurrency or 3), 6))
     done = ok = skip = fail = 0
 
     def _handle(raw: str) -> str:
-        # 轻微节流，降低东财限流概率
-        time.sleep(0.05)
+        # 轻微节流，降低东财/Yahoo 限流概率
+        time.sleep(0.08 if market == "us" else 0.05)
         return _sync_one(raw, period=period_n, min_bars=min_bars, force=force)
 
     try:
@@ -234,18 +400,23 @@ def start_bulk_kline_sync(
     concurrency: int = 3,
     max_symbols: int | None = None,
 ) -> dict[str, Any]:
-    """启动后台全量日 K 入库。已在跑则返回 already_running。"""
+    """启动后台日 K 入库。cn=全 A；us=精选宇宙。已在跑则返回 already_running。"""
     global _runner
     with _lock:
         if _progress.get("active") and _runner and _runner.is_alive():
             return {"ok": False, "error": "already_running", "progress": dict(_progress)}
 
     market = (market or "cn").lower().strip()
-    if market != "cn":
-        return {"ok": False, "error": "目前仅支持 market=cn（A股日线全量）"}
+    if market not in ("cn", "us"):
+        return {
+            "ok": False,
+            "error": "仅支持 market=cn|us（美股为精选池，非全市场）",
+        }
 
     min_bars = max(60, min(int(min_bars or 120), 500))
-    concurrency = max(1, min(int(concurrency or 3), 6))
+    # 美股源更易限流，默认并发略低
+    default_conc = 2 if market == "us" else 3
+    concurrency = max(1, min(int(concurrency or default_conc), 6))
     _cancel.clear()
 
     def _boot() -> None:
@@ -265,6 +436,11 @@ def start_bulk_kline_sync(
     th = threading.Thread(target=_boot, name="kline-bulk-sync", daemon=True)
     _runner = th
     th.start()
+    msg = (
+        "A股日K全量入库已在后台开始（约半年，可在进度接口查看）"
+        if market == "cn"
+        else "美股精选日K入库已在后台开始（宽基ETF+大盘+近期访问，约半年）"
+    )
     return {
         "ok": True,
         "queued": True,
@@ -272,7 +448,7 @@ def start_bulk_kline_sync(
         "period": normalize_period(period),
         "min_bars": min_bars,
         "concurrency": concurrency,
-        "message": "A股日K全量入库已在后台开始（约半年，可在进度接口查看）",
+        "message": msg,
     }
 
 

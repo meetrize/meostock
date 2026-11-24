@@ -116,7 +116,8 @@ def _http_json(url: str, *, timeout: float = 20.0) -> dict[str, Any]:
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
+            # 部分东财节点带 UTF-8 BOM
+            raw = resp.read().decode("utf-8-sig", errors="replace")
     except http.client.RemoteDisconnected as e:
         raise urllib.error.URLError(str(e)) from e
     data = json.loads(raw)
@@ -430,8 +431,52 @@ def _fetch_em_bars_by_secid(
     return bars, name
 
 
+def _fetch_us_spot_yahoo(ticker: str) -> dict[str, Any] | None:
+    """Yahoo 日 K 推算现价，东财不可用时补当日棒。"""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    try:
+        import server as srv
+        from cache.ttl import us_session_date
+
+        q = srv._yf_quote_from_bars(ticker, force=True)
+        if not q:
+            return None
+        price = float(q.get("price") or 0)
+        if price <= 0:
+            return None
+        ny = ZoneInfo("America/New_York")
+        # 优先用当前美东交易日；Yahoo 日 K 时间戳作兜底
+        qdate = us_session_date()
+        try:
+            bars = srv._yf_kline_cached(ticker, period="1d", force=False)
+            if bars:
+                last_ts = int(bars[-1].get("timestamp") or 0)
+                if last_ts > 0:
+                    bar_day = datetime.fromtimestamp(last_ts / 1000.0, tz=ny).date()
+                    # 盘中 Yahoo 已有当日棒则对齐；否则用 session_date
+                    if bar_day >= qdate:
+                        qdate = bar_day
+        except Exception:
+            pass
+        return {
+            "name": str(q.get("name") or ticker),
+            "open": float(q.get("open") or price),
+            "prev_close": float(q.get("prevClose") or price),
+            "close": price,
+            "high": float(q.get("high") or price),
+            "low": float(q.get("low") or price),
+            "volume": float(q.get("volume") or 0),
+            "date": qdate,
+            "secid": f"yf:{ticker}",
+        }
+    except Exception:
+        return None
+
+
 def fetch_us_spot(ticker: str) -> dict[str, Any] | None:
-    """美股东财实时行情，用于补当日日 K。返回 open/high/low/close/volume/date(美东)。"""
+    """美股现价：东财优先，失败回退 Yahoo。用于补当日日 K。"""
     from datetime import datetime
     from zoneinfo import ZoneInfo
 
@@ -449,32 +494,31 @@ def fetch_us_spot(ticker: str) -> dict[str, Any] | None:
         )
         data = _http_json(url, timeout=8.0)
         body = data.get("data") if isinstance(data.get("data"), dict) else None
-        if not body or body.get("f43") in (None, "-", 0, "0"):
-            return None
-        price = float(body["f43"])
-        if price <= 0:
-            return None
-        ny = ZoneInfo("America/New_York")
-        qdate = datetime.now(ny).date()
-        try:
-            ts = int(body.get("f86") or 0)
-            if ts > 1_000_000_000:
-                qdate = datetime.fromtimestamp(ts, tz=ny).date()
-        except Exception:
-            pass
-        return {
-            "name": str(body.get("f58") or ticker),
-            "open": float(body.get("f46") or price),
-            "prev_close": float(body.get("f60") or price),
-            "close": price,
-            "high": float(body.get("f44") or price),
-            "low": float(body.get("f45") or price),
-            "volume": float(body.get("f47") or 0),
-            "date": qdate,
-            "secid": secid,
-        }
+        if body and body.get("f43") not in (None, "-", 0, "0"):
+            price = float(body["f43"])
+            if price > 0:
+                ny = ZoneInfo("America/New_York")
+                qdate = datetime.now(ny).date()
+                try:
+                    ts = int(body.get("f86") or 0)
+                    if ts > 1_000_000_000:
+                        qdate = datetime.fromtimestamp(ts, tz=ny).date()
+                except Exception:
+                    pass
+                return {
+                    "name": str(body.get("f58") or ticker),
+                    "open": float(body.get("f46") or price),
+                    "prev_close": float(body.get("f60") or price),
+                    "close": price,
+                    "high": float(body.get("f44") or price),
+                    "low": float(body.get("f45") or price),
+                    "volume": float(body.get("f47") or 0),
+                    "date": qdate,
+                    "secid": secid,
+                }
     except Exception:
-        return None
+        pass
+    return _fetch_us_spot_yahoo(ticker)
 
 
 def fetch_hk_spot(symbol: str) -> dict[str, Any] | None:

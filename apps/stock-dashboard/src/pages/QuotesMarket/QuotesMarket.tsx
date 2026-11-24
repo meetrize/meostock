@@ -1750,29 +1750,31 @@ export function QuotesMarket() {
     }
   }, []);
 
-  useEffect(() => {
-    if (market !== 'cn') return;
-    void refreshKlineBulk();
-  }, [market, refreshKlineBulk]);
+  const klineBulkMarket = market === 'cn' || market === 'us' ? market : null;
 
   useEffect(() => {
-    if (market !== 'cn' || !klineBulk?.active) return;
+    if (!klineBulkMarket) return;
+    void refreshKlineBulk();
+  }, [klineBulkMarket, refreshKlineBulk]);
+
+  useEffect(() => {
+    if (!klineBulkMarket || !klineBulk?.active) return;
     const id = window.setInterval(() => void refreshKlineBulk(), 1200);
     return () => window.clearInterval(id);
-  }, [market, klineBulk?.active, refreshKlineBulk]);
+  }, [klineBulkMarket, klineBulk?.active, refreshKlineBulk]);
 
   const handleKlineBulkSync = useCallback(async () => {
-    if (market !== 'cn' || klineBulk?.active) return;
+    if (!klineBulkMarket || klineBulk?.active) return;
     try {
       const res = await fetch('/api/cache/kline/bulk-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          market: 'cn',
+          market: klineBulkMarket,
           period: '1d',
           min_bars: 120,
           force: false,
-          concurrency: 3,
+          concurrency: klineBulkMarket === 'us' ? 2 : 3,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1790,12 +1792,15 @@ export function QuotesMarket() {
               : detail || '启动失败'
         );
       }
-      toast.success(data.message || '日K全量入库已开始');
+      toast.success(
+        data.message ||
+          (klineBulkMarket === 'us' ? '美股精选日K入库已开始' : '日K全量入库已开始')
+      );
       void refreshKlineBulk();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     }
-  }, [market, klineBulk?.active, toast, refreshKlineBulk]);
+  }, [klineBulkMarket, klineBulk?.active, toast, refreshKlineBulk]);
 
   const handleKlineBulkCancel = useCallback(async () => {
     try {
@@ -2416,27 +2421,35 @@ export function QuotesMarket() {
                   同步本节点
                 </button>
               )}
-              {market === 'cn' && (
+              {klineBulkMarket && (
                 <>
                   <button
                     type="button"
                     className={styles.refreshBtn}
                     onClick={() => void handleKlineBulkSync()}
                     disabled={Boolean(klineBulk?.active)}
-                    title="按代码表后台入库约半年日K（≥120根），方便翻页秒开"
+                    title={
+                      klineBulkMarket === 'us'
+                        ? '美股精选池（宽基ETF+大盘+近期访问）约半年日K，非全市场'
+                        : '按代码表后台入库约半年日K（≥120根），方便翻页秒开'
+                    }
                   >
                     <Database
                       size={14}
                       className={klineBulk?.active ? styles.spin : undefined}
                     />
-                    {klineBulk?.active ? '日K入库中…' : '日K全量入库'}
+                    {klineBulk?.active
+                      ? '日K入库中…'
+                      : klineBulkMarket === 'us'
+                        ? '美股精选日K'
+                        : '日K全量入库'}
                   </button>
                   {klineBulk?.active && (
                     <button
                       type="button"
                       className={styles.refreshBtn}
                       onClick={() => void handleKlineBulkCancel()}
-                      title="取消日K全量入库"
+                      title="取消日K入库"
                     >
                       取消入库
                     </button>
@@ -2476,10 +2489,10 @@ export function QuotesMarket() {
                 全屏
               </button>
               <span className={styles.count}>共 {sorted.length} 条</span>
-              {market === 'cn' && klineBulk && (klineBulk.active || klineBulk.done > 0) && (
+              {klineBulkMarket && klineBulk && (klineBulk.active || klineBulk.done > 0) && (
                 <span
                   className={styles.cacheHint}
-                  title={klineBulk.message || '日K全量入库'}
+                  title={klineBulk.message || '日K入库'}
                 >
                   {klineBulk.active
                     ? `日K入库 ${klineBulk.done}/${klineBulk.total}`

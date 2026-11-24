@@ -4270,25 +4270,36 @@
       }
     }
 
-    /** A 股是否已闭市（周末/节假日粗判 + 盘后）；翻页时优先只读本地 */
+    /** 解析 formatToParts 墙钟（处理 hour=24） */
+    function wallClockFromParts(partsObj) {
+      const wd = String(partsObj.weekday || "");
+      const hourRaw = partsObj.hour === "24" ? "0" : partsObj.hour;
+      const hh = Number(hourRaw);
+      const mm = Number(partsObj.minute);
+      return { wd, hh, mm, mins: hh * 60 + mm };
+    }
+
+    function sessionPartsInTz(timeZone) {
+      const fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+      return Object.fromEntries(
+        fmt.formatToParts(new Date()).map((p) => [p.type, p.value])
+      );
+    }
+
+    /** A 股是否已闭市（周末 + 盘后）；翻页时优先只读本地 */
     function isCnSessionClosedNow() {
       try {
-        const fmt = new Intl.DateTimeFormat("en-US", {
-          timeZone: "Asia/Shanghai",
-          weekday: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        });
-        const parts = Object.fromEntries(
-          fmt.formatToParts(new Date()).map((p) => [p.type, p.value])
+        const { wd, mins, hh, mm } = wallClockFromParts(
+          sessionPartsInTz("Asia/Shanghai")
         );
-        const wd = String(parts.weekday || "");
         if (wd === "Sat" || wd === "Sun") return true;
-        const hh = Number(parts.hour);
-        const mm = Number(parts.minute);
         if (!Number.isFinite(hh) || !Number.isFinite(mm)) return false;
-        const mins = hh * 60 + mm;
         // 与后端 ttl 对齐：9:15–11:35、12:55–15:05 为盘中
         const am = mins >= 9 * 60 + 15 && mins <= 11 * 60 + 35;
         const pm = mins >= 12 * 60 + 55 && mins <= 15 * 60 + 5;
@@ -4298,11 +4309,51 @@
       }
     }
 
+    /** 美股是否已闭市（美东；与后端 is_session_open('us') 对齐） */
+    function isUsSessionClosedNow() {
+      try {
+        const { wd, mins, hh, mm } = wallClockFromParts(
+          sessionPartsInTz("America/New_York")
+        );
+        if (wd === "Sat" || wd === "Sun") return true;
+        if (!Number.isFinite(hh) || !Number.isFinite(mm)) return false;
+        // 9:25–16:05 美东
+        return !(mins >= 9 * 60 + 25 && mins <= 16 * 60 + 5);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    /** 港股是否已闭市（港时；粗对齐后端） */
+    function isHkSessionClosedNow() {
+      try {
+        const { wd, mins, hh, mm } = wallClockFromParts(
+          sessionPartsInTz("Asia/Hong_Kong")
+        );
+        if (wd === "Sat" || wd === "Sun") return true;
+        if (!Number.isFinite(hh) || !Number.isFinite(mm)) return false;
+        const am = mins >= 9 * 60 + 20 && mins <= 12 * 60 + 10;
+        const pm = mins >= 12 * 60 + 55 && mins <= 16 * 60 + 15;
+        return !(am || pm);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    /** 按标的所属市场判断盘后（勿把美股套进 A 股时段） */
+    function isMarketSessionClosedNow(market) {
+      const m = String(market || "").toUpperCase();
+      if (m === "US" || m === "YF") return isUsSessionClosedNow();
+      if (m === "HK") return isHkSessionClosedNow();
+      if (m === "CN") return isCnSessionClosedNow();
+      return false;
+    }
+
     function preferLocalKline(symbol, period) {
       if (chartSettings.cacheMode) return true;
       if (period === "fs") return false;
       try {
-        return resolveMarket(symbol) === "CN" && isCnSessionClosedNow();
+        return isMarketSessionClosedNow(resolveMarket(symbol));
       } catch (_) {
         return false;
       }
@@ -7056,20 +7107,18 @@
         window.KlineAI?.setPeriod(currentPeriod);
       } catch (_) {}
       bindDataLoader(symbol, { seedData });
-      // 翻页：行情报价不挡 K 线；盘后可跳过实时轮询
+      // 翻页/打开：行情报价不挡 K 线；该市场盘后跳过实时轮询（美股看美东，勿套 A 股时段）
       if (fromNav) {
         void refreshQuote(symbol);
-        if (!preferLocalKline(symbol, currentPeriod)) startRealtimePoll(symbol);
-        else if (pollTimer) {
-          clearInterval(pollTimer);
-          pollTimer = null;
-        }
-        prefetchNavNeighbors();
       } else {
         await refreshQuote(symbol);
-        startRealtimePoll(symbol);
-        if (navId) prefetchNavNeighbors();
       }
+      if (!preferLocalKline(symbol, currentPeriod)) startRealtimePoll(symbol);
+      else if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+      if (fromNav || navId) prefetchNavNeighbors();
     }
 
     /** 侧栏等入口：同页切换标的 */

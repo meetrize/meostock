@@ -261,8 +261,13 @@ def hk_session_date(now: datetime | None = None) -> date:
 
 
 def us_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
-    """美股日 K 末根早于美东当前交易日 → 缺当日（Yahoo 常滞后，需东财/现价补）。"""
+    """美股日 K 末根早于美东当前交易日 → 缺当日（Yahoo 常滞后，需东财/现价补）。
+
+    仅美东盘中强制过期；盘后不因「日历日」误判，避免北京白天把美股当 A 股盘中狂刷。
+    """
     if not bars:
+        return False
+    if not is_session_open("us", now):
         return False
     try:
         last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
@@ -275,8 +280,10 @@ def us_daily_bars_missing_today(bars: list | None, now: datetime | None = None) 
 
 
 def hk_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
-    """港股日 K 末根早于港股当前交易日 → 缺当日。"""
+    """港股日 K 末根早于港股当前交易日 → 缺当日。仅港股盘中强制过期。"""
     if not bars:
+        return False
+    if not is_session_open("hk", now):
         return False
     try:
         last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
