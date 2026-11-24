@@ -303,6 +303,7 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
   const [inspectorSortKey, setInspectorSortKey] = useState<InspectorSortKey>("changeDesc");
   const [selectedBoardName, setSelectedBoardName] = useState<string | null>(null);
   const [selectedSubBoardName, setSelectedSubBoardName] = useState<string | null>(null);
+  const [inspectorPinned, setInspectorPinned] = useState(false);
   const isEnglish = locale === "en";
   const isLightMode = displayMode === "light";
   const isMobile = useIsMobile();
@@ -338,9 +339,9 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
   const riseTextColor = getRiseTextColor(activeHeatTheme, priceColorMode, displayMode);
   const fallTextColor = getFallTextColor(activeHeatTheme, priceColorMode, displayMode);
 
-  const activeStockCode = isMobile ? selectedStockCode : hoveredStockCode;
-  const activeBoardName = isMobile ? selectedBoardName : hoveredBoardName;
-  const activeSubBoardName = isMobile ? selectedSubBoardName : hoveredSubBoardName;
+  const activeStockCode = isMobile || inspectorPinned ? selectedStockCode : hoveredStockCode;
+  const activeBoardName = isMobile || inspectorPinned ? selectedBoardName : hoveredBoardName;
+  const activeSubBoardName = isMobile || inspectorPinned ? selectedSubBoardName : hoveredSubBoardName;
 
   const lastStockRectsRef = useRef<StockRect[]>([]);
   const lastBoardRectsRef = useRef<BoardRect[]>([]);
@@ -1154,6 +1155,7 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
       setSelectedStockCode(null);
       setSelectedBoardName(null);
       setSelectedSubBoardName(null);
+      setInspectorPinned(false);
 
       if (market === watchlistUniverseKey && watchlistCodes.length === 0) {
         setTreemapData(createEmptyWatchlistTreemap(period));
@@ -1238,6 +1240,7 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
     setSelectedStockCode(null);
     setSelectedBoardName(null);
     setSelectedSubBoardName(null);
+    setInspectorPinned(false);
     setView({ scale: 1, x: 0, y: 0 });
   }, [boardFilter, trendFilter]);
 
@@ -2721,6 +2724,13 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
     setSelectedSubBoardName(null);
   }, []);
 
+  const closePinnedInspector = useCallback(() => {
+    setInspectorPinned(false);
+    setSelectedStockCode(null);
+    setSelectedBoardName(null);
+    setSelectedSubBoardName(null);
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -2972,24 +2982,66 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
 
       const boardTitle = pickBoardTitle(world.x, world.y);
       const subBoardTitle = boardTitle ? null : pickSubBoardTitle(world.x, world.y);
-      if (!boardTitle && !subBoardTitle) {
+      if (boardTitle || subBoardTitle) {
+        clearBoardClickTimer();
+        boardClickTimerRef.current = setTimeout(() => {
+          boardClickTimerRef.current = null;
+          if (boardTitle) {
+            toggleBoardFilter(boardTitle.name);
+            return;
+          }
+
+          if (subBoardTitle) {
+            toggleBoardFilter(subBoardTitle.boardName);
+          }
+        }, 220);
         return;
       }
 
-      clearBoardClickTimer();
-      boardClickTimerRef.current = setTimeout(() => {
-        boardClickTimerRef.current = null;
-        if (boardTitle) {
-          toggleBoardFilter(boardTitle.name);
-          return;
-        }
+      const stock = pickStock(world.x, world.y);
+      if (stock) {
+        setSelectedStockCode(stock.code);
+        setSelectedBoardName(stock.boardName);
+        setSelectedSubBoardName(stock.subBoardName || null);
+        setInspectorPinned(true);
+        return;
+      }
 
-        if (subBoardTitle) {
-          toggleBoardFilter(subBoardTitle.boardName);
-        }
-      }, 220);
+      const subBoard = pickSubBoard(world.x, world.y);
+      if (subBoard) {
+        setSelectedStockCode(null);
+        setSelectedBoardName(subBoard.boardName);
+        setSelectedSubBoardName(subBoard.name);
+        setInspectorPinned(true);
+        return;
+      }
+
+      const board = pickBoard(world.x, world.y);
+      if (board) {
+        setSelectedStockCode(null);
+        setSelectedBoardName(board.name);
+        setSelectedSubBoardName(null);
+        setInspectorPinned(true);
+        return;
+      }
+
+      if (inspectorPinned) {
+        closePinnedInspector();
+      }
     },
-    [clearBoardClickTimer, isMobile, pickBoardTitle, pickSubBoardTitle, toWorldPoint, toggleBoardFilter]
+    [
+      clearBoardClickTimer,
+      closePinnedInspector,
+      inspectorPinned,
+      isMobile,
+      pickBoard,
+      pickBoardTitle,
+      pickStock,
+      pickSubBoard,
+      pickSubBoardTitle,
+      toWorldPoint,
+      toggleBoardFilter,
+    ]
   );
 
   const toggleFullscreen = useCallback(() => {
@@ -3327,6 +3379,11 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
           setFiltersOpen(false);
           return;
         }
+        if (inspectorPinned && !typingInField) {
+          event.preventDefault();
+          closePinnedInspector();
+          return;
+        }
         if (isFullscreen && !typingInField) {
           event.preventDefault();
           setIsFullscreen(false);
@@ -3402,9 +3459,11 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
     };
   }, [
     activeStock,
+    closePinnedInspector,
     closeSharePreview,
     createSharePreview,
     filtersOpen,
+    inspectorPinned,
     isFullscreen,
     isMobile,
     resetView,
@@ -3958,7 +4017,8 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
             {inspectorStyle && (
               <aside
                 className={cn(
-                  "pointer-events-none absolute z-30 overflow-hidden rounded-none border shadow-[0_22px_72px_rgba(0,0,0,0.36)] backdrop-blur-sm",
+                  "absolute z-30 overflow-hidden rounded-none border shadow-[0_22px_72px_rgba(0,0,0,0.36)] backdrop-blur-sm",
+                  inspectorPinned ? "pointer-events-auto" : "pointer-events-none",
                   isLightMode
                     ? "border-slate-300/80 bg-white/96 text-slate-900"
                     : "border-slate-700/80 bg-[#0f1319]/96 text-slate-100"
@@ -3994,27 +4054,40 @@ export function MarketHeatmap({ locale: initialLocale }: { locale: Locale }) {
                         priceColorMode={priceColorMode}
                         className="h-8 w-[108px] shrink-0"
                       />
-                      <div className="ml-auto flex min-w-0 shrink-0 items-baseline gap-2.5 tabular-nums">
-                        <span className="text-[13px] font-semibold leading-none text-white">
-                          {formatPrice(activeInspectorStock.price)}
-                        </span>
-                        <span className="text-[12px] font-medium leading-none text-white/75">
-                          {formatTurnoverAmount(activeInspectorStock.marketCap, locale)}
-                        </span>
-                        <span
-                          className="text-[13px] font-semibold leading-none"
-                          style={{
-                            color: getChangeTextColor(
-                              activeHeatTheme,
-                              activeInspectorStock.changePct,
-                              priceColorMode,
-                              displayMode,
-                              "soft"
-                            ),
-                          }}
-                        >
-                          {formatChange(activeInspectorStock.changePct)}
-                        </span>
+                      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2">
+                        <div className="flex min-w-0 shrink-0 items-baseline gap-2.5 tabular-nums">
+                          <span className="text-[13px] font-semibold leading-none text-white">
+                            {formatPrice(activeInspectorStock.price)}
+                          </span>
+                          <span className="text-[12px] font-medium leading-none text-white/75">
+                            {formatTurnoverAmount(activeInspectorStock.marketCap, locale)}
+                          </span>
+                          <span
+                            className="text-[13px] font-semibold leading-none"
+                            style={{
+                              color: getChangeTextColor(
+                                activeHeatTheme,
+                                activeInspectorStock.changePct,
+                                priceColorMode,
+                                displayMode,
+                                "soft"
+                              ),
+                            }}
+                          >
+                            {formatChange(activeInspectorStock.changePct)}
+                          </span>
+                        </div>
+                        {inspectorPinned && (
+                          <button
+                            type="button"
+                            onClick={closePinnedInspector}
+                            aria-label={messages.closePreview}
+                            title={messages.closePreview}
+                            className="inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-white/85 transition-colors hover:bg-white/20 hover:text-white focus-visible:bg-white/20 focus-visible:outline-none"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
