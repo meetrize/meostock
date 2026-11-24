@@ -407,7 +407,7 @@ const officialPresetsFallback: StrategyPreset[] = [
     "id": "volume_price_rise",
     "name": "量价齐升",
     "horizon": "swing",
-    "version": 1,
+    "version": 2,
     "risk_level": "medium",
     "enabled_by_default": true,
     "runnable": true,
@@ -416,7 +416,8 @@ const officialPresetsFallback: StrategyPreset[] = [
     "tags": [
       "量价",
       "齐升",
-      "波段"
+      "波段",
+      "增强"
     ],
     "environment": {
       "prefer": [
@@ -441,7 +442,15 @@ const officialPresetsFallback: StrategyPreset[] = [
             "min_sync_ratio": 0.55,
             "max_price_up_vol_down": 3,
             "near_high_pct": 5.0,
-            "min_price_up_days": 4
+            "min_price_up_days": 4,
+            "enhancements": true,
+            "require_ma20_up": true,
+            "max_price_rise_pct": 25.0,
+            "min_up_day_vol_share": 0.55,
+            "max_day_vol_multiple": 6.0,
+            "require_break_hold": true,
+            "break_lookback": 20,
+            "tag_ma5_pullback": true
           }
         },
         {
@@ -459,11 +468,11 @@ const officialPresetsFallback: StrategyPreset[] = [
       ]
     },
     "copy": {
-      "headline": "量价齐升筛选",
-      "one_liner": "近两周收盘与成交量总体抬升，上涨日多数伴随放量，允许少量例外，贴近窗口高点。",
+      "headline": "量价齐升筛选（含增强）",
+      "one_liner": "近两周价量抬升，并默认叠加 MA20 上行、涨幅上限、阳线量占比、极端堆量过滤、突破前高站稳；回踩 MA5 仅作更优买点标记。",
       "fit_when": "右侧趋势启动或加速段、板块同步走强",
-      "avoid_when": "量增价不涨、高位换手过高、孤立个股无板块效应",
-      "how_to_buy": "连续放量阳线后，回踩 5 日线不破再确认；不追一日极端放量长上影",
+      "avoid_when": "量增价不涨、高位换手过高、孤立个股无板块效应、窗口涨幅已过大",
+      "how_to_buy": "优先等 why 出现「缩量贴近 MA5」；不追一日极端放量长上影",
       "how_to_exit": "量增价滞、跌破近端平台或 5/10 日线走坏则减仓/离场",
       "position_hint": "波段试探仓；确认趋势后再加，单笔止损前置",
       "disclaimer": "规则候选池，仅供观察与学习，不构成投资建议。"
@@ -472,6 +481,8 @@ const officialPresetsFallback: StrategyPreset[] = [
       "price_rise_pct",
       "vol_ratio",
       "sync_ratio",
+      "up_day_vol_share",
+      "pullback_ready",
       "changePercent",
       "amount"
     ],

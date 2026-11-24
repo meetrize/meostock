@@ -17,6 +17,18 @@ def _f(v: Any) -> float | None:
         return None
 
 
+def _param_optional_float(
+    params: dict[str, Any], key: str, default: float | None
+) -> float | None:
+    """增强项浮点：未传用 default；显式 null/false/'' 表示关闭。"""
+    if key not in params:
+        return default
+    v = params[key]
+    if v is None or v is False or v == "":
+        return None
+    return _f(v)
+
+
 def sma_at(closes: list[float], i: int, n: int) -> float | None:
     if n <= 0 or i + 1 < n:
         return None
@@ -186,19 +198,39 @@ def eval_volume_price_sync_rise(
     max_price_up_vol_down: int = 3,
     near_high_pct: float = 5.0,
     min_price_up_days: int = 4,
+    # ---- 可选增强（enhancements=True 时生效；单项可关）----
+    enhancements: bool = False,
+    require_ma20_up: bool = True,
+    max_price_rise_pct: float | None = 25.0,
+    min_up_day_vol_share: float | None = 0.55,
+    max_day_vol_multiple: float | None = 6.0,
+    require_break_hold: bool = True,
+    break_lookback: int = 20,
+    tag_ma5_pullback: bool = True,
 ) -> tuple[bool, list[str], dict[str, Any]]:
     """量价齐升：窗口内价量总体抬升，上涨日多数伴随放量，允许少量例外。
 
     对齐「价格新高/近高 + 成交量同步抬升」观察池（如连续放量上行，中间可有 1～2 日例外）。
+    enhancements 打开后叠加：MA20 上行、涨幅上限、阳线量占比、极端放量警戒、突破前高站稳；
+    并可标记「回踩 5 日线」更优买点（仅标签，不否决）。
     """
     lookback = int(lookback)
-    if lookback < 5 or len(closes) < lookback:
-        return False, [], {"insufficient_bars": True, "need": max(lookback, 5)}
+    break_lookback = int(break_lookback)
+    need = lookback
+    if enhancements:
+        if require_ma20_up:
+            need = max(need, 22)
+        if require_break_hold:
+            need = max(need, lookback + break_lookback)
+        if tag_ma5_pullback:
+            need = max(need, 6)
+    if lookback < 5 or len(closes) < need:
+        return False, [], {"insufficient_bars": True, "need": max(need, 5)}
     if len(closes) != len(volumes):
         n = min(len(closes), len(volumes))
         closes, volumes = closes[:n], volumes[:n]
-        if len(closes) < lookback:
-            return False, [], {"insufficient_bars": True, "need": lookback}
+        if len(closes) < need:
+            return False, [], {"insufficient_bars": True, "need": need}
 
     c = closes[-lookback:]
     v = volumes[-lookback:]
@@ -212,17 +244,23 @@ def eval_volume_price_sync_rise(
     vol_ratio = (late_avg / early_avg) if early_avg > 0 else 0.0
 
     price_up = sync_up = vol_down_on_up = 0
+    up_vol = 0.0
+    total_vol = sum(v) or 0.0
     for i in range(1, lookback):
         pu = c[i] > c[i - 1]
         vu = v[i] > v[i - 1]
-        if not pu:
-            continue
-        price_up += 1
-        if vu:
-            sync_up += 1
-        else:
-            vol_down_on_up += 1
+        if pu:
+            up_vol += v[i]
+            price_up += 1
+            if vu:
+                sync_up += 1
+            else:
+                vol_down_on_up += 1
     sync_ratio = (sync_up / price_up) if price_up else 0.0
+    up_day_vol_share = (up_vol / total_vol) if total_vol > 0 else 0.0
+    avg_vol = total_vol / lookback if lookback else 0.0
+    max_vol = max(v) if v else 0.0
+    day_vol_multiple = (max_vol / avg_vol) if avg_vol > 0 else 0.0
 
     window_high = max(c)
     near_high = c[-1] >= window_high * (1.0 - float(near_high_pct) / 100.0)
@@ -246,7 +284,7 @@ def eval_volume_price_sync_rise(
     if near_high:
         why.append(f"收盘贴近窗口高点（≤{near_high_pct:g}%）")
 
-    factors = {
+    factors: dict[str, Any] = {
         "lookback": lookback,
         "price_rise_pct": round(price_rise_pct, 3),
         "vol_ratio": round(vol_ratio, 3),
@@ -257,8 +295,86 @@ def eval_volume_price_sync_rise(
         "near_high": near_high,
         "close": round(c[-1], 4),
         "window_high": round(window_high, 4),
+        "up_day_vol_share": round(up_day_vol_share, 3),
+        "day_vol_multiple": round(day_vol_multiple, 3),
+        "enhancements": bool(enhancements),
     }
-    return ok, why, factors
+
+    if not ok:
+        return ok, why, factors
+
+    # ---- 可选增强过滤 ----
+    if enhancements:
+        i_last = len(closes) - 1
+
+        if require_ma20_up:
+            ma20 = sma_at(closes, i_last, 20)
+            ma20_prev = sma_at(closes, i_last - 1, 20)
+            if ma20 is None or ma20_prev is None:
+                return False, [], {**factors, "insufficient_bars": True, "need": 22}
+            ma20_up = ma20 > ma20_prev * 0.999  # 允许微幅走平
+            above_ma20 = closes[i_last] >= ma20
+            factors["ma20"] = round(ma20, 4)
+            factors["ma20_up"] = ma20_up
+            factors["above_ma20"] = above_ma20
+            if not (above_ma20 and ma20_up):
+                return False, why, factors
+            why.append("收盘站上 MA20 且均线上行")
+
+        if max_price_rise_pct is not None and float(max_price_rise_pct) > 0:
+            cap = float(max_price_rise_pct)
+            factors["max_price_rise_pct"] = cap
+            if price_rise_pct > cap:
+                return False, why, factors
+            why.append(f"窗口涨幅未过热（≤{cap:g}%）")
+
+        if min_up_day_vol_share is not None and float(min_up_day_vol_share) > 0:
+            thr = float(min_up_day_vol_share)
+            factors["min_up_day_vol_share"] = thr
+            if up_day_vol_share < thr:
+                return False, why, factors
+            why.append(f"上涨日量能占比 {up_day_vol_share * 100:.0f}%")
+
+        if max_day_vol_multiple is not None and float(max_day_vol_multiple) > 0:
+            thr = float(max_day_vol_multiple)
+            factors["max_day_vol_multiple"] = thr
+            # 单日相对窗口均量过高：极端对倒/派发代理（缺换手率时的近似）
+            if day_vol_multiple > thr:
+                return False, why, factors
+            why.append(f"无极端单日堆量（峰值 {day_vol_multiple:.1f}×均量）")
+
+        if require_break_hold:
+            prior = closes[-(lookback + break_lookback) : -lookback]
+            if len(prior) < break_lookback:
+                return False, [], {
+                    **factors,
+                    "insufficient_bars": True,
+                    "need": lookback + break_lookback,
+                }
+            prior_high = max(prior)
+            broke = window_high > prior_high
+            held = closes[i_last] >= prior_high
+            factors["prior_high"] = round(prior_high, 4)
+            factors["break_hold"] = bool(broke and held)
+            if not (broke and held):
+                return False, why, factors
+            why.append(f"突破近 {break_lookback} 日前高并收盘站稳")
+
+        if tag_ma5_pullback:
+            ma5 = sma_at(closes, i_last, 5)
+            if ma5 is not None and ma5 > 0:
+                dist_pct = (closes[i_last] / ma5 - 1.0) * 100.0
+                vol_shrink = v[-1] <= late_avg * 0.85 if late_avg > 0 else False
+                near_ma5 = -1.5 <= dist_pct <= 3.0
+                above_ma5 = closes[i_last] >= ma5 * 0.995
+                pullback_ready = bool(near_ma5 and above_ma5 and vol_shrink)
+                factors["ma5"] = round(ma5, 4)
+                factors["ma5_dist_pct"] = round(dist_pct, 3)
+                factors["pullback_ready"] = pullback_ready
+                if pullback_ready:
+                    why.append("更优买点：缩量贴近 MA5")
+
+    return True, why, factors
 
 
 def eval_quote_exclude_st(name: str, *, enabled: bool = True) -> tuple[bool, list[str], dict[str, Any]]:
@@ -329,6 +445,14 @@ def evaluate_rules_on_bars(
                 max_price_up_vol_down=int(p.get("max_price_up_vol_down") or 3),
                 near_high_pct=float(p.get("near_high_pct") or 5.0),
                 min_price_up_days=int(p.get("min_price_up_days") or 4),
+                enhancements=bool(p.get("enhancements", False)),
+                require_ma20_up=bool(p.get("require_ma20_up", True)),
+                max_price_rise_pct=_param_optional_float(p, "max_price_rise_pct", 25.0),
+                min_up_day_vol_share=_param_optional_float(p, "min_up_day_vol_share", 0.55),
+                max_day_vol_multiple=_param_optional_float(p, "max_day_vol_multiple", 6.0),
+                require_break_hold=bool(p.get("require_break_hold", True)),
+                break_lookback=int(p.get("break_lookback") or 20),
+                tag_ma5_pullback=bool(p.get("tag_ma5_pullback", True)),
             )
         elif op == "risk.tradability":
             # 不在此过滤，由外层标记

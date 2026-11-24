@@ -79,6 +79,7 @@ def test_volume_price_sync_rise():
         max_price_up_vol_down=3,
         near_high_pct=5.0,
         min_price_up_days=4,
+        enhancements=False,
     )
     assert ok
     assert fac.get("sync_ratio", 0) >= 0.55
@@ -86,7 +87,67 @@ def test_volume_price_sync_rise():
 
     # 价升但量不抬升 → 不命中
     flat_vol = [1000.0] * 12
-    ok2, _, _ = eval_volume_price_sync_rise(closes, flat_vol, lookback=12)
+    ok2, _, _ = eval_volume_price_sync_rise(closes, flat_vol, lookback=12, enhancements=False)
+    assert ok2 is False
+
+
+def test_volume_price_sync_rise_enhancements():
+    # 足够长的上升序列：满足齐升 + MA20 + 突破前高站稳
+    closes = [10.0 + i * 0.05 for i in range(70)] + [
+        14.0,
+        14.3,
+        14.6,
+        14.4,
+        14.9,
+        15.3,
+        15.8,
+        15.7,
+        16.2,
+        16.7,
+        17.2,
+        17.0,
+    ]
+    volumes = [1000.0] * 70 + [
+        1200,
+        1400,
+        1300,
+        1100,
+        1600,
+        2000,
+        2800,
+        2700,
+        3200,
+        3800,
+        4500,
+        4000,
+    ]
+    ok, why, fac = eval_volume_price_sync_rise(
+        closes,
+        volumes,
+        lookback=12,
+        enhancements=True,
+        require_ma20_up=True,
+        max_price_rise_pct=40.0,
+        min_up_day_vol_share=0.5,
+        max_day_vol_multiple=8.0,
+        require_break_hold=True,
+        break_lookback=20,
+        tag_ma5_pullback=True,
+    )
+    assert ok
+    assert fac.get("above_ma20") is True
+    assert fac.get("break_hold") is True
+    assert any("MA20" in w for w in why)
+
+    # 涨幅上限过严 → 不命中
+    ok2, _, _ = eval_volume_price_sync_rise(
+        closes,
+        volumes,
+        lookback=12,
+        enhancements=True,
+        max_price_rise_pct=5.0,
+        require_break_hold=False,
+    )
     assert ok2 is False
 
 

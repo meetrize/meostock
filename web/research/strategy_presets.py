@@ -91,6 +91,14 @@ RULE_OPS: dict[str, dict[str, Any]] = {
             "max_price_up_vol_down",
             "near_high_pct",
             "min_price_up_days",
+            "enhancements",
+            "require_ma20_up",
+            "max_price_rise_pct",
+            "min_up_day_vol_share",
+            "max_day_vol_multiple",
+            "require_break_hold",
+            "break_lookback",
+            "tag_ma5_pullback",
         ],
     },
     "limit.board_count": {
@@ -383,13 +391,13 @@ OFFICIAL_PRESETS: dict[str, dict[str, Any]] = {
         "id": "volume_price_rise",
         "name": "量价齐升",
         "horizon": "swing",
-        "version": 1,
+        "version": 2,
         "risk_level": "medium",
         "enabled_by_default": True,
         "runnable": True,
         "run_engine": "research_scanner",
         "scanner_template_id": "volume_price_rise",
-        "tags": ["量价", "齐升", "波段"],
+        "tags": ["量价", "齐升", "波段", "增强"],
         "environment": {
             "prefer": ["趋势上行", "板块有共振"],
             "avoid": ["量增价滞", "高位换手派发", "无量阴跌"],
@@ -406,17 +414,28 @@ OFFICIAL_PRESETS: dict[str, dict[str, Any]] = {
                     max_price_up_vol_down=3,
                     near_high_pct=5.0,
                     min_price_up_days=4,
+                    # 可选增强：params 里 enhancements=false 可一键关闭；
+                    # 单项 max_*=null / require_*=false 可单独关闭
+                    enhancements=True,
+                    require_ma20_up=True,
+                    max_price_rise_pct=25.0,
+                    min_up_day_vol_share=0.55,
+                    max_day_vol_multiple=6.0,
+                    require_break_hold=True,
+                    # 默认突破「启动前约 20 日」压力并站稳；可改为 60 更严
+                    break_lookback=20,
+                    tag_ma5_pullback=True,
                 ),
                 _block("quote.exclude_st", enabled=True),
                 _block("risk.tradability", require_flag=True),
             ]
         },
         "copy": _copy(
-            headline="量价齐升筛选",
-            one_liner="近两周收盘与成交量总体抬升，上涨日多数伴随放量，允许少量例外，贴近窗口高点。",
+            headline="量价齐升筛选（含增强）",
+            one_liner="近两周价量抬升，并默认叠加 MA20 上行、涨幅上限、阳线量占比、极端堆量过滤、突破前高站稳；回踩 MA5 仅作更优买点标记。",
             fit_when="右侧趋势启动或加速段、板块同步走强",
-            avoid_when="量增价不涨、高位换手过高、孤立个股无板块效应",
-            how_to_buy="连续放量阳线后，回踩 5 日线不破再确认；不追一日极端放量长上影",
+            avoid_when="量增价不涨、高位换手过高、孤立个股无板块效应、窗口涨幅已过大",
+            how_to_buy="优先等 why 出现「缩量贴近 MA5」；不追一日极端放量长上影",
             how_to_exit="量增价滞、跌破近端平台或 5/10 日线走坏则减仓/离场",
             position_hint="波段试探仓；确认趋势后再加，单笔止损前置",
         ),
@@ -424,6 +443,8 @@ OFFICIAL_PRESETS: dict[str, dict[str, Any]] = {
             "price_rise_pct",
             "vol_ratio",
             "sync_ratio",
+            "up_day_vol_share",
+            "pullback_ready",
             "changePercent",
             "amount",
         ],
@@ -613,12 +634,29 @@ def rule_block_to_sentence(block: dict[str, Any]) -> str:
     if op == "volume.shrink_pullback":
         return f"{label}：回踩 MA{p.get('ma_period', '-')}，量比≤{p.get('volume_ratio_max', '-')}"
     if op == "volume.price_sync_rise":
-        return (
+        base = (
             f"{label}：近 {p.get('lookback', '-')} 日涨≥{p.get('min_price_rise_pct', '-')}%，"
             f"后半段均量≥{p.get('min_vol_ratio', '-')}×前半段，"
             f"上涨日同步率≥{p.get('min_sync_ratio', '-')}，"
             f"价升量缩例外≤{p.get('max_price_up_vol_down', '-')} 日"
         )
+        if p.get("enhancements"):
+            extras: list[str] = []
+            if p.get("require_ma20_up", True):
+                extras.append("MA20上行")
+            if p.get("max_price_rise_pct") not in (None, False, ""):
+                extras.append(f"涨幅≤{p.get('max_price_rise_pct')}%")
+            if p.get("min_up_day_vol_share") not in (None, False, ""):
+                extras.append(f"阳线量占比≥{p.get('min_up_day_vol_share')}")
+            if p.get("max_day_vol_multiple") not in (None, False, ""):
+                extras.append(f"单日峰值≤{p.get('max_day_vol_multiple')}×均量")
+            if p.get("require_break_hold", True):
+                extras.append(f"突破{p.get('break_lookback', 60)}日前高站稳")
+            if p.get("tag_ma5_pullback", True):
+                extras.append("标记MA5回踩")
+            if extras:
+                base += "；增强：" + "、".join(extras)
+        return base
     if op == "limit.board_count":
         return f"{label}：{_fmt_range(p.get('min'), p.get('max'))}"
     if op == "board.theme_top_n":

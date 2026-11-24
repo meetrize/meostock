@@ -170,8 +170,24 @@ export function ruleBlockToSentence(block: RuleBlock): string {
       return `股价站上均线：MA${p.period ?? 60}`;
     case 'breakout.volume':
       return `放量突破：近 ${p.lookback ?? '-'} 日，量≥${p.volume_multiple ?? '-'}×均量`;
-    case 'volume.price_sync_rise':
-      return `量价齐升：近 ${p.lookback ?? '-'} 日涨≥${p.min_price_rise_pct ?? '-'}%，后半段均量≥${p.min_vol_ratio ?? '-'}×前半段，上涨日同步率≥${p.min_sync_ratio ?? '-'}，价升量缩例外≤${p.max_price_up_vol_down ?? '-'} 日`;
+    case 'volume.price_sync_rise': {
+      let s = `量价齐升：近 ${p.lookback ?? '-'} 日涨≥${p.min_price_rise_pct ?? '-'}%，后半段均量≥${p.min_vol_ratio ?? '-'}×前半段，上涨日同步率≥${p.min_sync_ratio ?? '-'}，价升量缩例外≤${p.max_price_up_vol_down ?? '-'} 日`;
+      if (p.enhancements) {
+        const extras: string[] = [];
+        if (p.require_ma20_up !== false) extras.push('MA20上行');
+        if (p.max_price_rise_pct != null && p.max_price_rise_pct !== false)
+          extras.push(`涨幅≤${p.max_price_rise_pct}%`);
+        if (p.min_up_day_vol_share != null && p.min_up_day_vol_share !== false)
+          extras.push(`阳线量占比≥${p.min_up_day_vol_share}`);
+        if (p.max_day_vol_multiple != null && p.max_day_vol_multiple !== false)
+          extras.push(`单日峰值≤${p.max_day_vol_multiple}×均量`);
+        if (p.require_break_hold !== false)
+          extras.push(`突破${p.break_lookback ?? 20}日前高站稳`);
+        if (p.tag_ma5_pullback !== false) extras.push('标记MA5回踩');
+        if (extras.length) s += `；增强：${extras.join('、')}`;
+      }
+      return s;
+    }
     case 'limit.board_count':
       return `连板数区间：${fmtRange(p.min, p.max)}`;
     case 'board.theme_top_n':

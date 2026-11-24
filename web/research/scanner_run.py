@@ -85,7 +85,7 @@ SCAN_TEMPLATES: dict[str, dict[str, Any]] = {
     "volume_price_rise": {
         "id": "volume_price_rise",
         "name": "量价齐升",
-        "description": "近窗口价量总体抬升，上涨日多数放量，允许少量例外",
+        "description": "价量抬升 + 可选增强（MA20/涨幅上限/阳线量占比/突破站稳）",
         "engine": "tech_rules",
         "preset_id": "volume_price_rise",
         "params": {
@@ -95,7 +95,7 @@ SCAN_TEMPLATES: dict[str, dict[str, Any]] = {
             "min_amount": 3.0e4,
             "concurrency": 8,
             "fetch_kline": True,
-            "min_bars": 30,
+            "min_bars": 80,
         },
     },
     "dividend_roe": {
@@ -355,6 +355,11 @@ def _eval_one_tech(
             "price_up_days",
             "sync_up_days",
             "vol_down_on_up",
+            "up_day_vol_share",
+            "day_vol_multiple",
+            "pullback_ready",
+            "break_hold",
+            "above_ma20",
         ):
             if key in sync_fac:
                 row[key] = sync_fac[key]
