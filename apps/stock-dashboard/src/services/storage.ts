@@ -26,6 +26,7 @@ const STORAGE_KEYS = {
   EOD_RECENT: 'end-of-day-picker-recent',
   EOD_PRESET: 'end-of-day-picker-preset',
   EOD_HORIZON: 'end-of-day-picker-horizon',
+  EOD_VPR_CHECKS: 'end-of-day-picker-vpr-checks',
 } as const;
 
 export const WATCHLIST_STORAGE_KEYS: readonly string[] = [
@@ -552,12 +553,13 @@ const EOD_KEY_MAP = {
   recent: STORAGE_KEYS.EOD_RECENT,
   preset: STORAGE_KEYS.EOD_PRESET,
   horizon: STORAGE_KEYS.EOD_HORIZON,
+  vprChecks: STORAGE_KEYS.EOD_VPR_CHECKS,
 } as const;
 
 export function getEodPickerState<T>(kind: keyof typeof EOD_KEY_MAP, fallback: T): T {
   const data = localStorage.getItem(EOD_KEY_MAP[kind]);
   const isValid =
-    kind === 'filters'
+    kind === 'filters' || kind === 'vprChecks'
       ? isPlainObject
       : kind === 'preset' || kind === 'horizon'
         ? (v: unknown): v is string => typeof v === 'string'

@@ -198,6 +198,11 @@ def eval_volume_price_sync_rise(
     max_price_up_vol_down: int = 3,
     near_high_pct: float = 5.0,
     min_price_up_days: int = 4,
+    # ---- 核心子项（可单独关闭）----
+    require_price_rise: bool = True,
+    require_vol_lift: bool = True,
+    require_sync: bool = True,
+    require_near_high: bool = True,
     # ---- 可选增强（enhancements=True 时生效；单项可关）----
     enhancements: bool = False,
     require_ma20_up: bool = True,
@@ -213,6 +218,7 @@ def eval_volume_price_sync_rise(
     对齐「价格新高/近高 + 成交量同步抬升」观察池（如连续放量上行，中间可有 1～2 日例外）。
     enhancements 打开后叠加：MA20 上行、涨幅上限、阳线量占比、极端放量警戒、突破前高站稳；
     并可标记「回踩 5 日线」更优买点（仅标签，不否决）。
+    核心/增强子项均可通过 require_* 或把阈值置 null 单独关闭。
     """
     lookback = int(lookback)
     break_lookback = int(break_lookback)
@@ -265,23 +271,27 @@ def eval_volume_price_sync_rise(
     window_high = max(c)
     near_high = c[-1] >= window_high * (1.0 - float(near_high_pct) / 100.0)
 
-    rise_ok = price_rise_pct >= float(min_price_rise_pct)
-    vol_ok = vol_ratio >= float(min_vol_ratio)
-    sync_ok = price_up >= int(min_price_up_days) and sync_ratio >= float(min_sync_ratio)
-    exc_ok = vol_down_on_up <= int(max_price_up_vol_down)
-    ok = rise_ok and vol_ok and sync_ok and exc_ok and near_high
+    rise_ok = (not require_price_rise) or (price_rise_pct >= float(min_price_rise_pct))
+    vol_ok = (not require_vol_lift) or (vol_ratio >= float(min_vol_ratio))
+    sync_ok = (not require_sync) or (
+        price_up >= int(min_price_up_days)
+        and sync_ratio >= float(min_sync_ratio)
+        and vol_down_on_up <= int(max_price_up_vol_down)
+    )
+    near_ok = (not require_near_high) or near_high
+    ok = rise_ok and vol_ok and sync_ok and near_ok
 
     why: list[str] = []
-    if rise_ok:
+    if require_price_rise and rise_ok:
         why.append(f"近 {lookback} 日收盘涨约 {price_rise_pct:.1f}%")
-    if vol_ok:
+    if require_vol_lift and vol_ok:
         why.append(f"后半段均量约 {vol_ratio:.1f}×前半段")
-    if sync_ok:
+    if require_sync and sync_ok:
         why.append(
             f"上涨日量价同步 {sync_up}/{price_up}"
             f"（同步率 {sync_ratio * 100:.0f}%）"
         )
-    if near_high:
+    if require_near_high and near_ok:
         why.append(f"收盘贴近窗口高点（≤{near_high_pct:g}%）")
 
     factors: dict[str, Any] = {
@@ -298,6 +308,10 @@ def eval_volume_price_sync_rise(
         "up_day_vol_share": round(up_day_vol_share, 3),
         "day_vol_multiple": round(day_vol_multiple, 3),
         "enhancements": bool(enhancements),
+        "require_price_rise": bool(require_price_rise),
+        "require_vol_lift": bool(require_vol_lift),
+        "require_sync": bool(require_sync),
+        "require_near_high": bool(require_near_high),
     }
 
     if not ok:
@@ -445,6 +459,10 @@ def evaluate_rules_on_bars(
                 max_price_up_vol_down=int(p.get("max_price_up_vol_down") or 3),
                 near_high_pct=float(p.get("near_high_pct") or 5.0),
                 min_price_up_days=int(p.get("min_price_up_days") or 4),
+                require_price_rise=bool(p.get("require_price_rise", True)),
+                require_vol_lift=bool(p.get("require_vol_lift", True)),
+                require_sync=bool(p.get("require_sync", True)),
+                require_near_high=bool(p.get("require_near_high", True)),
                 enhancements=bool(p.get("enhancements", False)),
                 require_ma20_up=bool(p.get("require_ma20_up", True)),
                 max_price_rise_pct=_param_optional_float(p, "max_price_rise_pct", 25.0),

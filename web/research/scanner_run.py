@@ -13,7 +13,7 @@ from research.fina_probe import probe_fina_access
 from research.kline_series import load_daily_bars
 from research.limits import tradability
 from research.rule_engine import evaluate_rules_on_bars
-from research.strategy_presets import get_preset, rule_block_to_sentence
+from research.strategy_presets import apply_param_overrides, get_preset, rule_block_to_sentence
 from research.valuation import build_universe_stats, score_valuation
 
 _log = logging.getLogger("research.scanner")
@@ -377,7 +377,16 @@ def _run_tech_rules_scanner(tmpl: dict[str, Any], cfg: dict[str, Any]) -> dict[s
     if not preset:
         return {"ok": False, "error": f"preset not found: {preset_id}"}
 
+    rule_overrides = cfg.pop("_rule_param_overrides", None)
+    if isinstance(rule_overrides, dict) and rule_overrides:
+        preset = apply_param_overrides(preset, rule_overrides)
+
     exclude_st = bool(cfg.get("exclude_st", True))
+    # 若前端覆盖了 exclude_st 规则块，与股票池过滤对齐
+    for block in (preset.get("rules") or {}).get("all") or []:
+        if isinstance(block, dict) and block.get("op") == "quote.exclude_st":
+            exclude_st = bool((block.get("params") or {}).get("enabled", True))
+            break
     limit = max(1, min(int(cfg.get("limit") or 50), 200))
     universe_size = max(20, min(int(cfg.get("universe_size") or 300), 800))
     min_amount = float(cfg.get("min_amount") or 3.0e4)
@@ -462,6 +471,7 @@ def run_scanner(
     template_id: str = "quality_value",
     *,
     params: dict[str, Any] | None = None,
+    rule_param_overrides: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from research.fundamental_scan import run_dividend_roe_scan, run_growth_trend_scan
 
@@ -504,6 +514,8 @@ def run_scanner(
     cfg = dict(tmpl.get("params") or {})
     if params:
         cfg.update({k: v for k, v in params.items() if v is not None})
+    if rule_param_overrides:
+        cfg["_rule_param_overrides"] = rule_param_overrides
 
     engine = str(tmpl.get("engine") or "valuation")
     if engine == "tech_rules":

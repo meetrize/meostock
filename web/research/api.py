@@ -83,6 +83,8 @@ class BusinessModeBody(BaseModel):
 class ScannerRunBody(BaseModel):
     template_id: str = "quality_value"
     params: dict[str, Any] | None = None
+    # { "volume.price_sync_rise": { require_ma20_up: false, ... }, "quote.exclude_st": { enabled: true } }
+    rule_param_overrides: dict[str, Any] | None = None
 
 
 class CloseCardBody(BaseModel):
@@ -426,7 +428,13 @@ def research_scanner_templates() -> JSONResponse:
 @router.post("/scanner/run")
 def research_scanner_run(body: ScannerRunBody) -> JSONResponse:
     try:
-        return JSONResponse(run_scanner(body.template_id, params=body.params))
+        return JSONResponse(
+            run_scanner(
+                body.template_id,
+                params=body.params,
+                rule_param_overrides=body.rule_param_overrides,
+            )
+        )
     except Exception as exc:  # noqa: BLE001
         _log.exception("scanner run failed")
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)

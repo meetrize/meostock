@@ -91,6 +91,10 @@ RULE_OPS: dict[str, dict[str, Any]] = {
             "max_price_up_vol_down",
             "near_high_pct",
             "min_price_up_days",
+            "require_price_rise",
+            "require_vol_lift",
+            "require_sync",
+            "require_near_high",
             "enhancements",
             "require_ma20_up",
             "max_price_rise_pct",
@@ -414,15 +418,17 @@ OFFICIAL_PRESETS: dict[str, dict[str, Any]] = {
                     max_price_up_vol_down=3,
                     near_high_pct=5.0,
                     min_price_up_days=4,
-                    # 可选增强：params 里 enhancements=false 可一键关闭；
-                    # 单项 max_*=null / require_*=false 可单独关闭
+                    require_price_rise=True,
+                    require_vol_lift=True,
+                    require_sync=True,
+                    require_near_high=True,
+                    # 可选增强：enhancements=false 一键关；单项 require_*/null 可单独关
                     enhancements=True,
                     require_ma20_up=True,
                     max_price_rise_pct=25.0,
                     min_up_day_vol_share=0.55,
                     max_day_vol_multiple=6.0,
                     require_break_hold=True,
-                    # 默认突破「启动前约 20 日」压力并站稳；可改为 60 更严
                     break_lookback=20,
                     tag_ma5_pullback=True,
                 ),
@@ -634,11 +640,17 @@ def rule_block_to_sentence(block: dict[str, Any]) -> str:
     if op == "volume.shrink_pullback":
         return f"{label}：回踩 MA{p.get('ma_period', '-')}，量比≤{p.get('volume_ratio_max', '-')}"
     if op == "volume.price_sync_rise":
-        base = (
-            f"{label}：近 {p.get('lookback', '-')} 日涨≥{p.get('min_price_rise_pct', '-')}%，"
-            f"后半段均量≥{p.get('min_vol_ratio', '-')}×前半段，"
-            f"上涨日同步率≥{p.get('min_sync_ratio', '-')}，"
-            f"价升量缩例外≤{p.get('max_price_up_vol_down', '-')} 日"
+        cores: list[str] = []
+        if p.get("require_price_rise", True):
+            cores.append(f"涨≥{p.get('min_price_rise_pct', '-')}%")
+        if p.get("require_vol_lift", True):
+            cores.append(f"后半段均量≥{p.get('min_vol_ratio', '-')}×")
+        if p.get("require_sync", True):
+            cores.append(f"同步率≥{p.get('min_sync_ratio', '-')}")
+        if p.get("require_near_high", True):
+            cores.append(f"贴近高点≤{p.get('near_high_pct', '-')}%")
+        base = f"{label}：近 {p.get('lookback', '-')} 日" + (
+            "（" + "、".join(cores) + "）" if cores else "（核心子项均已关闭）"
         )
         if p.get("enhancements"):
             extras: list[str] = []
@@ -651,7 +663,7 @@ def rule_block_to_sentence(block: dict[str, Any]) -> str:
             if p.get("max_day_vol_multiple") not in (None, False, ""):
                 extras.append(f"单日峰值≤{p.get('max_day_vol_multiple')}×均量")
             if p.get("require_break_hold", True):
-                extras.append(f"突破{p.get('break_lookback', 60)}日前高站稳")
+                extras.append(f"突破{p.get('break_lookback', 20)}日前高站稳")
             if p.get("tag_ma5_pullback", True):
                 extras.append("标记MA5回踩")
             if extras:

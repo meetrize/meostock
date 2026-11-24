@@ -59,6 +59,7 @@ import { HorizonTabs, PresetStrip, StrategyCopyPanel } from './StrategyChrome';
 import styles from './EndOfDayPicker.module.css';
 
 const DEFAULT_PRESET_ID = 'eod_intraday_strength';
+const VPR_PRESET_ID = 'volume_price_rise';
 
 // ========== 类型定义 ==========
 
@@ -77,9 +78,116 @@ interface RecentUsage {
 type SortField = 'changePercent' | 'timelineAboveAvgRatio' | 'turnoverRate' | 'circulatingMarketCap' | 'volumeRatio';
 type SortOrder = 'asc' | 'desc';
 
+/** 量价齐升：每条规则可勾选 */
+type VprCheckKey =
+  | 'require_price_rise'
+  | 'require_vol_lift'
+  | 'require_sync'
+  | 'require_near_high'
+  | 'require_ma20_up'
+  | 'cap_price_rise'
+  | 'up_day_vol_share'
+  | 'max_day_vol'
+  | 'require_break_hold'
+  | 'tag_ma5_pullback'
+  | 'exclude_st';
+
+type VprCheckState = Record<VprCheckKey, boolean>;
+
 // ========== 常量 ==========
 
 const MAX_RECENT_USAGE = 5;
+
+const VPR_CHECK_ITEMS: {
+  key: VprCheckKey;
+  group: 'core' | 'enhance' | 'filter';
+  label: string;
+  hint?: string;
+}[] = [
+  { key: 'require_price_rise', group: 'core', label: '窗口收盘涨幅达标（≥8%）' },
+  { key: 'require_vol_lift', group: 'core', label: '后半段均量抬升（≥1.5×前半段）' },
+  { key: 'require_sync', group: 'core', label: '上涨日多数放量（同步率≥55%）' },
+  { key: 'require_near_high', group: 'core', label: '收盘贴近窗口高点（≤5%）' },
+  { key: 'require_ma20_up', group: 'enhance', label: '收盘站上 MA20 且均线上行' },
+  { key: 'cap_price_rise', group: 'enhance', label: '窗口涨幅未过热（≤25%）' },
+  { key: 'up_day_vol_share', group: 'enhance', label: '上涨日量能占比≥55%' },
+  { key: 'max_day_vol', group: 'enhance', label: '无极端单日堆量（峰值≤6×均量）' },
+  {
+    key: 'require_break_hold',
+    group: 'enhance',
+    label: '突破近 20 日前高并站稳',
+    hint: '可改为更严的 60 日（需改参数）',
+  },
+  {
+    key: 'tag_ma5_pullback',
+    group: 'enhance',
+    label: '标记更优买点：缩量贴近 MA5',
+    hint: '仅标签，不否决',
+  },
+  { key: 'exclude_st', group: 'filter', label: '排除 ST' },
+];
+
+const DEFAULT_VPR_CHECKS: VprCheckState = {
+  require_price_rise: true,
+  require_vol_lift: true,
+  require_sync: true,
+  require_near_high: true,
+  require_ma20_up: true,
+  cap_price_rise: true,
+  up_day_vol_share: true,
+  max_day_vol: true,
+  require_break_hold: true,
+  tag_ma5_pullback: true,
+  exclude_st: true,
+};
+
+function loadVprChecks(): VprCheckState {
+  const stored = getEodPickerState<Partial<VprCheckState>>('vprChecks', {});
+  return { ...DEFAULT_VPR_CHECKS, ...stored };
+}
+
+function saveVprChecks(checks: VprCheckState): void {
+  saveEodPickerState('vprChecks', checks);
+}
+
+function buildVprRuleOverrides(checks: VprCheckState): Record<string, Record<string, unknown>> {
+  const anyEnhance =
+    checks.require_ma20_up ||
+    checks.cap_price_rise ||
+    checks.up_day_vol_share ||
+    checks.max_day_vol ||
+    checks.require_break_hold ||
+    checks.tag_ma5_pullback;
+  return {
+    'volume.price_sync_rise': {
+      require_price_rise: checks.require_price_rise,
+      require_vol_lift: checks.require_vol_lift,
+      require_sync: checks.require_sync,
+      require_near_high: checks.require_near_high,
+      enhancements: anyEnhance,
+      require_ma20_up: checks.require_ma20_up,
+      max_price_rise_pct: checks.cap_price_rise ? 25.0 : null,
+      min_up_day_vol_share: checks.up_day_vol_share ? 0.55 : null,
+      max_day_vol_multiple: checks.max_day_vol ? 6.0 : null,
+      require_break_hold: checks.require_break_hold,
+      break_lookback: 20,
+      tag_ma5_pullback: checks.tag_ma5_pullback,
+    },
+    'quote.exclude_st': { enabled: checks.exclude_st },
+  };
+}
+
+function patchPresetWithOverrides(
+  preset: StrategyPreset,
+  overrides: Record<string, Record<string, unknown>>
+): StrategyPreset {
+  const all = (preset.rules?.all || []).map((block) => {
+    const patch = overrides[block.op];
+    if (!patch) return block;
+    return { ...block, params: { ...(block.params || {}), ...patch } };
+  });
+  return { ...preset, rules: { all } };
+}
 
 const DEFAULT_FILTERS: EndOfDayFilters = {
   marketCapMin: 50,
@@ -707,6 +815,7 @@ export function EndOfDayPicker() {
   const [resolvedCopy, setResolvedCopy] = useState<StrategyCopy | null>(null);
   const [dirty, setDirty] = useState(false);
   const [filters, setFilters] = useState<EndOfDayFilters>(loadFiltersFromStorage);
+  const [vprChecks, setVprChecks] = useState<VprCheckState>(loadVprChecks);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState<AnalysisProgress>({
@@ -743,10 +852,12 @@ export function EndOfDayPicker() {
   const [showSelectMode, setShowSelectMode] = useState(false);
 
   const canEditEodRules = isEodEngine(activePreset);
+  const isVprPreset = activePreset?.id === VPR_PRESET_ID;
   const canRun =
     !!activePreset &&
     (activePreset.run_engine === 'eod_intraday' ||
       (activePreset.run_engine === 'research_scanner' && activePreset.runnable));
+
 
   // 拉取官方预设
   useEffect(() => {
@@ -804,6 +915,25 @@ export function EndOfDayPicker() {
     setDirty(changed);
     setResolvedCopy(buildResolvedCopy(activePreset, rules));
   }, [filters, activePreset]);
+
+  // 量价齐升勾选 → 刷新条件文案 + 持久化
+  useEffect(() => {
+    if (!activePreset || activePreset.id !== VPR_PRESET_ID) return;
+    saveVprChecks(vprChecks);
+    const overrides = buildVprRuleOverrides(vprChecks);
+    const patched = patchPresetWithOverrides(activePreset, overrides);
+    const baseline = JSON.stringify(DEFAULT_VPR_CHECKS);
+    setDirty(JSON.stringify(vprChecks) !== baseline);
+    setResolvedCopy(buildResolvedCopy(patched));
+  }, [vprChecks, activePreset]);
+
+  const handleToggleVprCheck = useCallback((key: VprCheckKey) => {
+    setVprChecks((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+
+  const handleResetVprChecks = useCallback(() => {
+    setVprChecks({ ...DEFAULT_VPR_CHECKS });
+  }, []);
 
   const handleSelectPreset = useCallback(
     (id: string) => {
@@ -888,7 +1018,12 @@ export function EndOfDayPicker() {
       if (activePreset.run_engine === 'research_scanner') {
         setResultMode('scanner');
         const templateId = activePreset.scanner_template_id || activePreset.id;
-        const isTech = ['ma_bull_stack', 'dual_ma_coil', 'breakout_volume'].includes(templateId);
+        const isTech = [
+          'ma_bull_stack',
+          'dual_ma_coil',
+          'breakout_volume',
+          'volume_price_rise',
+        ].includes(templateId);
         const isDividend = templateId === 'dividend_roe';
         const isGrowth = templateId === 'growth_trend';
         setLoadingProgress({
@@ -909,10 +1044,22 @@ export function EndOfDayPicker() {
             : isGrowth
               ? { universe_size: 120, limit: 30, concurrency: 6 }
               : undefined;
+        const rule_param_overrides =
+          templateId === VPR_PRESET_ID ? buildVprRuleOverrides(vprChecks) : undefined;
+        if (
+          templateId === VPR_PRESET_ID &&
+          !vprChecks.require_price_rise &&
+          !vprChecks.require_vol_lift &&
+          !vprChecks.require_sync &&
+          !vprChecks.require_near_high
+        ) {
+          toast.warning('请至少勾选一条核心量价条件');
+          return;
+        }
         const res = await fetch('/api/research/scanner/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ template_id: templateId, params }),
+          body: JSON.stringify({ template_id: templateId, params, rule_param_overrides }),
           signal: controller.signal,
         });
         const data = (await res.json()) as {
@@ -963,7 +1110,7 @@ export function EndOfDayPicker() {
       abortRef.current = null;
       setIsLoading(false);
     }
-  }, [activePreset, canRun, filters, toast]);
+  }, [activePreset, canRun, filters, toast, vprChecks]);
 
   const handleCancelAnalysis = useCallback(() => {
     abortRef.current?.abort();
@@ -1255,7 +1402,7 @@ export function EndOfDayPicker() {
               {/* 筛选条件卡片 */}
               <motion.div
                 className={`${styles.filterCard} ${isEditing ? styles.editing : ''} ${
-                  !canEditEodRules ? styles.filterReadOnly : ''
+                  !canEditEodRules && !isVprPreset ? styles.filterReadOnly : ''
                 }`}
                 onClick={() => {
                   if (canEditEodRules && !isEditing) setIsEditing(true);
@@ -1268,11 +1415,54 @@ export function EndOfDayPicker() {
                 <div className={styles.filterHeader}>
                   <div className={styles.filterTitle}>
                     <SlidersHorizontal size={20} />
-                    <span>{canEditEodRules ? '筛选条件' : '规则概览'}</span>
+                    <span>
+                      {canEditEodRules
+                        ? '筛选条件'
+                        : isVprPreset
+                          ? '规则勾选'
+                          : '规则概览'}
+                    </span>
                   </div>
                   <div className={styles.filterActions}>
                     <AnimatePresence mode="wait">
-                      {canEditEodRules && isEditing ? (
+                      {isVprPreset ? (
+                        <motion.div
+                          key="vpr-actions"
+                          className={styles.editActions}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                        >
+                          <button
+                            type="button"
+                            className={styles.resetBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleResetVprChecks();
+                            }}
+                            title="恢复默认勾选"
+                          >
+                            <RotateCcw size={14} />
+                            默认
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.resetBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setVprChecks((prev) => {
+                                const next = { ...prev };
+                                for (const item of VPR_CHECK_ITEMS) next[item.key] = true;
+                                return next;
+                              });
+                            }}
+                            title="全选"
+                          >
+                            <CheckSquare size={14} />
+                            全选
+                          </button>
+                        </motion.div>
+                      ) : canEditEodRules && isEditing ? (
                         <motion.div
                           key="editing"
                           className={styles.editActions}
@@ -1447,7 +1637,39 @@ export function EndOfDayPicker() {
                   )}
                 </AnimatePresence>
 
-                {!canEditEodRules ? (
+                {isVprPreset ? (
+                  <div className={styles.vprCheckList} onClick={(e) => e.stopPropagation()}>
+                    {(['core', 'enhance', 'filter'] as const).map((group) => {
+                      const items = VPR_CHECK_ITEMS.filter((i) => i.group === group);
+                      const groupLabel =
+                        group === 'core' ? '核心' : group === 'enhance' ? '增强' : '过滤';
+                      return (
+                        <div key={group} className={styles.vprCheckGroup}>
+                          <div className={styles.vprCheckGroupTitle}>{groupLabel}</div>
+                          {items.map((item) => (
+                            <label
+                              key={item.key}
+                              className={`${styles.vprCheckItem} ${
+                                vprChecks[item.key] ? styles.vprChecked : ''
+                              }`}
+                              title={item.hint}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={vprChecks[item.key]}
+                                onChange={() => handleToggleVprCheck(item.key)}
+                              />
+                              <span className={styles.vprCheckLabel}>{item.label}</span>
+                              {item.hint ? (
+                                <span className={styles.vprCheckHint}>{item.hint}</span>
+                              ) : null}
+                            </label>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : !canEditEodRules ? (
                   <ul className={styles.ruleReadonlyList}>
                     {(resolvedCopy?.conditions || []).map((c) => (
                       <li key={c}>{c}</li>

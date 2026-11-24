@@ -122,6 +122,70 @@
   line-height: 1.45;
 }
 
+.vprCheckList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.vprCheckGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vprCheckGroupTitle {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.vprCheckItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.vprCheckItem:hover {
+  background: var(--border-primary);
+  color: var(--text-primary);
+}
+
+.vprCheckItem.vprChecked {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--color-accent, #2563eb) 12%, var(--bg-tertiary));
+}
+
+.vprCheckItem input {
+  margin-top: 2px;
+  flex-shrink: 0;
+  accent-color: var(--color-accent, #2563eb);
+}
+
+.vprCheckLabel {
+  flex: 1;
+  min-width: 0;
+}
+
+.vprCheckHint {
+  flex-basis: 100%;
+  margin-left: 22px;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
 .copyPanel {
   padding: var(--spacing-xl);
   background: var(--bg-secondary);

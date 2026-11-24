@@ -171,7 +171,14 @@ export function ruleBlockToSentence(block: RuleBlock): string {
     case 'breakout.volume':
       return `放量突破：近 ${p.lookback ?? '-'} 日，量≥${p.volume_multiple ?? '-'}×均量`;
     case 'volume.price_sync_rise': {
-      let s = `量价齐升：近 ${p.lookback ?? '-'} 日涨≥${p.min_price_rise_pct ?? '-'}%，后半段均量≥${p.min_vol_ratio ?? '-'}×前半段，上涨日同步率≥${p.min_sync_ratio ?? '-'}，价升量缩例外≤${p.max_price_up_vol_down ?? '-'} 日`;
+      const cores: string[] = [];
+      if (p.require_price_rise !== false) cores.push(`涨≥${p.min_price_rise_pct ?? '-'}%`);
+      if (p.require_vol_lift !== false) cores.push(`后半段均量≥${p.min_vol_ratio ?? '-'}×`);
+      if (p.require_sync !== false) cores.push(`同步率≥${p.min_sync_ratio ?? '-'}`);
+      if (p.require_near_high !== false) cores.push(`贴近高点≤${p.near_high_pct ?? '-'}%`);
+      let s = `量价齐升：近 ${p.lookback ?? '-'} 日${
+        cores.length ? `（${cores.join('、')}）` : '（核心子项均已关闭）'
+      }`;
       if (p.enhancements) {
         const extras: string[] = [];
         if (p.require_ma20_up !== false) extras.push('MA20上行');
