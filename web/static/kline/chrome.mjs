@@ -5,6 +5,7 @@ import { PERIOD_BUTTONS } from "./period.mjs";
 import {
   CANDLE_TYPES,
   DEFAULT_SETTINGS,
+  loadChartSettings,
   saveChartSettings,
 } from "./styles.mjs";
 import {
@@ -108,8 +109,39 @@ function ensureSettingsModal() {
             <label class="mp-setting-check"><input type="checkbox" data-field="grid" /><span>网格</span></label>
             <label class="mp-setting-check"><input type="checkbox" data-field="hideYAxis" /><span>隐Y轴</span></label>
           </div>
+          <div class="mp-setting-status">
+            <div class="mp-setting-status-title">K 线状态颜色（仅日线）</div>
+            <label class="mp-setting-status-row">
+              <span>收盘涨停</span>
+              <span class="mp-setting-status-ctrls">
+                <input type="color" data-field="colorLimitUp" value="#F5C518" title="涨停颜色" />
+                <input type="checkbox" data-field="statusLimitUp" title="启用" />
+              </span>
+            </label>
+            <label class="mp-setting-status-row">
+              <span>收盘跌停</span>
+              <span class="mp-setting-status-ctrls">
+                <input type="color" data-field="colorLimitDown" value="#7C3AED" title="跌停颜色" />
+                <input type="checkbox" data-field="statusLimitDown" title="启用" />
+              </span>
+            </label>
+            <label class="mp-setting-status-row">
+              <span>一字涨停</span>
+              <span class="mp-setting-status-ctrls">
+                <input type="color" data-field="colorOneWordUp" value="#FF9800" title="一字涨停颜色" />
+                <input type="checkbox" data-field="statusOneWordUp" title="启用" />
+              </span>
+            </label>
+            <label class="mp-setting-status-row">
+              <span>一字跌停</span>
+              <span class="mp-setting-status-ctrls">
+                <input type="color" data-field="colorOneWordDown" value="#5B21B6" title="一字跌停颜色" />
+                <input type="checkbox" data-field="statusOneWordDown" title="启用" />
+              </span>
+            </label>
+          </div>
         </div>
-        <p class="mp-setting-note">分时仍为面积图。「应用」仅当前面板；「设为默认」供新建面板继承。</p>
+        <p class="mp-setting-note">分时仍为面积图。状态颜色与单图共用本机设置，默认开启。「应用」仅当前面板；「设为默认」全体新建面板继承。</p>
       </div>
       <div class="mp-modal-ft">
         <button type="button" data-act="reset">默认</button>
@@ -146,10 +178,12 @@ function ensureSettingsModal() {
 
   settingsMask.querySelector('[data-act="save-default"]').addEventListener("click", () => {
     const next = readSettingsForm(settingsMask);
-    saveChartSettings(next);
+    // 与单图共用 localStorage：合并写入，避免冲掉 cacheMode / refreshInterval 等
+    const merged = { ...loadChartSettings(), ...next };
+    saveChartSettings(merged);
     if (settingsTarget) {
       const prevHide = !!settingsTarget.settings?.hideYAxis;
-      settingsTarget.setSettings(next);
+      settingsTarget.setSettings(merged);
       if (prevHide !== !!next.hideYAxis) {
         settingsTarget.yAxisLocked = true;
         try {
@@ -161,6 +195,11 @@ function ensureSettingsModal() {
       }
       updateChrome(settingsTarget);
     }
+    try {
+      window.dispatchEvent(
+        new CustomEvent("kline-settings-saved", { detail: merged })
+      );
+    } catch (_) {}
     closeSettingsModal();
   });
 
@@ -182,9 +221,33 @@ function fillSettingsForm(mask, settings) {
   mask.querySelector('[data-field="axisReverse"]').checked = !!s.axisReverse;
   mask.querySelector('[data-field="grid"]').checked = !!s.grid;
   mask.querySelector('[data-field="hideYAxis"]').checked = !!s.hideYAxis;
+  const colorOr = (key, fallback) => s[key] || fallback;
+  const setColor = (field, val) => {
+    const el = mask.querySelector(`[data-field="${field}"]`);
+    if (el) el.value = val;
+  };
+  const setCheck = (field, on) => {
+    const el = mask.querySelector(`[data-field="${field}"]`);
+    if (el) el.checked = !!on;
+  };
+  setColor("colorLimitUp", colorOr("colorLimitUp", DEFAULT_SETTINGS.colorLimitUp));
+  setColor("colorLimitDown", colorOr("colorLimitDown", DEFAULT_SETTINGS.colorLimitDown));
+  setColor("colorOneWordUp", colorOr("colorOneWordUp", DEFAULT_SETTINGS.colorOneWordUp));
+  setColor("colorOneWordDown", colorOr("colorOneWordDown", DEFAULT_SETTINGS.colorOneWordDown));
+  setCheck("statusLimitUp", s.statusLimitUp !== false);
+  setCheck("statusLimitDown", s.statusLimitDown !== false);
+  setCheck("statusOneWordUp", s.statusOneWordUp !== false);
+  setCheck("statusOneWordDown", s.statusOneWordDown !== false);
 }
 
 function readSettingsForm(mask) {
+  const colorVal = (field, fallback) =>
+    mask.querySelector(`[data-field="${field}"]`)?.value || fallback;
+  const checkVal = (field, defaultOn = true) => {
+    const el = mask.querySelector(`[data-field="${field}"]`);
+    if (!el) return defaultOn;
+    return !!el.checked;
+  };
   return {
     candleType: mask.querySelector('[data-field="candleType"]').value,
     lastPrice: mask.querySelector('[data-field="lastPrice"]').checked,
@@ -195,6 +258,14 @@ function readSettingsForm(mask) {
     axisReverse: mask.querySelector('[data-field="axisReverse"]').checked,
     grid: mask.querySelector('[data-field="grid"]').checked,
     hideYAxis: mask.querySelector('[data-field="hideYAxis"]').checked,
+    statusLimitUp: checkVal("statusLimitUp"),
+    statusLimitDown: checkVal("statusLimitDown"),
+    statusOneWordUp: checkVal("statusOneWordUp"),
+    statusOneWordDown: checkVal("statusOneWordDown"),
+    colorLimitUp: colorVal("colorLimitUp", DEFAULT_SETTINGS.colorLimitUp),
+    colorLimitDown: colorVal("colorLimitDown", DEFAULT_SETTINGS.colorLimitDown),
+    colorOneWordUp: colorVal("colorOneWordUp", DEFAULT_SETTINGS.colorOneWordUp),
+    colorOneWordDown: colorVal("colorOneWordDown", DEFAULT_SETTINGS.colorOneWordDown),
   };
 }
 
@@ -228,7 +299,7 @@ export function mountChrome(panel) {
   root.innerHTML = `
     <div class="mp-id">
       <div class="mp-id-row">
-        <span class="mp-name">--</span>
+        <button type="button" class="mp-name" title="打开单图 K 线">--</button>
         <span class="mp-code"></span>
       </div>
       <div class="mp-quote"></div>
@@ -243,6 +314,31 @@ export function mountChrome(panel) {
 
   const gear = root.querySelector(".mp-gear");
   const menu = root.querySelector(".mp-menu");
+  const nameBtn = root.querySelector(".mp-name");
+
+  nameBtn?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sym = String(panel.symbol || "").trim();
+    if (!sym) return;
+    if (typeof panel.onOpenSingle === "function") {
+      try {
+        panel.onOpenSingle(panel);
+        return;
+      } catch (err) {
+        console.warn("onOpenSingle failed", err);
+      }
+    }
+    // noopener 下返回值常为 null，勿用 location.href 兜底（会把多面板页也跳走）
+    window.open(singleChartUrl(sym, panel.period), "_blank", "noopener");
+  });
+
+  // 点代码同样打开单图
+  root.querySelector(".mp-code")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    nameBtn?.click();
+  });
 
   gear.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -482,6 +578,12 @@ function renderMenu(panel, menu) {
   menu.querySelector('[data-act="apply-symbol"]')?.addEventListener("click", applySym);
   menu.querySelector(".mp-symbol-input")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") applySym();
+  });
+  menu.querySelector('[data-act="single"]')?.addEventListener("click", (e) => {
+    if (typeof panel.onOpenSingle !== "function") return;
+    e.preventDefault();
+    closeOpenMenu();
+    panel.onOpenSingle(panel);
   });
 }
 

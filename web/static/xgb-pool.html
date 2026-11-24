@@ -314,6 +314,7 @@
       <button id="btnRefresh" type="button">刷新</button>
       <button id="btnCols" type="button" title="自定义显示哪些列">列显隐</button>
       <button id="btnCollapseToggle" type="button" title="折叠/展开全部概念组">全部折叠</button>
+      <button id="btnMultipanel" type="button" title="按当前筛选排序打开多面板（3×3，可翻页）">多面板</button>
       <label class="pill muted" title="开启后每只股票只归入第一个关联概念">
         <input id="chkPrimary" type="checkbox" style="margin:0" />
         仅主概念
@@ -341,7 +342,7 @@
     <p class="note">
       字段说明见 <code>docs/xuangubao-limit-up-pool-api.md</code>。
       同系列：<code>/limit-up</code> · <code>/limit-down</code> · <code>/yesterday-limit-up</code>。
-      点击名称打开 K 线；历史模式下点名称看涨跌停履历；「涨因」打开 <code>/zt/{code}</code>。
+      点击名称打开 K 线；「多面板」按当前排序开 3×3；历史模式下点名称看涨跌停履历；「涨因」打开 <code>/zt/{code}</code>。
     </p>
   </div>
 
@@ -689,7 +690,7 @@
       }
     }
 
-    /** 同步：写 nav + 拼绝对 URL（勿 await，否则 iframe 里 window.open 会被拦截且丢 nav） */
+    /** 同步：写 LS + 拼绝对 URL；服务端异步补写（同步 XHR 会吃掉手势导致 window.open 被拦） */
     function buildKlineUrl(code) {
       const qs = new URLSearchParams({ symbol: code, period: '1d' });
       const list = collectNavSymbols();
@@ -698,8 +699,15 @@
       if (list.length >= 2) {
         const navId = 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
         writeKlineNavLocal(navId, list, index);
-        writeKlineNavServerSync(navId, list, index);
         qs.set('nav', navId);
+        try {
+          void fetch('/api/kline-nav', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: navId, symbols: list, i: index }),
+            keepalive: true,
+          });
+        } catch (_) { /* ignore */ }
       }
       return window.location.origin + '/?' + qs.toString();
     }
@@ -707,9 +715,41 @@
     window.openKline = function (sym) {
       const code = codeOf(sym);
       if (!code) return;
-      const url = buildKlineUrl(code);
-      window.open(url, '_blank', 'noopener');
+      // noopener 下 open 常返回 null，勿 location.href 兜底（本页会一起跳走）
+      window.open(buildKlineUrl(code), '_blank', 'noopener');
     };
+
+    /** 当前列表 → 多面板（默认 3x3 / 1d，页内可翻页） */
+    function openMultipanelFromPool() {
+      const list = collectNavSymbols();
+      if (!list.length) {
+        alert('当前没有可打开的股票');
+        return;
+      }
+      const max = 200;
+      const symbols = list.slice(0, max);
+      const qs = new URLSearchParams();
+      qs.set('layout', '3x3');
+      qs.set('period', '1d');
+      const navId = 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      writeKlineNavLocal(navId, symbols, 0);
+      qs.set('nav', navId);
+      try {
+        void fetch('/api/kline-nav', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: navId, symbols: symbols, i: 0 }),
+          keepalive: true,
+        });
+      } catch (_) { /* ignore */ }
+      const joined = symbols.join(',');
+      if (joined.length <= 1800) qs.set('symbols', joined);
+      window.open(
+        window.location.origin + '/multipanel?' + qs.toString(),
+        '_blank',
+        'noopener'
+      );
+    }
 
     window.openStockHist = function (sym, name) {
       const code = codeOf(sym);
@@ -1750,6 +1790,7 @@
     });
 
     document.getElementById('btnRefresh').addEventListener('click', loadData);
+    document.getElementById('btnMultipanel')?.addEventListener('click', openMultipanelFromPool);
     document.getElementById('btnCollapseToggle').addEventListener('click', toggleCollapseAllGroups);
     document.getElementById('stats').addEventListener('click', (ev) => {
       const btn = ev.target.closest('[data-filter]');

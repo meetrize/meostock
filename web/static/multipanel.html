@@ -157,6 +157,7 @@
     .mp-cell .chart-host {
       position: absolute;
       inset: 0;
+      z-index: 0;
     }
     .mp-cell.is-empty {
       display: flex;
@@ -184,8 +185,10 @@
     }
     .mp-id {
       max-width: calc(100% - 44px);
-      pointer-events: none;
+      pointer-events: auto; /* 名称/代码可点；勿 none，否则部分浏览器点不透到按钮 */
       text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+      z-index: 6;
+      position: relative;
     }
     .mp-id-row {
       display: flex;
@@ -198,11 +201,29 @@
       font-weight: 600;
       color: var(--text);
       line-height: 1.2;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      pointer-events: auto; /* chrome 整体 none，名称可点开单图 */
+    }
+    .mp-name:hover {
+      color: var(--accent, #2f6fed);
+      text-decoration: underline;
     }
     .mp-code {
       font-size: 12px;
       font-family: var(--mono);
       color: var(--muted);
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    .mp-code:hover {
+      color: var(--accent, #2f6fed);
+      text-decoration: underline;
     }
     .mp-quote {
       margin-top: 2px;
@@ -465,6 +486,41 @@
       min-width: 0;
     }
     .mp-setting-check input { margin: 0; flex: 0 0 auto; }
+    .mp-setting-status {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .mp-setting-status-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .mp-setting-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      cursor: default;
+    }
+    .mp-setting-status-ctrls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .mp-setting-status-ctrls input[type="color"] {
+      width: 28px;
+      height: 22px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: transparent;
+      cursor: pointer;
+    }
     .mp-setting-note {
       margin: 8px 0 0;
       font-size: 10px;
@@ -838,6 +894,22 @@
       }
     }
 
+    function fetchNavSymbolsSync(navId) {
+      const nid = String(navId || "").trim();
+      if (!nid) return [];
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", "/api/kline-nav/" + encodeURIComponent(nid), false);
+        xhr.send(null);
+        if (xhr.status < 200 || xhr.status >= 300) return [];
+        const data = JSON.parse(xhr.responseText || "{}");
+        if (!data?.ok || !Array.isArray(data.symbols)) return [];
+        return data.symbols.map((s) => String(s || "").trim()).filter(Boolean);
+      } catch (_) {
+        return [];
+      }
+    }
+
     function parseQuery() {
       const params = new URLSearchParams(location.search);
       let qSymbols = String(params.get("symbols") || "")
@@ -849,6 +921,12 @@
         const stored = readPasteSymbolsFromStorage();
         if (stored.length) qSymbols = stored;
       }
+      const navId = String(params.get("nav") || "").trim();
+      // 无 symbols 或被截断时，用服务端短时 nav 补全
+      if (navId && qSymbols.length < 2) {
+        const fromNav = fetchNavSymbolsSync(navId);
+        if (fromNav.length) qSymbols = fromNav;
+      }
       let period = params.get("period") || "";
       let layoutId = params.get("layout") || "";
       // page 支持 1-based（URL）或 0-based 容错
@@ -856,7 +934,48 @@
       let page = 0;
       if (Number.isFinite(rawPage) && rawPage >= 1) page = Math.floor(rawPage) - 1;
       else if (Number.isFinite(rawPage) && rawPage >= 0) page = Math.floor(rawPage);
-      return { qSymbols, period, layoutId, page };
+      return { qSymbols, period, layoutId, page, navId };
+    }
+
+    /** 多面板 → 单图：按当前完整列表写 nav，便于 ↑↓ 翻页 */
+    function openSingleKlineFromPanel(panel) {
+      const code = String(panel?.symbol || "").trim();
+      if (!code) return;
+      const list = (allSymbols || []).map((s) => String(s || "").trim()).filter(Boolean);
+      const period = panel.period || currentPeriod || "1d";
+      const qs = new URLSearchParams({ symbol: code, period });
+      let navId = "";
+      let index = 0;
+      if (list.length >= 2) {
+        navId =
+          "q" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        index = list.indexOf(code);
+        if (index < 0) index = 0;
+        const payload = JSON.stringify({
+          v: 1,
+          symbols: list,
+          i: index,
+          ts: Date.now(),
+        });
+        // 先同步写 LS（快），再立刻 open——同步 XHR 会吃掉用户手势导致弹窗被拦
+        try {
+          localStorage.setItem("kline_nav_" + navId, payload);
+        } catch (_) {}
+        qs.set("nav", navId);
+      }
+      const url = location.origin + "/?" + qs.toString();
+      // noopener 下 open 常返回 null，不能据此 location.href，否则本页也会跳走
+      window.open(url, "_blank", "noopener");
+      if (navId) {
+        try {
+          void fetch("/api/kline-nav", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: navId, symbols: list, i: index }),
+            keepalive: true,
+          });
+        } catch (_) {}
+      }
     }
 
     function pageSize() {
@@ -1074,6 +1193,7 @@
         panel.onVolumeChange = () => persistSession();
         panel.onYAxisChange = () => persistSession();
         panel.onMaChange = () => persistSession();
+        panel.onOpenSingle = openSingleKlineFromPanel;
         slotPanels[i] = panel;
       }
 
@@ -1365,6 +1485,27 @@
     hideMaEl.checked = hideMaGlobal;
     savedPanelStates = Array.isArray(session?.panels) ? session.panels.slice() : [];
     if (session?.hideGlobalBar) setBarHidden(true);
+
+    // 单图/多面板共用 kline-chart-settings：存默认后同步全体面板状态色
+    window.addEventListener("kline-settings-saved", (ev) => {
+      const next = ev?.detail;
+      if (!next || typeof next !== "object") return;
+      livePanels().forEach((p) => {
+        try {
+          p.setSettings({
+            statusLimitUp: next.statusLimitUp,
+            statusLimitDown: next.statusLimitDown,
+            statusOneWordUp: next.statusOneWordUp,
+            statusOneWordDown: next.statusOneWordDown,
+            colorLimitUp: next.colorLimitUp,
+            colorLimitDown: next.colorLimitDown,
+            colorOneWordUp: next.colorOneWordUp,
+            colorOneWordDown: next.colorOneWordDown,
+            candleType: next.candleType,
+          });
+        } catch (_) {}
+      });
+    });
 
     refreshLayoutSelect(currentLayout.id);
     buildGrid(currentLayout, currentPeriod, pageSlice());

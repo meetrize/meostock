@@ -19,6 +19,7 @@ import {
 } from "./fs.mjs";
 import { isIntradayPeriod, resolveSessionOpenTs } from "./session.mjs";
 import { mountChrome, updateChrome, unmountChrome } from "./chrome.mjs";
+import { refreshCandleStatusOnChart } from "./candle-status.mjs";
 
 function readTheme() {
   try {
@@ -743,8 +744,10 @@ export class ChartPanel {
           } catch (_) {
             this._pendingBars = null;
           }
+          this.refreshCandleStatus();
           queueMicrotask(() => {
             if (this._disposed || seq !== this._loadSeq) return;
+            this.refreshCandleStatus();
             try {
               this.chart.resize();
             } catch (_) {}
@@ -899,6 +902,7 @@ export class ChartPanel {
               : { forward: canForward, backward: false }
           );
           self._applyLoadedMeta(data, bars);
+          self.refreshCandleStatus();
 
           // 缓存脏数据 / 服务端已在刷：客户端再 force 一次，保证图更新
           const needRefresh = !!(data.fromCache && (data.stale || data.refreshing));
@@ -908,6 +912,7 @@ export class ChartPanel {
 
           queueMicrotask(() => {
             if (self._disposed || seq !== self._loadSeq) return;
+            self.refreshCandleStatus();
             try {
               self.chart.resize();
             } catch (_) {}
@@ -940,6 +945,7 @@ export class ChartPanel {
     if (opts.lock) this.periodLocked = true;
     if (this.chart) this._applyStyles();
     this._refreshChrome();
+    this.refreshCandleStatus();
     return this;
   }
 
@@ -964,6 +970,7 @@ export class ChartPanel {
     if (opts.lock) this.chartTypeLocked = true;
     this._applyStyles();
     this._refreshChrome();
+    this.refreshCandleStatus();
     return this;
   }
 
@@ -982,6 +989,30 @@ export class ChartPanel {
     this.settings = { ...this.settings, ...(partial || {}) };
     this._applyStyles();
     this._refreshChrome();
+    this.refreshCandleStatus();
+    return this;
+  }
+
+  /** 日 K 涨跌停 / 一字板着色（与单图设置、配色一致） */
+  refreshCandleStatus() {
+    if (!this.chart || this._disposed) return this;
+    let market = "CN";
+    try {
+      market = this.data.resolveMarket(this.symbol);
+    } catch (_) {}
+    const kc = typeof klinecharts !== "undefined" ? klinecharts : null;
+    refreshCandleStatusOnChart(
+      this.chart,
+      {
+        symbol: this.symbol,
+        name: this._name,
+        period: this.period,
+        market,
+        settings: this.settings,
+        candleType: this.settings?.candleType,
+      },
+      kc?.registerIndicator
+    );
     return this;
   }
 
