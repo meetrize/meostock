@@ -170,6 +170,8 @@ export function ruleBlockToSentence(block: RuleBlock): string {
       return `股价站上均线：MA${p.period ?? 60}`;
     case 'breakout.volume':
       return `放量突破：近 ${p.lookback ?? '-'} 日，量≥${p.volume_multiple ?? '-'}×均量`;
+    case 'volume.price_sync_rise':
+      return `量价齐升：近 ${p.lookback ?? '-'} 日涨≥${p.min_price_rise_pct ?? '-'}%，后半段均量≥${p.min_vol_ratio ?? '-'}×前半段，上涨日同步率≥${p.min_sync_ratio ?? '-'}，价升量缩例外≤${p.max_price_up_vol_down ?? '-'} 日`;
     case 'limit.board_count':
       return `连板数区间：${fmtRange(p.min, p.max)}`;
     case 'board.theme_top_n':

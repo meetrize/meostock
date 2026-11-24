@@ -82,6 +82,22 @@ SCAN_TEMPLATES: dict[str, dict[str, Any]] = {
             "min_bars": 40,
         },
     },
+    "volume_price_rise": {
+        "id": "volume_price_rise",
+        "name": "量价齐升",
+        "description": "近窗口价量总体抬升，上涨日多数放量，允许少量例外",
+        "engine": "tech_rules",
+        "preset_id": "volume_price_rise",
+        "params": {
+            "exclude_st": True,
+            "limit": 50,
+            "universe_size": 300,
+            "min_amount": 3.0e4,
+            "concurrency": 8,
+            "fetch_kline": True,
+            "min_bars": 30,
+        },
+    },
     "dividend_roe": {
         "id": "dividend_roe",
         "name": "高股息+高ROE",
@@ -303,7 +319,16 @@ def _eval_one_tech(
         return None
     trad = tradability(q)
     amount = _f(q.get("amount"))
-    return {
+    factors = judged.get("factors") or {}
+    sync_fac = factors.get("volume.price_sync_rise") or {}
+    breakout_fac = factors.get("breakout.volume") or {}
+    # 量价齐升优先按量能抬升倍数排序；放量突破按量能倍数；其余按成交额
+    score = float(amount or 0)
+    if isinstance(sync_fac, dict) and sync_fac.get("vol_ratio") is not None:
+        score = float(sync_fac.get("vol_ratio") or 0) * 1e6 + float(amount or 0)
+    elif isinstance(breakout_fac, dict) and breakout_fac.get("volume_multiple") is not None:
+        score = float(breakout_fac.get("volume_multiple") or 0) * 1e6 + float(amount or 0)
+    row = {
         "symbol": code,
         "route_code": _route_code(code),
         "name": name,
@@ -316,12 +341,29 @@ def _eval_one_tech(
         "pe": _f(q.get("pe")),
         "pb": _f(q.get("pb")),
         "why_hit": list(judged.get("why_hit") or []),
-        "factors": judged.get("factors") or {},
+        "factors": factors,
         "tradability": trad,
         "tradeable": trad.get("tradable", True),
-        "score": float(amount or 0),
+        "score": score,
         "as_of_bar": bars[-1].get("date") if bars else None,
     }
+    if isinstance(sync_fac, dict):
+        for key in (
+            "price_rise_pct",
+            "vol_ratio",
+            "sync_ratio",
+            "price_up_days",
+            "sync_up_days",
+            "vol_down_on_up",
+        ):
+            if key in sync_fac:
+                row[key] = sync_fac[key]
+    if isinstance(breakout_fac, dict):
+        if "volume_multiple" in breakout_fac:
+            row["volume_multiple"] = breakout_fac["volume_multiple"]
+        if "breakout" in breakout_fac:
+            row["breakout"] = breakout_fac["breakout"]
+    return row
 
 
 def _run_tech_rules_scanner(tmpl: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
@@ -425,7 +467,12 @@ def run_scanner(
         preset = get_preset(tid)
         if preset and preset.get("run_engine") == "research_scanner":
             engine_guess = "valuation"
-            if tid in {"ma_bull_stack", "dual_ma_coil", "breakout_volume"}:
+            if tid in {
+                "ma_bull_stack",
+                "dual_ma_coil",
+                "breakout_volume",
+                "volume_price_rise",
+            }:
                 engine_guess = "tech_rules"
             elif tid in {"dividend_roe", "growth_trend"}:
                 engine_guess = "fundamental"

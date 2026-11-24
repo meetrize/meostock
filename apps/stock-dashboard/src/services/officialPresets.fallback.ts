@@ -404,6 +404,87 @@ const officialPresetsFallback: StrategyPreset[] = [
     }
   },
   {
+    "id": "volume_price_rise",
+    "name": "量价齐升",
+    "horizon": "swing",
+    "version": 1,
+    "risk_level": "medium",
+    "enabled_by_default": true,
+    "runnable": true,
+    "run_engine": "research_scanner",
+    "scanner_template_id": "volume_price_rise",
+    "tags": [
+      "量价",
+      "齐升",
+      "波段"
+    ],
+    "environment": {
+      "prefer": [
+        "趋势上行",
+        "板块有共振"
+      ],
+      "avoid": [
+        "量增价滞",
+        "高位换手派发",
+        "无量阴跌"
+      ]
+    },
+    "gates": {},
+    "rules": {
+      "all": [
+        {
+          "op": "volume.price_sync_rise",
+          "params": {
+            "lookback": 12,
+            "min_price_rise_pct": 8.0,
+            "min_vol_ratio": 1.5,
+            "min_sync_ratio": 0.55,
+            "max_price_up_vol_down": 3,
+            "near_high_pct": 5.0,
+            "min_price_up_days": 4
+          }
+        },
+        {
+          "op": "quote.exclude_st",
+          "params": {
+            "enabled": true
+          }
+        },
+        {
+          "op": "risk.tradability",
+          "params": {
+            "require_flag": true
+          }
+        }
+      ]
+    },
+    "copy": {
+      "headline": "量价齐升筛选",
+      "one_liner": "近两周收盘与成交量总体抬升，上涨日多数伴随放量，允许少量例外，贴近窗口高点。",
+      "fit_when": "右侧趋势启动或加速段、板块同步走强",
+      "avoid_when": "量增价不涨、高位换手过高、孤立个股无板块效应",
+      "how_to_buy": "连续放量阳线后，回踩 5 日线不破再确认；不追一日极端放量长上影",
+      "how_to_exit": "量增价滞、跌破近端平台或 5/10 日线走坏则减仓/离场",
+      "position_hint": "波段试探仓；确认趋势后再加，单笔止损前置",
+      "disclaimer": "规则候选池，仅供观察与学习，不构成投资建议。"
+    },
+    "result_columns": [
+      "price_rise_pct",
+      "vol_ratio",
+      "sync_ratio",
+      "changePercent",
+      "amount"
+    ],
+    "sort_default": {
+      "field": "vol_ratio",
+      "order": "desc"
+    },
+    "outputs": {
+      "allow_trade_card": true,
+      "require_tradability_flag": true
+    }
+  },
+  {
     "id": "dividend_roe",
     "name": "高股息+高ROE",
     "horizon": "long",

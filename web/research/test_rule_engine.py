@@ -6,6 +6,7 @@ from research.rule_engine import (
     eval_breakout_volume,
     eval_ma_bull_stack,
     eval_ma_dual_coil,
+    eval_volume_price_sync_rise,
     evaluate_rules_on_bars,
 )
 
@@ -49,6 +50,44 @@ def test_breakout_volume():
     ok, why, fac = eval_breakout_volume(closes, volumes, lookback=20, volume_multiple=1.8)
     assert ok
     assert fac.get("breakout") is True
+
+
+def test_volume_price_sync_rise():
+    # 价量总体抬升：多数上涨日放量，夹杂 1～2 日例外
+    closes = [20.0, 20.5, 21.0, 20.7, 21.2, 21.8, 22.5, 22.4, 23.0, 23.8, 24.5, 24.2]
+    volumes = [
+        1000,
+        1200,
+        1100,  # 价升量缩例外
+        900,
+        1300,
+        1800,
+        3500,
+        3400,
+        4000,
+        5200,
+        7000,
+        6000,
+    ]
+    ok, why, fac = eval_volume_price_sync_rise(
+        closes,
+        volumes,
+        lookback=12,
+        min_price_rise_pct=8.0,
+        min_vol_ratio=1.5,
+        min_sync_ratio=0.55,
+        max_price_up_vol_down=3,
+        near_high_pct=5.0,
+        min_price_up_days=4,
+    )
+    assert ok
+    assert fac.get("sync_ratio", 0) >= 0.55
+    assert any("同步" in w for w in why)
+
+    # 价升但量不抬升 → 不命中
+    flat_vol = [1000.0] * 12
+    ok2, _, _ = eval_volume_price_sync_rise(closes, flat_vol, lookback=12)
+    assert ok2 is False
 
 
 def test_evaluate_rules_and():

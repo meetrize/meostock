@@ -15,16 +15,21 @@ from research.strategy_presets import (
 
 def test_list_and_get_official_presets():
     all_rows = list_presets()
-    assert len(all_rows) >= 8
+    assert len(all_rows) >= 9
     ids = {r["id"] for r in all_rows}
     assert "eod_intraday_strength" in ids
     assert "quality_value" in ids
+    assert "volume_price_rise" in ids
     short = list_presets(horizon="short")
     assert all(r["horizon"] == "short" for r in short)
     assert get_preset("missing") is None
     eod = get_preset("eod_intraday_strength")
     assert eod and eod["runnable"] is True
     assert eod["run_engine"] == "eod_intraday"
+    vpr = get_preset("volume_price_rise")
+    assert vpr and vpr["runnable"] is True
+    assert vpr["run_engine"] == "research_scanner"
+    assert vpr["horizon"] == "swing"
 
 
 def test_eod_filter_roundtrip():

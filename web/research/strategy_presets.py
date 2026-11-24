@@ -80,6 +80,19 @@ RULE_OPS: dict[str, dict[str, Any]] = {
         "label": "缩量回踩",
         "params": ["ma_period", "volume_ratio_max"],
     },
+    "volume.price_sync_rise": {
+        "domain": "volume",
+        "label": "量价齐升",
+        "params": [
+            "lookback",
+            "min_price_rise_pct",
+            "min_vol_ratio",
+            "min_sync_ratio",
+            "max_price_up_vol_down",
+            "near_high_pct",
+            "min_price_up_days",
+        ],
+    },
     "limit.board_count": {
         "domain": "limit",
         "label": "连板数区间",
@@ -366,6 +379,60 @@ OFFICIAL_PRESETS: dict[str, dict[str, Any]] = {
             "require_tradability_flag": True,
         },
     },
+    "volume_price_rise": {
+        "id": "volume_price_rise",
+        "name": "量价齐升",
+        "horizon": "swing",
+        "version": 1,
+        "risk_level": "medium",
+        "enabled_by_default": True,
+        "runnable": True,
+        "run_engine": "research_scanner",
+        "scanner_template_id": "volume_price_rise",
+        "tags": ["量价", "齐升", "波段"],
+        "environment": {
+            "prefer": ["趋势上行", "板块有共振"],
+            "avoid": ["量增价滞", "高位换手派发", "无量阴跌"],
+        },
+        "gates": {},
+        "rules": {
+            "all": [
+                _block(
+                    "volume.price_sync_rise",
+                    lookback=12,
+                    min_price_rise_pct=8.0,
+                    min_vol_ratio=1.5,
+                    min_sync_ratio=0.55,
+                    max_price_up_vol_down=3,
+                    near_high_pct=5.0,
+                    min_price_up_days=4,
+                ),
+                _block("quote.exclude_st", enabled=True),
+                _block("risk.tradability", require_flag=True),
+            ]
+        },
+        "copy": _copy(
+            headline="量价齐升筛选",
+            one_liner="近两周收盘与成交量总体抬升，上涨日多数伴随放量，允许少量例外，贴近窗口高点。",
+            fit_when="右侧趋势启动或加速段、板块同步走强",
+            avoid_when="量增价不涨、高位换手过高、孤立个股无板块效应",
+            how_to_buy="连续放量阳线后，回踩 5 日线不破再确认；不追一日极端放量长上影",
+            how_to_exit="量增价滞、跌破近端平台或 5/10 日线走坏则减仓/离场",
+            position_hint="波段试探仓；确认趋势后再加，单笔止损前置",
+        ),
+        "result_columns": [
+            "price_rise_pct",
+            "vol_ratio",
+            "sync_ratio",
+            "changePercent",
+            "amount",
+        ],
+        "sort_default": {"field": "vol_ratio", "order": "desc"},
+        "outputs": {
+            "allow_trade_card": True,
+            "require_tradability_flag": True,
+        },
+    },
     "quality_value": {
         "id": "quality_value",
         "name": "质量+低估值",
@@ -545,6 +612,13 @@ def rule_block_to_sentence(block: dict[str, Any]) -> str:
         return f"{label}：N={p.get('n', '-')}"
     if op == "volume.shrink_pullback":
         return f"{label}：回踩 MA{p.get('ma_period', '-')}，量比≤{p.get('volume_ratio_max', '-')}"
+    if op == "volume.price_sync_rise":
+        return (
+            f"{label}：近 {p.get('lookback', '-')} 日涨≥{p.get('min_price_rise_pct', '-')}%，"
+            f"后半段均量≥{p.get('min_vol_ratio', '-')}×前半段，"
+            f"上涨日同步率≥{p.get('min_sync_ratio', '-')}，"
+            f"价升量缩例外≤{p.get('max_price_up_vol_down', '-')} 日"
+        )
     if op == "limit.board_count":
         return f"{label}：{_fmt_range(p.get('min'), p.get('max'))}"
     if op == "board.theme_top_n":
