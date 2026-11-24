@@ -765,6 +765,10 @@
     let allSymbols = [];
     /** @type {string[]} 当前页展示用（兼容旧逻辑里的 symbols） */
     let symbols = [];
+    /** @type {string[]} 与 allSymbols 对齐的锚定日 */
+    let allDates = [];
+    /** left = 命中日偏左看右侧 */
+    let focusBias = "";
     /** 0-based 页码 */
     let pageIndex = 0;
     let currentLayout = resolveLayout("2x2");
@@ -894,19 +898,25 @@
       }
     }
 
-    function fetchNavSymbolsSync(navId) {
+    function fetchNavPayloadSync(navId) {
       const nid = String(navId || "").trim();
-      if (!nid) return [];
+      if (!nid) return null;
       try {
         const xhr = new XMLHttpRequest();
         xhr.open("GET", "/api/kline-nav/" + encodeURIComponent(nid), false);
         xhr.send(null);
-        if (xhr.status < 200 || xhr.status >= 300) return [];
+        if (xhr.status < 200 || xhr.status >= 300) return null;
         const data = JSON.parse(xhr.responseText || "{}");
-        if (!data?.ok || !Array.isArray(data.symbols)) return [];
-        return data.symbols.map((s) => String(s || "").trim()).filter(Boolean);
+        if (!data?.ok || !Array.isArray(data.symbols)) return null;
+        const symbols = data.symbols.map((s) => String(s || "").trim()).filter(Boolean);
+        const rawDates = Array.isArray(data.dates) ? data.dates : [];
+        const dates = symbols.map((_, i) => {
+          const d = String(rawDates[i] || "").trim().slice(0, 10);
+          return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "";
+        });
+        return { symbols, dates };
       } catch (_) {
-        return [];
+        return null;
       }
     }
 
@@ -916,17 +926,30 @@
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
+      let qDates = String(params.get("dates") || "")
+        .split(",")
+        .map((s) => s.trim().slice(0, 10));
       // 长列表交接：URL 带 from=paste 时优先读 sessionStorage
       if (params.get("from") === "paste") {
         const stored = readPasteSymbolsFromStorage();
         if (stored.length) qSymbols = stored;
       }
       const navId = String(params.get("nav") || "").trim();
+      const bias = String(params.get("bias") || "").trim().toLowerCase() === "left" ? "left" : "";
       // 无 symbols 或被截断时，用服务端短时 nav 补全
-      if (navId && qSymbols.length < 2) {
-        const fromNav = fetchNavSymbolsSync(navId);
-        if (fromNav.length) qSymbols = fromNav;
+      if (navId && (qSymbols.length < 2 || !qDates.some((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))) {
+        const fromNav = fetchNavPayloadSync(navId);
+        if (fromNav?.symbols?.length) {
+          if (qSymbols.length < 2) qSymbols = fromNav.symbols;
+          if (fromNav.dates.some(Boolean)) {
+            qDates = fromNav.dates.slice(0, qSymbols.length);
+          }
+        }
       }
+      while (qDates.length < qSymbols.length) qDates.push("");
+      qDates = qDates.slice(0, qSymbols.length).map((d) =>
+        /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : ""
+      );
       let period = params.get("period") || "";
       let layoutId = params.get("layout") || "";
       // page 支持 1-based（URL）或 0-based 容错
@@ -934,7 +957,7 @@
       let page = 0;
       if (Number.isFinite(rawPage) && rawPage >= 1) page = Math.floor(rawPage) - 1;
       else if (Number.isFinite(rawPage) && rawPage >= 0) page = Math.floor(rawPage);
-      return { qSymbols, period, layoutId, page, navId };
+      return { qSymbols, qDates, period, layoutId, page, navId, bias };
     }
 
     /** 多面板 → 单图：按当前完整列表写 nav，便于 ↑↓ 翻页 */
@@ -944,6 +967,12 @@
       const list = (allSymbols || []).map((s) => String(s || "").trim()).filter(Boolean);
       const period = panel.period || currentPeriod || "1d";
       const qs = new URLSearchParams({ symbol: code, period });
+      let absIndex = allSymbols.indexOf(code);
+      if (absIndex < 0) absIndex = 0;
+      const focusDate =
+        String(panel?.focusDate || allDates[absIndex] || "").trim().slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(focusDate)) qs.set("date", focusDate);
+      if (focusBias === "left" || panel?.focusBias === "left") qs.set("bias", "left");
       let navId = "";
       let index = 0;
       if (list.length >= 2) {
@@ -951,12 +980,19 @@
           "q" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
         index = list.indexOf(code);
         if (index < 0) index = 0;
-        const payload = JSON.stringify({
+        const dateList = list.map((sym) => {
+          const i = allSymbols.indexOf(sym);
+          const d = String(allDates[i] || "").trim().slice(0, 10);
+          return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "";
+        });
+        const payloadObj = {
           v: 1,
           symbols: list,
           i: index,
           ts: Date.now(),
-        });
+        };
+        if (dateList.some(Boolean)) payloadObj.dates = dateList;
+        const payload = JSON.stringify(payloadObj);
         // 先同步写 LS（快），再立刻 open——同步 XHR 会吃掉用户手势导致弹窗被拦
         try {
           localStorage.setItem("kline_nav_" + navId, payload);
@@ -968,10 +1004,17 @@
       window.open(url, "_blank", "noopener");
       if (navId) {
         try {
+          const body = { id: navId, symbols: list, i: index };
+          const dateList = list.map((sym) => {
+            const i = allSymbols.indexOf(sym);
+            const d = String(allDates[i] || "").trim().slice(0, 10);
+            return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "";
+          });
+          if (dateList.some(Boolean)) body.dates = dateList;
           void fetch("/api/kline-nav", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: navId, symbols: list, i: index }),
+            body: JSON.stringify(body),
             keepalive: true,
           });
         } catch (_) {}
@@ -1169,6 +1212,8 @@
             : typeof saved.settings?.hideYAxis === "boolean"
               ? saved.settings.hideYAxis
               : hideYAxisGlobal;
+        const absIdx = pageIndex * pageSize() + i;
+        const focusDate = String(allDates[absIdx] || "").trim().slice(0, 10);
         const panel = new ChartPanel({
           container: cell,
           data,
@@ -1186,6 +1231,8 @@
           volumeLocked: !!saved.volumeLocked,
           yAxisLocked: !!saved.yAxisLocked,
           maLocked: !!saved.maLocked,
+          focusDate: /^\d{4}-\d{2}-\d{2}$/.test(focusDate) ? focusDate : "",
+          focusBias: focusBias || "",
           onStatus: (msg) => setStatus(msg),
           onCrosshair: handleCrosshair,
           onTimeScaleSync: handleTimeScaleSync,
@@ -1450,13 +1497,21 @@
     });
 
     // —— 启动：URL > session > 默认 ——
-    const { qSymbols, period: qPeriod, layoutId: qLayout, page: qPage } = parseQuery();
+    const {
+      qSymbols,
+      qDates,
+      period: qPeriod,
+      layoutId: qLayout,
+      page: qPage,
+      bias: qBias,
+    } = parseQuery();
     const session = loadSession();
     currentPeriod =
       (qPeriod && isValidPeriod(qPeriod) && qPeriod) ||
       (session?.period && isValidPeriod(session.period) && session.period) ||
       "1d";
     periodSel.value = currentPeriod;
+    focusBias = qBias || "";
 
     const layoutId = qLayout || session?.layoutId || "2x2";
     currentLayout = resolveLayout(layoutId, loadCustomLayouts());
@@ -1465,6 +1520,10 @@
       : Array.isArray(session?.symbols) && session.symbols.length
         ? session.symbols.slice()
         : DEFAULT_SYMBOLS.slice();
+    allDates = qSymbols.length
+      ? (qDates || []).slice(0, allSymbols.length)
+      : [];
+    while (allDates.length < allSymbols.length) allDates.push("");
     pageIndex = qSymbols.length
       ? clampPage(qPage || 0)
       : clampPage(

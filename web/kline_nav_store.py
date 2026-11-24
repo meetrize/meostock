@@ -31,6 +31,7 @@ def put_nav(
     nav_id: str,
     symbols: list[str],
     index: int = 0,
+    dates: list[str] | None = None,
 ) -> dict[str, Any] | None:
     nid = str(nav_id or "").strip()
     if not nid or len(nid) > 64:
@@ -40,12 +41,21 @@ def put_nav(
     if len(cleaned) < 2:
         return None
     i = max(0, min(len(cleaned) - 1, int(index or 0)))
+    date_list: list[str] = []
+    if dates:
+        for d in dates[: len(cleaned)]:
+            ds = str(d or "").strip()[:10]
+            date_list.append(ds if len(ds) == 10 else "")
+        while len(date_list) < len(cleaned):
+            date_list.append("")
     now = time.time()
-    payload = {"v": 1, "symbols": cleaned, "i": i, "ts": now}
+    payload: dict[str, Any] = {"v": 1, "symbols": cleaned, "i": i, "ts": now}
+    if date_list:
+        payload["dates"] = date_list
     with _lock:
         _prune(now)
         _store[nid] = payload
-    return {"id": nid, "count": len(cleaned), "i": i}
+    return {"id": nid, "count": len(cleaned), "i": i, "has_dates": bool(date_list)}
 
 
 def get_nav(nav_id: str) -> dict[str, Any] | None:
@@ -61,10 +71,13 @@ def get_nav(nav_id: str) -> dict[str, Any] | None:
         if now - float(row.get("ts") or 0) > _TTL_SEC:
             _store.pop(nid, None)
             return None
-        return {
+        out: dict[str, Any] = {
             "id": nid,
             "v": 1,
             "symbols": list(row.get("symbols") or []),
             "i": int(row.get("i") or 0),
             "ts": row.get("ts"),
         }
+        if row.get("dates"):
+            out["dates"] = list(row.get("dates") or [])
+        return out

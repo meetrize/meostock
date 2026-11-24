@@ -25,6 +25,7 @@ import {
   Wrench,
   Bot,
   Microscope,
+  History,
 } from 'lucide-react';
 import { Logo } from '@/components/common';
 import {
@@ -66,6 +67,7 @@ const navItems: NavItem[] = [
   { path: '/favorites', label: '收藏夹', icon: <Bookmark size={18} /> },
   { path: '/scanner', label: '扫描', icon: <TrendingUp size={18} /> },
   { path: '/eod-picker', label: '策略选股', icon: <TrendingUp size={18} /> },
+  { path: '/pattern-backtest', label: '形态回测', icon: <History size={18} /> },
   { path: '/scheduler', label: '定时任务', icon: <Clock size={18} /> },
   { path: '/agent', label: 'AI Agent', icon: <Bot size={18} /> },
 ];

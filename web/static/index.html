@@ -6857,12 +6857,16 @@
 
     /** URL 深链目标交易日 YYYY-MM-DD（资讯时间线跳转） */
     let pendingFocusDate = "";
+    /** left = 命中日偏左，便于观察右侧后续走势 */
+    let pendingFocusBias = "";
 
     /** 行情列表导航：/?symbol=&period=&nav= + localStorage kline_nav_<id> */
     const KLINE_NAV_KEY_PREFIX = "kline_nav_";
     const KLINE_NAV_TTL_MS = 24 * 60 * 60 * 1000;
     let navId = "";
     let navSymbols = [];
+    /** @type {string[]} 与 navSymbols 对齐的锚定日 YYYY-MM-DD */
+    let navDates = [];
     let navIndex = 0;
 
     function pruneExpiredKlineNav(now = Date.now()) {
@@ -6898,15 +6902,20 @@
       if (list.length < 2) return false;
       let i = Math.floor(Number(parsed?.i));
       if (!Number.isFinite(i) || i < 0 || i >= list.length) i = 0;
+      const rawDates = Array.isArray(parsed?.dates) ? parsed.dates : [];
+      const dates = list.map((_, idx) => {
+        const d = String(rawDates[idx] || "").trim().slice(0, 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "";
+      });
       navId = nid;
       navSymbols = list;
+      navDates = dates;
       navIndex = i;
       // 回填 localStorage，便于同页后续 ↑↓ 持久化下标
       try {
-        localStorage.setItem(
-          KLINE_NAV_KEY_PREFIX + nid,
-          JSON.stringify({ v: 1, symbols: list, i, ts: Date.now() })
-        );
+        const payload = { v: 1, symbols: list, i, ts: Date.now() };
+        if (dates.some(Boolean)) payload.dates = dates;
+        localStorage.setItem(KLINE_NAV_KEY_PREFIX + nid, JSON.stringify(payload));
       } catch (_) {}
       return true;
     }
@@ -6915,6 +6924,7 @@
       const nid = String(id || "").trim();
       navId = "";
       navSymbols = [];
+      navDates = [];
       navIndex = 0;
       if (!nid) return false;
       try {
@@ -6942,15 +6952,18 @@
         const key = KLINE_NAV_KEY_PREFIX + navId;
         const raw = localStorage.getItem(key);
         const prev = raw ? JSON.parse(raw) : {};
-        localStorage.setItem(
-          key,
-          JSON.stringify({
-            v: 1,
-            symbols: navSymbols,
-            i: navIndex,
-            ts: Number(prev?.ts) || Date.now(),
-          })
-        );
+        const payload = {
+          v: 1,
+          symbols: navSymbols,
+          i: navIndex,
+          ts: Number(prev?.ts) || Date.now(),
+        };
+        const dates =
+          Array.isArray(prev?.dates) && prev.dates.length
+            ? prev.dates
+            : navDates;
+        if (Array.isArray(dates) && dates.some(Boolean)) payload.dates = dates;
+        localStorage.setItem(key, JSON.stringify(payload));
       } catch (_) {}
     }
 
@@ -6960,6 +6973,13 @@
       navIndex = (navIndex + delta + n) % n;
       const nextSym = navSymbols[navIndex];
       if (!nextSym) return;
+      const nextDate = String(navDates[navIndex] || "").trim().slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(nextDate)) {
+        pendingFocusDate = nextDate;
+        if (!pendingFocusBias) pendingFocusBias = "left";
+      } else {
+        pendingFocusDate = "";
+      }
       persistKlineNavIndex();
       const el = document.getElementById("symbol");
       if (el) el.value = nextSym;
@@ -6984,8 +7004,9 @@
       ).trim();
       const period = (q.get("period") || "").trim();
       const date = (q.get("date") || q.get("focus") || "").trim();
+      const bias = (q.get("bias") || "").trim().toLowerCase();
       const nav = (q.get("nav") || "").trim();
-      return { symbol, period, date, nav };
+      return { symbol, period, date, bias, nav };
     }
 
     function syncUrl(symbol, period, replace = true) {
@@ -6996,13 +7017,15 @@
       if (pendingFocusDate) url.searchParams.set("date", pendingFocusDate);
       else url.searchParams.delete("date");
       url.searchParams.delete("focus");
+      if (pendingFocusBias === "left") url.searchParams.set("bias", "left");
+      else url.searchParams.delete("bias");
       if (navId) url.searchParams.set("nav", navId);
       else url.searchParams.delete("nav");
       // 清理旧别名参数，保持 URL 干净
       ["code", "s", "ticker"].forEach((k) => url.searchParams.delete(k));
       const next = `${url.pathname}?${url.searchParams.toString()}${url.hash || ""}`;
-      if (replace) history.replaceState({ symbol, period, date: pendingFocusDate, nav: navId }, "", next);
-      else history.pushState({ symbol, period, date: pendingFocusDate, nav: navId }, "", next);
+      if (replace) history.replaceState({ symbol, period, date: pendingFocusDate, bias: pendingFocusBias, nav: navId }, "", next);
+      else history.pushState({ symbol, period, date: pendingFocusDate, bias: pendingFocusBias, nav: navId }, "", next);
     }
 
     function barDayKey(ts) {
@@ -7033,9 +7056,54 @@
       return null;
     }
 
+    /** 命中日偏左：右侧留出后续 K 线便于观察 */
+    function applyFocusBiasLeft(ymd) {
+      if (!chart) return;
+      try {
+        const list = chart.getDataList?.() || [];
+        let idx = -1;
+        for (let i = 0; i < list.length; i++) {
+          if (barDayKey(list[i]?.timestamp) === ymd) {
+            idx = i;
+            break;
+          }
+        }
+        if (idx < 0) return;
+        const range = chart.getVisibleRange?.();
+        let visible = 60;
+        if (range) {
+          const a = Number(range.realFrom ?? range.from);
+          const b = Number(range.realTo ?? range.to);
+          if (Number.isFinite(a) && Number.isFinite(b) && b > a) {
+            visible = Math.max(20, Math.min(200, Math.floor(b - a + 1)));
+          }
+        } else {
+          try {
+            const w = chart.getSize?.()?.width || 800;
+            const bs = chart.getBarSpace?.();
+            const bar = typeof bs === "number" ? bs : Number(bs?.bar) || 8;
+            visible = Math.max(20, Math.min(200, Math.floor(w / Math.max(2, bar))));
+          } catch (_) {}
+        }
+        // 命中日约在左侧 25%：右缘 = idx + 75% 可见宽度
+        const rightIdx = Math.min(
+          list.length - 1,
+          Math.max(idx, idx + Math.floor(visible * 0.75))
+        );
+        try {
+          chart.setOffsetRightDistance?.(10);
+        } catch (_) {}
+        if (typeof chart.scrollToDataIndex === "function") {
+          chart.scrollToDataIndex(rightIdx);
+        } else if (typeof chart.scrollToTimestamp === "function") {
+          chart.scrollToTimestamp(Number(list[rightIdx]?.timestamp) || Number(list[idx]?.timestamp));
+        }
+      } catch (_) {}
+    }
+
     /** 滚动到指定交易日；若不在窗口内则向前续拉再定位 */
     async function focusChartOnDate(ymd, opts = {}) {
-      const { maxRounds = 8 } = opts;
+      const { maxRounds = 8, bias = pendingFocusBias } = opts;
       if (!ymd || !chart || currentPeriod === "fs") return false;
       let rounds = 0;
       while (rounds < maxRounds) {
@@ -7045,7 +7113,9 @@
         if (hit) {
           const ts = Number(hit.timestamp);
           try {
-            if (typeof chart.scrollToTimestamp === "function") {
+            if (bias === "left") {
+              applyFocusBiasLeft(ymd);
+            } else if (typeof chart.scrollToTimestamp === "function") {
               chart.scrollToTimestamp(ts);
             }
           } catch (_) {}
@@ -7056,7 +7126,11 @@
               chart.executeAction("onCrosshairChange", { timestamp: ts });
             }
           } catch (_) {}
-          setStatus(`${currentSymbol} · ${currentPeriod} · 定位 ${ymd}`);
+          setStatus(
+            bias === "left"
+              ? `${currentSymbol} · ${currentPeriod} · 定位 ${ymd}（偏左看右侧）`
+              : `${currentSymbol} · ${currentPeriod} · 定位 ${ymd}`
+          );
           return true;
         }
         if (chartHistoryExhausted || chartSettings.cacheMode) break;
@@ -7150,8 +7224,9 @@
     };
 
     async function bootstrapFromUrl() {
-      const { symbol, period, date, nav } = readUrlParams();
+      const { symbol, period, date, bias, nav } = readUrlParams();
       pendingFocusDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
+      pendingFocusBias = bias === "left" ? "left" : "";
       if (nav) await loadKlineNav(nav);
       if (period) applyPeriodUI(period);
       else if (pendingFocusDate) applyPeriodUI("1d");
@@ -7165,6 +7240,15 @@
         if (hit >= 0) {
           navIndex = hit;
           persistKlineNavIndex();
+        }
+      }
+      // URL 无 date 时，用 nav 对齐条目的锚定日
+      if (!pendingFocusDate && navDates.length) {
+        const d = String(navDates[navIndex] || "").trim().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          pendingFocusDate = d;
+          if (!pendingFocusBias) pendingFocusBias = "left";
+          if (currentPeriod === "fs" || !period) applyPeriodUI("1d");
         }
       }
       await load({ skipUrlSync: false });
@@ -7467,6 +7551,7 @@
         else {
           navId = "";
           navSymbols = [];
+          navDates = [];
           navIndex = 0;
         }
         if (period) applyPeriodUI(period);

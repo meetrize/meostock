@@ -11,6 +11,8 @@ export type KlineNavPayload = {
   symbols: string[];
   i: number;
   ts: number;
+  /** 与 symbols 对齐的锚定日 YYYY-MM-DD（形态回测） */
+  dates?: string[];
 };
 
 function makeNavId(): string {
@@ -55,12 +57,28 @@ export function pruneExpiredKlineNav(now = Date.now()): void {
  * 写入当前筛选排序列表，返回 navId。
  * localStorage + 服务端双写：局域网/跨标签 localStorage 失败时仍可靠。
  */
-export function writeKlineNavList(symbols: string[], index: number): string {
+export function writeKlineNavList(
+  symbols: string[],
+  index: number,
+  dates?: string[]
+): string {
   const list = symbols.map((s) => String(s || '').trim()).filter(Boolean);
   if (list.length < 2) return '';
   const i = Math.max(0, Math.min(list.length - 1, Math.floor(Number(index) || 0)));
   const navId = makeNavId();
-  const payload: KlineNavPayload = { v: 1, symbols: list, i, ts: Date.now() };
+  const dateList = Array.isArray(dates)
+    ? list.map((_, idx) => {
+        const d = String(dates[idx] || '').trim().slice(0, 10);
+        return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '';
+      })
+    : undefined;
+  const payload: KlineNavPayload = {
+    v: 1,
+    symbols: list,
+    i,
+    ts: Date.now(),
+    ...(dateList?.some(Boolean) ? { dates: dateList } : {}),
+  };
   try {
     pruneExpiredKlineNav(payload.ts);
     localStorage.setItem(klineNavStorageKey(navId), JSON.stringify(payload));
@@ -71,7 +89,12 @@ export function writeKlineNavList(symbols: string[], index: number): string {
     void fetch('/api/kline-nav', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: navId, symbols: list, i }),
+      body: JSON.stringify({
+        id: navId,
+        symbols: list,
+        i,
+        ...(dateList?.some(Boolean) ? { dates: dateList } : {}),
+      }),
       keepalive: true,
     });
   } catch {

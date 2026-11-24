@@ -23,6 +23,12 @@ from research.fina_probe import probe_fina_access
 from research.portfolio_risk import build_portfolio_risk
 from research.review import build_review_report
 from research.risk_rules import risk_rules_payload
+from research.pattern_events import (
+    cancel_scan as cancel_pattern_scan,
+    get_progress as get_pattern_progress,
+    get_results as get_pattern_results,
+    start_scan as start_pattern_scan,
+)
 from research.scanner_run import list_scan_templates, run_scanner
 from research.scorecard import build_scorecard
 from research.strategy_presets import (
@@ -85,6 +91,16 @@ class ScannerRunBody(BaseModel):
     params: dict[str, Any] | None = None
     # { "volume.price_sync_rise": { require_ma20_up: false, ... }, "quote.exclude_st": { enabled: true } }
     rule_param_overrides: dict[str, Any] | None = None
+
+
+class PatternEventsRunBody(BaseModel):
+    preset_id: str = "volume_price_rise"
+    rule_param_overrides: dict[str, Any] | None = None
+    exclude_st: bool = True
+    min_bars: int = 80
+    max_bars_per_symbol: int = 600
+    concurrency: int = 6
+    dedupe: str = "run"
 
 
 class CloseCardBody(BaseModel):
@@ -504,6 +520,46 @@ def research_review_report(
     except Exception as exc:  # noqa: BLE001
         _log.exception("review report failed")
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.post("/pattern-events/run")
+def research_pattern_events_run(body: PatternEventsRunBody) -> JSONResponse:
+    try:
+        return JSONResponse(
+            start_pattern_scan(
+                {
+                    "preset_id": body.preset_id,
+                    "rule_param_overrides": body.rule_param_overrides,
+                    "exclude_st": body.exclude_st,
+                    "min_bars": body.min_bars,
+                    "max_bars_per_symbol": body.max_bars_per_symbol,
+                    "concurrency": body.concurrency,
+                    "dedupe": body.dedupe,
+                }
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        _log.exception("pattern-events run failed")
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+
+
+@router.get("/pattern-events/progress")
+def research_pattern_events_progress() -> JSONResponse:
+    return JSONResponse({"ok": True, "progress": get_pattern_progress()})
+
+
+@router.get("/pattern-events/results")
+def research_pattern_events_results(
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    sort: str = Query("signal_date_desc"),
+) -> JSONResponse:
+    return JSONResponse(get_pattern_results(offset=offset, limit=limit, sort=sort))
+
+
+@router.post("/pattern-events/cancel")
+def research_pattern_events_cancel() -> JSONResponse:
+    return JSONResponse(cancel_pattern_scan())
 
 
 @router.post("/backtest/run")

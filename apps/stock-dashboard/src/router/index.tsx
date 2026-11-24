@@ -65,6 +65,9 @@ const Agent = lazy(() => import('@/pages/Agent').then((mod) => ({ default: mod.A
 const Research = lazy(() =>
   import('@/pages/Research').then((mod) => ({ default: mod.Research }))
 );
+const PatternBacktest = lazy(() =>
+  import('@/pages/PatternBacktest').then((mod) => ({ default: mod.PatternBacktest }))
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -169,6 +172,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'eod-picker',
           element: withSuspense(<EndOfDayPicker />),
+        },
+        {
+          path: 'pattern-backtest',
+          element: withSuspense(<PatternBacktest />),
         },
         {
           path: 'scheduler',

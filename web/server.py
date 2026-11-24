@@ -2500,6 +2500,7 @@ class KlineNavBody(BaseModel):
     id: str = Field(..., description="navId，与 URL ?nav= 一致")
     symbols: list[str] = Field(default_factory=list)
     i: int = 0
+    dates: list[str] | None = None
 
 
 @app.post("/api/kline-nav")
@@ -2507,7 +2508,7 @@ def kline_nav_put(body: KlineNavBody) -> JSONResponse:
     """写入短时翻页列表（补 iframe/局域网 localStorage 不可用）。"""
     from kline_nav_store import put_nav
 
-    row = put_nav(body.id, body.symbols, body.i)
+    row = put_nav(body.id, body.symbols, body.i, dates=body.dates)
     if not row:
         return JSONResponse({"ok": False, "error": "invalid nav payload"}, status_code=400)
     return JSONResponse({"ok": True, **row})

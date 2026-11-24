@@ -133,6 +133,12 @@ export class ChartPanel {
     if (typeof opts.hideYAxis === "boolean") {
       this.settings = { ...this.settings, hideYAxis: opts.hideYAxis };
     }
+    /** @type {string} YYYY-MM-DD，加载后锚定 */
+    this.focusDate = /^\d{4}-\d{2}-\d{2}$/.test(String(opts.focusDate || ""))
+      ? String(opts.focusDate)
+      : "";
+    /** @type {string} left = 命中日偏左看右侧 */
+    this.focusBias = String(opts.focusBias || "").toLowerCase() === "left" ? "left" : "";
 
     this.chart = null;
     this._host = null;
@@ -152,6 +158,82 @@ export class ChartPanel {
     this._historyExhausted = false;
 
     this._ensureDom();
+  }
+
+  _barDayKey(ts) {
+    const n = Number(ts);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const ms = n > 1e12 ? n : n * 1000;
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Shanghai",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(ms));
+    } catch (_) {
+      const d = new Date(ms);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+  }
+
+  /**
+   * 定位到交易日；bias=left 时命中日偏左，便于看右侧后续走势
+   * @param {string} ymd
+   * @param {{ bias?: string }} [opts]
+   */
+  focusOnDate(ymd, opts = {}) {
+    if (!this.chart || this._disposed || this.period === "fs") return false;
+    const day = String(ymd || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+    const bias = (opts.bias || this.focusBias || "").toLowerCase();
+    try {
+      const list = this.chart.getDataList?.() || [];
+      let idx = -1;
+      for (let i = 0; i < list.length; i++) {
+        if (this._barDayKey(list[i]?.timestamp) === day) {
+          idx = i;
+          break;
+        }
+      }
+      if (idx < 0) return false;
+      if (bias === "left") {
+        const range = this.chart.getVisibleRange?.();
+        let visible = 60;
+        if (range) {
+          const a = Number(range.realFrom ?? range.from);
+          const b = Number(range.realTo ?? range.to);
+          if (Number.isFinite(a) && Number.isFinite(b) && b > a) {
+            visible = Math.max(20, Math.min(200, Math.floor(b - a + 1)));
+          }
+        } else if (this._host) {
+          const w = this._host.clientWidth || 400;
+          const bs = this.chart.getBarSpace?.();
+          const bar = typeof bs === "number" ? bs : Number(bs?.bar) || 6;
+          visible = Math.max(20, Math.min(200, Math.floor(w / Math.max(2, bar))));
+        }
+        const rightIdx = Math.min(
+          list.length - 1,
+          Math.max(idx, idx + Math.floor(visible * 0.75))
+        );
+        try {
+          this.chart.setOffsetRightDistance?.(6);
+        } catch (_) {}
+        if (typeof this.chart.scrollToDataIndex === "function") {
+          this.chart.scrollToDataIndex(rightIdx);
+        } else if (typeof this.chart.scrollToTimestamp === "function") {
+          this.chart.scrollToTimestamp(Number(list[rightIdx]?.timestamp));
+        }
+      } else if (typeof this.chart.scrollToTimestamp === "function") {
+        this.chart.scrollToTimestamp(Number(list[idx]?.timestamp));
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   _ensureDom() {
@@ -918,6 +1000,12 @@ export class ChartPanel {
             } catch (_) {}
             if (self.settings?.hideYAxis) self._fitFillViewport();
             else if (self.period === "fs") self._fitFsViewport();
+            if (self.focusDate && self.period !== "fs") {
+              requestAnimationFrame(() => {
+                if (self._disposed || seq !== self._loadSeq) return;
+                self.focusOnDate(self.focusDate, { bias: self.focusBias });
+              });
+            }
           });
         } catch (e) {
           self._status(`加载失败 ${symbol}: ${e.message || e}`);
