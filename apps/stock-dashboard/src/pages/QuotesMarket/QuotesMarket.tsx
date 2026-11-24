@@ -218,6 +218,7 @@ const QUOTE_SORT_KEYS = new Set<string>([
   'code',
   'name',
   'concept',
+  'limitReason',
   'price',
   'change',
   'changePercent',
@@ -398,11 +399,12 @@ const COLUMNS: TushareCol[] = [
   { key: 'amplitude', label: '振幅', align: 'right' },
 ];
 
-/** A 股：名称后增加概念列（板块模块同源） */
+/** A 股：名称后增加概念列（板块模块同源）+ 涨跌停原因（选股宝池） */
 const CN_COLUMNS: TushareCol[] = [
   { key: 'code', label: '代码', align: 'left' },
   { key: 'name', label: '名称', align: 'left' },
   { key: 'concept', label: '概念', align: 'left' },
+  { key: 'limitReason', label: '涨跌停原因', align: 'left' },
   { key: 'changePercent', label: '涨幅', align: 'right' },
   { key: 'price', label: '现价', align: 'right' },
   { key: 'change', label: '涨跌', align: 'right' },
@@ -420,6 +422,76 @@ const CN_COLUMNS: TushareCol[] = [
   { key: 'volumeRatio', label: '量比', align: 'right' },
   { key: 'amplitude', label: '振幅', align: 'right' },
 ];
+
+/** 选股宝涨/跌停池：主题 + 驱动理由 + 个股原因 */
+type LimitReasonInfo = {
+  side: 'up' | 'down';
+  theme: string;
+  drive: string;
+  reason: string;
+  /** 相关题材名（过滤用，含主题材） */
+  themes: string[];
+};
+
+type LimitReasonMap = Record<string, LimitReasonInfo>;
+
+function pureAshareCode(raw: unknown): string {
+  const s = String(raw ?? '').trim();
+  const m = s.match(/(\d{6})/);
+  return m ? m[1] : s.replace(/^(sh|sz|bj)/i, '').replace(/\.(SS|SZ|BJ)$/i, '');
+}
+
+function parseLimitPoolItems(payload: unknown): unknown[] {
+  if (!payload || typeof payload !== 'object') return [];
+  const obj = payload as Record<string, unknown>;
+  if (Array.isArray(obj.items)) return obj.items;
+  if (Array.isArray(obj.data)) return obj.data;
+  return [];
+}
+
+async function fetchLimitReasonMap(): Promise<LimitReasonMap> {
+  const out: LimitReasonMap = {};
+  const load = async (pool: 'limit_up' | 'limit_down') => {
+    const res = await fetch(`/api/zt/pool?pool=${pool}`);
+    if (!res.ok) throw new Error(`涨跌停池 ${pool} HTTP ${res.status}`);
+    const data = (await res.json()) as unknown;
+    const side: 'up' | 'down' = pool === 'limit_up' ? 'up' : 'down';
+    for (const raw of parseLimitPoolItems(data)) {
+      if (!raw || typeof raw !== 'object') continue;
+      const item = raw as Record<string, unknown>;
+      const code = pureAshareCode(item.symbol ?? item.code);
+      if (!code || code.length !== 6) continue;
+      // 同时出现在两边时保留涨停侧
+      if (out[code] && side === 'down') continue;
+      const surge =
+        item.surge_reason && typeof item.surge_reason === 'object'
+          ? (item.surge_reason as Record<string, unknown>)
+          : null;
+      const platesRaw = Array.isArray(surge?.related_plates) ? surge!.related_plates : [];
+      const plates: Array<{ plate_name: string; plate_reason: string }> = [];
+      for (const p of platesRaw) {
+        if (!p || typeof p !== 'object') continue;
+        const plate = p as Record<string, unknown>;
+        const name = String(plate.plate_name || '').trim();
+        if (!name) continue;
+        plates.push({
+          plate_name: name,
+          plate_reason: String(plate.plate_reason || '').trim(),
+        });
+      }
+      const primary = plates[0];
+      out[code] = {
+        side,
+        theme: primary?.plate_name || '',
+        drive: primary?.plate_reason || '',
+        reason: String(surge?.stock_reason || '').trim(),
+        themes: plates.map((p) => p.plate_name),
+      };
+    }
+  };
+  await Promise.all([load('limit_up'), load('limit_down')]);
+  return out;
+}
 
 function formatConceptNames(names: string[] | undefined | null): string {
   if (!names?.length) return '';
@@ -1308,6 +1380,48 @@ function ConceptTagsCell({
   );
 }
 
+/** 涨跌停原因：主题标签 + 驱动理由 + 个股原因（截断，悬停看全文） */
+function LimitReasonCell({
+  info,
+  activeTheme,
+  onThemeClick,
+}: {
+  info: LimitReasonInfo | null | undefined;
+  activeTheme: string | null;
+  onThemeClick: (theme: string, e: ReactMouseEvent) => void;
+}) {
+  if (!info || (!info.theme && !info.drive && !info.reason)) {
+    return <span className={styles.limitReasonEmpty}>--</span>;
+  }
+  const themeActive = Boolean(info.theme && activeTheme === info.theme);
+  return (
+    <span className={styles.limitReasonCell}>
+      {info.theme ? (
+        <button
+          type="button"
+          className={`${styles.limitThemeTag} ${
+            info.side === 'up' ? styles.limitThemeUp : styles.limitThemeDown
+          }${themeActive ? ` ${styles.limitThemeActive}` : ''}`}
+          title={`按涨跌停主题过滤：${info.theme}`}
+          onClick={(e) => onThemeClick(info.theme, e)}
+        >
+          {info.theme}
+        </button>
+      ) : null}
+      {info.drive ? (
+        <span className={styles.limitDrive} title={info.drive}>
+          {info.drive}
+        </span>
+      ) : null}
+      {info.reason ? (
+        <span className={styles.limitStockReason} title={info.reason}>
+          {info.reason}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 export function QuotesMarket() {
   const toast = useToast();
   const isInWatchlist = useIsInWatchlist();
@@ -1335,6 +1449,9 @@ export function QuotesMarket() {
   const [conceptFilters, setConceptFilters] = useState<string[]>([]);
   const [showConceptPicker, setShowConceptPicker] = useState(false);
   const [conceptPickerQuery, setConceptPickerQuery] = useState('');
+  /** 涨跌停主题过滤（来自选股宝涨/跌停池） */
+  const [limitReasonMap, setLimitReasonMap] = useState<LimitReasonMap>({});
+  const [limitThemeFilter, setLimitThemeFilter] = useState<string | null>(null);
   const [conceptPickerPos, setConceptPickerPos] = useState<{ top: number; left: number }>({
     top: 0,
     left: 0,
@@ -1852,14 +1969,51 @@ export function QuotesMarket() {
     };
   }, [market, conceptFilters]);
 
+  // A 股：拉取当日涨停池+跌停池，用于「涨跌停原因」列
+  useEffect(() => {
+    if (market !== 'cn') {
+      setLimitReasonMap({});
+      setLimitThemeFilter(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const map = await fetchLimitReasonMap();
+        if (!cancelled) setLimitReasonMap(map);
+      } catch (err) {
+        console.warn('[QuotesMarket] limit reason pool failed', err);
+        if (!cancelled) setLimitReasonMap({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [market, softVersion]);
+
+  const limitThemeCodes = useMemo(() => {
+    if (!limitThemeFilter) return null;
+    const set = new Set<string>();
+    for (const [code, info] of Object.entries(limitReasonMap)) {
+      if (info.themes.includes(limitThemeFilter) || info.theme === limitThemeFilter) {
+        set.add(code);
+      }
+    }
+    return set;
+  }, [limitReasonMap, limitThemeFilter]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     // 概念过滤未拿到库反查结果前不落回「仅当前页标签」，避免只显示几条的假结果
     if (conceptFilters.length && !conceptFilterCodes) return [];
     return rows.filter((r) => {
       if (conceptFilters.length && conceptFilterCodes) {
-        const pure = String(r.code ?? '').replace(/^(sh|sz|bj)/i, '');
+        const pure = pureAshareCode(r.code);
         if (!conceptFilterCodes.has(pure)) return false;
+      }
+      if (limitThemeFilter && limitThemeCodes) {
+        const pure = pureAshareCode(r.code);
+        if (!limitThemeCodes.has(pure)) return false;
       }
       if (!q) return true;
       const code = String(r.code ?? '').toLowerCase();
@@ -1867,7 +2021,7 @@ export function QuotesMarket() {
       const kline = String(r.klineSymbol ?? '').toLowerCase();
       return code.includes(q) || name.includes(q) || kline.includes(q);
     });
-  }, [rows, query, conceptFilters, conceptFilterCodes]);
+  }, [rows, query, conceptFilters, conceptFilterCodes, limitThemeFilter, limitThemeCodes]);
 
   const allConcepts = useMemo(() => {
     const set = new Set<string>();
@@ -1908,11 +2062,32 @@ export function QuotesMarket() {
     setPage(1);
   }, []);
 
+  const handleLimitThemeClick = useCallback((theme: string, e: ReactMouseEvent) => {
+    e.stopPropagation();
+    const n = theme.trim();
+    if (!n) return;
+    setLimitThemeFilter((prev) => (prev === n ? null : n));
+    setPage(1);
+  }, []);
+
+  const clearLimitThemeFilter = useCallback(() => {
+    setLimitThemeFilter(null);
+    setPage(1);
+  }, []);
+
   const sorted = useMemo(() => {
     const list = [...filtered];
-    list.sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
+    if (sortKey === 'limitReason') {
+      list.sort((a, b) => {
+        const ta = limitReasonMap[pureAshareCode(a.code)]?.theme || '';
+        const tb = limitReasonMap[pureAshareCode(b.code)]?.theme || '';
+        return compareValues(ta, tb, sortDir);
+      });
+    } else {
+      list.sort((a, b) => compareValues(a[sortKey], b[sortKey], sortDir));
+    }
     return list;
-  }, [filtered, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir, limitReasonMap]);
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -2122,6 +2297,7 @@ export function QuotesMarket() {
     setConceptFilters([]);
     setShowConceptPicker(false);
     setConceptPickerQuery('');
+    setLimitThemeFilter(null);
     setMarket(next);
   };
 
@@ -2129,6 +2305,23 @@ export function QuotesMarket() {
     if (market !== 'cn') return null;
     return (
       <div className={styles.conceptFilterBar}>
+        {limitThemeFilter && (
+          <span
+            className={`${styles.conceptFilterChip} ${styles.limitThemeFilterChip}`}
+            title={`涨跌停主题过滤：${limitThemeFilter}`}
+          >
+            涨跌停·{limitThemeFilter}
+            <button
+              type="button"
+              className={styles.conceptFilterClose}
+              onClick={clearLimitThemeFilter}
+              title="移除涨跌停主题过滤"
+              aria-label={`移除涨跌停主题 ${limitThemeFilter}`}
+            >
+              <X size={12} />
+            </button>
+          </span>
+        )}
         {conceptFilters.map((name) => (
           <span key={name} className={styles.conceptFilterChip} title={`概念过滤：${name}`}>
             {name}
@@ -2202,13 +2395,22 @@ export function QuotesMarket() {
               document.body
             )}
         </div>
-        {conceptFilters.length > 0 && (
+        {(conceptFilters.length > 0 || limitThemeFilter) && (
           <span className={styles.conceptFilterHint}>
-            {!conceptFilterCodes
+            {conceptFilters.length > 0 && !conceptFilterCodes
               ? '查询成分中…'
-              : conceptFilters.length > 1
-                ? `同时满足 · ${conceptFilterCodes.size} 只`
-                : `已过滤 · ${conceptFilterCodes.size} 只`}
+              : [
+                  limitThemeFilter && limitThemeCodes
+                    ? `涨跌停主题 · ${limitThemeCodes.size} 只`
+                    : null,
+                  conceptFilters.length > 0 && conceptFilterCodes
+                    ? conceptFilters.length > 1
+                      ? `概念同时满足 · ${conceptFilterCodes.size} 只`
+                      : `概念 · ${conceptFilterCodes.size} 只`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
           </span>
         )}
       </div>
@@ -2596,11 +2798,13 @@ export function QuotesMarket() {
             <Empty
               title="暂无数据"
               description={
-                conceptFilters.length
-                  ? '当前概念过滤无匹配股票，可关闭过滤标签后重试'
-                  : showTradeDate
-                    ? '该交易日可能无事件，或可换日期重试'
-                    : '换一个市场或清空搜索试试'
+                limitThemeFilter
+                  ? '当前涨跌停主题过滤无匹配股票，可关闭过滤标签后重试'
+                  : conceptFilters.length
+                    ? '当前概念过滤无匹配股票，可关闭过滤标签后重试'
+                    : showTradeDate
+                      ? '该交易日可能无事件，或可换日期重试'
+                      : '换一个市场或清空搜索试试'
               }
             />
           ) : (
@@ -2619,7 +2823,9 @@ export function QuotesMarket() {
                             className={
                               col.key === 'concept'
                                 ? `${alignCls} ${styles.conceptCol}`
-                                : alignCls
+                                : col.key === 'limitReason'
+                                  ? `${alignCls} ${styles.limitReasonCol}`
+                                  : alignCls
                             }
                             onClick={() => handleSort(col.key)}
                           >
@@ -2682,6 +2888,21 @@ export function QuotesMarket() {
                                     items={parseConceptItems(row)}
                                     activeFilters={conceptFilters}
                                     onTagClick={handleConceptTagClick}
+                                  />
+                                </td>
+                              );
+                            }
+                            if (col.key === 'limitReason') {
+                              const info = limitReasonMap[pureAshareCode(row.code)];
+                              return (
+                                <td
+                                  key={col.key}
+                                  className={`${styles.left} ${styles.limitReasonCol}`}
+                                >
+                                  <LimitReasonCell
+                                    info={info}
+                                    activeTheme={limitThemeFilter}
+                                    onThemeClick={handleLimitThemeClick}
                                   />
                                 </td>
                               );

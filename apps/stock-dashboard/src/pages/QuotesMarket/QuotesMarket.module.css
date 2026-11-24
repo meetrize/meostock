@@ -492,9 +492,9 @@
   line-height: 1.25;
 }
 
-/* 非概念列：尽量按内容收缩 */
-.table th:not(.conceptCol),
-.table td:not(.conceptCol) {
+/* 非概念/涨跌停原因列：尽量按内容收缩 */
+.table th:not(.conceptCol):not(.limitReasonCol),
+.table td:not(.conceptCol):not(.limitReasonCol) {
   width: 1%;
   white-space: nowrap;
 }
@@ -531,14 +531,124 @@
   font-family: var(--font-mono);
 }
 
-/* 概念列吃掉剩余宽度 */
+/* 概念列固定宽度，避免翻页补概念时先宽后窄抖动 */
 .conceptCol {
-  width: 99%;
-  min-width: 160px;
-  max-width: none;
+  width: 220px;
+  min-width: 220px;
+  max-width: 220px;
   padding-left: 4px !important;
   padding-right: 4px !important;
   white-space: nowrap;
+  overflow: hidden;
+}
+
+/* 涨跌停原因：主题标签 + 驱动 + 个股原因 */
+.limitReasonCol {
+  min-width: 260px;
+  max-width: 420px;
+  width: 320px;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+  white-space: nowrap;
+}
+
+.limitReasonCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.limitReasonEmpty {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.limitThemeTag {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 96px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.limitThemeUp {
+  border-color: color-mix(in srgb, var(--color-up, #ef4444) 55%, var(--border-primary));
+  color: var(--color-up, #ef4444);
+}
+
+.limitThemeDown {
+  border-color: color-mix(in srgb, var(--color-down, #22c55e) 55%, var(--border-primary));
+  color: var(--color-down, #22c55e);
+}
+
+.limitThemeTag:hover {
+  filter: brightness(1.12);
+}
+
+.limitThemeActive {
+  color: #fff !important;
+}
+
+.limitThemeUp.limitThemeActive {
+  background: color-mix(in srgb, var(--color-up, #ef4444) 82%, #000);
+  border-color: transparent;
+}
+
+.limitThemeDown.limitThemeActive {
+  background: color-mix(in srgb, var(--color-down, #22c55e) 82%, #000);
+  border-color: transparent;
+}
+
+.limitDrive,
+.limitStockReason {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+/* 驱动理由：冷蓝，与主题标签区分 */
+.limitDrive {
+  flex: 0 1 88px;
+  max-width: 110px;
+  color: #5b8def;
+}
+
+/* 个股涨跌停原因：暖琥珀 */
+.limitStockReason {
+  flex: 1 1 120px;
+  color: #d4a017;
+}
+
+:global([data-theme='light']) .limitDrive {
+  color: #2f6fdb;
+}
+
+:global([data-theme='light']) .limitStockReason {
+  color: #b07a00;
+}
+
+.limitThemeFilterChip {
+  border-color: color-mix(in srgb, var(--color-up, #ef4444) 40%, var(--border-primary));
+  background: color-mix(in srgb, var(--color-up, #ef4444) 12%, transparent);
 }
 
 .conceptCell {
