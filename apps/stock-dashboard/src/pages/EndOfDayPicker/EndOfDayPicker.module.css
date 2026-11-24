@@ -692,6 +692,20 @@
 .stockName {
   font-size: var(--font-size-md);
   font-weight: 600;
+  margin: 0;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.stockName:hover {
+  color: var(--color-primary, #2563eb);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stockName:focus-visible {
+  outline: 2px solid var(--color-primary, #2563eb);
+  outline-offset: 2px;
 }
 
 .stockCode {

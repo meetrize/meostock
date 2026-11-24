@@ -28,6 +28,7 @@ import {
   CheckSquare,
   Square,
   X,
+  LayoutGrid,
 } from 'lucide-react';
 import { NumberField, useToast } from '@/components/common';
 import {
@@ -53,6 +54,7 @@ import {
 import { watchlistActions } from '@/services/watchlistStore';
 import { useIsInWatchlist } from '@/hooks';
 import { formatAmount } from '@/utils/format';
+import { openKlineTool, openMultipanel } from '@/utils/multipanel';
 import { HorizonTabs, PresetStrip, StrategyCopyPanel } from './StrategyChrome';
 import styles from './EndOfDayPicker.module.css';
 
@@ -395,6 +397,7 @@ function StockCard({
   index,
   inWatchlist,
   onAddWatchlist,
+  onOpenKline,
   onOpenResearch,
   onCreateCard,
   cardBusy,
@@ -406,6 +409,7 @@ function StockCard({
   index: number;
   inWatchlist: boolean;
   onAddWatchlist: (routeCode: string, name: string) => void;
+  onOpenKline?: (stock: EndOfDayStock) => void;
   onOpenResearch?: (routeCode: string) => void;
   onCreateCard?: (stock: EndOfDayStock) => void;
   cardBusy?: boolean;
@@ -413,11 +417,11 @@ function StockCard({
   onToggleSelect?: (code: string) => void;
   showSelect?: boolean;
 }) {
-  const navigate = useNavigate();
   const isPositive = stock.changePercent >= 0;
 
-  const handleCardClick = () => {
-    navigate(`/s/${stock.routeCode}`);
+  const handleOpenKline = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    onOpenKline?.(stock);
   };
 
   const handleSelectClick = (e: React.MouseEvent) => {
@@ -440,7 +444,7 @@ function StockCard({
         y: -3,
         transition: { duration: 0.2 },
       }}
-      onClick={handleCardClick}
+      onClick={() => onOpenKline?.(stock)}
     >
       <div className={styles.stockHeader}>
         <div className={styles.stockInfo}>
@@ -450,7 +454,22 @@ function StockCard({
                 {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
               </button>
             )}
-            <h3 className={styles.stockName}>{stock.name}</h3>
+            <h3
+              className={styles.stockName}
+              onClick={handleOpenKline}
+              title="新窗口打开日K（↑↓ 翻页）"
+              role="link"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onOpenKline?.(stock);
+                }
+              }}
+            >
+              {stock.name}
+            </h3>
           </div>
           <span className={styles.stockCode}>{stock.code}</span>
         </div>
@@ -1077,6 +1096,42 @@ export function EndOfDayPicker() {
     });
   }, [stocks, sortField, sortOrder]);
 
+  /** 新窗口打开日K；写入当前结果列表供 ↑↓ 翻页 */
+  const handleOpenKline = useCallback(
+    (stock: EndOfDayStock) => {
+      const sym = String(stock.code || '').trim();
+      if (!sym) return;
+      const codes = sortedStocks.map((s) => String(s.code || '').trim()).filter(Boolean);
+      let index = codes.indexOf(sym);
+      if (index < 0) {
+        index = sortedStocks.findIndex(
+          (s) => s.code === stock.code || s.routeCode === stock.routeCode
+        );
+      }
+      openKlineTool(sym, '1d', {
+        symbols: codes,
+        index: index >= 0 ? index : 0,
+      });
+    },
+    [sortedStocks]
+  );
+
+  /** 勾选优先，否则当前筛选结果全部；多面板内可翻页 */
+  const handleOpenMultipanel = useCallback(() => {
+    const picked =
+      selectedStocks.size > 0
+        ? sortedStocks
+            .filter((s) => selectedStocks.has(s.code))
+            .map((s) => String(s.code || '').trim())
+            .filter(Boolean)
+        : sortedStocks.map((s) => String(s.code || '').trim()).filter(Boolean);
+    if (!picked.length) {
+      toast.info('当前结果暂无标的');
+      return;
+    }
+    openMultipanel(picked, { period: '1d' });
+  }, [selectedStocks, sortedStocks, toast]);
+
   // 切换排序
   const handleSortChange = useCallback((field: SortField) => {
     if (field === sortField) {
@@ -1607,20 +1662,36 @@ export function EndOfDayPicker() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  {/* 批量选择按钮 */}
+                  {/* 多面板 / 批量选择 */}
                   {stocks.length > 0 && (
-                    <button
-                      className={`${styles.selectModeBtn} ${showSelectMode ? styles.active : ''}`}
-                      onClick={() => {
-                        setShowSelectMode(!showSelectMode);
-                        if (showSelectMode) {
-                          setSelectedStocks(new Set());
+                    <>
+                      <button
+                        type="button"
+                        className={styles.selectModeBtn}
+                        onClick={handleOpenMultipanel}
+                        title={
+                          selectedStocks.size > 0
+                            ? `多面板查看已选 ${selectedStocks.size} 只（超出一屏可翻页）`
+                            : '多面板查看当前结果（超出一屏可翻页）'
                         }
-                      }}
-                    >
-                      {showSelectMode ? <X size={16} /> : <CheckSquare size={16} />}
-                      {showSelectMode ? '取消' : '批量选'}
-                    </button>
+                      >
+                        <LayoutGrid size={16} />
+                        多面板
+                        {selectedStocks.size > 0 ? ` (${selectedStocks.size})` : ''}
+                      </button>
+                      <button
+                        className={`${styles.selectModeBtn} ${showSelectMode ? styles.active : ''}`}
+                        onClick={() => {
+                          setShowSelectMode(!showSelectMode);
+                          if (showSelectMode) {
+                            setSelectedStocks(new Set());
+                          }
+                        }}
+                      >
+                        {showSelectMode ? <X size={16} /> : <CheckSquare size={16} />}
+                        {showSelectMode ? '取消' : '批量选'}
+                      </button>
+                    </>
                   )}
                   <button
                     className={styles.backButton}
@@ -1672,6 +1743,15 @@ export function EndOfDayPicker() {
                       </button>
                       <button
                         className={styles.batchAddBtn}
+                        onClick={handleOpenMultipanel}
+                        disabled={selectedStocks.size === 0}
+                        title="用已选标的打开多面板"
+                      >
+                        <LayoutGrid size={14} />
+                        多面板 ({selectedStocks.size})
+                      </button>
+                      <button
+                        className={styles.batchAddBtn}
                         onClick={handleBatchAddWatchlist}
                         disabled={selectedStocks.size === 0}
                       >
@@ -1698,6 +1778,7 @@ export function EndOfDayPicker() {
                       index={index}
                       inWatchlist={isInWatchlist(stock.routeCode)}
                       onAddWatchlist={handleAddWatchlist}
+                      onOpenKline={handleOpenKline}
                       onOpenResearch={handleOpenResearch}
                       onCreateCard={handleCreateTradeCard}
                       cardBusy={cardBusy}
