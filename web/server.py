@@ -19,6 +19,7 @@ from typing import Any
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from yf_catalog import (
     YF_MARKETS,
@@ -2485,7 +2486,41 @@ _XGB_POOL_NAMES = frozenset(
 @app.get("/xgb-pool/", response_model=None)
 def xgb_pool_page() -> FileResponse:
     """选股宝同系列池页（涨停/跌停/昨涨停），按概念分组表格。"""
-    return FileResponse(_XGB_POOL_PAGE)
+    # 避免局域网浏览器强缓存旧脚本（缺 nav 翻页）
+    return FileResponse(
+        _XGB_POOL_PAGE,
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+        },
+    )
+
+
+class KlineNavBody(BaseModel):
+    id: str = Field(..., description="navId，与 URL ?nav= 一致")
+    symbols: list[str] = Field(default_factory=list)
+    i: int = 0
+
+
+@app.post("/api/kline-nav")
+def kline_nav_put(body: KlineNavBody) -> JSONResponse:
+    """写入短时翻页列表（补 iframe/局域网 localStorage 不可用）。"""
+    from kline_nav_store import put_nav
+
+    row = put_nav(body.id, body.symbols, body.i)
+    if not row:
+        return JSONResponse({"ok": False, "error": "invalid nav payload"}, status_code=400)
+    return JSONResponse({"ok": True, **row})
+
+
+@app.get("/api/kline-nav/{nav_id}")
+def kline_nav_get(nav_id: str) -> JSONResponse:
+    from kline_nav_store import get_nav
+
+    row = get_nav(nav_id)
+    if not row:
+        return JSONResponse({"ok": False, "error": "nav not found"}, status_code=404)
+    return JSONResponse({"ok": True, **row})
 
 
 @app.get("/xnge", response_model=None)

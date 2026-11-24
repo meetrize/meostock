@@ -52,7 +52,8 @@ export function pruneExpiredKlineNav(now = Date.now()): void {
 }
 
 /**
- * 写入当前筛选排序列表，返回 navId；失败时返回空串。
+ * 写入当前筛选排序列表，返回 navId。
+ * localStorage + 服务端双写：局域网/跨标签 localStorage 失败时仍可靠。
  */
 export function writeKlineNavList(symbols: string[], index: number): string {
   const list = symbols.map((s) => String(s || '').trim()).filter(Boolean);
@@ -63,8 +64,18 @@ export function writeKlineNavList(symbols: string[], index: number): string {
   try {
     pruneExpiredKlineNav(payload.ts);
     localStorage.setItem(klineNavStorageKey(navId), JSON.stringify(payload));
-    return navId;
   } catch {
-    return '';
+    /* LS 失败仍继续服务端写入 */
   }
+  try {
+    void fetch('/api/kline-nav', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: navId, symbols: list, i }),
+      keepalive: true,
+    });
+  } catch {
+    /* ignore */
+  }
+  return navId;
 }

@@ -6891,7 +6891,27 @@
       } catch (_) {}
     }
 
-    function loadKlineNav(id) {
+    function applyKlineNavPayload(nid, parsed) {
+      const list = Array.isArray(parsed?.symbols)
+        ? parsed.symbols.map((s) => String(s || "").trim()).filter(Boolean)
+        : [];
+      if (list.length < 2) return false;
+      let i = Math.floor(Number(parsed?.i));
+      if (!Number.isFinite(i) || i < 0 || i >= list.length) i = 0;
+      navId = nid;
+      navSymbols = list;
+      navIndex = i;
+      // 回填 localStorage，便于同页后续 ↑↓ 持久化下标
+      try {
+        localStorage.setItem(
+          KLINE_NAV_KEY_PREFIX + nid,
+          JSON.stringify({ v: 1, symbols: list, i, ts: Date.now() })
+        );
+      } catch (_) {}
+      return true;
+    }
+
+    async function loadKlineNav(id) {
       const nid = String(id || "").trim();
       navId = "";
       navSymbols = [];
@@ -6900,21 +6920,20 @@
       try {
         pruneExpiredKlineNav();
         const raw = localStorage.getItem(KLINE_NAV_KEY_PREFIX + nid);
-        if (!raw) return false;
-        const parsed = JSON.parse(raw);
-        const list = Array.isArray(parsed?.symbols)
-          ? parsed.symbols.map((s) => String(s || "").trim()).filter(Boolean)
-          : [];
-        if (list.length < 2) return false;
-        let i = Math.floor(Number(parsed?.i));
-        if (!Number.isFinite(i) || i < 0 || i >= list.length) i = 0;
-        navId = nid;
-        navSymbols = list;
-        navIndex = i;
-        return true;
-      } catch (_) {
-        return false;
-      }
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (applyKlineNavPayload(nid, parsed)) return true;
+        }
+      } catch (_) {}
+      // 局域网 / iframe：localStorage 可能写在池页失败，回退服务端短时库
+      try {
+        const res = await fetch(`/api/kline-nav/${encodeURIComponent(nid)}`, {
+          cache: "no-store",
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.ok && applyKlineNavPayload(nid, data)) return true;
+      } catch (_) {}
+      return false;
     }
 
     function persistKlineNavIndex() {
@@ -7130,10 +7149,10 @@
       return load({ pushUrl: opts.pushUrl !== false, ...opts });
     };
 
-    function bootstrapFromUrl() {
+    async function bootstrapFromUrl() {
       const { symbol, period, date, nav } = readUrlParams();
       pendingFocusDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
-      loadKlineNav(nav);
+      if (nav) await loadKlineNav(nav);
       if (period) applyPeriodUI(period);
       else if (pendingFocusDate) applyPeriodUI("1d");
       if (symbol) document.getElementById("symbol").value = symbol;
@@ -7148,7 +7167,7 @@
           persistKlineNavIndex();
         }
       }
-      load({ skipUrlSync: false });
+      await load({ skipUrlSync: false });
     }
 
     // events
@@ -7442,22 +7461,24 @@
       });
     });
     window.addEventListener("popstate", () => {
-      const { symbol, period, nav } = readUrlParams();
-      if (nav) loadKlineNav(nav);
-      else {
-        navId = "";
-        navSymbols = [];
-        navIndex = 0;
-      }
-      if (period) applyPeriodUI(period);
-      if (symbol) {
-        document.getElementById("symbol").value = symbol;
-        if (navSymbols.length) {
-          const hit = navSymbols.indexOf(symbol);
-          if (hit >= 0) navIndex = hit;
+      void (async () => {
+        const { symbol, period, nav } = readUrlParams();
+        if (nav) await loadKlineNav(nav);
+        else {
+          navId = "";
+          navSymbols = [];
+          navIndex = 0;
         }
-      }
-      load({ skipUrlSync: true });
+        if (period) applyPeriodUI(period);
+        if (symbol) {
+          document.getElementById("symbol").value = symbol;
+          if (navSymbols.length) {
+            const hit = navSymbols.indexOf(symbol);
+            if (hit >= 0) navIndex = hit;
+          }
+        }
+        await load({ skipUrlSync: true });
+      })();
     });
 
     window.addEventListener("resize", () => {

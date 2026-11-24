@@ -601,10 +601,114 @@
         .join('') || '<span class="muted">--</span>';
     }
 
+    /** 与 dashboard klineNav.ts 同构：localStorage + URL ?nav= 交接翻页列表 */
+    const KLINE_NAV_KEY_PREFIX = 'kline_nav_';
+    const KLINE_NAV_TTL_MS = 24 * 60 * 60 * 1000;
+
+    function pruneExpiredKlineNav(now) {
+      try {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith(KLINE_NAV_KEY_PREFIX)) keys.push(k);
+        }
+        for (const k of keys) {
+          try {
+            const raw = localStorage.getItem(k);
+            if (!raw) {
+              localStorage.removeItem(k);
+              continue;
+            }
+            const parsed = JSON.parse(raw);
+            const ts = Number(parsed && parsed.ts);
+            if (!Number.isFinite(ts) || now - ts > KLINE_NAV_TTL_MS) {
+              localStorage.removeItem(k);
+            }
+          } catch (_) {
+            localStorage.removeItem(k);
+          }
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    function writeKlineNavLocal(navId, list, index) {
+      const payload = { v: 1, symbols: list, i: index, ts: Date.now() };
+      const raw = JSON.stringify(payload);
+      let ok = false;
+      try {
+        pruneExpiredKlineNav(payload.ts);
+        localStorage.setItem(KLINE_NAV_KEY_PREFIX + navId, raw);
+        ok = true;
+      } catch (_) { /* ignore */ }
+      // 同源父页（dashboard iframe）再写一份，提高新标签可读到的概率
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.localStorage.setItem(KLINE_NAV_KEY_PREFIX + navId, raw);
+          ok = true;
+        }
+      } catch (_) { /* ignore */ }
+      return ok;
+    }
+
+    /** 同步写入服务端（必须在 window.open 之前完成，避免丢用户手势 / 竞态） */
+    function writeKlineNavServerSync(navId, list, index) {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/kline-nav', false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({ id: navId, symbols: list, i: index }));
+        return xhr.status >= 200 && xhr.status < 300;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    /**
+     * 当前筛选 + 概念分组视觉顺序（组序 × 组内排序），首次出现去重。
+     */
+    function collectNavSymbols() {
+      try {
+        const rows = applyRowFilter(cacheRows || []);
+        const chk = document.getElementById('chkPrimary');
+        const primaryOnly = !!(chk && chk.checked);
+        const groups = buildGroups(rows, primaryOnly);
+        const out = [];
+        const seen = new Set();
+        for (const g of groups) {
+          for (const it of g.list || []) {
+            const code = codeOf(it.symbol);
+            if (!code || seen.has(code)) continue;
+            seen.add(code);
+            out.push(code);
+          }
+        }
+        return out;
+      } catch (e) {
+        console.warn('collectNavSymbols failed', e);
+        return [];
+      }
+    }
+
+    /** 同步：写 nav + 拼绝对 URL（勿 await，否则 iframe 里 window.open 会被拦截且丢 nav） */
+    function buildKlineUrl(code) {
+      const qs = new URLSearchParams({ symbol: code, period: '1d' });
+      const list = collectNavSymbols();
+      let index = list.indexOf(code);
+      if (index < 0) index = 0;
+      if (list.length >= 2) {
+        const navId = 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        writeKlineNavLocal(navId, list, index);
+        writeKlineNavServerSync(navId, list, index);
+        qs.set('nav', navId);
+      }
+      return window.location.origin + '/?' + qs.toString();
+    }
+
     window.openKline = function (sym) {
       const code = codeOf(sym);
       if (!code) return;
-      window.open('/?symbol=' + encodeURIComponent(code) + '&period=1d', '_blank', 'noopener');
+      const url = buildKlineUrl(code);
+      window.open(url, '_blank', 'noopener');
     };
 
     window.openStockHist = function (sym, name) {
@@ -616,6 +720,7 @@
       title.textContent = (name || code) + ' · 涨跌停历史';
       body.innerHTML = '<div class="muted">加载中…</div>';
       bg.classList.add('open');
+      const klineHref = buildKlineUrl(code);
       const q = 'code=' + encodeURIComponent(code) +
         (pool.id === 'limit_up' || pool.id === 'limit_down'
           ? '&pool=' + encodeURIComponent(pool.id)
@@ -627,12 +732,12 @@
           const rows = data.items || [];
           if (!rows.length) {
             body.innerHTML = '<div class="muted">暂无历史快照（需盘后落库后才有）</div>' +
-              '<p><a href="/?symbol=' + encodeURIComponent(code) + '&period=1d" target="_blank">打开 K 线</a></p>';
+              '<p><a href="' + esc(klineHref) + '" target="_blank" rel="noopener">打开 K 线</a></p>';
             return;
           }
           body.innerHTML =
-            '<p style="margin:0 0 8px"><a href="/?symbol=' + encodeURIComponent(code) +
-            '&period=1d" target="_blank">打开 K 线</a></p>' +
+            '<p style="margin:0 0 8px"><a href="' + esc(klineHref) +
+            '" target="_blank" rel="noopener">打开 K 线</a></p>' +
             '<table><thead><tr>' +
             '<th>日期</th><th>池</th><th>涨跌幅</th><th>连板/连跌</th><th>主因</th><th>题材</th>' +
             '</tr></thead><tbody>' +
@@ -896,7 +1001,7 @@
           const code = codeOf(it.symbol);
           return '<span class="links">' +
             '<a href="/zt/' + encodeURIComponent(code) + '?bg=ffffff" target="_blank" rel="noopener">涨因</a>' +
-            '<a href="/?symbol=' + encodeURIComponent(code) + '&period=1d" target="_blank" rel="noopener">K线</a>' +
+            '<a href="javascript:void(0)" onclick="openKline(\'' + esc(it.symbol) + '\')">K线</a>' +
             '</span>';
         },
       },
