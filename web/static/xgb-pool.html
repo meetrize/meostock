@@ -224,12 +224,103 @@
     .tl.down-seal { background: #e8f5ee; color: var(--green); }
     .pool-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
     .pool-nav a.active { border-color: var(--blue); color: var(--blue); background: #eef6fc; }
-    .concepts-cell, .timeline-cell {
+    .concepts-cell {
       white-space: normal;
       word-break: break-word; line-height: 1.35;
       display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .timeline-cell {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      line-height: 1.2;
+    }
+    .tl-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      background: #f4f6f8;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      cursor: default;
+      line-height: 1;
+    }
+    .tl-count:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: #eef6fc;
+    }
+    .tl-popover {
+      position: fixed;
+      z-index: 2200;
+      min-width: 112px;
+      max-width: 200px;
+      padding: 10px 12px 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+      pointer-events: auto;
+    }
+    .tl-popover[hidden] { display: none !important; }
+    .tl-pop-list {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .tl-pop-item {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 26px;
+      padding: 2px 0 2px 2px;
+    }
+    .tl-pop-item:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 18px;
+      bottom: -4px;
+      width: 2px;
+      background: #d8dee6;
+    }
+    .tl-pop-dot {
+      position: relative;
+      z-index: 1;
+      flex-shrink: 0;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px var(--line);
+    }
+    .tl-pop-dot.seal { background: var(--red); box-shadow: 0 0 0 1px #f5b4ad; }
+    .tl-pop-dot.break { background: var(--green); box-shadow: 0 0 0 1px #9fd4b4; }
+    .tl-pop-dot.down-seal { background: var(--green); box-shadow: 0 0 0 1px #9fd4b4; }
+    .tl-pop-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+    .tl-pop-chip.seal { background: #fde8e6; color: var(--red); }
+    .tl-pop-chip.break { background: #e8f5ee; color: var(--green); }
+    .tl-pop-chip.down-seal { background: #e8f5ee; color: var(--green); }
     .reason-cell.clamp {
       display: block;
       white-space: nowrap;
@@ -361,7 +452,7 @@
       limit_up: {
         id: 'limit_up', title: '当前涨停', short: '涨停', path: '/limit-up',
         dash: '/dashboard/limit-up', mode: 'up',
-        defaultSort: 'first_limit_up', reasonLabel: '涨停原因',
+        defaultSort: 'timeline', reasonLabel: '涨停原因',
         countLabel: '涨停', boardLabel: '连板',
       },
       limit_down: {
@@ -373,7 +464,7 @@
       yesterday_limit_up: {
         id: 'yesterday_limit_up', title: '昨日涨停', short: '昨涨停', path: '/yesterday-limit-up',
         dash: '/dashboard/yesterday-limit-up', mode: 'up',
-        defaultSort: 'first_limit_up', reasonLabel: '涨停原因',
+        defaultSort: 'timeline', reasonLabel: '涨停原因',
         countLabel: '昨涨停', boardLabel: '连板',
       },
     };
@@ -589,17 +680,149 @@
         .join(' / ');
     }
 
+    function timelineItems(item) {
+      return (item.limit_timeline && item.limit_timeline.items) || [];
+    }
+
+    function timelineFirstSealTs(item) {
+      const items = timelineItems(item);
+      const firstSeal = items.find((t) => timelineSeal(t.status));
+      if (firstSeal && Number(firstSeal.timestamp)) return Number(firstSeal.timestamp);
+      const fallback = pool.mode === 'down' ? item.first_limit_down : item.first_limit_up;
+      return Number(fallback) || 0;
+    }
+
+    function timelineStepMeta(t) {
+      const seal = timelineSeal(t.status);
+      const cls = pool.mode === 'down'
+        ? (seal ? 'down-seal' : 'break')
+        : (seal ? 'seal' : 'break');
+      const lab = pool.mode === 'down' ? (seal ? '跌停' : '打开') : (seal ? '封' : '开');
+      return { cls, lab };
+    }
+
+    function timelinePopoverBodyHtml(items) {
+      return (
+        '<div class="tl-pop-list">' +
+        items.map((t) => {
+          const { cls, lab } = timelineStepMeta(t);
+          return (
+            '<div class="tl-pop-item">' +
+              '<span class="tl-pop-dot ' + cls + '"></span>' +
+              '<span class="tl-pop-chip ' + cls + '">' +
+                esc(lab) + ' ' + esc(fmtTime(t.timestamp)) +
+              '</span>' +
+            '</div>'
+          );
+        }).join('') +
+        '</div>'
+      );
+    }
+
+    function timelineBreakCount(item) {
+      const fromField = pool.mode === 'down'
+        ? Number(item.break_limit_down_times)
+        : Number(item.break_limit_up_times);
+      if (Number.isFinite(fromField) && fromField > 0) return fromField;
+      // 字段缺失时用时间线里「打开」次数兜底
+      return timelineItems(item).filter((t) => !timelineSeal(t.status)).length;
+    }
+
     function timelineHtml(item) {
-      return ((item.limit_timeline && item.limit_timeline.items) || [])
-        .map((t) => {
-          const seal = timelineSeal(t.status);
-          const cls = pool.mode === 'down'
-            ? (seal ? 'down-seal' : 'break')
-            : (seal ? 'seal' : 'break');
-          const lab = pool.mode === 'down' ? (seal ? '跌停' : '打开') : (seal ? '封' : '开');
-          return '<span class="tl ' + cls + '">' + lab + ' ' + fmtTime(t.timestamp) + '</span>';
-        })
-        .join('') || '<span class="muted">--</span>';
+      const items = timelineItems(item);
+      const firstTs = timelineFirstSealTs(item);
+      if (!firstTs && !items.length) {
+        return '<span class="muted">--</span>';
+      }
+      const sealCls = pool.mode === 'down' ? 'down-seal' : 'seal';
+      const firstHtml =
+        '<span class="tl ' + sealCls + '">' + esc(fmtTime(firstTs)) + '</span>';
+      const breakCount = timelineBreakCount(item);
+      if (breakCount <= 0) {
+        return firstHtml;
+      }
+      const payload = encodeURIComponent(JSON.stringify(
+        items.map((t) => ({
+          timestamp: Number(t.timestamp) || 0,
+          status: Number(t.status) || 0,
+        }))
+      ));
+      return (
+        firstHtml +
+        '<span class="tl-count" data-timeline="' + payload + '" title="开板 ' +
+          breakCount + ' 次">' + breakCount + '</span>'
+      );
+    }
+
+    let tlPopHideTimer = null;
+
+    function ensureTlPopover() {
+      let el = document.getElementById('tlPopover');
+      if (el) return el;
+      el = document.createElement('div');
+      el.id = 'tlPopover';
+      el.className = 'tl-popover';
+      el.hidden = true;
+      document.body.appendChild(el);
+      el.addEventListener('mouseenter', () => {
+        if (tlPopHideTimer != null) {
+          clearTimeout(tlPopHideTimer);
+          tlPopHideTimer = null;
+        }
+      });
+      el.addEventListener('mouseleave', scheduleHideTlPopover);
+      return el;
+    }
+
+    function hideTlPopover() {
+      if (tlPopHideTimer != null) {
+        clearTimeout(tlPopHideTimer);
+        tlPopHideTimer = null;
+      }
+      const el = document.getElementById('tlPopover');
+      if (el) el.hidden = true;
+    }
+
+    function scheduleHideTlPopover() {
+      if (tlPopHideTimer != null) clearTimeout(tlPopHideTimer);
+      tlPopHideTimer = setTimeout(() => {
+        tlPopHideTimer = null;
+        const el = document.getElementById('tlPopover');
+        if (el) el.hidden = true;
+      }, 140);
+    }
+
+    function showTlPopover(anchor) {
+      const raw = anchor.getAttribute('data-timeline');
+      if (!raw) return;
+      let items;
+      try {
+        items = JSON.parse(decodeURIComponent(raw));
+      } catch (_) {
+        return;
+      }
+      if (!Array.isArray(items) || !items.length) return;
+      if (tlPopHideTimer != null) {
+        clearTimeout(tlPopHideTimer);
+        tlPopHideTimer = null;
+      }
+      const el = ensureTlPopover();
+      el.innerHTML = timelinePopoverBodyHtml(items);
+      el.hidden = false;
+      const rect = anchor.getBoundingClientRect();
+      const gutter = 8;
+      const pw = el.offsetWidth || 140;
+      const ph = el.offsetHeight || 120;
+      let left = rect.right + gutter;
+      let top = rect.top;
+      if (left + pw > window.innerWidth - gutter) {
+        left = Math.max(gutter, rect.left - pw - gutter);
+      }
+      if (top + ph > window.innerHeight - gutter) {
+        top = Math.max(gutter, window.innerHeight - ph - gutter);
+      }
+      el.style.left = left + 'px';
+      el.style.top = top + 'px';
     }
 
     /** 与 dashboard klineNav.ts 同构：localStorage + URL ?nav= 交接翻页列表 */
@@ -879,16 +1102,6 @@
         },
       },
       {
-        id: 'first_limit_up', label: '首封涨停', def: pool.mode !== 'down',
-        sortType: 'time', getSort: (it) => numOrNeg(it.first_limit_up),
-        render: (it) => esc(fmtTime(it.first_limit_up)),
-      },
-      {
-        id: 'last_limit_up', label: '末封涨停', def: pool.mode !== 'down',
-        sortType: 'time', getSort: (it) => numOrNeg(it.last_limit_up),
-        render: (it) => esc(fmtTime(it.last_limit_up)),
-      },
-      {
         id: 'first_limit_down', label: '首封跌停', def: pool.mode === 'down',
         sortType: 'time', getSort: (it) => numOrNeg(it.first_limit_down),
         render: (it) => esc(fmtTime(it.first_limit_down)),
@@ -909,13 +1122,8 @@
         render: (it) => esc(fmtTime(it.last_break_limit_up)),
       },
       {
-        id: 'break_limit_up_times', label: '开板次数', def: true,
-        sortType: 'num', getSort: (it) => Number(it.break_limit_up_times) || 0,
-        render: (it) => esc(String(it.break_limit_up_times || 0)),
-      },
-      {
         id: 'timeline', label: '封板时间线', def: true,
-        sortType: 'str', getSort: (it) => timelineText(it),
+        sortType: 'time', getSort: (it) => numOrNeg(timelineFirstSealTs(it)),
         render: (it) => '<div class="timeline-cell">' + timelineHtml(it) + '</div>',
       },
       {
@@ -1327,10 +1535,10 @@
 
       const MIN = {
         name: 72, code: 64, concept: 88, stock_reason: reasonFull ? 420 : 360,
-        timeline: 160, links: 72,
+        timeline: 96, links: 72,
       };
       const MAX = {
-        stock_reason: reasonFull ? 720 : 640, timeline: 300, concept: 140,
+        stock_reason: reasonFull ? 720 : 640, timeline: 120, concept: 140,
       };
       const widths = {};
       for (const c of cols) widths[c.id] = MIN[c.id] || 64;
@@ -1619,7 +1827,7 @@
           sortState = { ...DEFAULT_SORT, active: false };
         }
       } else {
-        const preferAsc = key === 'first_limit_up' || key === 'first_limit_down' ||
+        const preferAsc = key === 'timeline' || key === 'first_limit_down' ||
           key === 'name' || key === 'code' || key === 'concept';
         sortState = { key, dir: preferAsc ? 'asc' : 'desc', active: true };
       }
@@ -1651,6 +1859,21 @@
           return false;
         }
       }
+
+      root.addEventListener('mouseover', (ev) => {
+        const count = ev.target.closest('.tl-count[data-timeline]');
+        if (!count || !root.contains(count)) return;
+        const related = ev.relatedTarget;
+        if (related && count.contains(related)) return;
+        showTlPopover(count);
+      });
+      root.addEventListener('mouseout', (ev) => {
+        const count = ev.target.closest('.tl-count[data-timeline]');
+        if (!count || !root.contains(count)) return;
+        const related = ev.relatedTarget;
+        if (related && (count.contains(related) || related.closest?.('#tlPopover'))) return;
+        scheduleHideTlPopover();
+      });
 
       root.addEventListener('click', (ev) => {
         const toggle = ev.target.closest('[data-reason-toggle]');
