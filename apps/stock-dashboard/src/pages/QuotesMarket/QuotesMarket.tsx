@@ -58,6 +58,7 @@ import {
   formatMarketCap,
   getChangeColorClass,
   normalizeStockCode,
+  parseStockCode,
 } from '@/utils/format';
 import { openKlineTool, openMultipanel } from '@/utils/multipanel';
 import {
@@ -448,6 +449,31 @@ function parseLimitPoolItems(payload: unknown): unknown[] {
   if (Array.isArray(obj.data)) return obj.data;
   return [];
 }
+
+/** 新浪 A 股图：分时 / 日 K（如 sh601138） */
+function toSinaAshareSymbol(code: unknown): string | null {
+  const pure = pureAshareCode(code);
+  if (!/^\d{6}$/.test(pure)) return null;
+  const { market, symbol } = parseStockCode(pure);
+  if (market !== 'sh' && market !== 'sz' && market !== 'bj') return null;
+  return `${market}${symbol}`;
+}
+
+function sinaMinChartUrl(sinaSymbol: string): string {
+  return `https://image.sinajs.cn/newchart/min/n/${sinaSymbol}.gif`;
+}
+
+function sinaDailyChartUrl(sinaSymbol: string): string {
+  return `https://image.sinajs.cn/newchart/daily/n/${sinaSymbol}.gif`;
+}
+
+type ChartPreviewState = {
+  sinaSymbol: string;
+  name: string;
+  code: string;
+  top: number;
+  left: number;
+};
 
 async function fetchLimitReasonMap(): Promise<LimitReasonMap> {
   const out: LimitReasonMap = {};
@@ -1452,6 +1478,9 @@ export function QuotesMarket() {
   /** 涨跌停主题过滤（来自选股宝涨/跌停池） */
   const [limitReasonMap, setLimitReasonMap] = useState<LimitReasonMap>({});
   const [limitThemeFilter, setLimitThemeFilter] = useState<string | null>(null);
+  /** 悬停代码/名称：新浪分时+日 K 预览 */
+  const [chartPreview, setChartPreview] = useState<ChartPreviewState | null>(null);
+  const chartPreviewHideTimerRef = useRef<number | null>(null);
   const [conceptPickerPos, setConceptPickerPos] = useState<{ top: number; left: number }>({
     top: 0,
     left: 0,
@@ -2074,6 +2103,58 @@ export function QuotesMarket() {
     setLimitThemeFilter(null);
     setPage(1);
   }, []);
+
+  const clearChartPreviewHideTimer = useCallback(() => {
+    if (chartPreviewHideTimerRef.current != null) {
+      window.clearTimeout(chartPreviewHideTimerRef.current);
+      chartPreviewHideTimerRef.current = null;
+    }
+  }, []);
+
+  const showChartPreview = useCallback(
+    (row: TopicRow, anchor: HTMLElement) => {
+      if (market !== 'cn') return;
+      const sinaSymbol = toSinaAshareSymbol(row.code);
+      if (!sinaSymbol) return;
+      clearChartPreviewHideTimer();
+      const rect = anchor.getBoundingClientRect();
+      const panelW = 340;
+      const panelH = 420;
+      const gutter = 8;
+      let left = rect.right + gutter;
+      let top = rect.top;
+      if (left + panelW > window.innerWidth - gutter) {
+        left = Math.max(gutter, rect.left - panelW - gutter);
+      }
+      if (top + panelH > window.innerHeight - gutter) {
+        top = Math.max(gutter, window.innerHeight - panelH - gutter);
+      }
+      setChartPreview({
+        sinaSymbol,
+        code: pureAshareCode(row.code),
+        name: String(row.name || ''),
+        top,
+        left,
+      });
+    },
+    [clearChartPreviewHideTimer, market]
+  );
+
+  const scheduleHideChartPreview = useCallback(() => {
+    clearChartPreviewHideTimer();
+    chartPreviewHideTimerRef.current = window.setTimeout(() => {
+      setChartPreview(null);
+      chartPreviewHideTimerRef.current = null;
+    }, 120);
+  }, [clearChartPreviewHideTimer]);
+
+  useEffect(() => {
+    return () => clearChartPreviewHideTimer();
+  }, [clearChartPreviewHideTimer]);
+
+  useEffect(() => {
+    setChartPreview(null);
+  }, [market, page, pageSize]);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -2907,6 +2988,20 @@ export function QuotesMarket() {
                                 </td>
                               );
                             }
+                            if (market === 'cn' && (col.key === 'code' || col.key === 'name')) {
+                              return (
+                                <td
+                                  key={col.key}
+                                  className={`${
+                                    col.align === 'left' ? styles.left : styles.right
+                                  } ${styles.chartHoverCell}`}
+                                  onMouseEnter={(e) => showChartPreview(row, e.currentTarget)}
+                                  onMouseLeave={scheduleHideChartPreview}
+                                >
+                                  {formatCell(col.key, row)}
+                                </td>
+                              );
+                            }
                             return (
                               <td
                                 key={col.key}
@@ -2977,6 +3072,46 @@ export function QuotesMarket() {
           </div>
         </Card>
       </div>
+
+      {chartPreview &&
+        createPortal(
+          <div
+            className={styles.chartPreview}
+            style={{ top: chartPreview.top, left: chartPreview.left }}
+            onMouseEnter={clearChartPreviewHideTimer}
+            onMouseLeave={scheduleHideChartPreview}
+            role="dialog"
+            aria-label={`${chartPreview.name || chartPreview.code} 分时与日K预览`}
+          >
+            <div className={styles.chartPreviewTitle}>
+              <span className={styles.chartPreviewName}>
+                {chartPreview.name || chartPreview.code}
+              </span>
+              <span className={styles.chartPreviewCode}>{chartPreview.code}</span>
+            </div>
+            <div className={styles.chartPreviewBlock}>
+              <img
+                src={sinaMinChartUrl(chartPreview.sinaSymbol)}
+                alt={`${chartPreview.name} 分时`}
+                className={styles.chartPreviewImg}
+                loading="eager"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className={styles.chartPreviewBlock}>
+              <img
+                src={sinaDailyChartUrl(chartPreview.sinaSymbol)}
+                alt={`${chartPreview.name} 日K`}
+                className={styles.chartPreviewImg}
+                loading="eager"
+                decoding="async"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
