@@ -544,8 +544,9 @@
         </section>`
       : "";
 
+    const liveHint = data.live_today ? "含今日实时池" : "含当日快照";
     setHtml(`<div class="zt-side-inner">
-      <div class="zt-side-summary">${esc(title)} · 含当日快照</div>
+      <div class="zt-side-summary">${esc(title)} · ${esc(liveHint)}</div>
       ${histHtml}
       ${themeHtml}
     </div>`);
