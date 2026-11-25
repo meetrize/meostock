@@ -7,6 +7,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ErrorBoundary } from '@/components/common';
+import { noteLocalWrite } from '@/services/prefSync';
 import styles from './Layout.module.css';
 
 const SIDEBAR_STORAGE_KEY = 'app.sidebarCollapsed';
@@ -22,7 +23,9 @@ function getStoredSidebarCollapsed(): boolean {
 
 function persistSidebarCollapsed(collapsed: boolean) {
   try {
-    localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? '1' : '0');
+    const v = collapsed ? '1' : '0';
+    localStorage.setItem(SIDEBAR_STORAGE_KEY, v);
+    noteLocalWrite(SIDEBAR_STORAGE_KEY, v);
   } catch {
     // localStorage 不可用
   }

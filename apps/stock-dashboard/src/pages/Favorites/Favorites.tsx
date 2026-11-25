@@ -80,6 +80,9 @@ export function Favorites() {
     setColumns(value);
     try {
       localStorage.setItem(FAVORITES_COLUMNS_KEY, String(value));
+      void import('@/services/prefSync')
+        .then((m) => m.noteLocalWrite(FAVORITES_COLUMNS_KEY, String(value)))
+        .catch(() => undefined);
     } catch {
       /* ignore */
     }

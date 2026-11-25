@@ -4,9 +4,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, Palette, BarChart2, Info, Database, Layers } from 'lucide-react';
+import { RefreshCw, Palette, BarChart2, Info, Database, Layers, User } from 'lucide-react';
 import { Card, NumberField, useToast } from '@/components/common';
 import { useAppSettings } from '@/contexts';
+import { useAuth } from '@/contexts/AuthProvider';
+import { AuthModal } from '@/components/auth/AuthModal';
 import type { QuoteCacheMode, QuoteSource } from '@/types';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
 import { AiModelSettings } from './AiModelSettings';
@@ -73,6 +75,17 @@ async function syncCacheModeToServer(mode: QuoteCacheMode): Promise<void> {
 export function Settings() {
   const toast = useToast();
   const { settings, updateSettings } = useAppSettings();
+  const {
+    user,
+    lastSyncedAt,
+    logout,
+    changePassword,
+    importLocal,
+    config,
+  } = useAuth();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [oldPw, setOldPw] = useState('');
+  const [newPw, setNewPw] = useState('');
   const maPeriods = Array.isArray(settings.indicatorConfig?.ma)
     ? settings.indicatorConfig.ma
     : [5, 10, 20, 60];
@@ -175,6 +188,139 @@ export function Settings() {
       >
         设置
       </motion.h1>
+
+      <Card>
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <User size={18} className={styles.sectionIcon} />
+            <h3>账号与同步</h3>
+          </div>
+          <div className={styles.sectionContent}>
+            {user ? (
+              <>
+                <div className={styles.settingItem}>
+                  <div className={styles.settingInfo}>
+                    <span className={styles.settingLabel}>当前账号</span>
+                    <span className={styles.settingDesc}>
+                      {user.username}
+                      {user.role === 'admin' ? '（管理员）' : ''}
+                      {lastSyncedAt
+                        ? ` · 最近同步 ${new Date(lastSyncedAt).toLocaleString()}`
+                        : ''}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.select}
+                    onClick={() => {
+                      void logout().then(() => toast.info('已退出'));
+                    }}
+                  >
+                    退出
+                  </button>
+                </div>
+                <div className={styles.settingItem}>
+                  <div className={styles.settingInfo}>
+                    <span className={styles.settingLabel}>本机配置</span>
+                    <span className={styles.settingDesc}>
+                      将浏览器里的自选/设置导入当前账号，或用本机覆盖云端
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className={styles.select}
+                      onClick={() => {
+                        void importLocal('merge')
+                          .then((r) =>
+                            toast.success(`已导入（写入 ${r.written}，跳过 ${r.skipped}）`)
+                          )
+                          .catch((e) =>
+                            toast.error(e instanceof Error ? e.message : '导入失败')
+                          );
+                      }}
+                    >
+                      导入本机
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.select}
+                      onClick={() => {
+                        void importLocal('overwrite')
+                          .then((r) => toast.success(`已覆盖云端（${r.written} 项）`))
+                          .catch((e) =>
+                            toast.error(e instanceof Error ? e.message : '覆盖失败')
+                          );
+                      }}
+                    >
+                      本机覆盖云端
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.settingItem}>
+                  <div className={styles.settingInfo}>
+                    <span className={styles.settingLabel}>修改密码</span>
+                    <span className={styles.settingDesc}>改密后其他设备会话会被踢下线</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input
+                      className={styles.select}
+                      type="password"
+                      placeholder="原密码"
+                      value={oldPw}
+                      onChange={(e) => setOldPw(e.target.value)}
+                      style={{ width: 120 }}
+                    />
+                    <input
+                      className={styles.select}
+                      type="password"
+                      placeholder="新密码"
+                      value={newPw}
+                      onChange={(e) => setNewPw(e.target.value)}
+                      style={{ width: 120 }}
+                    />
+                    <button
+                      type="button"
+                      className={styles.select}
+                      onClick={() => {
+                        void changePassword(oldPw, newPw).then((r) => {
+                          if (!r.ok) {
+                            toast.error(r.error);
+                            return;
+                          }
+                          toast.success('密码已更新');
+                          setOldPw('');
+                          setNewPw('');
+                        });
+                      }}
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className={styles.settingItem}>
+                <div className={styles.settingInfo}>
+                  <span className={styles.settingLabel}>游客模式</span>
+                  <span className={styles.settingDesc}>
+                    配置仅保存在本机浏览器
+                    {config?.open_register === false ? '；开放注册已关闭' : ''}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className={styles.select}
+                  onClick={() => setAuthOpen(true)}
+                >
+                  登录 / 注册
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </Card>
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       <Card>
         <div className={styles.section}>

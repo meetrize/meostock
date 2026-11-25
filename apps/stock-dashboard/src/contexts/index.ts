@@ -13,3 +13,5 @@ export { useAppSettings } from './useAppSettings';
 
 export { SyncStatusProvider } from './SyncStatusProvider';
 export { useSyncStatus } from './useSyncStatus';
+
+export { AuthProvider, useAuth } from './AuthProvider';

@@ -184,6 +184,32 @@ except Exception as _research_exc:  # noqa: BLE001
         "research workbench disabled: %s", _research_exc
     )
 
+# 本机账号鉴权 + 用户配置同步
+try:
+    from auth.api import bootstrap_on_startup as _auth_bootstrap
+    from auth.api import router as _auth_router
+    from user_prefs.api import router as _user_prefs_router
+
+    app.include_router(_auth_router)
+    app.include_router(_user_prefs_router)
+
+    @app.on_event("startup")
+    def _auth_startup() -> None:
+        try:
+            from cache.db import init_db as _init_db
+
+            _init_db()
+            _auth_bootstrap()
+        except Exception as exc:  # noqa: BLE001
+            import logging
+
+            logging.getLogger("uvicorn.error").warning("auth startup: %s", exc)
+
+except Exception as _auth_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("auth module disabled: %s", _auth_exc)
+
 # 东方财富行情列表（浏览器直连常遇 CORS，由本机代理）
 EM_CLIST = "https://push2.eastmoney.com/api/qt/clist/get"
 MARKET_FS = {

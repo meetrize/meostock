@@ -25,10 +25,11 @@ import {
   placePatternSignalMark,
   clearPatternSignalMark,
 } from "./pattern-signal-overlay.mjs";
+import { prefGet } from "./user-prefs.mjs";
 
 function readTheme() {
   try {
-    const t = localStorage.getItem(THEME_KEY);
+    const t = prefGet(THEME_KEY, null);
     return t === "dark" ? "dark" : "light";
   } catch (_) {
     return "light";

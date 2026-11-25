@@ -2,6 +2,8 @@
  * K 线样式 / 默认设置（对齐 index.html chartStyles）
  */
 
+import { prefGetJson, prefSetJson } from "./user-prefs.mjs";
+
 export const DEFAULT_SETTINGS = {
   candleType: "candle_solid",
   lastPrice: true,
@@ -40,7 +42,7 @@ export const THEME_KEY = "kline-theme";
 
 export function loadChartSettings() {
   try {
-    const raw = JSON.parse(localStorage.getItem(SETTING_KEY) || "null");
+    const raw = prefGetJson(SETTING_KEY, null);
     if (raw && typeof raw === "object") return { ...DEFAULT_SETTINGS, ...raw };
   } catch (_) {}
   return { ...DEFAULT_SETTINGS };
@@ -48,13 +50,13 @@ export function loadChartSettings() {
 
 export function saveChartSettings(settings) {
   try {
-    localStorage.setItem(SETTING_KEY, JSON.stringify(settings));
+    prefSetJson(SETTING_KEY, settings);
   } catch (_) {}
 }
 
 export function loadMaParams() {
   try {
-    const raw = JSON.parse(localStorage.getItem(MA_KEY) || "null");
+    const raw = prefGetJson(MA_KEY, null);
     if (Array.isArray(raw) && raw.some((n) => Number(n) > 0)) {
       return raw.map((n) => (n === "" || n == null ? "" : Number(n)));
     }

@@ -51,9 +51,18 @@
 
   function persist() {
     try {
-      localStorage.setItem(LS.open, state.open ? "1" : "0");
-      localStorage.setItem(LS.ratio, String(state.ratio));
-      localStorage.setItem(LS.tab, state.tab);
+      const open = state.open ? "1" : "0";
+      const ratio = String(state.ratio);
+      const tab = state.tab;
+      localStorage.setItem(LS.open, open);
+      localStorage.setItem(LS.ratio, ratio);
+      localStorage.setItem(LS.tab, tab);
+      const prefs = global.MeoUserPrefs;
+      if (prefs && typeof prefs.noteWrite === "function") {
+        prefs.noteWrite(LS.open, open);
+        prefs.noteWrite(LS.ratio, ratio);
+        prefs.noteWrite(LS.tab, tab);
+      }
     } catch (_) {}
   }
 
@@ -269,6 +278,13 @@
     if (typeof opts.onLayoutChange === "function") state.onLayoutChange = opts.onLayoutChange;
     if (typeof opts.onTabChange === "function") state.onTabChange = opts.onTabChange;
     if (typeof opts.onSymbolChange === "function") state.onSymbolChange = opts.onSymbolChange;
+
+    window.addEventListener("meo:kline-prefs-applied", () => {
+      readStored();
+      applyRatio();
+      applyOpen();
+      setTab(state.tab, { openPanel: state.open });
+    });
 
     applyRatio();
     applyOpen();

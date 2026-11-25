@@ -10,6 +10,8 @@ import {
   BoardDataProvider,
   SyncStatusProvider,
 } from './contexts';
+import { AuthProvider } from './contexts/AuthProvider';
+import { ImportPrefsDialog } from './components/auth/ImportPrefsDialog';
 
 export function App() {
   return (
@@ -17,9 +19,12 @@ export function App() {
       <AppSettingsProvider>
         <BoardDataProvider>
           <ToastProvider>
-            <SyncStatusProvider>
-              <AppRouter />
-            </SyncStatusProvider>
+            <AuthProvider>
+              <SyncStatusProvider>
+                <AppRouter />
+                <ImportPrefsDialog />
+              </SyncStatusProvider>
+            </AuthProvider>
           </ToastProvider>
         </BoardDataProvider>
       </AppSettingsProvider>

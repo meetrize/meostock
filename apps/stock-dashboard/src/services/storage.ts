@@ -11,6 +11,7 @@ import type {
   ColumnConfig,
 } from '@/types';
 import { normalizeStockCode } from '@/utils/format';
+import { noteLocalWrite } from './prefSync';
 
 // 存储键（eod 三个 key 沿用旧字面量，保证既有用户数据不丢）
 const STORAGE_KEYS = {
@@ -116,6 +117,7 @@ function safeJsonParse<T>(
 function safeSetItem(key: string, value: unknown): boolean {
   try {
     localStorage.setItem(key, JSON.stringify(value));
+    noteLocalWrite(key, value);
     return true;
   } catch (error) {
     console.warn(`localStorage write failed: ${key}`, error);

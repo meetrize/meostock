@@ -60,6 +60,12 @@ export function AppSettingsProvider({ children }: AppSettingsProviderProps) {
   const [settings, setSettings] = useState<AppSettings>(getSettings);
 
   useEffect(() => {
+    const onPrefs = () => setSettings(getSettings());
+    window.addEventListener('meo:prefs-applied', onPrefs);
+    return () => window.removeEventListener('meo:prefs-applied', onPrefs);
+  }, []);
+
+  useEffect(() => {
     document.documentElement.setAttribute(
       'data-color-mode',
       settings.colorMode === 'green-rise' ? 'green-rise' : ''

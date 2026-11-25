@@ -84,6 +84,8 @@ apps/
   a-share-heatmap/     # 大盘云图 Next.js 源码（已含 /dapan 补丁）
 web/
   server.py            # FastAPI 入口
+  auth/                # 本机账号 / 会话
+  user_prefs/          # 登录用户配置同步
   cache/               # 行情本地缓存
   static/              # 静态页与看板构建产物
 scripts/
@@ -189,6 +191,33 @@ print(df.tail())
 | 涨停复盘（本地 Demo） | [/fupan](http://127.0.0.1:8765/fupan) | — |
 
 目录页 http://127.0.0.1:8765/xnge/ ；旧地址 `/api/zt/xnge-proxy` 会 307 到 `/xnge/fupan/`。
+
+### 本机账号与配置同步
+
+自托管场景支持 **本机用户名/密码**（cookie 会话 `meo_session`）。**游客仍可用**：未登录时行为与从前一致，配置只在浏览器 `localStorage`。登录后自选、看板设置、工作区/门户布局、K 线主题/均线/侧栏等会写入 SQLite `user_pref` 并双向同步（后写覆盖，LWW）。
+
+| 能力 | 说明 |
+|------|------|
+| 注册 / 登录 / 登出 | 看板顶栏或「设置 → 账号与同步」；K 线顶栏「账号」链到看板设置 |
+| 导入本机配置 | 登录后若云端为空会提示导入；也可在设置页「导入本机 / 本机覆盖云端」 |
+| 首启管理员 | 库中无用户时自动创建 `admin`（密码见环境变量或启动日志一次性打印） |
+| 行情 API | **无需登录**（与现网一致） |
+
+环境变量：
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `AUTH_OPEN_REGISTER` | `1` | 设为 `0` 关闭开放注册（仅管理员 `POST /api/auth/users` 建号） |
+| `AUTH_ADMIN_USER` | `admin` | 首启管理员用户名 |
+| `AUTH_ADMIN_PASSWORD` | （空则随机） | 首启管理员密码；生产务必自行指定 |
+| `AUTH_COOKIE_SECURE` | 关 | 仅 HTTPS 时设 `1` |
+
+```bash
+# 鉴权与 prefs 单测（在 web/ 目录）
+cd web && ../.venv/bin/python -m pytest auth/test_auth_prefs.py -q
+```
+
+OAuth / 第三方登录仅预留 `oauth_subject` 字段与路由注释，本轮未实装。收藏夹 Key、AI Key、定时任务仍为整机共享，未按用户拆分。
 
 ### 行情本地缓存
 

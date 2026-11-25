@@ -2,6 +2,7 @@
  * 主/副图指标目录 + 面板级指标 / MA 弹层（对齐 index.html）
  */
 import { activeMaParams, loadMaParams, MA_KEY, DEFAULT_MA } from "./styles.mjs";
+import { prefSetJson } from "./user-prefs.mjs";
 
 export const MAIN_INDS = [
   { name: "MA", label: "MA(移动平均线)" },
@@ -93,7 +94,7 @@ function ensureMaModal() {
     if (!maTarget) return;
     const next = readMaForm();
     try {
-      localStorage.setItem(MA_KEY, JSON.stringify(next));
+      prefSetJson(MA_KEY, next);
     } catch (_) {}
     maTarget.setMaParams(next);
     closeMaModal();

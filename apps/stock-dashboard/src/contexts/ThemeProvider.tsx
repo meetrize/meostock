@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ThemeContext } from './themeContext';
 import type { Theme } from './themeTypes';
+import { noteLocalWrite } from '@/services/prefSync';
 
 const STORAGE_KEY = 'app.theme';
 
@@ -33,6 +34,7 @@ function getSystemTheme(): Theme {
 function persistTheme(theme: Theme) {
   try {
     localStorage.setItem(STORAGE_KEY, theme);
+    noteLocalWrite(STORAGE_KEY, theme);
   } catch {
     // localStorage 不可用
   }

@@ -20,6 +20,9 @@ import {
   Database,
   PanelLeftClose,
   PanelLeft,
+  LogIn,
+  LogOut,
+  User,
 } from 'lucide-react';
 import { search as searchApi, resolveSearchRoute } from '@/services/sdk';
 import {
@@ -30,6 +33,8 @@ import {
 import { watchlistActions } from '@/services/watchlistStore';
 import { useToast } from '@/components/common';
 import { useIsInWatchlist, useTheme } from '@/hooks';
+import { useAuth } from '@/contexts/AuthProvider';
+import { AuthModal } from '@/components/auth/AuthModal';
 import type { SearchHistoryItem } from '@/types';
 import type { AppSearchResult } from '@/services/sdk';
 import { SyncIndicator } from './SyncIndicator';
@@ -49,6 +54,8 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
   const navigate = useNavigate();
   const toast = useToast();
   const { theme, toggleTheme } = useTheme();
+  const { user, logout, loading: authLoading } = useAuth();
+  const [authOpen, setAuthOpen] = useState(false);
   const [keyword, setKeyword] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [results, setResults] = useState<AppSearchResult[]>([]);
@@ -362,6 +369,40 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
 
       <div className={styles.right}>
         <SyncIndicator />
+        {!authLoading &&
+          (user ? (
+            <>
+              <button
+                type="button"
+                className={styles.themeBtn}
+                title={`已登录：${user.username}`}
+                onClick={() => navigate('/settings')}
+              >
+                <User size={18} />
+                <span className={styles.authLabel}>{user.username}</span>
+              </button>
+              <button
+                type="button"
+                className={styles.themeBtn}
+                title="退出登录"
+                onClick={() => {
+                  void logout().then(() => toast.info('已退出登录'));
+                }}
+              >
+                <LogOut size={18} />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className={styles.themeBtn}
+              title="登录"
+              onClick={() => setAuthOpen(true)}
+            >
+              <LogIn size={18} />
+              <span className={styles.authLabel}>登录</span>
+            </button>
+          ))}
         <button
           className={styles.themeBtn}
           onClick={toggleTheme}
@@ -388,6 +429,7 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
           <Github size={18} />
         </a>
       </div>
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </header>
   );
 }

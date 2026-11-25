@@ -1164,6 +1164,10 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c.55 0 1-.45 1-1 0-.26-.1-.51-.28-.7a.99.99 0 0 1-.72-.98c0-.55.45-1 1-1H16a5 5 0 0 0 0-10h-.17C14.72 4.08 13.43 3 12 3zm-5.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3 4a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/></svg>
           <span class="label">配色</span>
         </button>
+        <a class="tb-tool" id="btnAuth" href="/dashboard/settings" title="账号（看板设置）" style="text-decoration:none">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"/></svg>
+          <span class="label" id="btnAuthLabel">账号</span>
+        </a>
       </div>
     </header>
     <div class="overlay-bar" id="overlayBar">
@@ -1593,6 +1597,14 @@
       placePatternSignalMark,
       clearPatternSignalMark,
     } from "/static/kline/pattern-signal-overlay.mjs";
+    import {
+      prefGet,
+      prefSet,
+      prefGetJson,
+      prefSetJson,
+      hydrateFromServer,
+      fetchAuthMe,
+    } from "/static/kline/user-prefs.mjs";
 
     const { init, registerIndicator, registerOverlay } = klinecharts;
     const sdk = new StockSDK();
@@ -2738,7 +2750,7 @@
     ];
 
     let currentPeriod = "1d";
-    let currentTheme = localStorage.getItem(THEME_KEY) || "light";
+    let currentTheme = prefGet(THEME_KEY, null) || "light";
     if (currentTheme !== "light" && currentTheme !== "dark") currentTheme = "light";
     let maParams = loadMaParams();
     let chartSettings = loadChartSettings();
@@ -2861,7 +2873,7 @@
 
     function loadMaParams() {
       try {
-        const raw = JSON.parse(localStorage.getItem(MA_KEY) || "null");
+        const raw = prefGetJson(MA_KEY, null);
         if (Array.isArray(raw) && raw.some((n) => Number(n) > 0)) {
           return raw.map((n) => (n === "" || n == null ? "" : Number(n)));
         }
@@ -2871,7 +2883,7 @@
 
     function loadChartSettings() {
       try {
-        const raw = JSON.parse(localStorage.getItem(SETTING_KEY) || "null");
+        const raw = prefGetJson(SETTING_KEY, null);
         if (raw && typeof raw === "object") {
           const merged = { ...DEFAULT_SETTINGS, ...raw };
           merged.refreshInterval = normalizeRefreshInterval(merged.refreshInterval);
@@ -2883,7 +2895,7 @@
     }
 
     function saveChartSettings() {
-      localStorage.setItem(SETTING_KEY, JSON.stringify(chartSettings));
+      prefSetJson(SETTING_KEY, chartSettings);
     }
 
     function normalizeExtMenuItems(list) {
@@ -3452,7 +3464,7 @@
 
     function setTheme(theme) {
       currentTheme = theme;
-      localStorage.setItem(THEME_KEY, theme);
+      prefSet(THEME_KEY, theme);
       applyPageTheme(theme);
       if (!chart) return;
       chart.setStyles(theme);
@@ -6542,7 +6554,7 @@
         return Number.isFinite(n) && n > 0 ? Math.floor(n) : "";
       });
       maParams = next;
-      localStorage.setItem(MA_KEY, JSON.stringify(maParams));
+      prefSetJson(MA_KEY, maParams);
       // 同步所有相关面板均线
       syncMaToAllPanels();
       document.getElementById("maModal").classList.remove("show");
@@ -7770,6 +7782,35 @@
 
     applyPageTheme(currentTheme);
     syncLoadHistoryBtn();
+
+    void (async () => {
+      try {
+        const { user } = await hydrateFromServer();
+        const label = document.getElementById("btnAuthLabel");
+        const btn = document.getElementById("btnAuth");
+        if (user && label) {
+          label.textContent = user.username || "已登录";
+          if (btn) btn.title = `已登录：${user.username}（看板设置）`;
+          // 云端主题/设置可能已写入 localStorage
+          const t = prefGet(THEME_KEY, currentTheme);
+          if (t === "light" || t === "dark") setTheme(t);
+          maParams = loadMaParams();
+          chartSettings = loadChartSettings();
+          if (chart) {
+            try {
+              applyChartSettings();
+              syncMaToAllPanels();
+            } catch (_) {}
+          }
+        } else {
+          const me = await fetchAuthMe();
+          if (me && label) {
+            label.textContent = me.username || "已登录";
+            if (btn) btn.title = `已登录：${me.username}（看板设置）`;
+          }
+        }
+      } catch (_) {}
+    })();
 
     try {
       window.KlineAI?.init({

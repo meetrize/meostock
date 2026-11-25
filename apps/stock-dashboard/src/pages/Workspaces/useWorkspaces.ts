@@ -94,6 +94,10 @@ function loadState(): WorkspacePersistedState {
 function saveState(state: WorkspacePersistedState) {
   try {
     localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(state));
+    // 动态 import 避免循环依赖；失败不影响本机写入
+    void import('@/services/prefSync')
+      .then((m) => m.noteLocalWrite(WORKSPACE_STORAGE_KEY, state))
+      .catch(() => undefined);
   } catch {
     // ignore quota / private mode
   }
@@ -246,6 +250,12 @@ export function useWorkspaces(activeId?: string) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
+
+  useEffect(() => {
+    const onPrefs = () => setState(loadState());
+    window.addEventListener('meo:prefs-applied', onPrefs);
+    return () => window.removeEventListener('meo:prefs-applied', onPrefs);
+  }, []);
 
   const scheduleSave = useCallback((next: WorkspacePersistedState) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);

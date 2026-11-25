@@ -254,8 +254,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  gap: 6px;
+  min-width: 36px;
   height: 36px;
+  padding: 0 8px;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   background: var(--bg-primary);
@@ -267,6 +269,14 @@
   color: var(--text-primary);
   border-color: var(--border-strong);
   background: var(--bg-tertiary);
+}
+
+.authLabel {
+  font-size: var(--font-size-sm);
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* GitHub 链接 */

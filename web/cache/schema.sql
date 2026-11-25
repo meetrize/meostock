@@ -341,3 +341,44 @@ CREATE TABLE IF NOT EXISTS zt_day_stock_theme (
 
 CREATE INDEX IF NOT EXISTS idx_zt_day_stock_theme_plate
   ON zt_day_stock_theme (trade_date, pool, plate_id);
+
+-- ========== 用户体系（本机账号 + 配置同步）==========
+CREATE TABLE IF NOT EXISTS auth_user (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  oauth_subject TEXT,
+  created_at REAL NOT NULL,
+  updated_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_user_username ON auth_user (username);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_user_oauth
+  ON auth_user (oauth_subject) WHERE oauth_subject IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS auth_session (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at REAL NOT NULL,
+  created_at REAL NOT NULL,
+  user_agent TEXT,
+  ip TEXT,
+  FOREIGN KEY (user_id) REFERENCES auth_user(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_auth_session_user ON auth_session (user_id);
+CREATE INDEX IF NOT EXISTS idx_auth_session_expires ON auth_session (expires_at);
+
+CREATE TABLE IF NOT EXISTS user_pref (
+  user_id TEXT NOT NULL,
+  namespace TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value_json TEXT NOT NULL,
+  updated_at REAL NOT NULL,
+  rev INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, namespace, key),
+  FOREIGN KEY (user_id) REFERENCES auth_user(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_pref_ns ON user_pref (user_id, namespace);

@@ -70,6 +70,8 @@ export function selectAllCodes(snapshot: WatchlistState): string[] {
 }
 
 export const watchlistActions = {
+  /** 外部写入 localStorage（如云端拉取）后强制重读 */
+  reloadFromStorage: () => reload(),
   add: (code: string, groupId?: string) => mutate(() => addToWatchlist(code, groupId)),
   remove: (code: string, groupId?: string) => mutate(() => removeFromWatchlist(code, groupId)),
   batchAdd: (codes: string[], groupId?: string) => mutate(() => batchAddToWatchlist(codes, groupId)),

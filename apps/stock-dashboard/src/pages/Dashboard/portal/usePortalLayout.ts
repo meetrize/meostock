@@ -175,6 +175,9 @@ function loadState(): PortalPersistedState {
 function saveState(state: PortalPersistedState) {
   try {
     localStorage.setItem(PORTAL_STORAGE_KEY, JSON.stringify(state));
+    void import('@/services/prefSync')
+      .then((m) => m.noteLocalWrite(PORTAL_STORAGE_KEY, state))
+      .catch(() => undefined);
   } catch {
     // ignore quota / private mode
   }
@@ -209,6 +212,12 @@ function findDropPosition(
 export function usePortalLayout() {
   const [state, setState] = useState<PortalPersistedState>(() => loadState());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const onPrefs = () => setState(loadState());
+    window.addEventListener('meo:prefs-applied', onPrefs);
+    return () => window.removeEventListener('meo:prefs-applied', onPrefs);
+  }, []);
 
   const activePreset = useMemo(() => {
     return (
