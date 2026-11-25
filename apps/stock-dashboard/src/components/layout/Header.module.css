@@ -279,46 +279,6 @@
   white-space: nowrap;
 }
 
-/* GitHub 链接 */
-.githubLink {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  transition: all var(--transition-fast);
-}
-
-.githubLink:hover {
-  color: var(--text-primary);
-  border-color: var(--border-strong);
-  background: var(--bg-tertiary);
-}
-
-/* Stock SDK 链接 */
-.sdkLink {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  transition: all var(--transition-fast);
-}
-
-.sdkLink:hover {
-  color: var(--color-accent);
-  border-color: var(--border-focus);
-  background: var(--bg-tertiary);
-}
-
 /* 快速加自选按钮 */
 .quickAddBtn {
   display: flex;

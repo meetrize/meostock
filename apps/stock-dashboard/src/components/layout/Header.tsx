@@ -16,8 +16,6 @@ import {
   Check,
   Sun,
   Moon,
-  Github,
-  Database,
   PanelLeftClose,
   PanelLeft,
   LogIn,
@@ -410,24 +408,6 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
         >
           {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        <a
-          href="https://stock-sdk.linkdiary.cn/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.sdkLink}
-          title="Stock SDK"
-        >
-          <Database size={18} />
-        </a>
-        <a
-          href="https://github.com/chengzuopeng/stock-dashboard"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.githubLink}
-          title="GitHub"
-        >
-          <Github size={18} />
-        </a>
       </div>
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     </header>
