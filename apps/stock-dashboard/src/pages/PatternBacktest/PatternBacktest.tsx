@@ -287,6 +287,7 @@ export function PatternBacktest() {
       dates: list.length >= 2 ? dates : undefined,
       index: idx,
       date: hit.signal_date,
+      windowStart: hit.window_start,
       bias: 'left',
     });
   }, [results]);

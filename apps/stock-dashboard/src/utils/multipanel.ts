@@ -13,11 +13,13 @@ export type OpenKlineToolOptions = {
   index?: number;
   /** 锚定交易日 YYYY-MM-DD */
   date?: string;
+  /** 形态窗口起点 YYYY-MM-DD（信号日区间高亮） */
+  windowStart?: string;
   /** left = 命中日偏左看右侧 */
   bias?: 'left' | string;
 };
 
-/** 打开根路径 K 线工具（与行情页、详情页一致：/?symbol=&period=1d[&nav=][&date=][&bias=]） */
+/** 打开根路径 K 线工具（与行情页、详情页一致：/?symbol=&period=1d[&nav=][&date=][&bias=][&wstart=]） */
 export function openKlineTool(
   symbol: string,
   period = '1d',
@@ -33,6 +35,8 @@ export function openKlineTool(
   }
   const date = String(options?.date || '').trim().slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(date)) qs.set('date', date);
+  const wstart = String(options?.windowStart || '').trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(wstart)) qs.set('wstart', wstart);
   if (options?.bias === 'left') qs.set('bias', 'left');
   window.open(`/?${qs.toString()}`, '_blank', 'noopener,noreferrer');
 }

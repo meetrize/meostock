@@ -20,6 +20,11 @@ import {
 import { isIntradayPeriod, resolveSessionOpenTs } from "./session.mjs";
 import { mountChrome, updateChrome, unmountChrome } from "./chrome.mjs";
 import { refreshCandleStatusOnChart } from "./candle-status.mjs";
+import {
+  ensurePatternSignalOverlay,
+  placePatternSignalMark,
+  clearPatternSignalMark,
+} from "./pattern-signal-overlay.mjs";
 
 function readTheme() {
   try {
@@ -139,6 +144,10 @@ export class ChartPanel {
       : "";
     /** @type {string} left = 命中日偏左看右侧 */
     this.focusBias = String(opts.focusBias || "").toLowerCase() === "left" ? "left" : "";
+    /** @type {string} 形态窗口起点 YYYY-MM-DD */
+    this.windowStart = /^\d{4}-\d{2}-\d{2}$/.test(String(opts.windowStart || ""))
+      ? String(opts.windowStart)
+      : "";
 
     this.chart = null;
     this._host = null;
@@ -230,10 +239,34 @@ export class ChartPanel {
       } else if (typeof this.chart.scrollToTimestamp === "function") {
         this.chart.scrollToTimestamp(Number(list[idx]?.timestamp));
       }
+      this._placeSignalMark(day, opts.windowStart || this.windowStart);
       return true;
     } catch (_) {
       return false;
     }
+  }
+
+  _placeSignalMark(ymd, windowStart) {
+    if (!this.chart || this._disposed || this.period === "fs") {
+      clearPatternSignalMark(this.chart);
+      return;
+    }
+    const day = String(ymd || this.focusDate || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      clearPatternSignalMark(this.chart);
+      return;
+    }
+    try {
+      const { registerOverlay } = this._kc();
+      ensurePatternSignalOverlay(registerOverlay);
+      placePatternSignalMark(this.chart, {
+        signalDate: day,
+        windowStart: windowStart || this.windowStart,
+        barDayKey: (ts) => this._barDayKey(ts),
+        label: "信号",
+        overlayId: `pattern_signal_${this.symbol || "x"}`,
+      });
+    } catch (_) {}
   }
 
   _ensureDom() {
@@ -1003,7 +1036,10 @@ export class ChartPanel {
             if (self.focusDate && self.period !== "fs") {
               requestAnimationFrame(() => {
                 if (self._disposed || seq !== self._loadSeq) return;
-                self.focusOnDate(self.focusDate, { bias: self.focusBias });
+                self.focusOnDate(self.focusDate, {
+                  bias: self.focusBias,
+                  windowStart: self.windowStart,
+                });
               });
             }
           });
