@@ -1980,10 +1980,18 @@
       };
     }
 
+    function ztItemSide(item) {
+      const side = String(item?.side || "").toLowerCase();
+      if (side === "down" || side === "up") return side;
+      const pool = String(item?.pool || "").toLowerCase();
+      if (pool.includes("down")) return "down";
+      return "up";
+    }
+
     function ztChipLabel(item) {
       const theme = String(item?.plate_name || "").trim();
       if (theme) return theme.length > 8 ? `${theme.slice(0, 8)}…` : theme;
-      return "涨停";
+      return ztItemSide(item) === "down" ? "跌停" : "涨停";
     }
 
     function ensureZtReasonOverlay() {
@@ -2187,6 +2195,8 @@
       const theme = String(ext?.plate_name || "").trim();
       const drive = ztTruncate(ext?.plate_reason, 100);
       const reason = ztTruncate(ext?.stock_reason, 100);
+      const side = ztItemSide(ext);
+      const sideLabel = side === "down" ? "跌停" : "涨停";
       const dateLabel = String(ext?.tradeDate || "").replace(
         /^(\d{4})-(\d{2})-(\d{2})$/,
         "$1/$2/$3"
@@ -2208,15 +2218,17 @@
       const body =
         row("主题概念", theme || "—", "theme") +
         (drive ? row("驱动理由", drive) : "") +
-        (reason ? row("涨停原因", reason, "reason") : !drive && !theme
-          ? `<div class="zt-reason-tip-empty">暂无详细原因</div>`
-          : !reason
-            ? ""
-            : "");
+        (reason
+          ? row(`${sideLabel}原因`, reason, "reason")
+          : !drive && !theme
+            ? `<div class="zt-reason-tip-empty">暂无详细原因</div>`
+            : !reason
+              ? ""
+              : "");
 
       tip.innerHTML = `
         <div class="zt-reason-tip-hd">
-          <span class="zt-reason-tip-badge">涨停</span>
+          <span class="zt-reason-tip-badge">${escTip(sideLabel)}</span>
           <span class="zt-reason-tip-date">${escTip(dateLabel)}</span>
           <span class="zt-reason-tip-hd-spacer"></span>
           <button type="button" class="zt-reason-tip-open" data-zt-open-side>侧栏</button>
@@ -2317,6 +2329,112 @@
       }
     }
 
+    /** 今日涨停/跌停池短时缓存（与 /dashboard/limit-up|limit-down 同源） */
+    let ztLivePoolCache = { day: "", up: null, down: null, ts: 0, inflight: null };
+    const ZT_LIVE_POOL_TTL_MS = 60 * 1000;
+
+    function shanghaiTodayCompact() {
+      try {
+        return new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Shanghai",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+          .format(new Date())
+          .replace(/-/g, "");
+      } catch (_) {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}${m}${day}`;
+      }
+    }
+
+    function poolItemToReasonRow(item, side, tradeDate) {
+      if (!item || typeof item !== "object") return null;
+      const surge =
+        item.surge_reason && typeof item.surge_reason === "object"
+          ? item.surge_reason
+          : {};
+      const plates = Array.isArray(surge.related_plates) ? surge.related_plates : [];
+      let primary = null;
+      for (const p of plates) {
+        if (p && typeof p === "object" && String(p.plate_name || "").trim()) {
+          primary = p;
+          break;
+        }
+      }
+      return {
+        trade_date: tradeDate,
+        plate_name: String(primary?.plate_name || "").trim(),
+        plate_reason: String(primary?.plate_reason || "").trim(),
+        stock_reason: String(surge.stock_reason || "").trim(),
+        side,
+        pool: side === "down" ? "limit_down" : "limit_up",
+        source: "live_pool",
+      };
+    }
+
+    async function loadLiveZtPools() {
+      const day = shanghaiTodayCompact();
+      const now = Date.now();
+      if (
+        ztLivePoolCache.day === day &&
+        Array.isArray(ztLivePoolCache.up) &&
+        Array.isArray(ztLivePoolCache.down) &&
+        now - ztLivePoolCache.ts < ZT_LIVE_POOL_TTL_MS
+      ) {
+        return ztLivePoolCache;
+      }
+      if (ztLivePoolCache.inflight && ztLivePoolCache.day === day) {
+        return ztLivePoolCache.inflight;
+      }
+      const task = (async () => {
+        try {
+          const [upRes, downRes] = await Promise.all([
+            fetch("/api/zt/pool?pool=limit_up", { cache: "no-store" }),
+            fetch("/api/zt/pool?pool=limit_down", { cache: "no-store" }),
+          ]);
+          const upData = await upRes.json().catch(() => ({}));
+          const downData = await downRes.json().catch(() => ({}));
+          ztLivePoolCache = {
+            day,
+            up: Array.isArray(upData?.items) ? upData.items : [],
+            down: Array.isArray(downData?.items) ? downData.items : [],
+            ts: Date.now(),
+            inflight: null,
+          };
+        } catch (_) {
+          ztLivePoolCache = {
+            day,
+            up: ztLivePoolCache.up || [],
+            down: ztLivePoolCache.down || [],
+            ts: Date.now(),
+            inflight: null,
+          };
+        }
+        return ztLivePoolCache;
+      })();
+      ztLivePoolCache = { ...ztLivePoolCache, day, inflight: task };
+      return task;
+    }
+
+    /** 查今日涨停/跌停池，命中则返回与历史同结构的一条原因 */
+    async function fetchLiveZtPoolReason(symbol) {
+      const code = extractAshareCode(symbol) || resolveBareCode(symbol);
+      if (!code || code.length !== 6) return null;
+      const cache = await loadLiveZtPools();
+      const day = cache.day || shanghaiTodayCompact();
+      const matchCode = (it) => extractAshareCode(it?.symbol) === code;
+      const upHit = (cache.up || []).find(matchCode);
+      if (upHit) return poolItemToReasonRow(upHit, "up", day);
+      const downHit = (cache.down || []).find(matchCode);
+      if (downHit) return poolItemToReasonRow(downHit, "down", day);
+      return null;
+    }
+
     async function placeZtReasonTags(bars) {
       if (!chart) return;
       if (currentPeriod !== "1d") {
@@ -2337,8 +2455,22 @@
         return;
       }
       ensureZtReasonOverlay();
-      const items = await fetchZtReasonItems(symbol);
+      const [histItems, liveToday] = await Promise.all([
+        fetchZtReasonItems(symbol),
+        fetchLiveZtPoolReason(symbol),
+      ]);
       if ((currentSymbol || "") !== symbol || currentPeriod !== "1d") return;
+
+      // 今日实时池优先覆盖同日历史快照（盘中尚未落库时也能显示）
+      let items = Array.isArray(histItems) ? histItems.slice() : [];
+      if (liveToday) {
+        const compact = String(liveToday.trade_date || "").replace(/\D/g, "");
+        items = items.filter(
+          (it) => String(it?.trade_date || "").replace(/\D/g, "") !== compact
+        );
+        items.push(liveToday);
+      }
+
       clearZtReasonTags();
       if (!items.length) return;
       const palette = ztChipPalette();
@@ -2390,6 +2522,7 @@
 
       candidates.forEach((c) => {
         const oid = `zt_reason_${c.compact}`;
+        const side = ztItemSide(c.it);
         const ext = {
           label: c.label,
           palette,
@@ -2398,6 +2531,8 @@
           plate_name: c.it.plate_name,
           plate_reason: c.it.plate_reason,
           stock_reason: c.it.stock_reason,
+          side,
+          pool: c.it.pool || (side === "down" ? "limit_down" : "limit_up"),
         };
         try {
           const id = chart.createOverlay({
