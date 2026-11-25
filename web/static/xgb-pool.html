@@ -218,6 +218,51 @@
     table.data tr:hover td.sticky-l2 { background: #f0f6fc; }
     .name { color: var(--orange); font-weight: 650; cursor: pointer; }
     .name:hover { text-decoration: underline; }
+    .chart-hover { cursor: pointer; }
+    .chart-preview {
+      position: fixed;
+      z-index: 2300;
+      width: 340px;
+      padding: 8px 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.28);
+      pointer-events: auto;
+    }
+    .chart-preview[hidden] { display: none !important; }
+    .chart-preview-title {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      margin-bottom: 6px;
+      padding: 0 2px;
+    }
+    .chart-preview-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--text);
+    }
+    .chart-preview-code {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    .chart-preview-block + .chart-preview-block { margin-top: 8px; }
+    .chart-preview-img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #fff;
+      border-radius: 2px;
+    }
     .up { color: var(--red); font-weight: 600; }
     .down { color: var(--green); font-weight: 600; }
     .muted { color: var(--muted); }
@@ -433,7 +478,7 @@
     <p class="note">
       字段说明见 <code>docs/xuangubao-limit-up-pool-api.md</code>。
       同系列：<code>/limit-up</code> · <code>/limit-down</code> · <code>/yesterday-limit-up</code>。
-      点击名称打开 K 线；「多面板」按当前排序开 3×3；历史模式下点名称看涨跌停履历；「涨因」打开 <code>/zt/{code}</code>。
+      悬停名称/代码可看新浪分时与日K；点击名称打开 K 线；「多面板」按当前排序开 3×3；历史模式下点名称看涨跌停履历；「涨因」打开 <code>/zt/{code}</code>。
     </p>
   </div>
 
@@ -596,6 +641,30 @@
 
     function codeOf(sym) {
       return String(sym || '').replace(/\.(SS|SH|SZ|BJ)$/i, '');
+    }
+
+    /** 新浪 A 股图代码，如 sh600000 / sz000001 / bj430047 */
+    function toSinaAshareSymbol(sym) {
+      const pure = codeOf(sym);
+      if (!/^\d{6}$/.test(pure)) return '';
+      const raw = String(sym || '').toUpperCase();
+      let market = '';
+      if (/\.(SS|SH)$/.test(raw) || raw.startsWith('SH') || raw.startsWith('SS')) market = 'sh';
+      else if (/\.SZ$/.test(raw) || raw.startsWith('SZ')) market = 'sz';
+      else if (/\.BJ$/.test(raw) || raw.startsWith('BJ')) market = 'bj';
+      else if (pure.startsWith('6')) market = 'sh';
+      else if (pure.startsWith('0') || pure.startsWith('3')) market = 'sz';
+      else if (pure.startsWith('4') || pure.startsWith('8') || pure.startsWith('92')) market = 'bj';
+      else return '';
+      return market + pure;
+    }
+
+    function sinaMinChartUrl(sinaSymbol) {
+      return 'https://image.sinajs.cn/newchart/min/n/' + sinaSymbol + '.gif';
+    }
+
+    function sinaDailyChartUrl(sinaSymbol) {
+      return 'https://image.sinajs.cn/newchart/daily/n/' + sinaSymbol + '.gif';
     }
 
     function fmtPct(x) {
@@ -790,6 +859,88 @@
         const el = document.getElementById('tlPopover');
         if (el) el.hidden = true;
       }, 140);
+    }
+
+    let chartPopHideTimer = null;
+
+    function ensureChartPreview() {
+      let el = document.getElementById('chartPreview');
+      if (el) return el;
+      el = document.createElement('div');
+      el.id = 'chartPreview';
+      el.className = 'chart-preview';
+      el.hidden = true;
+      el.setAttribute('role', 'dialog');
+      document.body.appendChild(el);
+      el.addEventListener('mouseenter', () => {
+        if (chartPopHideTimer != null) {
+          clearTimeout(chartPopHideTimer);
+          chartPopHideTimer = null;
+        }
+      });
+      el.addEventListener('mouseleave', scheduleHideChartPreview);
+      return el;
+    }
+
+    function hideChartPreview() {
+      if (chartPopHideTimer != null) {
+        clearTimeout(chartPopHideTimer);
+        chartPopHideTimer = null;
+      }
+      const el = document.getElementById('chartPreview');
+      if (el) el.hidden = true;
+    }
+
+    function scheduleHideChartPreview() {
+      if (chartPopHideTimer != null) clearTimeout(chartPopHideTimer);
+      chartPopHideTimer = setTimeout(() => {
+        chartPopHideTimer = null;
+        const el = document.getElementById('chartPreview');
+        if (el) el.hidden = true;
+      }, 120);
+    }
+
+    function showChartPreview(anchor) {
+      const sym = anchor.getAttribute('data-sym') || '';
+      const code = anchor.getAttribute('data-code') || codeOf(sym);
+      const name = anchor.getAttribute('data-name') || code;
+      const sina = toSinaAshareSymbol(sym || code);
+      if (!sina) return;
+      if (chartPopHideTimer != null) {
+        clearTimeout(chartPopHideTimer);
+        chartPopHideTimer = null;
+      }
+      hideTlPopover();
+      const el = ensureChartPreview();
+      el.setAttribute('aria-label', (name || code) + ' 分时与日K预览');
+      el.innerHTML =
+        '<div class="chart-preview-title">' +
+          '<span class="chart-preview-name">' + esc(name || code) + '</span>' +
+          '<span class="chart-preview-code">' + esc(code) + '</span>' +
+        '</div>' +
+        '<div class="chart-preview-block">' +
+          '<img class="chart-preview-img" src="' + esc(sinaMinChartUrl(sina)) +
+            '" alt="' + esc(name) + ' 分时" loading="eager" decoding="async" referrerpolicy="no-referrer" />' +
+        '</div>' +
+        '<div class="chart-preview-block">' +
+          '<img class="chart-preview-img" src="' + esc(sinaDailyChartUrl(sina)) +
+            '" alt="' + esc(name) + ' 日K" loading="eager" decoding="async" referrerpolicy="no-referrer" />' +
+        '</div>';
+      el.hidden = false;
+      const rect = anchor.getBoundingClientRect();
+      const gutter = 8;
+      const pw = 340;
+      const ph = el.offsetHeight || 420;
+      let left = rect.right + gutter;
+      let top = rect.top;
+      if (left + pw > window.innerWidth - gutter) {
+        left = Math.max(gutter, rect.left - pw - gutter);
+      }
+      if (top + ph > window.innerHeight - gutter) {
+        top = Math.max(gutter, window.innerHeight - ph - gutter);
+      }
+      el.style.left = Math.round(left) + 'px';
+      el.style.top = Math.round(top) + 'px';
     }
 
     function showTlPopover(anchor) {
@@ -1036,12 +1187,17 @@
         getSort: (it) => it.stock_chi_name || codeOf(it.symbol),
         render: (it) => {
           const nm = it.stock_chi_name || codeOf(it.symbol);
+          const code = codeOf(it.symbol);
+          const hoverAttrs =
+            ' class="name chart-hover" data-sym="' + esc(it.symbol) +
+            '" data-code="' + esc(code) +
+            '" data-name="' + esc(nm) + '"';
           if (historyMode) {
-            return '<span class="name" title="查看涨跌停历史" onclick="openStockHist(\'' +
+            return '<span' + hoverAttrs + ' title="查看涨跌停历史" onclick="openStockHist(\'' +
               esc(it.symbol) + '\',\'' + esc(nm).replace(/'/g, '') + '\')">' +
               esc(nm) + '</span>';
           }
-          return '<span class="name" onclick="openKline(\'' + esc(it.symbol) + '\')">' +
+          return '<span' + hoverAttrs + ' onclick="openKline(\'' + esc(it.symbol) + '\')">' +
             esc(nm) + '</span>';
         },
       },
@@ -1049,7 +1205,16 @@
         id: 'code', label: '代码', def: true, fixed: true, sticky: 'sticky-l2',
         sortType: 'str',
         getSort: (it) => codeOf(it.symbol),
-        render: (it) => esc(codeOf(it.symbol)),
+        render: (it) => {
+          const code = codeOf(it.symbol);
+          const nm = it.stock_chi_name || code;
+          return (
+            '<span class="chart-hover" data-sym="' + esc(it.symbol) +
+            '" data-code="' + esc(code) +
+            '" data-name="' + esc(nm) + '">' +
+            esc(code) + '</span>'
+          );
+        },
       },
       {
         id: 'concept', label: '概念', def: true,
@@ -1861,6 +2026,12 @@
       }
 
       root.addEventListener('mouseover', (ev) => {
+        const hover = ev.target.closest('.chart-hover[data-code]');
+        if (hover && root.contains(hover)) {
+          const related = ev.relatedTarget;
+          if (!(related && hover.contains(related))) showChartPreview(hover);
+          return;
+        }
         const count = ev.target.closest('.tl-count[data-timeline]');
         if (!count || !root.contains(count)) return;
         const related = ev.relatedTarget;
@@ -1868,6 +2039,13 @@
         showTlPopover(count);
       });
       root.addEventListener('mouseout', (ev) => {
+        const hover = ev.target.closest('.chart-hover[data-code]');
+        if (hover && root.contains(hover)) {
+          const related = ev.relatedTarget;
+          if (related && (hover.contains(related) || related.closest?.('#chartPreview'))) return;
+          scheduleHideChartPreview();
+          return;
+        }
         const count = ev.target.closest('.tl-count[data-timeline]');
         if (!count || !root.contains(count)) return;
         const related = ev.relatedTarget;
