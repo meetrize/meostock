@@ -123,6 +123,7 @@
 
 .collapsed {
   display: none;
+  pointer-events: none;
 }
 
 .wsSection {
@@ -204,9 +205,21 @@
   background: var(--bg-tertiary);
 }
 
-/* 响应式 */
+/* 窄屏：侧栏改为抽屉，由 Layout 控制展开 */
 @media (max-width: 768px) {
   .sidebar {
-    display: none;
+    display: flex;
+    width: min(280px, 86vw);
+    transform: translateX(0);
+    transition: transform var(--transition-fast);
+    box-shadow: var(--shadow-md);
+    z-index: 200;
+  }
+
+  .sidebar.collapsed {
+    display: flex;
+    transform: translateX(-105%);
+    box-shadow: none;
+    pointer-events: none;
   }
 }

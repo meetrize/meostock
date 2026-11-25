@@ -381,7 +381,7 @@ export function Header({ sidebarCollapsed, onToggleSidebar }: HeaderProps) {
               </button>
               <button
                 type="button"
-                className={styles.themeBtn}
+                className={`${styles.themeBtn} ${styles.logoutBtn}`}
                 title="退出登录"
                 onClick={() => {
                   void logout().then(() => toast.info('已退出登录'));

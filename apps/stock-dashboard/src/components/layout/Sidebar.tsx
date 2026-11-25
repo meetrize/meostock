@@ -78,9 +78,11 @@ const bottomItems: NavItem[] = [
 
 interface SidebarProps {
   collapsed?: boolean;
+  /** 窄屏抽屉内点击导航后回调（用于关闭抽屉） */
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ collapsed = false }: SidebarProps) {
+export function Sidebar({ collapsed = false, onNavigate }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [workspaces, setWorkspaces] = useState<Workspace[]>(() => peekWorkspaces());
@@ -111,6 +113,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
           rel="noopener noreferrer"
           className={styles.navItem}
           title={`${item.label}（新窗口）`}
+          onClick={() => onNavigate?.()}
         >
           <span className={styles.icon}>{item.icon}</span>
           <span className={styles.label}>{item.label}</span>
@@ -134,6 +137,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
         key={item.path}
         to={item.path}
         className={`${styles.navItem} ${isActive ? styles.active : ''}`}
+        onClick={() => onNavigate?.()}
       >
         {isActive && <span className={styles.activeIndicator} />}
         <span className={styles.icon}>{item.icon}</span>
@@ -146,6 +150,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
     const id = lastOpenedId ?? workspaces[0]?.id;
     if (id) navigate(`/workspaces/${id}`);
     else navigate('/workspaces');
+    onNavigate?.();
   };
 
   return (
@@ -202,6 +207,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                       to={`/workspaces/${ws.id}`}
                       className={`${styles.wsItem} ${active ? styles.wsItemActive : ''}`}
                       title={ws.name}
+                      onClick={() => onNavigate?.()}
                     >
                       <span className={styles.wsItemLabel}>{ws.name}</span>
                     </NavLink>
@@ -213,6 +219,7 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                   onClick={() => {
                     const ws = createWorkspaceStandalone();
                     navigate(`/workspaces/${ws.id}`);
+                    onNavigate?.();
                   }}
                 >
                   <Plus size={13} aria-hidden />
@@ -221,7 +228,10 @@ export function Sidebar({ collapsed = false }: SidebarProps) {
                 <button
                   type="button"
                   className={styles.wsAction}
-                  onClick={() => navigate('/workspaces')}
+                  onClick={() => {
+                    navigate('/workspaces');
+                    onNavigate?.();
+                  }}
                 >
                   <Wrench size={13} aria-hidden />
                   管理版面

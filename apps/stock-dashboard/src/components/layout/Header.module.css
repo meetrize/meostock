@@ -317,4 +317,21 @@
   .searchContainer {
     width: 100%;
   }
+
+  .right {
+    gap: var(--spacing-sm);
+  }
+
+  /* 窄屏：用户只留图标；退出放到设置页 */
+  .authLabel {
+    display: none;
+  }
+
+  .logoutBtn {
+    display: none;
+  }
+
+  .themeBtn {
+    padding: 0;
+  }
 }

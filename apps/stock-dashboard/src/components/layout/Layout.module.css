@@ -32,6 +32,10 @@
   max-width: none;
 }
 
+.sidebarBackdrop {
+  display: none;
+}
+
 /* 响应式 */
 @media (max-width: 768px) {
   .main {
@@ -48,5 +52,32 @@
 
   .content::before {
     display: none;
+  }
+
+  /* 窄屏展开时仍不占布局宽度（抽屉浮层） */
+  .layout.mobileNavOpen {
+    --sidebar-width: 0px;
+  }
+
+  .sidebarBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    border: none;
+    padding: 0;
+    margin: 0;
+    background: rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+    animation: backdropIn 0.15s ease backwards;
+  }
+}
+
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

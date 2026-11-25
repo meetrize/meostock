@@ -2,7 +2,7 @@
  * 应用主布局
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
@@ -11,6 +11,7 @@ import { noteLocalWrite } from '@/services/prefSync';
 import styles from './Layout.module.css';
 
 const SIDEBAR_STORAGE_KEY = 'app.sidebarCollapsed';
+const MOBILE_MQ = '(max-width: 768px)';
 
 function getStoredSidebarCollapsed(): boolean {
   if (typeof window === 'undefined') return false;
@@ -31,6 +32,22 @@ function persistSidebarCollapsed(collapsed: boolean) {
   }
 }
 
+function useIsMobileLayout() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(MOBILE_MQ).matches : false,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_MQ);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  return mobile;
+}
+
 /** 总览页：内容区贴边更紧（固定 10px） */
 function isDashboardPath(pathname: string): boolean {
   return pathname === '/' || pathname === '';
@@ -38,24 +55,56 @@ function isDashboardPath(pathname: string): boolean {
 
 export function Layout() {
   const location = useLocation();
+  const isMobile = useIsMobileLayout();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getStoredSidebarCollapsed);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const tightContent = isDashboardPath(location.pathname);
 
+  const sidebarHidden = isMobile ? !mobileNavOpen : sidebarCollapsed;
+
   const toggleSidebar = useCallback(() => {
+    if (isMobile) {
+      setMobileNavOpen((prev) => !prev);
+      return;
+    }
     setSidebarCollapsed((prev) => {
       const next = !prev;
       persistSidebarCollapsed(next);
       return next;
     });
+  }, [isMobile]);
+
+  const closeMobileNav = useCallback(() => {
+    setMobileNavOpen(false);
   }, []);
+
+  // 窄屏切路由后收起抽屉，避免挡内容
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [location.pathname]);
+
+  // 回到宽屏时关掉临时抽屉状态
+  useEffect(() => {
+    if (!isMobile) setMobileNavOpen(false);
+  }, [isMobile]);
 
   return (
     <div
-      className={`${styles.layout}${sidebarCollapsed ? ` ${styles.sidebarCollapsed}` : ''}`}
+      className={`${styles.layout}${sidebarHidden ? ` ${styles.sidebarCollapsed}` : ''}${
+        isMobile && mobileNavOpen ? ` ${styles.mobileNavOpen}` : ''
+      }`}
     >
-      <Sidebar collapsed={sidebarCollapsed} />
+      {isMobile && mobileNavOpen && (
+        <button
+          type="button"
+          className={styles.sidebarBackdrop}
+          aria-label="关闭导航菜单"
+          onClick={closeMobileNav}
+        />
+      )}
+      <Sidebar collapsed={sidebarHidden} onNavigate={closeMobileNav} />
       <Header
-        sidebarCollapsed={sidebarCollapsed}
+        sidebarCollapsed={sidebarHidden}
         onToggleSidebar={toggleSidebar}
       />
       <main className={styles.main}>
