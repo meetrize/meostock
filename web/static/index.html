@@ -1945,9 +1945,12 @@
 
     // —— 涨停原因 chip（图上轻量标记 + HTML 浮层详情）——
     const ZT_REASON_OVERLAY = "ztReasonChipStack";
-    const ZT_CHIP_PILL_H = 20;
-    const ZT_CHIP_STACK_GAP = 8;
-    const ZT_CHIP_BASE_LIFT = 14;
+    const ZT_CHIP_PILL_H = 16;
+    const ZT_CHIP_STACK_GAP = 6;
+    /** 距蜡烛面板顶边的内边距 */
+    const ZT_CHIP_TOP_INSET = 6;
+    const ZT_CHIP_TEXT_SIZE = 9;
+    const ZT_CHIP_PAD_X = 5;
     let ztReasonOverlayReady = false;
     let ztReasonOverlayIds = [];
     let ztReasonCache = { code: "", items: [], seq: 0 };
@@ -1955,26 +1958,26 @@
     let ztReasonTipHideTimer = 0;
 
     function ztChipPalette() {
-      const dark = document.documentElement.getAttribute("data-theme") === "dark";
-      return dark
-        ? {
-            bg: "rgba(32,32,36,0.95)",
-            border: "rgba(255,255,255,0.14)",
-            text: "#f4f4f5",
-            accent: "#fb7185",
-            badgeBg: "rgba(251,113,133,0.2)",
-            badgeText: "#fda4af",
-            line: "rgba(251,113,133,0.65)",
-          }
-        : {
-            bg: "rgba(255,255,255,0.96)",
-            border: "rgba(0,0,0,0.08)",
-            text: "#18181b",
-            accent: "#e11d48",
-            badgeBg: "rgba(225,29,72,0.1)",
-            badgeText: "#e11d48",
-            line: "rgba(225,29,72,0.55)",
-          };
+      // 与涨停 K 柱同色（默认 #F5C518），黑字
+      let hex = String(
+        chartSettings?.colorLimitUp || DEFAULT_SETTINGS?.colorLimitUp || "#F5C518"
+      )
+        .trim()
+        .replace(/^#/, "");
+      if (/^[0-9a-f]{3}$/i.test(hex)) {
+        hex = hex.split("").map((c) => c + c).join("");
+      }
+      if (!/^[0-9a-f]{6}$/i.test(hex)) hex = "F5C518";
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return {
+        bg: `rgba(${r}, ${g}, ${b}, 0.62)`,
+        border: `rgba(${r}, ${g}, ${b}, 0.4)`,
+        text: "#B71C1C",
+        accent: `rgba(${r}, ${g}, ${b}, 0.75)`,
+        line: `rgba(${r}, ${g}, ${b}, 0.4)`,
+      };
     }
 
     function ztChipLabel(item) {
@@ -1989,38 +1992,36 @@
         name: ZT_REASON_OVERLAY,
         totalStep: 2,
         needDefaultPointFigure: false,
-        createPointFigures: ({ overlay, coordinates }) => {
+        createPointFigures: ({ overlay, coordinates, bounding }) => {
           if (!coordinates?.length) return [];
           const ext = overlay.extendData || {};
           const label = String(ext.label || "涨停");
           const pal = ext.palette || ztChipPalette();
           const stack = Math.max(0, Number(ext.stack) || 0);
           const startX = coordinates[0].x;
-          const startY = coordinates[0].y;
-          const textSize = 10;
-          const badgeW = 16;
-          const gap = 4;
-          const padL = 4;
-          const padR = 7;
+          const candleY = coordinates[0].y;
+          const textSize = ZT_CHIP_TEXT_SIZE;
+          const padX = ZT_CHIP_PAD_X;
           const pillH = ZT_CHIP_PILL_H;
-          const textW = Math.max(22, label.length * textSize * 0.9);
-          const accentBarW = 3;
-          const boxW = padL + accentBarW + badgeW + gap + textW + padR;
-          // 正上方居中；stack>0 继续抬高，避免多标签重叠 / 压住邻线
-          const lift =
-            ZT_CHIP_BASE_LIFT + stack * (pillH + ZT_CHIP_STACK_GAP);
-          const tipY = startY - lift;
-          const pillBottom = tipY - 3;
-          const boxTop = pillBottom - pillH;
+          const textW = Math.max(18, label.length * textSize * 0.88);
+          const boxW = padX * 2 + textW;
+          // 贴在蜡烛面板顶部下方；stack 向下错层，远离 K 线柱
+          const paneTop = Number.isFinite(bounding?.top) ? bounding.top : 0;
+          const boxTop =
+            paneTop + ZT_CHIP_TOP_INSET + stack * (pillH + ZT_CHIP_STACK_GAP);
           const boxLeft = startX - boxW / 2;
-          const boxCy = boxTop + pillH / 2;
+          const pillBottom = boxTop + pillH;
+          // 小三角在标签底边，引线连到蜡烛高点
+          const tipY = pillBottom + 2;
+          // 中文在 middle 基线下视觉偏下，上移 2px 收紧上沿空隙
+          const textY = boxTop + pillH / 2 - 2;
           return [
             {
               type: "line",
               attrs: {
                 coordinates: [
-                  { x: startX, y: startY },
                   { x: startX, y: tipY },
+                  { x: startX, y: candleY },
                 ],
               },
               styles: {
@@ -2036,8 +2037,8 @@
               attrs: {
                 coordinates: [
                   { x: startX, y: tipY },
-                  { x: startX - 3.2, y: pillBottom },
-                  { x: startX + 3.2, y: pillBottom },
+                  { x: startX - 2.6, y: pillBottom },
+                  { x: startX + 2.6, y: pillBottom },
                 ],
               },
               styles: { style: "fill", color: pal.accent },
@@ -2051,78 +2052,23 @@
                 color: pal.bg,
                 borderColor: pal.border,
                 borderSize: 1,
-                borderRadius: 6,
-              },
-            },
-            {
-              type: "rect",
-              attrs: {
-                x: boxLeft,
-                y: boxTop,
-                width: accentBarW,
-                height: pillH,
-              },
-              styles: {
-                style: "fill",
-                color: pal.accent,
-                borderRadius: 0,
-                borderSize: 0,
-              },
-              ignoreEvent: true,
-            },
-            {
-              type: "rect",
-              attrs: {
-                x: boxLeft + padL + accentBarW,
-                y: boxTop + 2,
-                width: badgeW,
-                height: pillH - 4,
-              },
-              styles: {
-                style: "fill",
-                color: pal.badgeBg,
                 borderRadius: 4,
-                borderSize: 0,
               },
-              ignoreEvent: true,
             },
             {
               type: "text",
               attrs: {
-                x: boxLeft + padL + accentBarW + badgeW / 2,
-                y: boxCy - 1,
-                text: "涨",
-                align: "center",
-                baseline: "middle",
-              },
-              styles: {
-                color: pal.badgeText,
-                size: 9,
-                family: "PingFang SC, Microsoft YaHei, sans-serif",
-                weight: "700",
-                backgroundColor: "transparent",
-                borderSize: 0,
-                paddingLeft: 0,
-                paddingRight: 0,
-                paddingTop: 0,
-                paddingBottom: 0,
-              },
-              ignoreEvent: true,
-            },
-            {
-              type: "text",
-              attrs: {
-                x: boxLeft + padL + accentBarW + badgeW + gap,
-                y: boxCy - 1,
+                x: startX,
+                y: textY,
                 text: label,
-                align: "left",
+                align: "center",
                 baseline: "middle",
               },
               styles: {
                 color: pal.text,
                 size: textSize,
                 family: "PingFang SC, Microsoft YaHei, sans-serif",
-                weight: "600",
+                weight: "500",
                 backgroundColor: "transparent",
                 borderSize: 0,
                 paddingLeft: 0,
@@ -2139,9 +2085,8 @@
     }
 
     function ztChipWidth(label) {
-      const textSize = 10;
-      const textW = Math.max(22, String(label || "").length * textSize * 0.9);
-      return 4 + 3 + 16 + 4 + textW + 7;
+      const textW = Math.max(18, String(label || "").length * ZT_CHIP_TEXT_SIZE * 0.88);
+      return ZT_CHIP_PAD_X * 2 + textW;
     }
 
     /** 按柱宽估算水平碰撞，邻近标签抬高错层 */
@@ -2192,17 +2137,16 @@
       const label = String(ext?.label || "涨停");
       const stack = Math.max(0, Number(ext?.stack) || 0);
       const pillH = ZT_CHIP_PILL_H;
-      const lift = ZT_CHIP_BASE_LIFT + stack * (pillH + ZT_CHIP_STACK_GAP);
       const boxW = ztChipWidth(label);
+      const boxTop =
+        ZT_CHIP_TOP_INSET + stack * (pillH + ZT_CHIP_STACK_GAP);
+      const labelCenterY = boxTop + pillH / 2 - 2;
       try {
         const pts = event?.overlay?.points;
         if (chart && pts?.length && typeof chart.convertToPixel === "function") {
           const px = chart.convertToPixel(pts, { paneId: "candle_pane" });
           const p = Array.isArray(px) ? px[0] : px;
           if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
-            const tipY = p.y - lift;
-            const pillBottom = tipY - 3;
-            const labelCenterY = pillBottom - pillH / 2;
             return {
               x: p.x,
               y: labelCenterY,
@@ -2216,7 +2160,7 @@
       if (!rect) return { x: 80, y: 80, candleY: 120, boxW };
       return {
         x: (event?.clientX != null ? event.clientX : rect.left + 80) - rect.left,
-        y: (event?.clientY != null ? event.clientY : rect.top + 80) - rect.top,
+        y: labelCenterY,
         candleY: 120,
         boxW,
       };
