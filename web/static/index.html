@@ -5684,6 +5684,23 @@
       return n.toFixed(0);
     }
 
+    function formatCandleTipWeekday(timestamp) {
+      const ts = Number(timestamp);
+      if (!Number.isFinite(ts)) return "";
+      try {
+        const w = new Intl.DateTimeFormat("zh-CN", {
+          timeZone: "Asia/Shanghai",
+          weekday: "short",
+        }).format(new Date(ts));
+        // zh-CN 多为「周一」；兜底「星期一」截成「周一」风格
+        if (/周[日一二三四五六]/.test(w)) return w.replace(/^星期/, "周");
+        if (/星期[日一二三四五六]/.test(w)) return w.replace("星期", "周");
+        return w;
+      } catch (_) {
+        return "";
+      }
+    }
+
     function formatCandleTipDate(timestamp) {
       const ts = Number(timestamp);
       if (!Number.isFinite(ts)) return "--";
@@ -5699,10 +5716,60 @@
       }).formatToParts(d);
       const get = (t) => parts.find((p) => p.type === t)?.value || "";
       const date = `${get("year")}-${get("month")}-${get("day")}`;
+      const weekday = formatCandleTipWeekday(ts);
+      const dayPart = weekday ? `${date} ${weekday}` : date;
       if (["fs", "1m", "5m", "15m", "1h"].includes(currentPeriod)) {
-        return `${date} ${get("hour")}:${get("minute")}`;
+        return `${dayPart} ${get("hour")}:${get("minute")}`;
       }
-      return date;
+      return dayPart;
+    }
+
+    /**
+     * 仅当指针落在该根 K 线柱体/影线竖直范围内才显示 tip；
+     * 一字板（高低几乎重合）上下各扩 20px。
+     */
+    function isPointerOnCandleBar(k, pixelY, paneId) {
+      if (!chart || !k) return false;
+      if (paneId && paneId !== "candle_pane") return false;
+      const y = Number(pixelY);
+      if (!Number.isFinite(y)) return false;
+      const high = Number(k.high);
+      const low = Number(k.low);
+      const close = Number(k.close);
+      const open = Number(k.open);
+      const topVal = Math.max(
+        ...[high, low, close, open].filter((n) => Number.isFinite(n))
+      );
+      const botVal = Math.min(
+        ...[high, low, close, open].filter((n) => Number.isFinite(n))
+      );
+      if (!Number.isFinite(topVal) || !Number.isFinite(botVal)) return false;
+      try {
+        const ts = Number(k.timestamp);
+        const pts = chart.convertToPixel(
+          [
+            { timestamp: ts, value: topVal },
+            { timestamp: ts, value: botVal },
+          ],
+          { paneId: "candle_pane" }
+        );
+        const a = Array.isArray(pts) ? pts[0] : null;
+        const b = Array.isArray(pts) ? pts[1] : null;
+        if (!a || !b || !Number.isFinite(a.y) || !Number.isFinite(b.y)) return false;
+        let yTop = Math.min(a.y, b.y);
+        let yBot = Math.max(a.y, b.y);
+        const oneWord =
+          (typeof isOneWordBar === "function" && isOneWordBar(k)) ||
+          yBot - yTop < 2;
+        if (oneWord) {
+          const mid = (yTop + yBot) / 2;
+          yTop = mid - 20;
+          yBot = mid + 20;
+        }
+        return y >= yTop && y <= yBot;
+      } catch (_) {
+        return false;
+      }
     }
 
     function findIndicator(name) {
@@ -5759,7 +5826,7 @@
       };
     }
 
-    /** 十字光标悬停时的 OHLC / 均线 / MACD 浮动层（参考 dashboard StockDetail tooltip） */
+    /** 十字光标悬停时的 OHLC / 指标浮动层（参考 dashboard StockDetail tooltip） */
     function updateCandleTip(crosshair) {
       const tip = document.getElementById("candleTip");
       const wrap = document.getElementById("chartWrap");
@@ -5776,6 +5843,11 @@
         hideCandleTip();
         return;
       }
+      // 仅主图且指针落在 K 线柱（一字板 ±20px）内才显示
+      if (!isPointerOnCandleBar(k, resolved.y, crosshair?.paneId)) {
+        hideCandleTip();
+        return;
+      }
 
       const dateStr = formatCandleTipDate(k.timestamp ?? crosshair?.timestamp);
       const volWan = Number.isFinite(Number(k.volume))
@@ -5787,32 +5859,17 @@
       const ampLabel = tipAmplitudeHtml(k.high, k.low, prevClose);
       const amountLabel = tipAmountLabel(k);
 
-      let maHtml = "";
-      const maInd = findIndicator("MA");
-      if (maInd?.result) {
-        const row = maInd.result[dataIndex] || {};
-        const params = (maInd.calcParams || activeMaParams()).filter(
-          (n) => Number.isFinite(Number(n)) && Number(n) > 0
-        );
-        const lines = params.map((p, i) => {
-          const key = `ma${i + 1}`;
-          return `MA${p}: ${tipNum(row[key])}`;
-        });
-        if (lines.length) {
-          maHtml = `<div class="tip-sec">${lines.join("<br/>")}</div>`;
-        }
-      }
-
+      // 不展示 MA（图上已有）；副图指标每个值单独一行
       let oscHtml = "";
       const macdInd = findIndicator("MACD");
       if (macdInd?.result) {
         const row = macdInd.result[dataIndex] || {};
-        oscHtml = `<div class="tip-sec">DIF: ${tipNum(row.dif)} / DEA: ${tipNum(row.dea)} / MACD: ${tipNum(row.macd)}</div>`;
+        oscHtml = `<div class="tip-sec">DIF: ${tipNum(row.dif)}<br/>DEA: ${tipNum(row.dea)}<br/>MACD: ${tipNum(row.macd)}</div>`;
       } else {
         const kdjInd = findIndicator("KDJ");
         if (kdjInd?.result) {
           const row = kdjInd.result[dataIndex] || {};
-          oscHtml = `<div class="tip-sec">K: ${tipNum(row.k)} / D: ${tipNum(row.d)} / J: ${tipNum(row.j)}</div>`;
+          oscHtml = `<div class="tip-sec">K: ${tipNum(row.k)}<br/>D: ${tipNum(row.d)}<br/>J: ${tipNum(row.j)}</div>`;
         } else {
           const rsiInd = findIndicator("RSI");
           if (rsiInd?.result) {
@@ -5840,7 +5897,6 @@
         <div>振幅: ${ampLabel}</div>
         <div>量: ${volWan}万手</div>
         <div>额: ${amountLabel}</div>
-        ${maHtml}
         ${oscHtml}
       `;
       tip.classList.add("show");
