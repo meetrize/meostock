@@ -52,7 +52,6 @@
   color: var(--text-muted);
 }
 
-.dateLabel input,
 .dateSelect {
   height: 30px;
   border: 1px solid var(--border-secondary);
@@ -61,6 +60,140 @@
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
+}
+
+.calWrap {
+  position: relative;
+  display: inline-block;
+}
+
+.calTrigger {
+  height: 30px;
+  min-width: 118px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 6px;
+  padding: 0 8px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.calTrigger:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.calTrigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.calPanel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: 260px;
+  padding: 10px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  background: var(--bg-primary);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.calHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.calTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.calNav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.calNav:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.calWeek {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.calEmpty {
+  height: 30px;
+}
+
+.calDay {
+  height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: var(--font-size-sm);
+  line-height: 1;
+}
+
+.calDayAvail {
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.calDayAvail:hover {
+  background: var(--bg-secondary);
+  color: var(--color-accent);
+}
+
+.calDayDisabled {
+  color: var(--text-muted);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.calDaySelected {
+  background: var(--color-accent);
+  color: var(--bg-primary);
+  font-weight: 600;
+}
+
+.calDaySelected:hover {
+  background: var(--color-accent);
+  color: var(--bg-primary);
+}
+
+.calHint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
 }
 
 .captureBtn {

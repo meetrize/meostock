@@ -2,7 +2,8 @@
  * 涨跌停历史：选日期 + 涨停/跌停，iframe 回放当日快照
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { XgbPoolTabs } from '@/components/XgbPoolTabs';
 import styles from './ZtHistory.module.css';
@@ -17,6 +18,8 @@ interface DateRow {
   captured_at?: number;
 }
 
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
 function todayYmd() {
   const d = new Date();
   const y = d.getFullYear();
@@ -30,8 +33,146 @@ function ymdToInput(ymd: string) {
   return `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`;
 }
 
-function inputToYmd(v: string) {
-  return v.replace(/\D/g, '').slice(0, 8);
+function ymdParts(ymd: string): { y: number; m: number; d: number } | null {
+  if (ymd.length !== 8) return null;
+  const y = Number(ymd.slice(0, 4));
+  const m = Number(ymd.slice(4, 6));
+  const d = Number(ymd.slice(6, 8));
+  if (!y || !m || !d) return null;
+  return { y, m, d };
+}
+
+function toYmd(y: number, m: number, d: number) {
+  return `${y}${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`;
+}
+
+function buildMonthCells(year: number, month: number) {
+  const first = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const startPad = first.getDay();
+  const cells: Array<{ ymd: string; day: number; inMonth: boolean } | null> = [];
+  for (let i = 0; i < startPad; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ ymd: toYmd(year, month, d), day: d, inMonth: true });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+function HistoryDateCalendar({
+  value,
+  available,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  available: Set<string>;
+  onChange: (ymd: string) => void;
+  disabled?: boolean;
+}) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const selected = ymdParts(value);
+  const [viewY, setViewY] = useState(selected?.y ?? new Date().getFullYear());
+  const [viewM, setViewM] = useState(selected?.m ?? new Date().getMonth() + 1);
+
+  useEffect(() => {
+    if (!open) return;
+    const parts = ymdParts(value);
+    if (parts) {
+      setViewY(parts.y);
+      setViewM(parts.m);
+    }
+  }, [open, value]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const cells = useMemo(() => buildMonthCells(viewY, viewM), [viewY, viewM]);
+
+  const shiftMonth = (delta: number) => {
+    const d = new Date(viewY, viewM - 1 + delta, 1);
+    setViewY(d.getFullYear());
+    setViewM(d.getMonth() + 1);
+  };
+
+  return (
+    <div className={styles.calWrap} ref={rootRef}>
+      <button
+        type="button"
+        className={styles.calTrigger}
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {ymdToInput(value) || '选择交易日'}
+      </button>
+      {open ? (
+        <div className={styles.calPanel} role="dialog" aria-label="选择交易日">
+          <div className={styles.calHead}>
+            <button type="button" className={styles.calNav} onClick={() => shiftMonth(-1)} aria-label="上一月">
+              <ChevronLeft size={16} />
+            </button>
+            <span className={styles.calTitle}>
+              {viewY}年{viewM}月
+            </span>
+            <button type="button" className={styles.calNav} onClick={() => shiftMonth(1)} aria-label="下一月">
+              <ChevronRight size={16} />
+            </button>
+          </div>
+          <div className={styles.calWeek}>
+            {WEEKDAYS.map((w) => (
+              <span key={w}>{w}</span>
+            ))}
+          </div>
+          <div className={styles.calGrid}>
+            {cells.map((cell, i) => {
+              if (!cell) return <span key={`e-${i}`} className={styles.calEmpty} />;
+              const hasHistory = available.has(cell.ymd);
+              const isSelected = cell.ymd === value;
+              return (
+                <button
+                  key={cell.ymd}
+                  type="button"
+                  className={[
+                    styles.calDay,
+                    hasHistory ? styles.calDayAvail : styles.calDayDisabled,
+                    isSelected ? styles.calDaySelected : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  disabled={!hasHistory}
+                  title={hasHistory ? cell.ymd : '无历史快照'}
+                  onClick={() => {
+                    if (!hasHistory) return;
+                    onChange(cell.ymd);
+                    setOpen(false);
+                  }}
+                >
+                  {cell.day}
+                </button>
+              );
+            })}
+          </div>
+          {available.size === 0 ? <div className={styles.calHint}>暂无已落库交易日</div> : null}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function ZtHistory() {
@@ -41,6 +182,8 @@ export function ZtHistory() {
   const [loadingDates, setLoadingDates] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [msg, setMsg] = useState('');
+
+  const availableSet = useMemo(() => new Set(dates.map((d) => d.trade_date)), [dates]);
 
   const loadDates = useCallback(async (p: PoolKey) => {
     setLoadingDates(true);
@@ -123,10 +266,11 @@ export function ZtHistory() {
         </div>
         <label className={styles.dateLabel}>
           交易日
-          <input
-            type="date"
-            value={ymdToInput(date)}
-            onChange={(e) => setDate(inputToYmd(e.target.value))}
+          <HistoryDateCalendar
+            value={date}
+            available={availableSet}
+            disabled={loadingDates}
+            onChange={setDate}
           />
         </label>
         <select
