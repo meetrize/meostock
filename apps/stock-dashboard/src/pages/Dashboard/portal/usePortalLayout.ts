@@ -4,11 +4,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Layout } from 'react-grid-layout';
-import {
-  CUSTOM_STOCK_MAX_PER_PRESET,
-  CUSTOM_STOCK_WIDGET_TYPE,
-  countCustomStockWidgets,
-} from './customStock';
 import { createDefaultPersistedState, createDefaultWatchPreset } from './defaultLayouts';
 import { applyCatalogConstraints, WIDGET_CATALOG } from './widgetCatalog';
 import {
@@ -332,19 +327,11 @@ export function usePortalLayout() {
   );
 
   const addWidget = useCallback(
-    (type: PortalWidgetType, opts?: AddWidgetOptions): string | null => {
+    (type: PortalWidgetType, opts?: AddWidgetOptions): string => {
       const catalog = WIDGET_CATALOG[type];
       const id = nextId(type);
       const { w, h } = catalog.defaultLayout;
-      let created: string | null = id;
       updateActivePreset(({ layout, widgets }) => {
-        if (
-          type === CUSTOM_STOCK_WIDGET_TYPE &&
-          countCustomStockWidgets(widgets) >= CUSTOM_STOCK_MAX_PER_PRESET
-        ) {
-          created = null;
-          return { layout, widgets };
-        }
         const { x, y } = findDropPosition(layout, w, h);
         const layoutItem = applyCatalogConstraints(type, {
           i: id,
@@ -367,7 +354,7 @@ export function usePortalLayout() {
           widgets: [...widgets, widget],
         };
       });
-      return created;
+      return id;
     },
     [updateActivePreset]
   );

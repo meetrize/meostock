@@ -6,7 +6,6 @@ import { normalizeStockCode } from '@/utils/format';
 import type { PortalWidgetInstance } from './types';
 
 export const CUSTOM_STOCK_WIDGET_TYPE = 'stock.custom' as const;
-export const CUSTOM_STOCK_MAX_PER_PRESET = 8;
 
 export type CustomStockMarket = 'cn' | 'hk' | 'us';
 
@@ -56,10 +55,4 @@ export function buildCustomStockConfig(input: {
     klineSymbol: (input.klineSymbol || code).trim(),
     name: input.name.trim() || code,
   };
-}
-
-export function countCustomStockWidgets(
-  widgets: Array<Pick<PortalWidgetInstance, 'type'>>
-): number {
-  return widgets.filter((w) => w.type === CUSTOM_STOCK_WIDGET_TYPE).length;
 }

@@ -433,9 +433,9 @@ export function catalogGroups(): Array<{
   entries: WidgetCatalogEntry[];
 }> {
   const order: PortalCatalogGroupId[] = [
+    'stocks',
     'research',
     'ashare',
-    'stocks',
     'global',
     'futuresSpark',
     'metals',

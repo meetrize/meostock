@@ -12,7 +12,6 @@ import { useAppSettings } from '@/contexts';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
 import type { QuoteSource } from '@/types';
 import {
-  CUSTOM_STOCK_MAX_PER_PRESET,
   CUSTOM_STOCK_WIDGET_TYPE,
   type CustomStockConfig,
 } from './customStock';
@@ -37,7 +36,7 @@ interface PortalToolbarProps {
   onAddWidget: (
     type: PortalWidgetType,
     opts?: { title?: string; config?: Record<string, unknown> }
-  ) => string | null;
+  ) => string;
   onReset: () => void;
   onRefresh: () => Promise<void>;
 }
@@ -156,15 +155,11 @@ export function PortalToolbar({
   };
 
   const handleStockPicked = (config: CustomStockConfig) => {
-    const id = onAddWidget(CUSTOM_STOCK_WIDGET_TYPE, {
+    onAddWidget(CUSTOM_STOCK_WIDGET_TYPE, {
       title: config.name,
       config: { ...config },
     });
     setStockPickerOpen(false);
-    if (!id) {
-      toast.error(`自选个股最多 ${CUSTOM_STOCK_MAX_PER_PRESET} 个`);
-      return;
-    }
     if (!editing) onToggleEdit();
     toast.success(`已添加 ${config.name}`);
   };
