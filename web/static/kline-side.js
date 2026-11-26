@@ -712,40 +712,41 @@
     return { key: "column", label: "栏目" };
   }
 
-  function fmtTimeFull(ts) {
+  /** CreatedAt：选股宝为秒级 Unix；偶发毫秒则原样用 */
+  function parseMsgTime(ts) {
     const n = Number(ts);
-    if (!Number.isFinite(n) || n <= 0) return "";
+    if (!Number.isFinite(n) || n <= 0) return null;
     const ms = n < 1e12 ? n * 1000 : n;
     const d = new Date(ms);
-    if (Number.isNaN(d.getTime())) return "";
-    const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    return `${y}-${mo}-${day} ${hh}:${mm}`;
+    return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  /** 最短时间：今日 HH:mm；同年 M/D；跨年 YY/M/D */
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function fmtTimeFull(ts) {
+    const d = parseMsgTime(ts);
+    if (!d) return "";
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(
+      d.getHours()
+    )}:${pad2(d.getMinutes())}`;
+  }
+
+  /**
+   * 简写完整日期时间（始终含时分，避免只显示 M/D 造成误解）：
+   * - 同年：M/D HH:mm
+   * - 跨年：YY/M/D HH:mm
+   */
   function fmtTimeShort(ts) {
-    const n = Number(ts);
-    if (!Number.isFinite(n) || n <= 0) return "";
-    const ms = n < 1e12 ? n * 1000 : n;
-    const d = new Date(ms);
-    if (Number.isNaN(d.getTime())) return "";
+    const d = parseMsgTime(ts);
+    if (!d) return "";
     const now = new Date();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const mm = String(d.getMinutes()).padStart(2, "0");
-    const sameDay =
-      d.getFullYear() === now.getFullYear() &&
-      d.getMonth() === now.getMonth() &&
-      d.getDate() === now.getDate();
-    if (sameDay) return `${hh}:${mm}`;
     const mo = d.getMonth() + 1;
     const day = d.getDate();
-    if (d.getFullYear() === now.getFullYear()) return `${mo}/${day}`;
-    const yy = String(d.getFullYear()).slice(-2);
-    return `${yy}/${mo}/${day}`;
+    const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    if (d.getFullYear() === now.getFullYear()) return `${mo}/${day} ${hm}`;
+    return `${String(d.getFullYear()).slice(-2)}/${mo}/${day} ${hm}`;
   }
 
   function renderDot(kind, tip) {

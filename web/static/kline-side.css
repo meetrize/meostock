@@ -1007,11 +1007,13 @@ html[data-theme="dark"] .zt-reason-tip-ft {
   white-space: nowrap;
 }
 .news-col-time {
-  width: 52px;
+  width: 88px;
+  min-width: 88px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   font-size: 11px;
   text-align: right;
+  white-space: nowrap;
 }
 .news-table th.news-col-time,
 .news-table td.news-col-time {
