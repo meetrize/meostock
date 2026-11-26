@@ -13,6 +13,8 @@ eval_type_backport>=0.2.0; python_version < "3.10"
 # pytest>=8.0
 # httpx>=0.27
 
+# 巨潮公告 PDF 正文抽取（影响力评估）
+pymupdf>=1.24.0
 # 通达信相关示例脚本（可选）
 mootdx>=0.11.0
 # mootdx2 建议 Python 3.10+

@@ -68,6 +68,9 @@ const Research = lazy(() =>
 const PatternBacktest = lazy(() =>
   import('@/pages/PatternBacktest').then((mod) => ({ default: mod.PatternBacktest }))
 );
+const AnnouncementImpact = lazy(() =>
+  import('@/pages/AnnouncementImpact').then((mod) => ({ default: mod.AnnouncementImpact }))
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -112,6 +115,10 @@ const browserRouter = createBrowserRouter(
         {
           path: 'news',
           element: withSuspense(<NewsTimeline />),
+        },
+        {
+          path: 'announcement-impact',
+          element: withSuspense(<AnnouncementImpact />),
         },
         {
           path: 'fupan',

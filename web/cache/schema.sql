@@ -420,3 +420,45 @@ CREATE TABLE IF NOT EXISTS cninfo_sync_state (
 
 CREATE INDEX IF NOT EXISTS idx_cninfo_sync_backfill
   ON cninfo_sync_state (backfill_done, last_sync_at);
+
+-- 巨潮公告影响力评估（标题分流 + 可选 PDF/LLM）
+CREATE TABLE IF NOT EXISTS cninfo_announcement_impact (
+  announcement_id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  announce_time_ms INTEGER NOT NULL DEFAULT 0,
+  thread_id TEXT,
+  candidate_level TEXT,
+  final_level TEXT,
+  direction TEXT,
+  category TEXT,
+  disclosure_stage TEXT,
+  is_first_disclosure INTEGER NOT NULL DEFAULT 1,
+  score REAL,
+  matched_rules_json TEXT,
+  reasons_json TEXT,
+  materiality_json TEXT,
+  quality_flags_json TEXT,
+  core_summary TEXT,
+  core_quotes_json TEXT,
+  risk_flags_json TEXT,
+  expected_gap_hint TEXT,
+  confidence REAL,
+  judge_status TEXT,
+  pdf_extract_status TEXT,
+  error TEXT,
+  judged_at REAL,
+  updated_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cninfo_impact_time_level
+  ON cninfo_announcement_impact (announce_time_ms DESC, final_level, score DESC);
+
+CREATE INDEX IF NOT EXISTS idx_cninfo_impact_code_time
+  ON cninfo_announcement_impact (code, announce_time_ms DESC);
+
+CREATE INDEX IF NOT EXISTS idx_cninfo_impact_thread
+  ON cninfo_announcement_impact (thread_id, announce_time_ms);
+
+CREATE INDEX IF NOT EXISTS idx_cninfo_impact_status
+  ON cninfo_announcement_impact (judge_status, updated_at);

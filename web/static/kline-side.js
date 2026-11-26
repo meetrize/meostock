@@ -848,18 +848,41 @@
     const tFull = a.announce_time || fmtTimeFull(ms);
     const titleText = a.title || "（无标题）";
     const href = String(a.pdf_url || "").trim();
+    const impact = a.impact && typeof a.impact === "object" ? a.impact : null;
+    const level = String(impact?.final_level || "").trim();
+    const levelLabel = String(impact?.final_level_label || level || "").trim();
+    const summary = String(impact?.core_summary || "").trim();
+    const dir = String(impact?.direction || "").trim();
+    const first = impact?.is_first_disclosure !== false;
+    const badge =
+      level && level !== "S"
+        ? `<span class="notice-impact-badge notice-impact-${esc(level)}" title="影响力 ${esc(
+            levelLabel
+          )} ${esc(dir)}">${esc(levelLabel || level)}</span>`
+        : "";
+    const stageTag =
+      impact && !first
+        ? `<span class="notice-impact-stage" title="非首次披露">进展</span>`
+        : "";
     const titleHtml = href
       ? `<a class="news-title" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(
           titleText
         )}">${esc(titleText)}</a>`
       : `<span class="news-title" title="${esc(titleText)}">${esc(titleText)}</span>`;
+    const summaryHtml = summary
+      ? `<div class="notice-impact-summary" title="${esc(summary)}">${esc(summary)}</div>`
+      : "";
     const dots = [
       renderDot("notice", "类型：公告"),
       renderDot("source", "来源：巨潮资讯"),
       href ? renderDot("related", "PDF") : "",
+      level === "XL" || level === "L" ? renderDot("related", `影响：${levelLabel || level}`) : "",
     ].join("");
     return `<tr class="news-row" data-style="notice">
-      <td class="news-col-title">${titleHtml}</td>
+      <td class="news-col-title">
+        <div class="notice-title-row">${badge}${stageTag}${titleHtml}</div>
+        ${summaryHtml}
+      </td>
       <td class="news-col-time" title="${esc(tFull)}">${esc(tShort)}</td>
       <td class="news-col-dots"><div class="news-dots">${dots}</div></td>
     </tr>`;

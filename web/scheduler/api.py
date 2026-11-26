@@ -22,6 +22,14 @@ except Exception:  # noqa: BLE001
     def cninfo_progress() -> dict:  # type: ignore[misc]
         return {"active": False, "message": ""}
 
+
+try:
+    from cninfo.impact_sync import get_progress as cninfo_impact_progress
+except Exception:  # noqa: BLE001
+
+    def cninfo_impact_progress() -> dict:  # type: ignore[misc]
+        return {"active": False, "message": ""}
+
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 
 
@@ -104,3 +112,8 @@ def finance_calendar_progress() -> JSONResponse:
 @router.get("/cninfo-announcement/progress")
 def cninfo_announcement_progress() -> JSONResponse:
     return JSONResponse({"ok": True, **cninfo_progress()})
+
+
+@router.get("/cninfo-announcement-impact/progress")
+def cninfo_announcement_impact_progress() -> JSONResponse:
+    return JSONResponse({"ok": True, **cninfo_impact_progress()})

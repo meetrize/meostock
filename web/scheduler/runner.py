@@ -39,6 +39,11 @@ def _register_handlers() -> None:
 
         return run_cninfo_announcement_sync(mode="auto", page_delay=0.2)
 
+    def cninfo_impact_handler() -> dict[str, Any]:
+        from cninfo.impact_sync import run_cninfo_announcement_impact
+
+        return run_cninfo_announcement_impact()
+
     def zt_eod_handler() -> dict[str, Any]:
         from zt_history.capture import capture_eod
 
@@ -61,6 +66,7 @@ def _register_handlers() -> None:
     jobs_mod.register_handler("em_board_sync", em_handler)
     jobs_mod.register_handler("finance_calendar_sync", cal_handler)
     jobs_mod.register_handler("cninfo_announcement_sync", cninfo_ann_handler)
+    jobs_mod.register_handler("cninfo_announcement_impact", cninfo_impact_handler)
     jobs_mod.register_handler("zt_pool_eod_snapshot", zt_eod_handler)
     jobs_mod.register_handler("cn_daily_eod_patch", cn_daily_eod_handler)
     for _lane in ("cn", "asia", "eu", "us", "crypto"):

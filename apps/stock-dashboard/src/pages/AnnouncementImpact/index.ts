@@ -1,0 +1,1 @@
+export { AnnouncementImpact } from './AnnouncementImpact';

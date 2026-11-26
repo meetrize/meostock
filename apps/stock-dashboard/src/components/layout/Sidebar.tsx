@@ -26,6 +26,7 @@ import {
   Bot,
   Microscope,
   History,
+  FileWarning,
 } from 'lucide-react';
 import { Logo } from '@/components/common';
 import {
@@ -48,6 +49,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/', label: '总览', icon: <LayoutDashboard size={18} /> },
   { path: '/research', label: '研判', icon: <Microscope size={18} /> },
+  { path: '/announcement-impact', label: '公告异动', icon: <FileWarning size={18} /> },
   { path: '/quotes', label: '行情', icon: <CandlestickChart size={18} /> },
   { path: '/limit-up', label: '涨停池', icon: <Flame size={18} /> },
   { path: '/zt-history', label: '涨跌停历史', icon: <Flame size={18} /> },

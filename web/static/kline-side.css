@@ -1071,6 +1071,54 @@ html[data-theme="dark"] .zt-reason-tip-ft {
 a.news-title:hover {
   color: var(--accent);
 }
+.notice-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+.notice-impact-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+.notice-impact-XL {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+.notice-impact-L {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.28);
+}
+.notice-impact-M {
+  color: var(--muted);
+  background: color-mix(in srgb, var(--line) 35%, transparent);
+  border-color: var(--line);
+}
+.notice-impact-stage {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.notice-impact-summary {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .news-more-btn {
   appearance: none;
   margin-top: 4px;

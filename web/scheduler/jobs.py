@@ -48,6 +48,13 @@ DEFAULT_JOBS: list[dict[str, Any]] = [
         "align_next_2am": True,
     },
     {
+        "id": "cninfo_announcement_impact",
+        "name": "巨潮公告影响力评估",
+        "job_type": "cninfo_announcement_impact",
+        "enabled": 1,
+        "interval_minutes": 180,
+    },
+    {
         "id": "zt_pool_eod_snapshot",
         "name": "涨跌停盘后快照",
         "job_type": "zt_pool_eod_snapshot",
