@@ -39,6 +39,7 @@ import {
   mergeLiveMetrics,
   type LiveQuoteRow,
 } from './liveQuotes';
+import { EntityRelationView } from './EntityRelationView';
 import {
   CenterViewSwitch,
   CrossMarketTable,
@@ -86,6 +87,8 @@ import type {
   CommandAction,
   EdgeParams,
   EntityMarketMetrics,
+  EntityRelation,
+  EntityRelationType,
   EvidenceGrade,
   IndustrialChainGraph,
   LeadingIndicator,
@@ -219,6 +222,10 @@ export function IndustrialChain() {
   const [liveMetrics, setLiveMetrics] = useState<EntityMarketMetrics[] | null>(null);
   const [quotesLoading, setQuotesLoading] = useState(false);
   const [announceLoading, setAnnounceLoading] = useState(false);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [relationFilter, setRelationFilter] = useState<EntityRelationType | 'all'>('all');
+  const [relationQuery, setRelationQuery] = useState('');
+  const [egoMode, setEgoMode] = useState(true);
 
   const watchSnapshot = useSyncExternalStore(
     watchlistStore.subscribe,
@@ -515,6 +522,10 @@ export function IndustrialChain() {
   const runCommand = (action: CommandAction) => {
     if (action.type === 'view') {
       setCenterView(action.view);
+      if (action.view === 'relations' && graph?.focalEntityId) {
+        setSelectedEntityId(graph.focalEntityId);
+        setEgoMode(true);
+      }
       return;
     }
     if (action.type === 'tab') {
@@ -525,11 +536,47 @@ export function IndustrialChain() {
       enterEditor();
       return;
     }
-    if (action.type === 'segment' || action.type === 'entity') {
+    if (action.type === 'segment') {
       setSelectedSegId(action.segmentId);
       setCenterView('graph');
       setRightTab('detail');
+      return;
     }
+    if (action.type === 'entity') {
+      setSelectedSegId(action.segmentId);
+      setSelectedEntityId(action.entityId);
+      setCenterView('relations');
+      setRightTab('detail');
+      setEgoMode(true);
+    }
+  };
+
+  const openEntityRelations = (entityId: string, segmentId?: string) => {
+    if (segmentId) setSelectedSegId(segmentId);
+    setSelectedEntityId(entityId);
+    setCenterView('relations');
+    setEgoMode(true);
+    setRightTab('detail');
+  };
+
+  const addEntityRelation = (rel: Omit<EntityRelation, 'id'> & { id?: string }) => {
+    mutateDraft((g) => {
+      if (!g.relations) g.relations = [];
+      g.relations.push({
+        ...rel,
+        id: rel.id ?? newId('rel'),
+      });
+      return g;
+    });
+    toast.success('关系已写入草稿');
+  };
+
+  const removeEntityRelation = (id: string) => {
+    mutateDraft((g) => {
+      g.relations = (g.relations ?? []).filter((r) => r.id !== id);
+      return g;
+    });
+    toast.info('已从草稿删除关系');
   };
 
   const addMembership = (form: {
@@ -757,6 +804,11 @@ export function IndustrialChain() {
                       setChainId(item.id);
                       setMode('situation');
                       setRightTab('signals');
+                      setSelectedEntityId(null);
+                      setRelationQuery('');
+                      setRelationFilter('all');
+                      setEgoMode(true);
+                      setCenterView('graph');
                       reloadView(item.id, false);
                     }}
                   >
@@ -876,6 +928,37 @@ export function IndustrialChain() {
                     <span>P3：重构 / 暴露 / ⌘K · 指标与估值为种子</span>
                   </div>
                 </>
+              )}
+              {centerView === 'relations' && (
+                <EntityRelationView
+                  graph={graph}
+                  selectedEntityId={selectedEntityId}
+                  onSelectEntity={(id) => {
+                    setSelectedEntityId(id);
+                    if (id) {
+                      const m = graph.memberships.find(
+                        (x) => x.entityId === id && x.status !== 'deprecated'
+                      );
+                      if (m) setSelectedSegId(m.segmentId);
+                      setRightTab('detail');
+                    }
+                  }}
+                  quotePct={
+                    new Map(
+                      [...quoteMap.entries()].map(([k, v]) => [k, v.changePercent])
+                    )
+                  }
+                  onWatch={addSymbolToWatch}
+                  egoMode={egoMode && !!graph.focalEntityId}
+                  onEgoModeChange={setEgoMode}
+                  relationFilter={relationFilter}
+                  onRelationFilterChange={setRelationFilter}
+                  query={relationQuery}
+                  onQueryChange={setRelationQuery}
+                  editable={mode === 'editor'}
+                  onAddRelation={addEntityRelation}
+                  onRemoveRelation={removeEntityRelation}
+                />
               )}
               {centerView === 'sandbox' && (
                 <SandboxPanel
@@ -1267,6 +1350,28 @@ export function IndustrialChain() {
                             {membership.note}
                           </p>
                         )}
+                        <div className={styles.candidateActions}>
+                          <button
+                            type="button"
+                            className={styles.btn}
+                            onClick={() =>
+                              openEntityRelations(entity!.id, selectedSeg.id)
+                            }
+                          >
+                            在关系网查看
+                          </button>
+                          {entity!.symbols[0] && (
+                            <button
+                              type="button"
+                              className={styles.btn}
+                              onClick={() =>
+                                addSymbolToWatch(entity!.symbols[0], entity!.name)
+                              }
+                            >
+                              自选
+                            </button>
+                          )}
+                        </div>
                         {mode === 'editor' && (
                           <div
                             className={styles.editorBox}

@@ -5,6 +5,7 @@
  */
 
 import type { IndustrialChainGraph } from '../types';
+import { C05_RELATIONS } from './c05Relations';
 
 export const C05_SEED: IndustrialChainGraph = {
   id: 'C05',
@@ -22,11 +23,12 @@ export const C05_SEED: IndustrialChainGraph = {
     '政府与大型国企账期长，项目制叠加减值是利润漏损点',
     '低毛利代理分销/硬件打包占比回升稀释整体毛利；纺织老业务与软件周期不同步',
   ],
+  relations: C05_RELATIONS,
   release: {
-    version: 2,
-    publishedAt: '2026-03-26T12:00:00.000Z',
+    version: 3,
+    publishedAt: '2026-03-26T18:00:00.000Z',
     publishedBy: 'seed',
-    note: 'Wind 报告公司全量挂载',
+    note: '企业关系网 R0 + 报告公司全量挂载',
   },
   segments: [
     {

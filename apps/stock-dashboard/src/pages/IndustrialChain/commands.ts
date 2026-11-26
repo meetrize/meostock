@@ -9,6 +9,12 @@ export function buildCommandItems(graph: IndustrialChainGraph | null): CommandIt
       action: { type: 'view', view: 'graph' },
     },
     {
+      id: 'view-relations',
+      title: '打开企业关系网',
+      keywords: ['关系', 'relations', '供货', '投资', '技术', '产能', '企业网'],
+      action: { type: 'view', view: 'relations' },
+    },
+    {
       id: 'view-sandbox',
       title: '打开传导沙盘',
       keywords: ['沙盘', '冲击', 'sandbox', '传导'],

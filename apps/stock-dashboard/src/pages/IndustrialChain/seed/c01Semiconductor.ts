@@ -1,4 +1,5 @@
 import type { IndustrialChainGraph } from '../types';
+import { C01_RELATIONS } from './c01Relations';
 
 /** C01 半导体精编第一稿：环节骨架 + 跨市场核心挂载（可经 Chain Editor 修订） */
 export const C01_SEED: IndustrialChainGraph = {
@@ -6,11 +7,12 @@ export const C01_SEED: IndustrialChainGraph = {
   name: '半导体',
   tagline: '设备/材料卡脖子清晰；制造与设计全球定价；封测与应用承接景气',
   depth: 'graph',
+  relations: C01_RELATIONS,
   release: {
-    version: 1,
-    publishedAt: '2026-11-26T00:00:00.000Z',
+    version: 2,
+    publishedAt: '2026-11-26T18:00:00.000Z',
     publishedBy: 'seed',
-    note: 'P0 精编种子：边参数为专家先验，待校准',
+    note: 'P0 精编种子 + 企业关系网 R0 示范',
   },
   segments: [
     {

@@ -105,6 +105,24 @@ export interface ChainReleaseMeta {
   note?: string;
 }
 
+/** 企业×企业关系类型（跨环节；与环节 ChainEdge 分离） */
+export type EntityRelationType = 'supply' | 'invest' | 'tech' | 'capacity';
+
+export interface EntityRelation {
+  id: string;
+  /** 关系发出方 entityId */
+  fromEntityId: string;
+  /** 关系接收方 entityId */
+  toEntityId: string;
+  type: EntityRelationType;
+  /** 短标签，如「服务器供货」 */
+  label: string;
+  evidenceGrade: EvidenceGrade;
+  confidence?: number;
+  asOf?: string;
+  note?: string;
+}
+
 export interface IndustrialChainGraph {
   id: string;
   name: string;
@@ -114,6 +132,8 @@ export interface IndustrialChainGraph {
   edges: ChainEdge[];
   entities: ChainEntity[];
   memberships: ChainMembership[];
+  /** 企业×企业关系（供货/投资/技术/产能）；缺省视为 [] */
+  relations?: EntityRelation[];
   release: ChainReleaseMeta;
   /** 报告导入：锚点公司（如常山北明） */
   focalEntityId?: string;
@@ -147,6 +167,7 @@ export type ChainRightTab =
 /** 中央主视图 */
 export type ChainCenterView =
   | 'graph'
+  | 'relations'
   | 'sandbox'
   | 'radar'
   | 'markets'

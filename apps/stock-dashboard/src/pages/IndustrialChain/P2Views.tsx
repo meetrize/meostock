@@ -45,6 +45,7 @@ export function CenterViewSwitch({
 }) {
   const items: { id: ChainCenterView; label: string }[] = [
     { id: 'graph', label: '图谱' },
+    { id: 'relations', label: '关系' },
     { id: 'sandbox', label: '沙盘' },
     { id: 'radar', label: '背离' },
     { id: 'markets', label: '跨市场' },

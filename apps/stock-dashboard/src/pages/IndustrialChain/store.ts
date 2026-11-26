@@ -32,7 +32,9 @@ function storageKey(chainId: string): string {
 }
 
 function cloneGraph(g: IndustrialChainGraph): IndustrialChainGraph {
-  return structuredClone(g);
+  const next = structuredClone(g);
+  if (!Array.isArray(next.relations)) next.relations = [];
+  return next;
 }
 
 function getSeed(chainId: string): IndustrialChainGraph | null {
