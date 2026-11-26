@@ -15,6 +15,13 @@ from scheduler.em_board_sync import get_progress as em_progress
 from scheduler.finance_calendar_sync import get_progress as cal_progress
 from scheduler.ths_concept_sync import get_progress as ths_progress
 
+try:
+    from cninfo.sync import get_progress as cninfo_progress
+except Exception:  # noqa: BLE001
+
+    def cninfo_progress() -> dict:  # type: ignore[misc]
+        return {"active": False, "message": ""}
+
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])
 
 
@@ -92,3 +99,8 @@ def em_board_progress() -> JSONResponse:
 @router.get("/finance-calendar/progress")
 def finance_calendar_progress() -> JSONResponse:
     return JSONResponse({"ok": True, **cal_progress()})
+
+
+@router.get("/cninfo-announcement/progress")
+def cninfo_announcement_progress() -> JSONResponse:
+    return JSONResponse({"ok": True, **cninfo_progress()})

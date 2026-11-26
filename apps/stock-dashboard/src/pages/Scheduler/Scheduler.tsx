@@ -60,6 +60,7 @@ function jobProgressKey(jobType: string): string | null {
   if (jobType === 'ths_concept_sync') return 'ths';
   if (jobType === 'em_board_sync') return 'em';
   if (jobType === 'finance_calendar_sync') return 'cal';
+  if (jobType === 'cninfo_announcement_sync') return 'cninfo';
   return null;
 }
 
@@ -71,9 +72,11 @@ export function Scheduler() {
   const [thsProgress, setThsProgress] = useState<SyncProgress | null>(null);
   const [emProgress, setEmProgress] = useState<SyncProgress | null>(null);
   const [calProgress, setCalProgress] = useState<SyncProgress | null>(null);
+  const [cninfoProgress, setCninfoProgress] = useState<SyncProgress | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const activeProgress = useMemo(() => {
+    if (cninfoProgress?.active) return cninfoProgress;
     if (calProgress?.active) return calProgress;
     if (emProgress?.active) return emProgress;
     if (thsProgress?.active) return thsProgress;
@@ -81,28 +84,33 @@ export function Scheduler() {
       ? thsProgress
       : emProgress?.message
         ? emProgress
-        : calProgress;
-  }, [calProgress, emProgress, thsProgress]);
+        : calProgress?.message
+          ? calProgress
+          : cninfoProgress;
+  }, [calProgress, emProgress, thsProgress, cninfoProgress]);
 
   const load = useCallback(async () => {
     try {
-      const [jRes, rRes, thsRes, emRes, calRes] = await Promise.all([
+      const [jRes, rRes, thsRes, emRes, calRes, cninfoRes] = await Promise.all([
         fetch('/api/scheduler/jobs'),
         fetch('/api/scheduler/runs?limit=30'),
         fetch('/api/scheduler/ths-concept/progress'),
         fetch('/api/scheduler/em-board/progress'),
         fetch('/api/scheduler/finance-calendar/progress'),
+        fetch('/api/scheduler/cninfo-announcement/progress'),
       ]);
       const jData = await jRes.json().catch(() => ({}));
       const rData = await rRes.json().catch(() => ({}));
       const thsData = await thsRes.json().catch(() => ({}));
       const emData = await emRes.json().catch(() => ({}));
       const calData = await calRes.json().catch(() => ({}));
+      const cninfoData = await cninfoRes.json().catch(() => ({}));
       if (jData?.ok && Array.isArray(jData.jobs)) setJobs(jData.jobs);
       if (rData?.ok && Array.isArray(rData.runs)) setRuns(rData.runs);
       if (thsData?.ok) setThsProgress(thsData);
       if (emData?.ok) setEmProgress(emData);
       if (calData?.ok) setCalProgress(calData);
+      if (cninfoData?.ok) setCninfoProgress(cninfoData);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -183,6 +191,7 @@ export function Scheduler() {
     if (key === 'ths') return thsProgress;
     if (key === 'em') return emProgress;
     if (key === 'cal') return calProgress;
+    if (key === 'cninfo') return cninfoProgress;
     return null;
   };
 
@@ -276,6 +285,11 @@ export function Scheduler() {
                         拉取东财未来约 30 天财经日历（会议/经济数据/其他），增量 upsert 到本地库。
                       </div>
                     ) : null}
+                    {job.job_type === 'cninfo_announcement_sync' ? (
+                      <div className={styles.jobHint}>
+                        夜间同步巨潮全 A 股近两年公告元数据（标题/时间/PDF 链接）；侧栏「公告」读本地库。
+                      </div>
+                    ) : null}
                     {job.job_type === 'cn_daily_eod_patch' ? (
                       <div className={styles.jobHint}>
                         A 股收盘后用全市场快照补写当日日 K（含指数），供行情与 portal 曲线读盘。
@@ -286,7 +300,9 @@ export function Scheduler() {
                         Dashboard portal 面积图日 K：按该市场盘后拉取并写入本地库（历史读盘、当日/缺口才打网）。
                       </div>
                     ) : null}
-                    {job.job_type === 'finance_calendar_sync' && p?.active ? (
+                    {(job.job_type === 'finance_calendar_sync' ||
+                      job.job_type === 'cninfo_announcement_sync') &&
+                    p?.active ? (
                       <div className={styles.jobHint}>
                         进度 {p.message || '同步中…'}
                         {p.total ? ` · ${p.done ?? 0}/${p.total}` : ''}

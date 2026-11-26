@@ -666,16 +666,18 @@
 })(window);
 
 /**
- * 资讯侧栏：选股宝个股消息流。
- * API: GET /api/xgb/stocks/messages?symbol=&limit=&mark=
+ * 资讯侧栏：
+ * - 全部/异动/栏目：选股宝消息（不含公告 Style=3）
+ * - 公告：本地巨潮库 /api/cninfo/announcements，点击打开 PDF
  */
 (function (global) {
   const PAGE_SIZE = 20;
+  const NOTICE_PAGE = 50;
   const FILTERS = [
     { id: "all", label: "全部", style: null },
     { id: "flash", label: "异动", style: 1 },
     { id: "column", label: "栏目", style: 2 },
-    { id: "notice", label: "公告", style: 3 },
+    { id: "notice", label: "公告", style: null, source: "cninfo" },
   ];
 
   const esc = (s) =>
@@ -691,8 +693,12 @@
   let loading = false;
   let loadingMore = false;
   let lastKey = "";
+  let lastNoticeKey = "";
   let filterId = "all";
   let items = [];
+  let notices = [];
+  let noticeTotal = 0;
+  let noticeOffset = 0;
   let nextMark = "";
   let yahooSymbol = "";
   let pageSymbol = "";
@@ -712,7 +718,7 @@
     return { key: "column", label: "栏目" };
   }
 
-  /** CreatedAt：选股宝为秒级 Unix；偶发毫秒则原样用 */
+  /** CreatedAt / announce_time_ms：秒或毫秒均可 */
   function parseMsgTime(ts) {
     const n = Number(ts);
     if (!Number.isFinite(n) || n <= 0) return null;
@@ -734,7 +740,7 @@
   }
 
   /**
-   * 简写完整日期时间（始终含时分，避免只显示 M/D 造成误解）：
+   * 简写完整日期时间（始终含时分）：
    * - 同年：M/D HH:mm
    * - 跨年：YY/M/D HH:mm
    */
@@ -767,10 +773,17 @@
     );
   }
 
+  /** 选股宝流：去掉公告（Style=3），公告改读巨潮本地库 */
+  function xgbItemsNoNotice() {
+    return items.filter((m) => Number(m.Style) !== 3);
+  }
+
   function filteredItems() {
     const f = FILTERS.find((x) => x.id === filterId) || FILTERS[0];
-    if (f.style == null) return items;
-    return items.filter((m) => Number(m.Style) === f.style);
+    if (f.id === "notice") return notices;
+    const base = xgbItemsNoNotice();
+    if (f.style == null) return base;
+    return base.filter((m) => Number(m.Style) === f.style);
   }
 
   function setHtml(html) {
@@ -829,45 +842,159 @@
     </tr>`;
   }
 
-  function renderTable(list) {
+  function renderNoticeRow(a) {
+    const ms = Number(a.announce_time_ms) || 0;
+    const tShort = fmtTimeShort(ms);
+    const tFull = a.announce_time || fmtTimeFull(ms);
+    const titleText = a.title || "（无标题）";
+    const href = String(a.pdf_url || "").trim();
+    const titleHtml = href
+      ? `<a class="news-title" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(
+          titleText
+        )}">${esc(titleText)}</a>`
+      : `<span class="news-title" title="${esc(titleText)}">${esc(titleText)}</span>`;
+    const dots = [
+      renderDot("notice", "类型：公告"),
+      renderDot("source", "来源：巨潮资讯"),
+      href ? renderDot("related", "PDF") : "",
+    ].join("");
+    return `<tr class="news-row" data-style="notice">
+      <td class="news-col-title">${titleHtml}</td>
+      <td class="news-col-time" title="${esc(tFull)}">${esc(tShort)}</td>
+      <td class="news-col-dots"><div class="news-dots">${dots}</div></td>
+    </tr>`;
+  }
+
+  function renderTable(list, { notice = false } = {}) {
     return `<div class="news-table-wrap">
       <table class="news-table">
         <thead>
           <tr>
             <th class="news-col-title">标题</th>
             <th class="news-col-time">时间</th>
-            <th class="news-col-dots" title="类型 / 栏目 / 来源 / 关联">标记</th>
+            <th class="news-col-dots" title="${
+              notice ? "类型 / 来源 / PDF" : "类型 / 栏目 / 来源 / 关联"
+            }">标记</th>
           </tr>
         </thead>
-        <tbody>${list.map(renderRow).join("")}</tbody>
+        <tbody>${list
+          .map((row) => (notice ? renderNoticeRow(row) : renderRow(row)))
+          .join("")}</tbody>
       </table>
     </div>`;
   }
 
   function render() {
     const code = codeOf(pageSymbol);
+    const isNotice = filterId === "notice";
     const list = filteredItems();
-    const canMore = Boolean(nextMark) && filterId === "all";
-    const moreBtn = canMore
-      ? `<button type="button" class="news-more-btn" data-news-more${
-          loadingMore ? " disabled" : ""
-        }>${loadingMore ? "加载中…" : "加载更多"}</button>`
-      : nextMark && filterId !== "all"
-        ? `<div class="news-more-hint">筛选下仅展示已加载条目；切回「全部」可继续翻页</div>`
+    let moreBtn = "";
+    if (isNotice) {
+      const canMore = notices.length < noticeTotal;
+      moreBtn = canMore
+        ? `<button type="button" class="news-more-btn" data-news-more${
+            loadingMore ? " disabled" : ""
+          }>${loadingMore ? "加载中…" : "加载更多"}</button>`
         : "";
+    } else {
+      const canMore = Boolean(nextMark) && filterId === "all";
+      moreBtn = canMore
+        ? `<button type="button" class="news-more-btn" data-news-more${
+            loadingMore ? " disabled" : ""
+          }>${loadingMore ? "加载中…" : "加载更多"}</button>`
+        : nextMark && filterId !== "all"
+          ? `<div class="news-more-hint">筛选下仅展示已加载条目；切回「全部」可继续翻页</div>`
+          : "";
+    }
+
+    const emptyMsg = isNotice
+      ? notices.length || noticeTotal
+        ? "暂无更多公告"
+        : "暂无本地公告（夜间任务同步巨潮后可见）"
+      : xgbItemsNoNotice().length
+        ? "当前筛选下暂无资讯"
+        : "暂无相关资讯";
 
     const body =
       list.length === 0
-        ? `<div class="side-empty">${
-            items.length ? "当前筛选下暂无资讯" : "暂无相关资讯"
-          }</div>`
-        : `${renderTable(list)}${moreBtn}`;
+        ? `<div class="side-empty">${emptyMsg}</div>`
+        : `${renderTable(list, { notice: isNotice })}${moreBtn}`;
+
+    const summary = isNotice
+      ? `${esc(code || pageSymbol || "—")} · 巨潮公告 · ${noticeTotal || notices.length} 条`
+      : `${esc(code || pageSymbol || "—")} · 选股宝消息 · ${xgbItemsNoNotice().length} 条`;
 
     setHtml(`<div class="news-side-inner">
-      <div class="news-side-summary">${esc(code || pageSymbol || "—")} · 选股宝消息 · ${items.length} 条</div>
+      <div class="news-side-summary">${summary}</div>
       ${renderFilters()}
       ${body}
     </div>`);
+  }
+
+  async function fetchNotices({ append = false } = {}) {
+    const symbol = getSymbol() || global.SidePanel?.getState?.()?.symbol || "";
+    const code = codeOf(symbol);
+    if (!code) {
+      lastNoticeKey = "";
+      notices = [];
+      noticeTotal = 0;
+      noticeOffset = 0;
+      pageSymbol = symbol;
+      renderEmpty("请选择 A 股六位代码");
+      return;
+    }
+
+    if (append) loadingMore = true;
+    else {
+      loading = true;
+      if (!root?.querySelector?.(".news-side-inner")) {
+        setHtml(`<div class="side-empty">加载公告…</div>`);
+      }
+    }
+
+    try {
+      const offset = append ? noticeOffset : 0;
+      const qs = new URLSearchParams({
+        symbol: String(symbol),
+        limit: String(NOTICE_PAGE),
+        offset: String(offset),
+      });
+      const res = await fetch(`/api/cninfo/announcements?${qs}`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        if (!append) {
+          renderEmpty(data?.error || `加载失败（HTTP ${res.status}）`);
+          lastNoticeKey = "";
+        }
+        return;
+      }
+      const batch = Array.isArray(data.announcements) ? data.announcements : [];
+      pageSymbol = symbol;
+      noticeTotal = Number(data.total) || batch.length;
+      if (append) {
+        const seen = new Set(notices.map((a) => a.announcement_id));
+        for (const a of batch) {
+          if (a?.announcement_id && !seen.has(a.announcement_id)) {
+            notices.push(a);
+            seen.add(a.announcement_id);
+          }
+        }
+      } else {
+        notices = batch;
+        lastNoticeKey = code;
+      }
+      noticeOffset = notices.length;
+      render();
+    } catch (e) {
+      if (!append) {
+        renderEmpty(e?.message || "加载失败");
+        lastNoticeKey = "";
+      }
+    } finally {
+      loading = false;
+      loadingMore = false;
+      if (append && root?.querySelector?.("[data-news-more]")) render();
+    }
   }
 
   async function fetchPage({ mark = "", append = false } = {}) {
@@ -915,7 +1042,9 @@
         }
         return;
       }
-      const batch = Array.isArray(data.messages) ? data.messages : [];
+      const batch = (Array.isArray(data.messages) ? data.messages : []).filter(
+        (m) => Number(m?.Style) !== 3
+      );
       pageSymbol = symbol;
       yahooSymbol = String(data.yahoo_symbol || "");
       nextMark = String(data.next_mark || "");
@@ -945,21 +1074,54 @@
     }
   }
 
+  async function applyFilter(id) {
+    if (!id || id === filterId) return;
+    filterId = id;
+    if (id === "notice") {
+      const code = codeOf(getSymbol() || global.SidePanel?.getState?.()?.symbol || "");
+      if (code && code === lastNoticeKey && notices.length) {
+        render();
+        return;
+      }
+      await fetchNotices({ append: false });
+      return;
+    }
+    if (!items.length) {
+      await fetchPage({ append: false });
+      return;
+    }
+    render();
+  }
+
   async function refresh({ force = false } = {}) {
     if (!root) return;
     const symbol = getSymbol() || global.SidePanel?.getState?.()?.symbol || "";
     const code = codeOf(symbol);
     if (!code) {
       lastKey = "";
+      lastNoticeKey = "";
       items = [];
+      notices = [];
       renderEmpty("请选择 A 股六位代码");
+      return;
+    }
+    if (filterId === "notice") {
+      if (
+        !force &&
+        code === lastNoticeKey &&
+        notices.length &&
+        root.querySelector(".news-side-inner")
+      ) {
+        render();
+        return;
+      }
+      await fetchNotices({ append: false });
       return;
     }
     if (!force && code === lastKey && items.length && root.querySelector(".news-side-inner")) {
       render();
       return;
     }
-    filterId = "all";
     nextMark = "";
     await fetchPage({ append: false });
   }
@@ -970,7 +1132,9 @@
       refresh({ force: true });
     } else {
       lastKey = "";
+      lastNoticeKey = "";
       items = [];
+      notices = [];
       nextMark = "";
       if (root && !loading) {
         const code = codeOf(symbol);
@@ -989,15 +1153,16 @@
         const filterBtn = e.target?.closest?.("[data-news-filter]");
         if (filterBtn && root.contains(filterBtn)) {
           const id = filterBtn.getAttribute("data-news-filter");
-          if (id && id !== filterId) {
-            filterId = id;
-            render();
-          }
+          void applyFilter(id);
           return;
         }
         const moreBtn = e.target?.closest?.("[data-news-more]");
-        if (moreBtn && root.contains(moreBtn) && !loadingMore && nextMark) {
-          fetchPage({ mark: nextMark, append: true });
+        if (moreBtn && root.contains(moreBtn) && !loadingMore) {
+          if (filterId === "notice") {
+            if (notices.length < noticeTotal) void fetchNotices({ append: true });
+          } else if (nextMark) {
+            fetchPage({ mark: nextMark, append: true });
+          }
         }
       });
     }

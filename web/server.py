@@ -162,6 +162,16 @@ except Exception as _cal_exc:  # noqa: BLE001
 
     logging.getLogger("uvicorn.error").warning("finance calendar disabled: %s", _cal_exc)
 
+# 巨潮 A 股公告（本地库；夜间同步）
+try:
+    from cninfo.api import router as _cninfo_router
+
+    app.include_router(_cninfo_router)
+except Exception as _cninfo_exc:  # noqa: BLE001
+    import logging
+
+    logging.getLogger("uvicorn.error").warning("cninfo announcements disabled: %s", _cninfo_exc)
+
 # 网址收藏夹
 try:
     from favorites.api import router as _favorites_router

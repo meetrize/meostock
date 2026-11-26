@@ -382,3 +382,41 @@ CREATE TABLE IF NOT EXISTS user_pref (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_pref_ns ON user_pref (user_id, namespace);
+
+-- 巨潮资讯：A 股公告元数据（标题/时间/PDF 链接；PDF 本身不落盘）
+CREATE TABLE IF NOT EXISTS cninfo_stock (
+  code TEXT PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  market TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  updated_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cninfo_stock_org ON cninfo_stock (org_id);
+
+CREATE TABLE IF NOT EXISTS cninfo_announcement (
+  announcement_id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  org_id TEXT,
+  title TEXT NOT NULL DEFAULT '',
+  announce_time_ms INTEGER NOT NULL DEFAULT 0,
+  adjunct_url TEXT,
+  adjunct_type TEXT,
+  fetched_at REAL NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cninfo_ann_code_time
+  ON cninfo_announcement (code, announce_time_ms DESC);
+
+CREATE TABLE IF NOT EXISTS cninfo_sync_state (
+  code TEXT PRIMARY KEY,
+  backfill_done INTEGER NOT NULL DEFAULT 0,
+  last_sync_at REAL,
+  oldest_ms INTEGER,
+  newest_ms INTEGER,
+  last_error TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_cninfo_sync_backfill
+  ON cninfo_sync_state (backfill_done, last_sync_at);
