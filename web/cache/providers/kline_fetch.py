@@ -1467,6 +1467,63 @@ def fetch_kline_bars(norm: dict[str, str], period: str) -> tuple[list[dict[str, 
     raise ValueError(f"unsupported market: {market}")
 
 
+def _bar_sig(bar: dict[str, Any] | None, count: int) -> tuple:
+    b = bar or {}
+    return (
+        int(b.get("timestamp") or 0),
+        float(b.get("open") or 0),
+        float(b.get("high") or 0),
+        float(b.get("low") or 0),
+        float(b.get("close") or 0),
+        float(b.get("volume") or 0),
+        count,
+    )
+
+
+def merge_recent_daily_bars(
+    local: list[dict[str, Any]],
+    fresh: list[dict[str, Any]],
+    *,
+    tail: int = 12,
+) -> tuple[list[dict[str, Any]], bool]:
+    """用 freshly 拉到的最近若干日覆盖/追加本地日 K（缺昨日及当日时落库）。"""
+    if not fresh:
+        return local, False
+    by_ts: dict[int, dict[str, Any]] = {}
+    for b in local or []:
+        try:
+            ts = int(b.get("timestamp") or 0)
+        except (TypeError, ValueError):
+            continue
+        if ts > 0:
+            by_ts[ts] = b
+    before_n = len(by_ts)
+    before_last = _bar_sig(local[-1] if local else None, before_n)
+    for b in fresh[-max(1, tail) :]:
+        try:
+            ts = int(b.get("timestamp") or 0)
+        except (TypeError, ValueError):
+            continue
+        if ts <= 0:
+            continue
+        by_ts[ts] = {
+            "timestamp": ts,
+            "open": float(b.get("open") or 0),
+            "high": float(b.get("high") or 0),
+            "low": float(b.get("low") or 0),
+            "close": float(b.get("close") or 0),
+            "volume": float(b.get("volume") or 0),
+            **(
+                {"amount": float(b["amount"])}
+                if b.get("amount") not in (None, "", 0, 0.0)
+                else {}
+            ),
+        }
+    out = sorted(by_ts.values(), key=lambda x: int(x["timestamp"]))
+    after_last = _bar_sig(out[-1] if out else None, len(out))
+    return out, after_last != before_last
+
+
 def patch_daily_live_bar(
     norm: dict[str, str],
     bars: list[dict[str, Any]],
@@ -1474,27 +1531,19 @@ def patch_daily_live_bar(
     """本地已有历史日 K 时，仅用实时/现价补或改当日棒。
 
     返回 (bars, name_or_None, changed)。不拉全量历史，优先保证打开速度。
+    cn/hk/us：现价补棒；yf/futures：拉最近日 K 窗合并尾部并落库。
     """
     if not bars:
         return bars, None, False
     market = (norm.get("market") or "").lower()
     symbol = norm.get("symbol") or ""
-    if market not in ("cn", "hk", "us") or not symbol:
+    if market not in ("cn", "hk", "us", "yf", "futures") or not symbol:
         return bars, None, False
 
-    before = bars[-1]
-    before_sig = (
-        int(before.get("timestamp") or 0),
-        float(before.get("open") or 0),
-        float(before.get("high") or 0),
-        float(before.get("low") or 0),
-        float(before.get("close") or 0),
-        float(before.get("volume") or 0),
-        len(bars),
-    )
-
+    before_sig = _bar_sig(bars[-1], len(bars))
     name: str | None = None
     out = bars
+
     if market == "us":
         spot = fetch_us_spot(symbol)
         if not spot:
@@ -1513,24 +1562,36 @@ def patch_daily_live_bar(
         out = merge_today_daily_bar(
             list(bars), spot, tz_name="Asia/Hong_Kong", open_hm=(9, 30)
         )
-    else:
+    elif market == "cn":
         spot = fetch_cn_spot(symbol)
         if not spot:
             return bars, None, False
         if spot.get("name"):
             name = str(spot["name"])
         out = merge_cn_today_daily_bar(list(bars), spot)
+    elif market == "yf":
+        yf_sym = norm.get("yf_symbol") or symbol
+        try:
+            fresh, fname = fetch_yf_bars(yf_sym, "1d")
+        except Exception:
+            return bars, None, False
+        if not fresh:
+            return bars, None, False
+        name = fname or None
+        out, changed = merge_recent_daily_bars(bars, fresh, tail=12)
+        return out, name, changed
+    else:  # futures
+        try:
+            fresh, fname, _src = fetch_futures_bars(symbol, "1d")
+        except Exception:
+            return bars, None, False
+        if not fresh:
+            return bars, None, False
+        name = fname or None
+        out, changed = merge_recent_daily_bars(bars, fresh, tail=12)
+        return out, name, changed
 
-    after = out[-1] if out else {}
-    after_sig = (
-        int(after.get("timestamp") or 0),
-        float(after.get("open") or 0),
-        float(after.get("high") or 0),
-        float(after.get("low") or 0),
-        float(after.get("close") or 0),
-        float(after.get("volume") or 0),
-        len(out),
-    )
+    after_sig = _bar_sig(out[-1] if out else None, len(out))
     return out, name, after_sig != before_sig
 
 

@@ -55,6 +55,47 @@ DEFAULT_JOBS: list[dict[str, Any]] = [
         "interval_minutes": 30,
         "align_cn_kline_eod": True,
     },
+    # Dashboard portal 曲线：按市场盘后分 lane 补全日 K
+    {
+        "id": "portal_kline_eod_cn",
+        "name": "Portal日K·A股/期货",
+        "job_type": "portal_kline_eod_cn",
+        "enabled": 1,
+        "interval_minutes": 30,
+        "align_portal_kline_eod": "cn",
+    },
+    {
+        "id": "portal_kline_eod_asia",
+        "name": "Portal日K·亚太",
+        "job_type": "portal_kline_eod_asia",
+        "enabled": 1,
+        "interval_minutes": 30,
+        "align_portal_kline_eod": "asia",
+    },
+    {
+        "id": "portal_kline_eod_eu",
+        "name": "Portal日K·欧洲",
+        "job_type": "portal_kline_eod_eu",
+        "enabled": 1,
+        "interval_minutes": 30,
+        "align_portal_kline_eod": "eu",
+    },
+    {
+        "id": "portal_kline_eod_us",
+        "name": "Portal日K·美股宏观",
+        "job_type": "portal_kline_eod_us",
+        "enabled": 1,
+        "interval_minutes": 30,
+        "align_portal_kline_eod": "us",
+    },
+    {
+        "id": "portal_kline_eod_crypto",
+        "name": "Portal日K·加密",
+        "job_type": "portal_kline_eod_crypto",
+        "enabled": 1,
+        "interval_minutes": 60,
+        "align_portal_kline_eod": "crypto",
+    },
 ]
 
 
@@ -82,6 +123,15 @@ def _default_next_run(job: dict[str, Any], now: float) -> float:
             from scheduler.cn_daily_eod_patch import next_cn_kline_eod_ts
 
             return next_cn_kline_eod_ts(now)
+        except Exception:  # noqa: BLE001
+            pass
+    lane = job.get("align_portal_kline_eod")
+    if lane or str(job.get("id") or "").startswith("portal_kline_eod_"):
+        try:
+            from scheduler.portal_kline_eod import next_portal_kline_eod_ts
+
+            lane_id = str(lane or str(job.get("id")).removeprefix("portal_kline_eod_"))
+            return next_portal_kline_eod_ts(lane_id, now)
         except Exception:  # noqa: BLE001
             pass
     return now + int(job.get("interval_minutes") or 360) * 60
@@ -235,6 +285,13 @@ def _next_run_after_finish(job_id: str, now: float, interval_minutes: int) -> fl
             from scheduler.cn_daily_eod_patch import next_cn_kline_eod_ts
 
             return next_cn_kline_eod_ts(now)
+        except Exception:  # noqa: BLE001
+            pass
+    if job_id.startswith("portal_kline_eod_"):
+        try:
+            from scheduler.portal_kline_eod import next_portal_kline_eod_ts
+
+            return next_portal_kline_eod_ts(job_id.removeprefix("portal_kline_eod_"), now)
         except Exception:  # noqa: BLE001
             pass
     return now + max(5, interval_minutes) * 60

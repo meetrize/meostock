@@ -17,6 +17,7 @@ import {
 } from '@/utils/format';
 import { openKlineTool } from '@/utils/multipanel';
 import type { QuoteSource } from '@/types';
+import { usePortalCurveBars } from '../portalCurvesContext';
 import { useWidgetHeaderSlot } from '../widgetHeaderSlotContext';
 import styles from '../widgetContent.module.css';
 
@@ -61,12 +62,15 @@ async function fetchDailyBars(
   const existing = klineInflight.get(key);
   if (existing) return existing;
 
+  // 单票回退：portal 外复用时；portal 内应走 batch Context
   const qs = new URLSearchParams({
     symbol,
     period: '1d',
+    max_bars: '60',
+    slim: '1',
+    defer_live: '1',
   });
   if (source === 'local') qs.set('cache_only', '1');
-  else if (source === 'network') qs.set('force', '1');
   else qs.set('local_first', '1');
 
   const promise = (async () => {
@@ -202,13 +206,28 @@ export function SparkQuoteWidget({
       ? settings.quoteSource
       : 'auto';
 
+  const symbol = klineSymbol || code;
+  const batch = usePortalCurveBars(symbol);
+
   const [bars, setBars] = useState<SparkBar[] | null>(null);
   const [chartError, setChartError] = useState<string | null>(null);
   const [chartLoading, setChartLoading] = useState(true);
 
-  const symbol = klineSymbol || code;
-
+  // Portal：吃批量 Context；无 Provider 时回退单票（复用场景）
   useEffect(() => {
+    if (batch.fromBatch) {
+      if (batch.loading && !batch.bars) {
+        setChartLoading(true);
+        setChartError(null);
+        return;
+      }
+      const rows = batch.bars || [];
+      setBars(rows);
+      setChartError(rows.length ? null : batch.error || '暂无日线');
+      setChartLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setChartLoading(true);
     setChartError(null);
@@ -231,7 +250,7 @@ export function SparkQuoteWidget({
     return () => {
       cancelled = true;
     };
-  }, [symbol, quoteSource]);
+  }, [symbol, quoteSource, batch.fromBatch, batch.bars, batch.loading, batch.error]);
 
   const todayChg = quote?.changePercent;
   const todayUp =

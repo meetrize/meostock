@@ -289,8 +289,44 @@ def hk_daily_bars_missing_today(bars: list | None, now: datetime | None = None) 
     return last_day < hk_session_date(now)
 
 
+def yf_session_tz_name(symbol: str = "") -> str:
+    """Yahoo 标的粗分时区（portal spark 用）。"""
+    s = (symbol or "").upper()
+    if any(k in s for k in ("BTC", "ETH", "SOL", "BNB")) and (
+        "-USD" in s or s.endswith("USD")
+    ):
+        return "UTC"
+    if s in ("^HSI",) or s.endswith(".HK") or "HKD" in s:
+        return "Asia/Hong_Kong"
+    if s in ("^N225", "^KS11"):
+        return "Asia/Tokyo"
+    if s in ("^GDAXI", "^FTSE", "^STOXX50E") or s.startswith("^STOXX"):
+        return "Europe/Berlin"
+    return "America/New_York"
+
+
+def yf_session_date(symbol: str = "", now: datetime | None = None) -> date:
+    tz = ZoneInfo(yf_session_tz_name(symbol))
+    # 加密 7x24：按日历日 00:00；其它按当地 09:00 前算上一交易日
+    open_t = time(0, 0) if str(tz) == "UTC" else time(9, 0)
+    d = _session_date_for_tz(tz, open_t, now)
+    if str(tz) != "UTC":
+        while d.weekday() >= 5:
+            d = d - timedelta(days=1)
+    return d
+
+
+def futures_session_date(now: datetime | None = None) -> date:
+    """国内期货粗用 A 股交易日（夜盘归属到下一交易日开盘前逻辑由 session_date 处理）。"""
+    return cn_session_date(now)
+
+
 def daily_bars_missing_today(
-    market: str, bars: list | None, now: datetime | None = None
+    market: str,
+    bars: list | None,
+    now: datetime | None = None,
+    *,
+    symbol: str = "",
 ) -> bool:
     m = (market or "").lower()
     if m == "cn":
@@ -299,26 +335,63 @@ def daily_bars_missing_today(
         return us_daily_bars_missing_today(bars, now)
     if m == "hk":
         return hk_daily_bars_missing_today(bars, now)
+    if m == "futures":
+        last = _last_bar_day(bars, _SH)
+        if last is None:
+            return False
+        return last < futures_session_date(now)
+    if m == "yf":
+        tz = ZoneInfo(yf_session_tz_name(symbol))
+        last = _last_bar_day(bars, tz)
+        if last is None:
+            return False
+        return last < yf_session_date(symbol, now)
     return False
 
 
 def daily_bars_need_live_patch(
-    market: str, bars: list | None, now: datetime | None = None
+    market: str,
+    bars: list | None,
+    now: datetime | None = None,
+    *,
+    symbol: str = "",
 ) -> bool:
     """日 K 是否需要用实时/现价补当日棒。
 
     - 盘中（A 股含午休）：总是补，保证最新价
     - 盘后：仅当末根落后于当前交易日时补（避免北京白天狂刷已齐的美股）
+    - yf/futures：按标的时区盘中总是补，盘后仅缺日才补
     """
     m = (market or "").lower()
-    if m not in ("cn", "hk", "us") or not bars:
+    if not bars:
         return False
     if m == "cn":
         if is_cn_trade_daytime(now):
             return True
-    elif is_session_open(m, now):
-        return True
-    return daily_bars_missing_today(m, bars, now)
+        return daily_bars_missing_today(m, bars, now, symbol=symbol)
+    if m in ("hk", "us"):
+        if is_session_open(m, now):
+            return True
+        return daily_bars_missing_today(m, bars, now, symbol=symbol)
+    if m == "futures":
+        if is_session_open("futures", now) or is_cn_trade_daytime(now):
+            return True
+        return daily_bars_missing_today(m, bars, now, symbol=symbol)
+    if m == "yf":
+        # 加密近似总是可补；其它看缺日 / 美欧亚交易时段粗判
+        sym = (symbol or "").upper()
+        if any(k in sym for k in ("BTC", "ETH", "SOL", "BNB")):
+            return True
+        if is_session_open("us", now) or is_session_open("hk", now):
+            return True
+        # 欧盘白天（柏林 8–18）
+        eu = (now or datetime.now(tz=ZoneInfo("Europe/Berlin"))).astimezone(
+            ZoneInfo("Europe/Berlin")
+        )
+        if eu.weekday() < 5 and time(8, 0) <= eu.time() <= time(18, 30):
+            return True
+        return daily_bars_missing_today(m, bars, now, symbol=symbol)
+    return False
 
 
 def _prev_trade_day(d: date, market: str) -> date:
@@ -331,7 +404,7 @@ def _prev_trade_day(d: date, market: str) -> date:
             x = x - timedelta(days=1)
             guard += 1
             continue
-        if m in ("cn", "hk") and is_cn_holiday(x):
+        if m in ("cn", "hk", "futures") and is_cn_holiday(x):
             x = x - timedelta(days=1)
             guard += 1
             continue
@@ -340,7 +413,11 @@ def _prev_trade_day(d: date, market: str) -> date:
 
 
 def daily_bars_multi_day_gap(
-    market: str, bars: list | None, now: datetime | None = None
+    market: str,
+    bars: list | None,
+    now: datetime | None = None,
+    *,
+    symbol: str = "",
 ) -> bool:
     """末根早于「上一交易日」→ 缺中间日，轻量现价补不够，需全量重拉。"""
     m = (market or "").lower()
@@ -353,11 +430,18 @@ def daily_bars_multi_day_gap(
     elif m == "hk":
         last = _last_bar_day(bars, _HK)
         sess = hk_session_date(now)
+    elif m == "futures":
+        last = _last_bar_day(bars, _SH)
+        sess = futures_session_date(now)
+    elif m == "yf":
+        tz = ZoneInfo(yf_session_tz_name(symbol))
+        last = _last_bar_day(bars, tz)
+        sess = yf_session_date(symbol, now)
     else:
         return False
     if last is None:
         return False
-    return last < _prev_trade_day(sess, m)
+    return last < _prev_trade_day(sess, m if m != "yf" else "us")
 
 
 def kline_ttl_seconds(mode: str, period: str, market: str = "", now: datetime | None = None) -> float:

@@ -276,6 +276,16 @@ export function Scheduler() {
                         拉取东财未来约 30 天财经日历（会议/经济数据/其他），增量 upsert 到本地库。
                       </div>
                     ) : null}
+                    {job.job_type === 'cn_daily_eod_patch' ? (
+                      <div className={styles.jobHint}>
+                        A 股收盘后用全市场快照补写当日日 K（含指数），供行情与 portal 曲线读盘。
+                      </div>
+                    ) : null}
+                    {String(job.job_type || '').startsWith('portal_kline_eod_') ? (
+                      <div className={styles.jobHint}>
+                        Dashboard portal 面积图日 K：按该市场盘后拉取并写入本地库（历史读盘、当日/缺口才打网）。
+                      </div>
+                    ) : null}
                     {job.job_type === 'finance_calendar_sync' && p?.active ? (
                       <div className={styles.jobHint}>
                         进度 {p.message || '同步中…'}

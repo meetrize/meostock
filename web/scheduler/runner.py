@@ -44,11 +44,21 @@ def _register_handlers() -> None:
 
         return run_cn_daily_eod_patch(force_snapshot=True, skip_non_trade_day=True)
 
+    def _portal_eod(lane: str):
+        def _handler() -> dict[str, Any]:
+            from scheduler.portal_kline_eod import run_portal_kline_eod
+
+            return run_portal_kline_eod(lane, force=True, skip_non_trade_day=True)
+
+        return _handler
+
     jobs_mod.register_handler("ths_concept_sync", ths_handler)
     jobs_mod.register_handler("em_board_sync", em_handler)
     jobs_mod.register_handler("finance_calendar_sync", cal_handler)
     jobs_mod.register_handler("zt_pool_eod_snapshot", zt_eod_handler)
     jobs_mod.register_handler("cn_daily_eod_patch", cn_daily_eod_handler)
+    for _lane in ("cn", "asia", "eu", "us", "crypto"):
+        jobs_mod.register_handler(f"portal_kline_eod_{_lane}", _portal_eod(_lane))
 
 
 def _tick() -> None:

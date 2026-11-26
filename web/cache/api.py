@@ -50,10 +50,18 @@ _ENABLED = os.environ.get("QUOTE_CACHE_ENABLED", "1").strip() not in ("0", "fals
 # K 线后台刷新去重（market, symbol, period）
 _kline_bg_lock = threading.Lock()
 _kline_bg_inflight: set[tuple[str, str, str]] = set()
+_portal_live_lock = threading.Lock()
+_portal_live_inflight = False
 
 
-def _serialize_kline_bar(b: dict[str, Any]) -> dict[str, Any]:
-    """对外 K 线字段：OHLCV + amount（有则带上，供前端成交额 tip）。"""
+def _serialize_kline_bar(b: dict[str, Any], *, slim: bool = False) -> dict[str, Any]:
+    """对外 K 线字段。slim=True 时仅 timestamp/close/volume（portal 面积图）。"""
+    if slim:
+        return {
+            "timestamp": b["timestamp"],
+            "close": b["close"],
+            "volume": b.get("volume") or 0,
+        }
     out: dict[str, Any] = {
         "timestamp": b["timestamp"],
         "open": b["open"],
@@ -69,6 +77,15 @@ def _serialize_kline_bar(b: dict[str, Any]) -> dict[str, Any]:
         except (TypeError, ValueError):
             pass
     return out
+
+
+def _serialize_bars(
+    bars: list[dict[str, Any]], *, slim: bool = False, max_bars: int | None = None
+) -> list[dict[str, Any]]:
+    seq = bars
+    if max_bars is not None and max_bars > 0 and len(seq) > max_bars:
+        seq = seq[-max_bars:]
+    return [_serialize_kline_bar(b, slim=slim) for b in seq]
 
 
 def _refresh_kline_background(norm: dict[str, str], period_n: str) -> None:
@@ -114,6 +131,73 @@ def _schedule_kline_bg(norm: dict[str, str], period_n: str) -> bool:
     return True
 
 
+def _portal_live_batch_worker(norms: list[dict[str, str]], period_n: str) -> None:
+    """Portal 批量后台补当日：串行限流，避免 26 路同时打网。"""
+    global _portal_live_inflight
+    try:
+        for norm in norms:
+            market = norm["market"]
+            sym = norm["symbol"]
+            try:
+                bars = kline_models.read_kline_bars(market, sym, period_n)
+                if not bars:
+                    fresh, name, source = fetch_kline_bars(norm, period_n)
+                    if fresh:
+                        kline_models.upsert_kline_bars(
+                            market,
+                            sym,
+                            period_n,
+                            fresh,
+                            source=source,
+                            name=name,
+                            touch_as_of=True,
+                        )
+                    continue
+                if daily_bars_multi_day_gap(market, bars, symbol=sym):
+                    _schedule_kline_bg(norm, period_n)
+                    continue
+                if not daily_bars_need_live_patch(market, bars, symbol=sym):
+                    continue
+                patched, patch_name, changed = patch_daily_live_bar(norm, bars)
+                if not changed:
+                    continue
+                tail_n = 12 if market in ("yf", "futures") else 5
+                kline_models.upsert_kline_bars(
+                    market,
+                    sym,
+                    period_n,
+                    patched[-tail_n:],
+                    source="portal-live",
+                    name=patch_name,
+                    touch_as_of=True,
+                )
+            except Exception as e:  # noqa: BLE001
+                _log.warning(
+                    "portal live batch fail %s/%s: %s", market, sym, e
+                )
+    finally:
+        with _portal_live_lock:
+            _portal_live_inflight = False
+
+
+def _schedule_portal_live_batch(norms: list[dict[str, str]], period_n: str) -> bool:
+    global _portal_live_inflight
+    if not norms:
+        return False
+    with _portal_live_lock:
+        if _portal_live_inflight:
+            return False
+        _portal_live_inflight = True
+    th = threading.Thread(
+        target=_portal_live_batch_worker,
+        args=(list(norms), period_n),
+        name="portal-kline-live-batch",
+        daemon=True,
+    )
+    th.start()
+    return True
+
+
 class ModeBody(BaseModel):
     mode: str = Field(..., description="speed|balanced|realtime")
 
@@ -152,6 +236,17 @@ class KlineWarmupBody(BaseModel):
     symbols: list[str] | None = None  # 如 ["fut:AUM","fut:SCM"]；空则用默认清单
     period: str = "1d"
     force: bool = False
+
+
+class KlineBatchBody(BaseModel):
+    """Portal 面积图批量日 K。"""
+
+    symbols: list[str] = Field(default_factory=list)
+    period: str = "1d"
+    max_bars: int = 60
+    defer_live: bool = True
+    cache_only: bool = False
+    slim: bool = True
 
 
 class KlineBulkSyncBody(BaseModel):
@@ -639,17 +734,27 @@ def cache_kline(
         0,
         description="1=只读本地 SQLite，不拉网、不后台刷新（前端「缓存模式」）",
     ),
+    defer_live: int = Query(
+        0,
+        description="1=不阻塞补当日（portal 用）；有需要则后台补",
+    ),
     before_ts: int | None = Query(
         None,
         description="毫秒时间戳；有则向前续拉更早 K 线（缩放触左缘）",
     ),
     limit: int = Query(500, description="向前续拉每页根数，默认 500，上限 1000"),
+    max_bars: int | None = Query(
+        None,
+        description="只返回末 N 根（portal 面积图建议 60）；空=服务端默认窗",
+    ),
+    slim: int = Query(0, description="1=仅 timestamp/close/volume"),
     mode: str | None = Query(None),
 ) -> JSONResponse:
     """K 线本地缓存：先读盘，过期或 force 再拉源并落库。
 
     ``local_first=1``：只要盘上有 bars 就立刻返回，需要联网时后台刷新（对齐列表 snapshot 的 stale-while-revalidate）。
     ``cache_only=1``：仅返回已缓存 bars，无缓存则 404。
+    ``defer_live=1``：有盘时跳过同步 live 补棒，改后台（portal 多面板）。
     ``before_ts``：向前续拉，返回严格早于该时间的一页 bars。
     """
     if not _ENABLED:
@@ -666,6 +771,9 @@ def cache_kline(
     active_mode = normalize_mode(mode) if mode else models.get_mode()
     quote_source = models.get_quote_source()
     only_cache = bool(cache_only)
+    defer = bool(defer_live)
+    slim_out = bool(slim)
+    tail_n = max(1, min(int(max_bars), 2000)) if max_bars else None
     page_limit = max(1, min(int(limit or 500), 1000))
 
     # 确保表存在（旧库升级）
@@ -784,13 +892,18 @@ def cache_kline(
             }
         )
 
-    bars = kline_models.read_kline_bars(market, sym, period_n)
+    read_limit = tail_n if tail_n else 800
+    bars = kline_models.read_kline_bars(market, sym, period_n, limit=read_limit)
     now = time.time()
     as_of = float(meta["as_of"]) if meta and meta.get("as_of") else None
     age = (now - as_of) if as_of is not None else None
     ttl_stale = kline_is_stale(age, active_mode, period_n, market)
-    missing_today = period_n == "1d" and daily_bars_missing_today(market, bars)
-    need_live = period_n == "1d" and daily_bars_need_live_patch(market, bars)
+    missing_today = period_n == "1d" and daily_bars_missing_today(
+        market, bars, symbol=sym
+    )
+    need_live = period_n == "1d" and daily_bars_need_live_patch(
+        market, bars, symbol=sym
+    )
     stale = bool(ttl_stale or missing_today)
     allow_net = (not only_cache) and quote_source != "local"
 
@@ -812,7 +925,7 @@ def cache_kline(
                 },
                 status_code=404,
             )
-        out_bars = [_serialize_kline_bar(b) for b in bars]
+        out_bars = _serialize_bars(bars, slim=slim_out, max_bars=tail_n)
         return JSONResponse(
             {
                 "ok": True,
@@ -835,24 +948,29 @@ def cache_kline(
         )
 
     # 落后超过 1 个交易日：现价只能补「当日」，中间空洞必须全量重拉
-    multi_gap = period_n == "1d" and daily_bars_multi_day_gap(market, bars)
+    multi_gap = period_n == "1d" and daily_bars_multi_day_gap(
+        market, bars, symbol=sym
+    )
 
     # —— 日 K：本地历史 + 实时/现价轻量补当日（比全量重拉快）——
+    # defer_live：portal 多面板不阻塞，改后台补
     if (
         period_n == "1d"
         and bars
         and allow_net
         and need_live
         and not multi_gap
+        and not defer
     ):
         try:
             patched, patch_name, changed = patch_daily_live_bar(norm, bars)
             if changed:
+                patch_tail = 12 if market in ("yf", "futures") else 5
                 kline_models.upsert_kline_bars(
                     market,
                     sym,
                     period_n,
-                    patched[-5:],
+                    patched[-patch_tail:],
                     source=(f"{source}+live" if source else "live"),
                     name=patch_name or name,
                     touch_as_of=True,
@@ -863,8 +981,8 @@ def cache_kline(
                 source = f"{source}+live" if source else "live"
                 live_patched = True
                 as_of = time.time()
-                missing_today = daily_bars_missing_today(market, bars)
-                need_live = daily_bars_need_live_patch(market, bars)
+                missing_today = daily_bars_missing_today(market, bars, symbol=sym)
+                need_live = daily_bars_need_live_patch(market, bars, symbol=sym)
                 stale = bool(ttl_stale or missing_today)
         except Exception as e:  # noqa: BLE001
             _log.warning("kline live patch failed %s/%s: %s", market, sym, e)
@@ -876,7 +994,7 @@ def cache_kline(
     else:
         need_full = bool(force) or (not bars)
         if should_auto_sync(active_mode):
-            if ttl_stale or multi_gap or (missing_today and not live_patched):
+            if ttl_stale or multi_gap or (missing_today and not live_patched and not defer):
                 need_full = True
             # 非日 K：network 源仍可每次同步；日 K 走「本地历史 + 当日 live」
             if quote_source == "network" and period_n != "1d":
@@ -885,11 +1003,17 @@ def cache_kline(
 
     # —— 多面板加速：有缓存则先返回；当日已 live 补齐，历史过期再后台全量 ——
     # 多日空洞时不走 local_first（否则首屏会缺中间交易日）
-    if local_first and bars and not force and not multi_gap:
-        if need_net and allow_net:
+    # defer_live：有盘即返回，live/全量都丢后台
+    if local_first and bars and not force and (not multi_gap or defer):
+        if defer and allow_net and (need_live or multi_gap or (ttl_stale and should_auto_sync(active_mode))):
+            refreshing = _schedule_portal_live_batch([norm], period_n) or _schedule_kline_bg(
+                norm, period_n
+            )
+            stale = True
+        elif need_net and allow_net:
             refreshing = _schedule_kline_bg(norm, period_n)
             stale = True
-        out_bars = [_serialize_kline_bar(b) for b in bars]
+        out_bars = _serialize_bars(bars, slim=slim_out, max_bars=tail_n)
         return JSONResponse(
             {
                 "ok": True,
@@ -905,6 +1029,7 @@ def cache_kline(
                 "live_patched": live_patched,
                 "stale": bool(stale),
                 "refreshing": refreshing,
+                "deferred_live": defer,
                 "mode": active_mode,
                 "ttl_sec": kline_ttl_seconds(active_mode, period_n, market),
                 "as_of": as_of,
@@ -925,7 +1050,9 @@ def cache_kline(
                     name=fetch_name,
                     touch_as_of=True,
                 )
-                bars = kline_models.read_kline_bars(market, sym, period_n)
+                bars = kline_models.read_kline_bars(
+                    market, sym, period_n, limit=read_limit
+                )
                 name = fetch_name or name
                 source = fetch_source
                 from_cache = False
@@ -949,8 +1076,7 @@ def cache_kline(
                 )
             stale = True
 
-    # 去掉内部 source 字段，保持与 index.html toBars 一致（含 amount）
-    out_bars = [_serialize_kline_bar(b) for b in bars]
+    out_bars = _serialize_bars(bars, slim=slim_out, max_bars=tail_n)
     hist_exhausted = bool(meta and int(meta.get("history_exhausted") or 0))
     # 日/周默认可向后；已耗尽则关闭
     can_backward = period_n in ("1d", "1w", "1M") and not hist_exhausted
@@ -979,27 +1105,23 @@ def cache_kline(
     )
 
 
-# 总览 spark 面板 K 线预热清单（与前端 sparkCatalog 对齐）
-_DEFAULT_SPARK_KLINE = (
-    # 国内期货主连
-    "fut:AUM",
-    "fut:AGM",
-    "fut:CUM",
-    "fut:RBM",
-    "fut:SCM",
-    "fut:RUM",
-    "fut:MM",
-    "fut:IFM",
-    "fut:ICM",
-    "fut:IMM",
-    # 国际商品 / 贵金属（Yahoo）
-    "yf:GC=F",
-    "yf:SI=F",
-    "yf:CL=F",
-    "yf:BZ=F",
-    "yf:HG=F",
-    "yf:NG=F",
-)
+# 总览 spark 面板 K 线预热清单（portal_curves 单一事实源）
+def _default_spark_kline_symbols() -> tuple[str, ...]:
+    try:
+        from cache.portal_curves import portal_symbols_all
+
+        return tuple(portal_symbols_all())
+    except Exception:  # noqa: BLE001
+        return (
+            "sh000001",
+            "sz399001",
+            "fut:AUM",
+            "yf:^GSPC",
+            "yf:BTC-USD",
+        )
+
+
+_DEFAULT_SPARK_KLINE = _default_spark_kline_symbols()
 
 
 def warmup_kline_symbols(
@@ -1059,6 +1181,161 @@ def warmup_kline_symbols(
         "items": ok_list,
         "fail": fail_list,
     }
+
+
+@router.get("/kline/portal-symbols")
+def cache_kline_portal_symbols() -> JSONResponse:
+    """Portal 曲线符号清单（EOD / 前端对齐用）。"""
+    from cache.portal_curves import list_portal_curve_specs, portal_symbols_all
+
+    specs = list_portal_curve_specs()
+    return JSONResponse(
+        {
+            "ok": True,
+            "count": len(specs),
+            "symbols": portal_symbols_all(),
+            "specs": specs,
+        }
+    )
+
+
+def _kline_batch_read(
+    raw_symbols: list[str],
+    *,
+    period: str = "1d",
+    max_bars: int = 60,
+    defer_live: bool = True,
+    cache_only: bool = False,
+    slim: bool = True,
+) -> dict[str, Any]:
+    """批量只读本地日 K；缺日/盘中统一丢一个后台 worker 补。"""
+    from cache.db import init_db
+
+    init_db()
+    period_n = normalize_period(period)
+    tail = max(1, min(int(max_bars or 60), 500))
+    quote_source = models.get_quote_source()
+    allow_net = (not cache_only) and quote_source != "local"
+    series: dict[str, Any] = {}
+    need_live_norms: list[dict[str, str]] = []
+    miss: list[str] = []
+
+    for raw in raw_symbols:
+        s = str(raw or "").strip()
+        if not s:
+            continue
+        try:
+            norm = normalize_symbol(s)
+        except ValueError as e:
+            miss.append(s)
+            series[s] = {"ok": False, "error": str(e), "bars": []}
+            continue
+        market = norm["market"]
+        sym = norm["symbol"]
+        display = norm.get("display") or s
+        kline_models.touch_access(market, sym, period_n)
+        meta = kline_models.get_kline_meta(market, sym, period_n)
+        bars = kline_models.read_kline_bars(market, sym, period_n, limit=tail)
+        name = (meta or {}).get("name") or sym
+        source = (meta or {}).get("source")
+        if not bars:
+            miss.append(s)
+            series[s] = {
+                "ok": False,
+                "error": "no_cache",
+                "symbol": display,
+                "code": sym,
+                "market": market,
+                "bars": [],
+            }
+            if allow_net:
+                need_live_norms.append(norm)
+            continue
+        missing = daily_bars_missing_today(market, bars, symbol=sym)
+        need_live = daily_bars_need_live_patch(market, bars, symbol=sym)
+        multi_gap = daily_bars_multi_day_gap(market, bars, symbol=sym)
+        if allow_net and (need_live or multi_gap or missing):
+            need_live_norms.append(norm)
+        series[s] = {
+            "ok": True,
+            "symbol": display,
+            "code": sym,
+            "name": name,
+            "market": market.upper() if market in ("cn", "hk", "us") else market,
+            "period": period_n,
+            "bars": _serialize_bars(bars, slim=slim, max_bars=tail),
+            "count": min(len(bars), tail),
+            "source": source,
+            "from_cache": True,
+            "stale": bool(missing or need_live or multi_gap),
+            "missing_today": bool(missing),
+        }
+
+    refreshing = False
+    if defer_live and allow_net and need_live_norms:
+        refreshing = _schedule_portal_live_batch(need_live_norms, period_n)
+    elif (not defer_live) and allow_net and need_live_norms and not cache_only:
+        # 非 defer：仍走后台，避免 batch 同步打爆；调用方要阻塞请用单票接口
+        refreshing = _schedule_portal_live_batch(need_live_norms, period_n)
+
+    return {
+        "ok": True,
+        "period": period_n,
+        "max_bars": tail,
+        "slim": slim,
+        "deferred_live": bool(defer_live),
+        "refreshing": refreshing,
+        "requested": len(raw_symbols),
+        "hit": sum(1 for v in series.values() if v.get("ok")),
+        "miss": miss,
+        "series": series,
+    }
+
+
+@router.get("/kline/batch")
+def cache_kline_batch_get(
+    symbols: str = Query(..., description="逗号分隔符号"),
+    period: str = Query("1d"),
+    max_bars: int = Query(60, ge=1, le=500),
+    defer_live: int = Query(1),
+    cache_only: int = Query(0),
+    slim: int = Query(1),
+) -> JSONResponse:
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
+    parts = [p.strip() for p in (symbols or "").split(",") if p.strip()]
+    if len(parts) > 120:
+        parts = parts[:120]
+    return JSONResponse(
+        _kline_batch_read(
+            parts,
+            period=period,
+            max_bars=max_bars,
+            defer_live=bool(defer_live),
+            cache_only=bool(cache_only),
+            slim=bool(slim),
+        )
+    )
+
+
+@router.post("/kline/batch")
+def cache_kline_batch_post(body: KlineBatchBody | None = None) -> JSONResponse:
+    if not _ENABLED:
+        return JSONResponse({"ok": False, "error": "quote cache disabled"}, status_code=503)
+    b = body or KlineBatchBody()
+    parts = [str(s).strip() for s in (b.symbols or []) if str(s).strip()]
+    if len(parts) > 120:
+        parts = parts[:120]
+    return JSONResponse(
+        _kline_batch_read(
+            parts,
+            period=b.period,
+            max_bars=b.max_bars,
+            defer_live=bool(b.defer_live),
+            cache_only=bool(b.cache_only),
+            slim=bool(b.slim),
+        )
+    )
 
 
 @router.post("/kline/warmup")
