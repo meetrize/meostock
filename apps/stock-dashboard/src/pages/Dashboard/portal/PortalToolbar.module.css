@@ -16,6 +16,7 @@
 }
 
 .fab {
+  position: relative;
   width: 44px;
   height: 44px;
   display: inline-flex;
@@ -46,14 +47,128 @@
   border-color: var(--color-accent, var(--border-strong));
 }
 
+.fabEditing {
+  background: color-mix(in srgb, var(--color-accent, #3b82f6) 14%, var(--bg-secondary));
+}
+
+.fabDot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent, #3b82f6);
+  box-shadow: 0 0 0 2px var(--bg-secondary);
+}
+
 .menu {
-  min-width: 220px;
-  max-width: min(280px, calc(100vw - 32px));
+  min-width: 240px;
+  max-width: min(300px, calc(100vw - 32px));
   padding: 8px;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
   background: var(--bg-secondary);
   box-shadow: var(--shadow-lg, 0 12px 32px rgba(0, 0, 0, 0.28));
+}
+
+.layoutActions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.actionItem {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.actionItem:hover {
+  background: var(--bg-tertiary);
+}
+
+.actionIcon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.actionText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.actionTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.actionDesc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.3;
+}
+
+/* 编辑布局 — 强调进入 */
+.iconEdit {
+  color: var(--color-accent, #3b82f6);
+  background: color-mix(in srgb, var(--color-accent, #3b82f6) 16%, transparent);
+}
+
+.actionEdit:hover {
+  border-color: color-mix(in srgb, var(--color-accent, #3b82f6) 35%, var(--border-primary));
+}
+
+/* 完成编辑 — 成功/收束 */
+.iconDone {
+  color: #16a34a;
+  background: color-mix(in srgb, #16a34a 16%, transparent);
+}
+
+.actionDone {
+  background: color-mix(in srgb, #16a34a 8%, transparent);
+}
+
+.actionDone:hover {
+  background: color-mix(in srgb, #16a34a 14%, var(--bg-tertiary));
+  border-color: color-mix(in srgb, #16a34a 35%, var(--border-primary));
+}
+
+/* 添加面板 — 主操作 */
+.iconAdd {
+  color: var(--color-accent, #3b82f6);
+  background: color-mix(in srgb, var(--color-accent, #3b82f6) 16%, transparent);
+}
+
+.actionAdd:hover {
+  border-color: color-mix(in srgb, var(--color-accent, #3b82f6) 35%, var(--border-primary));
+}
+
+/* 重置默认 — 警示 */
+.iconReset {
+  color: #d97706;
+  background: color-mix(in srgb, #d97706 16%, transparent);
+}
+
+.actionReset:hover {
+  border-color: color-mix(in srgb, #d97706 35%, var(--border-primary));
 }
 
 .menuItem {

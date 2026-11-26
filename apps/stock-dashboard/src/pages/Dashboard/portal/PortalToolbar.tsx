@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { RefreshCw, Settings } from 'lucide-react';
+import {
+  Check,
+  LayoutGrid,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Settings,
+} from 'lucide-react';
 import { useToast } from '@/components/common';
 import { useAppSettings } from '@/contexts';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
@@ -57,12 +64,17 @@ export function PortalToolbar({
 
     const onPointerDown = (event: MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) {
+        // 点外部只收菜单，不退出编辑态（FAB 仍提示「编辑中」）
         setMenuOpen(false);
         setRefreshOpen(false);
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        if (addOpen) {
+          setAddOpen(false);
+          return;
+        }
         setMenuOpen(false);
         setRefreshOpen(false);
       }
@@ -74,7 +86,7 @@ export function PortalToolbar({
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [menuOpen]);
+  }, [menuOpen, addOpen]);
 
   const setQuoteSource = async (source: QuoteSource) => {
     updateSettings({ quoteSource: source });
@@ -103,7 +115,6 @@ export function PortalToolbar({
     try {
       await onRefresh();
       toast.success('已刷新总览数据');
-      setMenuOpen(false);
       setRefreshOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '刷新失败');
@@ -112,60 +123,94 @@ export function PortalToolbar({
     }
   };
 
+  const enterEdit = () => {
+    if (!editing) onToggleEdit();
+    setMenuOpen(true);
+    setRefreshOpen(false);
+  };
+
+  const finishEdit = () => {
+    if (editing) onToggleEdit();
+    setMenuOpen(true);
+    setRefreshOpen(false);
+  };
+
   return (
     <>
       <div className={styles.fabRoot} ref={rootRef}>
         {menuOpen && (
           <div className={styles.menu} role="menu" aria-label="总览设置">
-            {!mobile && (
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.menuItem}
-                onClick={() => {
-                  onToggleEdit();
-                  setMenuOpen(false);
-                  setRefreshOpen(false);
-                }}
-              >
-                <span>{editing ? '完成编辑' : '编辑布局'}</span>
-                {editing && <span className={styles.menuHint}>编辑中</span>}
-              </button>
-            )}
+            <div className={styles.menuSectionLabel}>布局</div>
 
-            {mobile && (
+            {mobile ? (
               <div className={styles.menuNote}>手机端仅浏览；请在桌面编辑布局</div>
-            )}
-
-            {editing && !mobile && (
-              <>
+            ) : editing ? (
+              <div className={styles.layoutActions} role="group" aria-label="布局编辑">
                 <button
                   type="button"
                   role="menuitem"
-                  className={styles.menuItem}
-                  onClick={() => {
-                    setAddOpen(true);
-                    setMenuOpen(false);
-                  }}
+                  className={`${styles.actionItem} ${styles.actionDone}`}
+                  onClick={finishEdit}
                 >
-                  添加面板
+                  <span className={`${styles.actionIcon} ${styles.iconDone}`} aria-hidden>
+                    <Check size={15} strokeWidth={2.5} />
+                  </span>
+                  <span className={styles.actionText}>
+                    <span className={styles.actionTitle}>完成编辑</span>
+                    <span className={styles.actionDesc}>退出拖拽与删改</span>
+                  </span>
                 </button>
                 <button
                   type="button"
                   role="menuitem"
-                  className={styles.menuItem}
+                  className={`${styles.actionItem} ${styles.actionAdd}`}
+                  onClick={() => setAddOpen(true)}
+                >
+                  <span className={`${styles.actionIcon} ${styles.iconAdd}`} aria-hidden>
+                    <Plus size={15} strokeWidth={2.5} />
+                  </span>
+                  <span className={styles.actionText}>
+                    <span className={styles.actionTitle}>添加面板</span>
+                    <span className={styles.actionDesc}>从目录选一块</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={`${styles.actionItem} ${styles.actionReset}`}
                   onClick={() => {
                     if (window.confirm('确定恢复默认看盘布局？当前布局将被覆盖。')) {
                       onReset();
-                      setMenuOpen(false);
                     }
                   }}
                 >
-                  重置默认
+                  <span className={`${styles.actionIcon} ${styles.iconReset}`} aria-hidden>
+                    <RotateCcw size={14} strokeWidth={2.25} />
+                  </span>
+                  <span className={styles.actionText}>
+                    <span className={styles.actionTitle}>重置默认</span>
+                    <span className={styles.actionDesc}>覆盖当前布局</span>
+                  </span>
                 </button>
-                <div className={styles.menuDivider} />
-              </>
+              </div>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                className={`${styles.actionItem} ${styles.actionEdit}`}
+                onClick={enterEdit}
+              >
+                <span className={`${styles.actionIcon} ${styles.iconEdit}`} aria-hidden>
+                  <LayoutGrid size={15} strokeWidth={2.25} />
+                </span>
+                <span className={styles.actionText}>
+                  <span className={styles.actionTitle}>编辑布局</span>
+                  <span className={styles.actionDesc}>拖拽、添加或删除面板</span>
+                </span>
+              </button>
             )}
+
+            <div className={styles.menuDivider} />
 
             <div className={styles.menuSectionLabel}>数据源</div>
             <div className={styles.toggleRow} role="group" aria-label="实时或缓存">
@@ -184,7 +229,6 @@ export function PortalToolbar({
                 className={`${styles.toggleBtn} ${!realtime ? styles.toggleActive : ''}`}
                 aria-pressed={!realtime}
                 onClick={() => {
-                  // 「缓存」= 优先本机快照、过期再同步；勿用 local（仅本地会禁止入队，空库时全失败）
                   if (realtime) void setQuoteSource('auto');
                 }}
               >
@@ -248,15 +292,17 @@ export function PortalToolbar({
           className={`${styles.fab} ${menuOpen ? styles.fabOpen : ''} ${
             editing ? styles.fabEditing : ''
           }`}
-          aria-label="总览设置"
+          aria-label={editing ? '总览设置（编辑中）' : '总览设置'}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
+          title={editing ? '布局编辑中' : '总览设置'}
           onClick={() => {
             setMenuOpen((v) => !v);
             setRefreshOpen(false);
           }}
         >
-          <Settings size={20} strokeWidth={2} />
+          {editing ? <LayoutGrid size={20} strokeWidth={2} /> : <Settings size={20} strokeWidth={2} />}
+          {editing && !menuOpen ? <span className={styles.fabDot} aria-hidden /> : null}
         </button>
       </div>
 
