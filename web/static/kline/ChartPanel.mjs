@@ -24,7 +24,13 @@ import {
   ensurePatternSignalOverlay,
   placePatternSignalMark,
   clearPatternSignalMark,
-} from "./pattern-signal-overlay.mjs";
+} from "./pattern-signal-overlay.mjs?v=sig3";
+import {
+  resolveSignalTip,
+  renderSignalTip,
+  hideSignalTip,
+  readSignalTip,
+} from "./pattern-signal-tip.mjs?v=sig3";
 import { prefGet } from "./user-prefs.mjs";
 
 function readTheme() {
@@ -247,25 +253,91 @@ export class ChartPanel {
     }
   }
 
+  _ensureSignalTipEl() {
+    if (this._signalTipEl && this._signalTipEl.isConnected) return this._signalTipEl;
+    const el = document.createElement("div");
+    el.className = "zt-reason-tip signal-tip mp-signal-tip";
+    el.setAttribute("aria-hidden", "true");
+    el.addEventListener("mouseenter", () => {
+      if (this._signalTipHideTimer) {
+        clearTimeout(this._signalTipHideTimer);
+        this._signalTipHideTimer = 0;
+      }
+    });
+    el.addEventListener("mouseleave", () => this._scheduleHideSignalTip());
+    this.container.appendChild(el);
+    this._signalTipEl = el;
+    return el;
+  }
+
+  _scheduleHideSignalTip() {
+    if (this._signalTipHideTimer) clearTimeout(this._signalTipHideTimer);
+    this._signalTipHideTimer = window.setTimeout(() => {
+      hideSignalTip(this._signalTipEl);
+      this._signalTipHideTimer = 0;
+    }, 180);
+  }
+
+  async _showSignalTip(event, day) {
+    const tipEl = this._ensureSignalTipEl();
+    if (this._signalTipHideTimer) {
+      clearTimeout(this._signalTipHideTimer);
+      this._signalTipHideTimer = 0;
+    }
+    const cached = readSignalTip(this.symbol, day);
+    if (cached) {
+      renderSignalTip(tipEl, cached, { event, wrapEl: this.container });
+    } else {
+      renderSignalTip(
+        tipEl,
+        { symbol: this.symbol, date: day, title: "信号日", summary: "加载中…" },
+        { event, wrapEl: this.container }
+      );
+    }
+    const tip = await resolveSignalTip({
+      symbol: this.symbol,
+      date: day,
+      tip: cached,
+    });
+    if (tip) renderSignalTip(tipEl, tip, { event, wrapEl: this.container });
+  }
+
   _placeSignalMark(ymd, windowStart) {
     if (!this.chart || this._disposed || this.period === "fs") {
-      clearPatternSignalMark(this.chart);
+      clearPatternSignalMark(this.chart, `pattern_signal_${this.symbol || "x"}`);
+      hideSignalTip(this._signalTipEl);
       return;
     }
     const day = String(ymd || this.focusDate || "").trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-      clearPatternSignalMark(this.chart);
+      clearPatternSignalMark(this.chart, `pattern_signal_${this.symbol || "x"}`);
+      hideSignalTip(this._signalTipEl);
       return;
     }
     try {
       const { registerOverlay } = this._kc();
       ensurePatternSignalOverlay(registerOverlay);
+      const wstart = windowStart || this.windowStart;
+      const tipSeed = readSignalTip(this.symbol, day);
       placePatternSignalMark(this.chart, {
         signalDate: day,
-        windowStart: windowStart || this.windowStart,
+        windowStart: wstart,
         barDayKey: (ts) => this._barDayKey(ts),
         label: "信号",
         overlayId: `pattern_signal_${this.symbol || "x"}`,
+        showBand: false,
+        showWindow: Boolean(wstart),
+        tip: tipSeed,
+        onMouseEnter: (event) => {
+          void this._showSignalTip(event, day);
+        },
+        onMouseLeave: () => {
+          this._scheduleHideSignalTip();
+        },
+        onClick: (event) => {
+          void this._showSignalTip(event, day);
+          return true;
+        },
       });
     } catch (_) {}
   }

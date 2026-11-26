@@ -1,13 +1,63 @@
 /**
- * 形态回测信号日标记（klinecharts custom overlay）
- * - 信号日竖向高亮带 + 虚线 + 「信号」标签
- * - X 轴日期胶囊高亮
- * - 可选窗口起止半透明区间
+ * 形态/公告信号日标记（klinecharts custom overlay）
+ * - 默认：标签贴蜡烛面板顶边下方 + 短引线到 K 线高点（不画全日蓝色竖向高亮）
+ * - stack：垂直错层，避免与邻近顶部标签重叠
+ * - 可选窗口半透明带（形态回测 windowStart）
+ * - 标签可悬停，由调用方挂 tip
  */
 
 export const PATTERN_SIGNAL_OVERLAY = "patternSignalMark";
 
+export const SIGNAL_CHIP_TOP_INSET = 6;
+export const SIGNAL_CHIP_PILL_H = 18;
+export const SIGNAL_CHIP_STACK_GAP = 6;
+export const SIGNAL_CHIP_TEXT_SIZE = 10;
+export const SIGNAL_CHIP_PAD_X = 6;
+
 let registered = false;
+
+export function signalChipWidth(label = "信号") {
+  const text = String(label || "信号");
+  const textW = Math.max(18, text.length * SIGNAL_CHIP_TEXT_SIZE * 0.92);
+  return SIGNAL_CHIP_PAD_X * 2 + textW;
+}
+
+/**
+ * 按柱宽估算水平碰撞，邻近标签向下错层
+ * @param {Array<{ barIndex: number, w: number, stack?: number }>} candidates 会原地写入 stack
+ * @param {number} barSpace
+ * @param {Array<{ barIndex: number, w: number, stack: number }>} [occupied] 已占用的其它顶部标签
+ */
+export function assignTopChipStacks(candidates, barSpace, occupied = []) {
+  const gap = 6;
+  const bs = Math.max(4, Number(barSpace) || 8);
+  const placed = (occupied || []).map((p) => ({
+    barIndex: Number(p.barIndex) || 0,
+    w: Number(p.w) || 24,
+    stack: Math.max(0, Number(p.stack) || 0),
+  }));
+  const list = Array.isArray(candidates) ? candidates : [];
+  list.forEach((c) => {
+    let stack = 0;
+    for (;;) {
+      const hit = placed.some((p) => {
+        if (p.stack !== stack) return false;
+        const dx = Math.abs(p.barIndex - c.barIndex) * bs;
+        return dx < (p.w + c.w) / 2 + gap;
+      });
+      if (!hit) break;
+      stack += 1;
+      if (stack > 12) break;
+    }
+    c.stack = stack;
+    placed.push({
+      barIndex: Number(c.barIndex) || 0,
+      w: Number(c.w) || 24,
+      stack,
+    });
+  });
+  return list;
+}
 
 /**
  * @param {(def: object) => void} registerOverlay
@@ -24,6 +74,9 @@ export function ensurePatternSignalOverlay(registerOverlay) {
       const ext = overlay.extendData || {};
       const color = String(ext.color || "#2563eb");
       const label = String(ext.label || "信号");
+      const showBand = Boolean(ext.showBand);
+      const showWindow = Boolean(ext.showWindow);
+      const stack = Math.max(0, Number(ext.stack) || 0);
       const figures = [];
 
       const gap =
@@ -32,8 +85,8 @@ export function ensurePatternSignalOverlay(registerOverlay) {
           : Number(barSpace?.gapBar ?? barSpace?.bar) || 6;
       const half = Math.max(2, gap * 0.45);
 
-      // 齐升窗口半透明带（两点：window_start → signal）
-      if (coordinates.length >= 2) {
+      // 齐升窗口半透明带（仅形态回测显式开启）
+      if (showWindow && coordinates.length >= 2) {
         const x1 = Math.min(coordinates[0].x, coordinates[1].x);
         const x2 = Math.max(coordinates[0].x, coordinates[1].x);
         figures.push({
@@ -53,54 +106,61 @@ export function ensurePatternSignalOverlay(registerOverlay) {
       }
 
       const sig = coordinates[coordinates.length - 1];
-      // 信号日柱位加粗高亮
-      figures.push({
-        type: "rect",
-        attrs: {
-          x: sig.x - half,
-          y: bounding.top,
-          width: half * 2,
-          height: bounding.height,
-        },
-        styles: {
-          style: "fill",
-          color: "rgba(37, 99, 235, 0.18)",
-        },
-        ignoreEvent: true,
-      });
-      figures.push({
-        type: "line",
-        attrs: {
-          coordinates: [
-            { x: sig.x, y: bounding.top },
-            { x: sig.x, y: bounding.top + bounding.height },
-          ],
-        },
-        styles: {
-          style: "dashed",
-          color,
-          size: 1,
-          dashedValue: [4, 3],
-        },
-        ignoreEvent: true,
-      });
 
-      const textSize = 10;
-      const padX = 6;
-      const pillH = 18;
-      const pillW = Math.max(pillH, label.length * textSize + padX * 2);
-      const tipY = sig.y - 36;
-      const pillBottom = tipY - 5;
-      const labelCenterY = pillBottom - pillH / 2;
-      const pillTop = pillBottom - pillH;
+      // 旧样式：全日蓝色竖向高亮（默认关闭）
+      if (showBand) {
+        figures.push({
+          type: "rect",
+          attrs: {
+            x: sig.x - half,
+            y: bounding.top,
+            width: half * 2,
+            height: bounding.height,
+          },
+          styles: {
+            style: "fill",
+            color: "rgba(37, 99, 235, 0.18)",
+          },
+          ignoreEvent: true,
+        });
+        figures.push({
+          type: "line",
+          attrs: {
+            coordinates: [
+              { x: sig.x, y: bounding.top },
+              { x: sig.x, y: bounding.top + bounding.height },
+            ],
+          },
+          styles: {
+            style: "dashed",
+            color,
+            size: 1,
+            dashedValue: [4, 3],
+          },
+          ignoreEvent: true,
+        });
+      }
+
+      const textSize = SIGNAL_CHIP_TEXT_SIZE;
+      const pillH = SIGNAL_CHIP_PILL_H;
+      const pillW = signalChipWidth(label);
+      // 贴蜡烛面板顶边下方；stack 向下错层，避免与邻近标签重叠
+      const paneTop = Number.isFinite(bounding?.top) ? bounding.top : 0;
+      const pillTop =
+        paneTop + SIGNAL_CHIP_TOP_INSET + stack * (pillH + SIGNAL_CHIP_STACK_GAP);
+      const pillBottom = pillTop + pillH;
+      const pillLeft = sig.x - pillW / 2;
+      const tipY = pillBottom + 2;
+      const labelCenterY = pillTop + pillH / 2 - 2;
+      const candleY = sig.y;
 
       figures.push(
         {
           type: "line",
           attrs: {
             coordinates: [
-              { x: sig.x, y: sig.y - 4 },
               { x: sig.x, y: tipY },
+              { x: sig.x, y: candleY },
             ],
           },
           styles: { style: "dashed", color, size: 1, dashedValue: [3, 3] },
@@ -121,7 +181,7 @@ export function ensurePatternSignalOverlay(registerOverlay) {
         {
           type: "rect",
           attrs: {
-            x: sig.x - pillW / 2,
+            x: pillLeft,
             y: pillTop,
             width: pillW,
             height: pillH,
@@ -132,13 +192,13 @@ export function ensurePatternSignalOverlay(registerOverlay) {
             borderRadius: 4,
             borderSize: 0,
           },
-          ignoreEvent: true,
+          // 可悬停/点击
         },
         {
           type: "text",
           attrs: {
             x: sig.x,
-            y: labelCenterY - 2,
+            y: labelCenterY,
             text: label,
             align: "center",
             baseline: "middle",
@@ -160,9 +220,10 @@ export function ensurePatternSignalOverlay(registerOverlay) {
       );
       return figures;
     },
+    // 默认不在 X 轴再画蓝色日期胶囊，避免「整日高亮」观感
     createXAxisFigures: ({ overlay, coordinates }) => {
-      if (!coordinates?.length) return [];
       const ext = overlay.extendData || {};
+      if (!ext.showAxisMark || !coordinates?.length) return [];
       const color = String(ext.color || "#2563eb");
       const ymd = String(ext.tradeDate || "").trim();
       const text = ymd.length >= 10 ? ymd.slice(5) : String(ext.label || "信号");
@@ -206,6 +267,15 @@ export function ensurePatternSignalOverlay(registerOverlay) {
  *   label?: string,
  *   color?: string,
  *   overlayId?: string,
+ *   showBand?: boolean,
+ *   showWindow?: boolean,
+ *   showAxisMark?: boolean,
+ *   stack?: number,
+ *   occupied?: Array<{ barIndex: number, w: number, stack: number }>,
+ *   tip?: Record<string, any>,
+ *   onMouseEnter?: (event: any, tip: any) => void,
+ *   onMouseLeave?: (event: any) => void,
+ *   onClick?: (event: any, tip: any) => boolean | void,
  * }} opts
  * @returns {string|null} overlay id
  */
@@ -218,14 +288,21 @@ export function placePatternSignalMark(chart, opts) {
 
   const list = chart.getDataList?.() || [];
   let signalBar = null;
+  let signalBarIndex = -1;
   let windowBar = null;
   const windowStart = String(opts?.windowStart || "").trim().slice(0, 10);
-  const wantWindow = /^\d{4}-\d{2}-\d{2}$/.test(windowStart) && windowStart < signalDate;
+  const wantWindow =
+    Boolean(opts?.showWindow) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(windowStart) &&
+    windowStart < signalDate;
 
   for (let i = 0; i < list.length; i++) {
     const b = list[i];
     const day = barDayKey(b?.timestamp);
-    if (day === signalDate) signalBar = b;
+    if (day === signalDate) {
+      signalBar = b;
+      signalBarIndex = i;
+    }
     if (wantWindow && day === windowStart) windowBar = b;
   }
   if (!signalBar || !Number.isFinite(Number(signalBar.timestamp))) return null;
@@ -249,6 +326,31 @@ export function placePatternSignalMark(chart, opts) {
   }
   points.push({ timestamp: Number(signalBar.timestamp), value });
 
+  const label = opts?.label || "信号";
+  let stack = Math.max(0, Number(opts?.stack) || 0);
+  if (opts?.stack == null && signalBarIndex >= 0) {
+    const barSpace =
+      Number(chart.getBarSpace?.()?.bar) ||
+      Number(chart.getBarSpace?.()?.gapBar) ||
+      8;
+    const cand = [{ barIndex: signalBarIndex, w: signalChipWidth(label), stack: 0 }];
+    assignTopChipStacks(cand, barSpace, opts?.occupied || []);
+    stack = cand[0].stack;
+  }
+
+  const tip = opts?.tip && typeof opts.tip === "object" ? opts.tip : null;
+  const ext = {
+    label,
+    color: opts?.color || "#2563eb",
+    tradeDate: signalDate,
+    windowStart: wantWindow ? windowStart : "",
+    showBand: Boolean(opts?.showBand),
+    showWindow: wantWindow,
+    showAxisMark: Boolean(opts?.showAxisMark),
+    stack,
+    tip,
+  };
+
   try {
     const id = chart.createOverlay({
       name: PATTERN_SIGNAL_OVERLAY,
@@ -256,11 +358,25 @@ export function placePatternSignalMark(chart, opts) {
       paneId: "candle_pane",
       lock: true,
       points,
-      extendData: {
-        label: opts?.label || "信号",
-        color: opts?.color || "#2563eb",
-        tradeDate: signalDate,
-        windowStart: wantWindow ? windowStart : "",
+      extendData: ext,
+      onMouseEnter: (event) => {
+        try {
+          opts?.onMouseEnter?.(event, event?.overlay?.extendData?.tip || tip || ext);
+        } catch (_) {}
+        return false;
+      },
+      onMouseLeave: (event) => {
+        try {
+          opts?.onMouseLeave?.(event);
+        } catch (_) {}
+        return false;
+      },
+      onClick: (event) => {
+        try {
+          const r = opts?.onClick?.(event, event?.overlay?.extendData?.tip || tip || ext);
+          if (r === true) return true;
+        } catch (_) {}
+        return true;
       },
       onRightClick: (event) => {
         event?.preventDefault?.();

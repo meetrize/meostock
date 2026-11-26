@@ -676,6 +676,82 @@
       pointer-events: auto;
     }
     .mp-zt-reason.is-on { display: inline-flex; }
+
+    /* 信号悬停 tip（与单图页结构一致） */
+    .zt-reason-tip {
+      position: absolute;
+      z-index: 60;
+      display: none;
+      width: min(280px, calc(100% - 16px));
+      padding: 0;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.14), 0 8px 20px rgba(0, 0, 0, 0.08);
+      color: #18181b;
+      font-size: 12px;
+      line-height: 1.45;
+      pointer-events: auto;
+      overflow: hidden;
+      --zt-accent: #2563eb;
+    }
+    .zt-reason-tip.show { display: block; }
+    .zt-reason-tip::before {
+      content: "";
+      display: block;
+      height: 3px;
+      background: linear-gradient(90deg, var(--zt-accent), #60a5fa 55%, transparent);
+    }
+    .zt-reason-tip-hd {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px 6px;
+    }
+    .zt-reason-tip-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--zt-accent);
+      background: color-mix(in srgb, var(--zt-accent) 12%, transparent);
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+    .zt-reason-tip-date { font-size: 11px; color: #71717a; }
+    .zt-reason-tip-body {
+      padding: 0 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: min(220px, 40vh);
+      overflow: auto;
+    }
+    .zt-reason-tip-k {
+      font-size: 10px;
+      font-weight: 600;
+      color: #a1a1aa;
+    }
+    .zt-reason-tip-v { font-size: 12px; color: #27272a; word-break: break-word; }
+    .zt-reason-tip-v.theme { font-size: 13px; font-weight: 650; }
+    .zt-reason-tip-v.reason { white-space: pre-line; color: #3f3f46; }
+    .zt-reason-tip-empty { color: #a1a1aa; font-size: 12px; }
+    .zt-reason-tip-ft {
+      padding: 6px 10px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      font-size: 10px;
+      color: #a1a1aa;
+    }
+    html[data-theme="dark"] .zt-reason-tip {
+      background: rgba(28, 28, 32, 0.97);
+      border-color: rgba(255, 255, 255, 0.1);
+      color: #fafafa;
+    }
+    html[data-theme="dark"] .zt-reason-tip-date,
+    html[data-theme="dark"] .zt-reason-tip-k,
+    html[data-theme="dark"] .zt-reason-tip-empty,
+    html[data-theme="dark"] .zt-reason-tip-ft { color: #a1a1aa; }
+    html[data-theme="dark"] .zt-reason-tip-v { color: #e4e4e7; }
+    html[data-theme="dark"] .zt-reason-tip-v.theme { color: #fafafa; }
+    html[data-theme="dark"] .zt-reason-tip-v.reason { color: #d4d4d8; }
     .mp-zt-theme {
       flex: 0 0 auto;
       max-width: 7em;
@@ -930,7 +1006,7 @@
     import { getKlineData } from "/static/kline/data.mjs";
     import { THEME_KEY, CANDLE_TYPES } from "/static/kline/styles.mjs";
     import { createPool } from "/static/kline/pool.mjs";
-    import { ChartPanel } from "/static/kline/ChartPanel.mjs?v=zt5";
+    import { ChartPanel } from "/static/kline/ChartPanel.mjs?v=zt7";
     import {
       setZtReasonDisplay,
       refreshChromeForPanels,

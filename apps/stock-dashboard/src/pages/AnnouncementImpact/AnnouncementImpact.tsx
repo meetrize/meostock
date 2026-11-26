@@ -7,6 +7,7 @@ import { ExternalLink, LayoutGrid, RefreshCw, X } from 'lucide-react';
 import { Loading, useToast } from '@/components/common';
 import { normalizeStockCode } from '@/utils/format';
 import { openKlineTool, openMultipanelEntries } from '@/utils/multipanel';
+import { writeKlineSignalTips, type KlineSignalTip } from '@/utils/klineSignalTip';
 import styles from './AnnouncementImpact.module.css';
 
 type ImpactItem = {
@@ -83,6 +84,21 @@ function toAnnounceYmd(item: ImpactItem): string {
 
 function klineSymbolOf(code: string): string {
   return normalizeStockCode(String(code || '').trim()) || String(code || '').trim();
+}
+
+function tipFromImpact(item: ImpactItem, symbol: string, date: string): KlineSignalTip {
+  return {
+    symbol,
+    date,
+    title: item.title,
+    stockName: item.stock_name,
+    level: item.final_level,
+    levelLabel: item.final_level_label,
+    direction: item.direction,
+    score: item.score,
+    summary: item.core_summary,
+    reasons: item.reasons,
+  };
 }
 
 export function AnnouncementImpact() {
@@ -172,6 +188,7 @@ export function AnnouncementImpact() {
       return;
     }
     const date = toAnnounceYmd(item);
+    if (date) writeKlineSignalTips(tipFromImpact(item, sym, date));
     openKlineTool(sym, '1d', date ? { date, bias: 'left' } : undefined);
   };
 
@@ -181,7 +198,7 @@ export function AnnouncementImpact() {
     try {
       const maxSymbols = 200;
       const pageSize = 200;
-      const seen = new Map<string, string>(); // symbol -> first announce ymd
+      const seen = new Map<string, { date: string; tip: KlineSignalTip }>();
       let pageOffset = 0;
       let reportedTotal = total;
 
@@ -198,18 +215,23 @@ export function AnnouncementImpact() {
         for (const it of batch) {
           const sym = klineSymbolOf(it.code);
           if (!sym || seen.has(sym)) continue;
-          seen.set(sym, toAnnounceYmd(it));
+          const date = toAnnounceYmd(it);
+          seen.set(sym, { date, tip: tipFromImpact(it, sym, date) });
           if (seen.size >= maxSymbols) break;
         }
         pageOffset += batch.length;
         if (pageOffset >= reportedTotal || batch.length < pageSize) break;
       }
 
-      const entries = [...seen.entries()].map(([symbol, date]) => ({ symbol, date }));
+      const entries = [...seen.entries()].map(([symbol, v]) => ({
+        symbol,
+        date: v.date,
+      }));
       if (!entries.length) {
         toast.info('当前筛选下暂无标的');
         return;
       }
+      writeKlineSignalTips([...seen.values()].map((v) => v.tip).filter((t) => t.date));
       openMultipanelEntries(entries, { period: '1d', bias: 'left' });
       if (reportedTotal > pageOffset || seen.size >= maxSymbols) {
         toast.info(`已打开 ${entries.length} 只（上限 ${maxSymbols}，多面板内可翻页）`);

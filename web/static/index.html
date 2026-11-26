@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>K线演示 · stock-sdk + KLineChart</title>
   <script src="/static/klinecharts.min.js"></script>
-  <link rel="stylesheet" href="/static/kline-side.css?v=20261126a" />
+  <link rel="stylesheet" href="/static/kline-side.css?v=20261126b" />
   <style>
     :root,
     html[data-theme="light"] {
@@ -1195,6 +1195,7 @@
         <div class="candle-tip" id="candleTip" aria-hidden="true"></div>
         <div class="ai-report-tip" id="aiReportTip" aria-hidden="true"></div>
         <div class="zt-reason-tip" id="ztReasonTip" aria-hidden="true"></div>
+        <div class="zt-reason-tip signal-tip" id="patternSignalTip" aria-hidden="true"></div>
       </div>
       <div class="side-splitter" id="sideSplitter" title="拖拽调整宽度"></div>
       <aside class="side-panel" id="sidePanel" aria-label="侧栏">
@@ -1596,7 +1597,13 @@
       ensurePatternSignalOverlay,
       placePatternSignalMark,
       clearPatternSignalMark,
-    } from "/static/kline/pattern-signal-overlay.mjs";
+    } from "/static/kline/pattern-signal-overlay.mjs?v=sig3";
+    import {
+      resolveSignalTip,
+      renderSignalTip,
+      hideSignalTip,
+      readSignalTip,
+    } from "/static/kline/pattern-signal-tip.mjs?v=sig2";
     import {
       prefGet,
       prefSet,
@@ -1965,9 +1972,12 @@
     const ZT_CHIP_PAD_X = 5;
     let ztReasonOverlayReady = false;
     let ztReasonOverlayIds = [];
+    /** @type {Array<{ barIndex: number, w: number, stack: number }>} 供信号标签错层避让 */
+    let ztChipPlacements = [];
     let ztReasonCache = { code: "", items: [], seq: 0 };
     let ztReasonTipPinned = false;
     let ztReasonTipHideTimer = 0;
+    let patternSignalTipHideTimer = 0;
 
     function ztChipPalette() {
       // 与涨停 K 柱同色（默认 #F5C518），黑字
@@ -2282,6 +2292,7 @@
 
     function clearZtReasonTags() {
       hideZtReasonTip(true);
+      ztChipPlacements = [];
       if (!chart) return;
       (ztReasonOverlayIds || []).forEach((id) => {
         try {
@@ -2531,6 +2542,11 @@
         Number(chart.getBarSpace?.()?.gapBar) ||
         8;
       assignZtChipStacks(candidates, barSpace);
+      ztChipPlacements = candidates.map((c) => ({
+        barIndex: c.barIndex,
+        w: c.w,
+        stack: c.stack,
+      }));
 
       candidates.forEach((c) => {
         const oid = `zt_reason_${c.compact}`;
@@ -2577,6 +2593,10 @@
           ztReasonOverlayIds.push(id || oid);
         } catch (_) {}
       });
+      // 涨停 chip 布局变了，信号标签重新错层
+      try {
+        refreshPatternSignalMark();
+      } catch (_) {}
     }
     window.placeZtReasonTags = placeZtReasonTags;
 
@@ -2589,6 +2609,15 @@
     });
     document.getElementById("ztReasonTip")?.addEventListener("mouseleave", () => {
       scheduleHideZtReasonTip();
+    });
+    document.getElementById("patternSignalTip")?.addEventListener("mouseenter", () => {
+      if (patternSignalTipHideTimer) {
+        clearTimeout(patternSignalTipHideTimer);
+        patternSignalTipHideTimer = 0;
+      }
+    });
+    document.getElementById("patternSignalTip")?.addEventListener("mouseleave", () => {
+      scheduleHidePatternSignalTip();
     });
     document.getElementById("ztReasonTip")?.addEventListener("click", (e) => {
       if (e.target?.closest?.("[data-zt-open-side]")) {
@@ -7281,21 +7310,72 @@
       } catch (_) {}
     }
 
+    function scheduleHidePatternSignalTip() {
+      if (patternSignalTipHideTimer) clearTimeout(patternSignalTipHideTimer);
+      patternSignalTipHideTimer = window.setTimeout(() => {
+        hideSignalTip(document.getElementById("patternSignalTip"));
+        patternSignalTipHideTimer = 0;
+      }, 180);
+    }
+    async function showPatternSignalTip(event, ymd) {
+      const tipEl = document.getElementById("patternSignalTip");
+      const wrap = document.getElementById("chartWrap");
+      if (!tipEl || !wrap) return;
+      if (patternSignalTipHideTimer) {
+        clearTimeout(patternSignalTipHideTimer);
+        patternSignalTipHideTimer = 0;
+      }
+      const day = String(ymd || "").trim().slice(0, 10);
+      const cached = readSignalTip(currentSymbol, day);
+      if (cached) {
+        renderSignalTip(tipEl, cached, { event, wrapEl: wrap });
+      } else {
+        renderSignalTip(
+          tipEl,
+          { symbol: currentSymbol, date: day, title: "信号日", summary: "加载中…" },
+          { event, wrapEl: wrap }
+        );
+      }
+      const tip = await resolveSignalTip({
+        symbol: currentSymbol,
+        date: day,
+        tip: cached,
+      });
+      if (tip) renderSignalTip(tipEl, tip, { event, wrapEl: wrap });
+    }
+
     function refreshPatternSignalMark() {
       if (!chart || currentPeriod === "fs") {
         clearPatternSignalMark(chart);
+        hideSignalTip(document.getElementById("patternSignalTip"));
         return;
       }
       const ymd = activeMarkDate || pendingFocusDate;
       if (!ymd) {
         clearPatternSignalMark(chart);
+        hideSignalTip(document.getElementById("patternSignalTip"));
         return;
       }
+      const tipSeed = readSignalTip(currentSymbol, ymd);
       placePatternSignalMark(chart, {
         signalDate: ymd,
         windowStart: activeWindowStart || pendingWindowStart,
         barDayKey,
         label: "信号",
+        showBand: false,
+        showWindow: Boolean(activeWindowStart || pendingWindowStart),
+        occupied: ztChipPlacements,
+        tip: tipSeed,
+        onMouseEnter: (event) => {
+          void showPatternSignalTip(event, ymd);
+        },
+        onMouseLeave: () => {
+          scheduleHidePatternSignalTip();
+        },
+        onClick: (event) => {
+          void showPatternSignalTip(event, ymd);
+          return true;
+        },
       });
     }
 
