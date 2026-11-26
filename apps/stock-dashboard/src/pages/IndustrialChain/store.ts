@@ -1,87 +1,125 @@
 /**
- * C01 草稿 / 发布版本地持久化（P0：单链；后续可换后端）
+ * 产业链草稿 / 发布版本地持久化（多链：C01 / C05 …）
  */
 
 import { C01_SEED } from './seed/c01Semiconductor';
+import { C05_SEED } from './seed/c05CloudDc';
 import type { IndustrialChainGraph } from './types';
 
-const STORAGE_KEY = 'industrial-chain.c01.v1';
+const STORAGE_PREFIX = 'industrial-chain.';
+const STORAGE_VERSION = 'v1';
+
+const SEEDS: Record<string, IndustrialChainGraph> = {
+  C01: C01_SEED,
+  C05: C05_SEED,
+};
+
+export function supportedChainIds(): string[] {
+  return Object.keys(SEEDS);
+}
+
+export function isEditableChain(chainId: string): boolean {
+  return chainId in SEEDS;
+}
 
 type PersistedState = {
   published: IndustrialChainGraph;
   draft: IndustrialChainGraph | null;
 };
 
+function storageKey(chainId: string): string {
+  return `${STORAGE_PREFIX}${chainId.toLowerCase()}.${STORAGE_VERSION}`;
+}
+
 function cloneGraph(g: IndustrialChainGraph): IndustrialChainGraph {
   return structuredClone(g);
 }
 
-function loadRaw(): PersistedState | null {
+function getSeed(chainId: string): IndustrialChainGraph | null {
+  const seed = SEEDS[chainId];
+  return seed ? cloneGraph(seed) : null;
+}
+
+function loadRaw(chainId: string): PersistedState | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(chainId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedState;
-    if (!parsed?.published?.id) return null;
+    if (!parsed?.published?.id || parsed.published.id !== chainId) return null;
     return parsed;
   } catch {
     return null;
   }
 }
 
-function saveRaw(state: PersistedState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function saveRaw(chainId: string, state: PersistedState) {
+  localStorage.setItem(storageKey(chainId), JSON.stringify(state));
 }
 
 export function getPublishedChain(chainId: string): IndustrialChainGraph | null {
-  if (chainId !== 'C01') return null;
-  const stored = loadRaw();
-  return stored ? cloneGraph(stored.published) : cloneGraph(C01_SEED);
+  if (!isEditableChain(chainId)) return null;
+  const seed = getSeed(chainId);
+  const stored = loadRaw(chainId);
+  if (!stored) return seed;
+  // 种子升版：本地仍是旧 seed 发布版且无草稿时，自动换成新种子
+  if (
+    seed &&
+    stored.published.release.publishedBy === 'seed' &&
+    !stored.draft &&
+    (stored.published.release.version ?? 0) < (seed.release.version ?? 0)
+  ) {
+    saveRaw(chainId, { published: cloneGraph(seed), draft: null });
+    return cloneGraph(seed);
+  }
+  return cloneGraph(stored.published);
 }
 
 export function getDraftChain(chainId: string): IndustrialChainGraph | null {
-  if (chainId !== 'C01') return null;
-  const stored = loadRaw();
+  if (!isEditableChain(chainId)) return null;
+  const stored = loadRaw(chainId);
   if (stored?.draft) return cloneGraph(stored.draft);
   return null;
 }
 
 /** 当前编辑视图：有草稿用草稿，否则用发布版拷贝 */
 export function getEditableChain(chainId: string): IndustrialChainGraph | null {
-  if (chainId !== 'C01') return null;
+  if (!isEditableChain(chainId)) return null;
   const draft = getDraftChain(chainId);
   if (draft) return draft;
   return getPublishedChain(chainId);
 }
 
 export function saveDraft(chain: IndustrialChainGraph) {
-  if (chain.id !== 'C01') return;
-  const published = getPublishedChain('C01')!;
-  saveRaw({ published, draft: cloneGraph(chain) });
+  if (!isEditableChain(chain.id)) return;
+  const published = getPublishedChain(chain.id)!;
+  saveRaw(chain.id, { published, draft: cloneGraph(chain) });
 }
 
 export function publishDraft(chain: IndustrialChainGraph, note?: string): IndustrialChainGraph {
-  if (chain.id !== 'C01') return chain;
+  if (!isEditableChain(chain.id)) return chain;
   const next = cloneGraph(chain);
   next.release = {
-    version: (getPublishedChain('C01')?.release.version ?? 0) + 1,
+    version: (getPublishedChain(chain.id)?.release.version ?? 0) + 1,
     publishedAt: new Date().toISOString(),
     publishedBy: 'local-editor',
     note: note || '本地发布',
   };
-  saveRaw({ published: next, draft: null });
+  saveRaw(chain.id, { published: next, draft: null });
   return next;
 }
 
 export function discardDraft(chainId: string) {
-  if (chainId !== 'C01') return;
+  if (!isEditableChain(chainId)) return;
   const published = getPublishedChain(chainId);
   if (!published) return;
-  saveRaw({ published, draft: null });
+  saveRaw(chainId, { published, draft: null });
 }
 
 export function resetToSeed(chainId: string) {
-  if (chainId !== 'C01') return;
-  saveRaw({ published: cloneGraph(C01_SEED), draft: null });
+  if (!isEditableChain(chainId)) return;
+  const seed = getSeed(chainId);
+  if (!seed) return;
+  saveRaw(chainId, { published: seed, draft: null });
 }
 
 export function exportChainJson(chain: IndustrialChainGraph): string {

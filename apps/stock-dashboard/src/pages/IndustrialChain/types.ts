@@ -52,6 +52,12 @@ export interface ChainSegment {
   summary?: string;
   chokeRisk?: 'high' | 'medium' | 'low';
   regions?: string[];
+  /** 报告型字段：毛利带，如 "8%–20%" */
+  grossMarginHint?: string;
+  /** 价值角色/壁垒一句话 */
+  valueRole?: string;
+  /** 景气驱动 */
+  keyDrivers?: string[];
 }
 
 export interface ChainEdge {
@@ -68,7 +74,14 @@ export interface ChainEntity {
   symbols: string[];
   market?: string;
   country?: string;
+  /** 收入结构摘录（报告导入） */
+  revenueMix?: string;
+  /** 最新一期规模/毛利摘录 */
+  financeSnapshot?: string;
 }
+
+/** 相对锚点公司的可比性（报告「与000158可比性」） */
+export type PeerComparability = 'focal' | 'high' | 'mid' | 'low' | 'upstream' | 'downstream';
 
 export interface ChainMembership {
   id: string;
@@ -80,6 +93,9 @@ export interface ChainMembership {
   /** 相关业务占比 0–100，未知为 null */
   revenueSharePct: number | null;
   note?: string;
+  /** 与锚点公司可比/关系标签 */
+  peerTag?: PeerComparability;
+  roleNote?: string;
 }
 
 export interface ChainReleaseMeta {
@@ -99,6 +115,14 @@ export interface IndustrialChainGraph {
   entities: ChainEntity[];
   memberships: ChainMembership[];
   release: ChainReleaseMeta;
+  /** 报告导入：锚点公司（如常山北明） */
+  focalEntityId?: string;
+  /** 报告来源链接或说明 */
+  reportSource?: string;
+  /** 链条级关键变量与风险 */
+  chainRisks?: string[];
+  /** 价值分配一句话规律 */
+  valueLaw?: string;
 }
 
 export interface ChainCatalogItem {

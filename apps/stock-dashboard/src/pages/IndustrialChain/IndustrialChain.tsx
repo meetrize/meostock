@@ -51,6 +51,7 @@ import { buildPortfolioExposure, toWatchlistCode } from './portfolioExposure';
 import { C01_INDICATORS } from './seed/c01Indicators';
 import { C01_MARKET_METRICS } from './seed/c01MarketMetrics';
 import { C01_RESTRUCTURE } from './seed/c01Restructure';
+import { C05_INDICATORS } from './seed/c05Indicators';
 import {
   buildSignalCards,
   getIndicatorsForSegment,
@@ -69,6 +70,7 @@ import {
   getEditableChain,
   getPublishedChain,
   importChainJson,
+  isEditableChain,
   publishDraft,
   resetToSeed,
   saveDraft,
@@ -88,11 +90,31 @@ import type {
   IndustrialChainGraph,
   LeadingIndicator,
   MembershipStatus,
+  PeerComparability,
   ShockScenario,
   SignalActionLevel,
   SignalUrgency,
 } from './types';
 import styles from './IndustrialChain.module.css';
+
+function indicatorsForChain(chainId: string): LeadingIndicator[] {
+  if (chainId === 'C05') return C05_INDICATORS;
+  return C01_INDICATORS;
+}
+
+function seedMetricsForChain(chainId: string): EntityMarketMetrics[] {
+  if (chainId === 'C01') return C01_MARKET_METRICS;
+  return [];
+}
+
+const PEER_LABEL: Record<PeerComparability, string> = {
+  focal: '锚点',
+  high: '高可比',
+  mid: '中可比',
+  low: '低可比',
+  upstream: '上游',
+  downstream: '下游',
+};
 
 const NODE_W = 132;
 const NODE_H = 56;
@@ -219,16 +241,16 @@ export function IndustrialChain() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // 进入 C01 时自动尝试拉一次行情（失败静默，可手动刷新）
+  // 可编辑链自动尝试拉一次行情（失败静默，可手动刷新）
   useEffect(() => {
-    if (chainId !== 'C01' || !graph) return;
+    if (!isEditableChain(chainId) || !graph) return;
     let cancelled = false;
     void (async () => {
       try {
         const rows = await fetchLiveQuoteRows(graph);
         if (cancelled) return;
         setLiveRows(rows);
-        setLiveMetrics(mergeLiveMetrics(rows, C01_MARKET_METRICS));
+        setLiveMetrics(mergeLiveMetrics(rows, seedMetricsForChain(chainId)));
       } catch {
         /* 静默：缓存/网络不可用时仍可用种子 */
       }
@@ -236,20 +258,22 @@ export function IndustrialChain() {
     return () => {
       cancelled = true;
     };
-    // 仅在切换到已加载的 C01 图谱时触发
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chainId, graph?.id, graph?.release.version]);
 
-  const reloadProposals = useCallback(() => {
-    setProposals(listProposals('C01', true));
-  }, []);
+  const reloadProposals = useCallback((id: string = chainId) => {
+    setProposals(listProposals(id, true));
+  }, [chainId]);
 
   const reloadView = useCallback(
     (id: string, preferDraft: boolean) => {
-      if (id !== 'C01') {
+      if (!isEditableChain(id)) {
         setGraph(null);
         setSelectedSegId(null);
         setHasDraft(false);
+        setLiveRows([]);
+        setLiveMetrics(null);
+        setProposals([]);
         return;
       }
       const next = preferDraft ? getEditableChain(id) : getPublishedChain(id);
@@ -257,21 +281,27 @@ export function IndustrialChain() {
       setHasDraft(!!getDraftChain(id));
       setSelectedSegId((prev) => {
         if (prev && next?.segments.some((s) => s.id === prev)) return prev;
+        if (next?.focalEntityId) {
+          const m = next.memberships.find((x) => x.entityId === next.focalEntityId);
+          if (m) return m.segmentId;
+        }
         return next?.segments[0]?.id ?? null;
       });
-      reloadProposals();
+      setLiveRows([]);
+      setLiveMetrics(null);
+      reloadProposals(id);
     },
     [reloadProposals]
   );
 
   const enterEditor = () => {
-    if (chainId !== 'C01') return;
-    const editable = getEditableChain('C01');
+    if (!isEditableChain(chainId)) return;
+    const editable = getEditableChain(chainId);
     if (!editable) return;
-    if (!getDraftChain('C01')) saveDraft(editable);
+    if (!getDraftChain(chainId)) saveDraft(editable);
     setMode('editor');
     setRightTab('detail');
-    reloadView('C01', true);
+    reloadView(chainId, true);
     toast.info('已进入编辑：改动先写入草稿，发布后才生效');
   };
 
@@ -281,7 +311,7 @@ export function IndustrialChain() {
   };
 
   const mutateDraft = (updater: (g: IndustrialChainGraph) => IndustrialChainGraph) => {
-    if (!graph || graph.id !== 'C01' || mode !== 'editor') return;
+    if (!graph || !isEditableChain(graph.id) || mode !== 'editor') return;
     const next = updater(structuredClone(graph));
     saveDraft(next);
     setGraph(next);
@@ -289,7 +319,7 @@ export function IndustrialChain() {
   };
 
   const handlePublish = () => {
-    if (!graph || graph.id !== 'C01') return;
+    if (!graph || !isEditableChain(graph.id)) return;
     const published = publishDraft(graph);
     setGraph(published);
     setHasDraft(false);
@@ -298,22 +328,24 @@ export function IndustrialChain() {
   };
 
   const handleDiscard = () => {
-    discardDraft('C01');
+    if (!isEditableChain(chainId)) return;
+    discardDraft(chainId);
     setHasDraft(false);
     setMode('situation');
-    reloadView('C01', false);
+    reloadView(chainId, false);
     toast.info('已丢弃草稿');
   };
 
   const handleResetSeed = () => {
-    if (!window.confirm('重置为种子数据？将清除本地发布版、草稿与候选箱。')) return;
-    resetToSeed('C01');
-    resetProposals();
+    if (!isEditableChain(chainId)) return;
+    if (!window.confirm(`重置 ${chainId} 为种子数据？将清除该链本地发布版与草稿。`)) return;
+    resetToSeed(chainId);
+    if (chainId === 'C01') resetProposals();
     setHasDraft(false);
     setMode('situation');
     setRightTab('signals');
-    reloadView('C01', false);
-    toast.success('已重置为 C01 种子');
+    reloadView(chainId, false);
+    toast.success(`已重置为 ${chainId} 种子`);
   };
 
   const handleExport = () => {
@@ -331,19 +363,25 @@ export function IndustrialChain() {
     try {
       const text = await file.text();
       const imported = importChainJson(text);
-      if (imported.id !== 'C01') {
-        toast.error('目前仅支持导入 C01');
+      if (!isEditableChain(imported.id)) {
+        toast.error('仅支持导入已开放主链（C01 / C05）');
         return;
       }
       saveDraft(imported);
+      setChainId(imported.id);
       setMode('editor');
       setRightTab('detail');
-      reloadView('C01', true);
+      reloadView(imported.id, true);
       toast.success('已导入为草稿，确认后请发布');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '导入失败');
     }
   };
+
+  const chainIndicators = useMemo(
+    () => indicatorsForChain(graph?.id ?? chainId),
+    [graph?.id, chainId]
+  );
 
   const selectedSeg = graph?.segments.find((s) => s.id === selectedSegId) ?? null;
 
@@ -377,16 +415,16 @@ export function IndustrialChain() {
   }, [graph, selectedSeg]);
 
   const signalCards = useMemo(
-    () => (graph ? buildSignalCards(graph, C01_INDICATORS) : []),
-    [graph]
+    () => (graph ? buildSignalCards(graph, chainIndicators) : []),
+    [graph, chainIndicators]
   );
 
   const segmentIndicators = useMemo(
     () =>
       selectedSeg
-        ? getIndicatorsForSegment(selectedSeg.id, C01_INDICATORS)
-        : C01_INDICATORS,
-    [selectedSeg]
+        ? getIndicatorsForSegment(selectedSeg.id, chainIndicators)
+        : chainIndicators,
+    [selectedSeg, chainIndicators]
   );
 
   const cascadeHits = useMemo(
@@ -404,23 +442,23 @@ export function IndustrialChain() {
       graph
         ? buildDivergencePoints(
             graph,
-            C01_INDICATORS,
-            liveMetrics ?? C01_MARKET_METRICS,
+            chainIndicators,
+            liveMetrics ?? seedMetricsForChain(graph.id),
             { liveLabel: !!liveMetrics }
           )
         : [],
-    [graph, liveMetrics]
+    [graph, liveMetrics, chainIndicators]
   );
 
   const quoteMap = useMemo(() => liveQuoteByEntity(liveRows), [liveRows]);
 
   const refreshQuotes = useCallback(async () => {
-    if (!graph || graph.id !== 'C01') return;
+    if (!graph || !isEditableChain(graph.id)) return;
     setQuotesLoading(true);
     try {
       const rows = await fetchLiveQuoteRows(graph);
       setLiveRows(rows);
-      setLiveMetrics(mergeLiveMetrics(rows, C01_MARKET_METRICS));
+      setLiveMetrics(mergeLiveMetrics(rows, seedMetricsForChain(graph.id)));
       const hit = rows.filter((r) => r.changePercent != null).length;
       toast.success(`行情已刷新：${hit}/${rows.length} 只有涨跌数据`);
     } catch (e) {
@@ -568,7 +606,7 @@ export function IndustrialChain() {
     setRightTab('detail');
     setGraph(next);
     setHasDraft(true);
-    reloadProposals();
+    reloadProposals('C01');
     if (next.memberships.at(-1)?.segmentId) {
       setSelectedSegId(next.memberships.at(-1)!.segmentId);
     }
@@ -580,6 +618,11 @@ export function IndustrialChain() {
     reloadProposals();
     toast.info('已驳回候选');
   };
+
+  const chainEditable = isEditableChain(chainId);
+  const focalEntity = graph?.focalEntityId
+    ? graph.entities.find((e) => e.id === graph.focalEntityId)
+    : null;
 
   const focusSignal = (card: ChainSignalCard) => {
     if (card.segmentIds[0]) {
@@ -613,7 +656,7 @@ export function IndustrialChain() {
             type="button"
             className={styles.btn}
             onClick={() => void refreshQuotes()}
-            disabled={chainId !== 'C01' || quotesLoading}
+            disabled={!chainEditable || quotesLoading}
           >
             <RefreshCw size={14} /> {quotesLoading ? '行情…' : liveMetrics ? '刷新行情' : '拉行情'}
           </button>
@@ -622,6 +665,7 @@ export function IndustrialChain() {
             className={styles.btn}
             onClick={() => void pullAnnounceCandidates()}
             disabled={chainId !== 'C01' || announceLoading}
+            title={chainId !== 'C01' ? '公告候选暂仅 C01 半导体关键词' : undefined}
           >
             <FileWarning size={14} /> {announceLoading ? '公告…' : '拉公告候选'}
           </button>
@@ -630,7 +674,7 @@ export function IndustrialChain() {
               type="button"
               className={styles.btn}
               onClick={enterEditor}
-              disabled={chainId !== 'C01'}
+              disabled={!chainEditable}
             >
               <Pencil size={14} /> 编辑链
             </button>
@@ -670,7 +714,7 @@ export function IndustrialChain() {
             type="button"
             className={styles.btn}
             onClick={() => fileRef.current?.click()}
-            disabled={chainId !== 'C01'}
+            disabled={!chainEditable}
           >
             <Upload size={14} /> 导入
           </button>
@@ -689,6 +733,7 @@ export function IndustrialChain() {
             type="button"
             className={`${styles.btn} ${styles.btnDanger}`}
             onClick={handleResetSeed}
+            disabled={!chainEditable}
           >
             <RotateCcw size={14} /> 重置种子
           </button>
@@ -763,6 +808,33 @@ export function IndustrialChain() {
                         if (!pos) return null;
                         const selected = seg.id === selectedSegId;
                         const choke = seg.chokeRisk === 'high';
+                        const hasFocal = graph.memberships.some(
+                          (m) =>
+                            m.segmentId === seg.id &&
+                            m.entityId === graph.focalEntityId
+                        );
+                        const activeCount = graph.memberships.filter(
+                          (m) => m.segmentId === seg.id && m.status === 'active'
+                        ).length;
+                        const metaParts = [
+                          hasFocal ? '锚点' : choke ? '卡脖子' : null,
+                          seg.grossMarginHint && seg.grossMarginHint !== '—'
+                            ? seg.grossMarginHint
+                            : null,
+                          `${activeCount} 家`,
+                        ].filter(Boolean) as string[];
+                        const metaLine = metaParts.join(' · ');
+                        const tipLines = [
+                          seg.name,
+                          seg.grossMarginHint && seg.grossMarginHint !== '—'
+                            ? `毛利带：${seg.grossMarginHint}`
+                            : null,
+                          hasFocal ? '含锚点公司' : null,
+                          choke ? '高卡脖子' : null,
+                          `活跃挂载 ${activeCount} 家`,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ');
                         return (
                           <g
                             key={seg.id}
@@ -773,25 +845,25 @@ export function IndustrialChain() {
                               setRightTab('detail');
                             }}
                           >
+                            <title>{tipLines}</title>
                             <rect
                               className={styles.segRect}
                               width={NODE_W}
                               height={NODE_H}
                               rx={8}
                             />
-                            <text className={styles.segTitle} x={10} y={22}>
-                              {seg.name}
-                            </text>
-                            <text className={styles.segMeta} x={10} y={40}>
-                              {choke ? '卡脖子 · ' : ''}
-                              {
-                                graph.memberships.filter(
-                                  (m) =>
-                                    m.segmentId === seg.id && m.status === 'active'
-                                ).length
-                              }{' '}
-                              家活跃
-                            </text>
+                            <foreignObject
+                              x={8}
+                              y={6}
+                              width={NODE_W - 16}
+                              height={NODE_H - 12}
+                              style={{ pointerEvents: 'none', overflow: 'hidden' }}
+                            >
+                              <div className={styles.segLabelBox}>
+                                <div className={styles.segTitleHtml}>{seg.name}</div>
+                                <div className={styles.segMetaHtml}>{metaLine}</div>
+                              </div>
+                            </foreignObject>
                           </g>
                         );
                       })}
@@ -849,7 +921,7 @@ export function IndustrialChain() {
               )}
               {centerView === 'restructure' && (
                 <RestructurePanel
-                  moves={C01_RESTRUCTURE}
+                  moves={graph.id === 'C01' ? C01_RESTRUCTURE : []}
                   graph={graph}
                   onFocusSegment={(id) => {
                     setSelectedSegId(id);
@@ -874,7 +946,7 @@ export function IndustrialChain() {
               )}
             </>
           ) : (
-            <div className={styles.detailEmpty}>该主链建设中，当前仅开放 C01。</div>
+            <div className={styles.detailEmpty}>该主链建设中，当前已开放 C01 / C05。</div>
           )}
         </section>
 
@@ -995,7 +1067,7 @@ export function IndustrialChain() {
                 </button>
               )}
               <IndicatorList
-                items={selectedSeg ? segmentIndicators : C01_INDICATORS}
+                items={selectedSeg ? segmentIndicators : chainIndicators}
                 graph={graph}
                 onFocusSeg={(id) => {
                   setSelectedSegId(id);
@@ -1060,16 +1132,57 @@ export function IndustrialChain() {
                 <div className={styles.detailEmpty}>选择一个环节</div>
               ) : (
                 <>
+                  {(focalEntity || graph.valueLaw || graph.chainRisks?.length) && (
+                    <div className={styles.reportBlock}>
+                      {focalEntity && (
+                        <p className={styles.detailP}>
+                          <strong>锚点</strong> {focalEntity.name}
+                          {focalEntity.symbols[0] ? ` · ${focalEntity.symbols[0]}` : ''}
+                          {graph.reportSource ? (
+                            <span className={styles.reportSource}>
+                              {' '}
+                              · {graph.reportSource}
+                            </span>
+                          ) : null}
+                        </p>
+                      )}
+                      {graph.valueLaw && (
+                        <p className={styles.detailP}>
+                          <strong>价值规律</strong> {graph.valueLaw}
+                        </p>
+                      )}
+                      {!!graph.chainRisks?.length && (
+                        <ul className={styles.riskList}>
+                          {graph.chainRisks.map((r) => (
+                            <li key={r}>{r}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                   <h2 className={styles.detailH}>{selectedSeg.name}</h2>
                   {selectedSeg.nameEn && (
                     <p className={styles.detailP}>{selectedSeg.nameEn}</p>
                   )}
                   <p className={styles.detailP}>{selectedSeg.summary}</p>
+                  {selectedSeg.valueRole && (
+                    <p className={styles.detailP}>
+                      <strong>价值角色</strong> {selectedSeg.valueRole}
+                    </p>
+                  )}
                   <dl className={styles.kv}>
                     <dt>卡脖子</dt>
                     <dd>{selectedSeg.chokeRisk ?? '—'}</dd>
+                    <dt>毛利带</dt>
+                    <dd>{selectedSeg.grossMarginHint ?? '—'}</dd>
                     <dt>地区</dt>
                     <dd>{selectedSeg.regions?.join(' / ') || '—'}</dd>
+                    {selectedSeg.keyDrivers?.length ? (
+                      <>
+                        <dt>景气驱动</dt>
+                        <dd>{selectedSeg.keyDrivers.join(' · ')}</dd>
+                      </>
+                    ) : null}
                   </dl>
 
                   <div
@@ -1117,6 +1230,15 @@ export function IndustrialChain() {
                           >
                             {TIER_LABEL[membership.tier]}
                           </span>
+                          {membership.peerTag && (
+                            <span
+                              className={`${styles.peerTag} ${
+                                membership.peerTag === 'focal' ? styles.peerFocal : ''
+                              }`}
+                            >
+                              {PEER_LABEL[membership.peerTag]}
+                            </span>
+                          )}
                         </div>
                         <div className={styles.memberSymbols}>
                           {entity!.symbols.join(' · ')} ·{' '}
@@ -1135,6 +1257,11 @@ export function IndustrialChain() {
                               }%`
                             : ''}
                         </div>
+                        {(membership.roleNote || entity!.revenueMix) && (
+                          <p className={styles.detailP} style={{ marginTop: 4 }}>
+                            {membership.roleNote || entity!.revenueMix}
+                          </p>
+                        )}
                         {membership.note && (
                           <p className={styles.detailP} style={{ marginTop: 4 }}>
                             {membership.note}

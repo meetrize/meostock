@@ -1,12 +1,18 @@
 import type { ChainCatalogItem } from './types';
 
-/** 官方主链目录（§1.2）；P0 仅 C01 可点开 */
+/** 官方主链目录（§1.2）；已开放 C01 / C05 */
 export const CHAIN_CATALOG: ChainCatalogItem[] = [
   {
     id: 'C01',
     name: '半导体',
     depth: 'price',
     blurb: '设备/材料 → 设计制造 → 封测 → 应用 · 重构/暴露/⌘K',
+  },
+  {
+    id: 'C05',
+    name: '云计算数据中心',
+    depth: 'observe',
+    blurb: 'IDC→算力→基础软→安全→集成→应用 · 常山北明锚点',
   },
   {
     id: 'C02',
@@ -27,7 +33,7 @@ export const CHAIN_CATALOG: ChainCatalogItem[] = [
     name: 'AI 算力',
     depth: 'placeholder',
     building: true,
-    blurb: '可与 C01 交叉视图（建设中）',
+    blurb: '可与 C01 / C05 交叉（建设中）',
   },
 ];
 

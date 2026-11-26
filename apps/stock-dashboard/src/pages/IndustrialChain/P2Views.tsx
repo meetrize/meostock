@@ -322,6 +322,11 @@ export function RestructurePanel({
         近岸 / 友岸 / 中国+1 / 国产在岸：长期骨架迁移叙事（精编示意，低频更新）。
       </p>
       <ul className={styles.memberList}>
+        {moves.length === 0 && (
+          <li className={styles.detailP}>
+            本链暂无地理重构叙事（C05 以报告锚点与利润带为主；近岸/友岸叙事见 C01）。
+          </li>
+        )}
         {moves.map((mv) => (
           <li key={mv.id} className={styles.memberCard}>
             <div className={styles.memberTop}>
@@ -387,7 +392,7 @@ export function ExposurePanel({
       )}
       {rows.length === 0 ? (
         <div className={styles.detailEmpty}>
-          自选中暂无 C01 挂载标的。可在背离/信号里「加入自选」，或先把 A 股半导体标的加入自选。
+          自选中暂无本链挂载标的。可在背离/信号里「加入自选」，或先把相关 A 股加入自选。
         </div>
       ) : (
         <ul className={styles.cascadeList}>
