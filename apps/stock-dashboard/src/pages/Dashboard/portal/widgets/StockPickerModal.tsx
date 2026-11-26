@@ -81,6 +81,50 @@ async function fetchSymbolsApi(
     .filter((x): x is StockPickerHit => Boolean(x));
 }
 
+/** 本库符号解析：中文名（如「三倍做多半导体ETF」）比东财列表稳 */
+async function fetchResolveHits(
+  market: CustomStockMarket,
+  q: string
+): Promise<StockPickerHit[]> {
+  try {
+    const res = await fetch('/api/symbols/resolve-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tokens: [q], limit: 12 }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok || !Array.isArray(data.items)) return [];
+    const row = data.items[0] as
+      | { matches?: Array<Record<string, unknown>> }
+      | undefined;
+    const matches = Array.isArray(row?.matches) ? row!.matches! : [];
+    const out: StockPickerHit[] = [];
+    for (const it of matches) {
+      const rawMarket = String(it.market || '').toLowerCase();
+      const hitMarket: CustomStockMarket | null =
+        rawMarket === 'us' || rawMarket === 'hk'
+          ? rawMarket
+          : rawMarket === 'cn' || rawMarket === 'fund'
+            ? 'cn'
+            : marketOfSdk(rawMarket);
+      if (hitMarket !== market) continue;
+      const code = normalizeStockCode(
+        String(it.symbol || it.code || '')
+      );
+      if (!code) continue;
+      out.push({
+        market,
+        code,
+        name: String(it.name || code),
+        klineSymbol: code,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export function StockPickerModal({
   open,
   title = '选择股票',
@@ -163,11 +207,14 @@ export function StockPickerModal({
               };
             });
 
-          if (mapped.length < 3) {
-            const apiRows = await fetchSymbolsApi(market, q);
+          if (mapped.length < 5) {
+            const [apiRows, resolveRows] = await Promise.all([
+              fetchSymbolsApi(market, q),
+              fetchResolveHits(market, q),
+            ]);
             if (seqRef.current !== seq) return;
             const seen = new Set(mapped.map((h) => h.code.toLowerCase()));
-            for (const row of apiRows) {
+            for (const row of [...resolveRows, ...apiRows]) {
               const key = row.code.toLowerCase();
               if (seen.has(key)) continue;
               seen.add(key);

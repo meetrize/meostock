@@ -192,7 +192,12 @@ export function getChangeColorClass(value: number | null | undefined): string {
   return value > 0 ? 'text-rise' : 'text-fall';
 }
 
-const US_EXCHANGE_SUFFIX = /\.(OQ|N|A|O|P|OB|PK|OTC)$/i;
+/**
+ * 东财/搜索结果常带交易所后缀（如 ussoxl.am → SOXL）。
+ * AM/AQ/AS/PS 等需覆盖，否则会归一成 usSOXL.AM 导致 K 线/行情 miss。
+ * 注意：类股后缀如 BRK.A 也会被剥掉（历史行为，与 .A 已在列表中一致）。
+ */
+const US_EXCHANGE_SUFFIX = /\.(OQ|AM|AQ|AS|PS|OB|PK|OTC|N|A|O|P)$/i;
 
 function stripUsExchangeSuffix(ticker: string): string {
   return ticker.replace(US_EXCHANGE_SUFFIX, '');

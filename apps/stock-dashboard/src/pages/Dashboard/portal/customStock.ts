@@ -31,9 +31,14 @@ export function readCustomStockConfig(
     marketRaw === 'cn' || marketRaw === 'hk' || marketRaw === 'us'
       ? marketRaw
       : null;
-  const code = normalizeStockCode(String(cfg.code || '')) || String(cfg.code || '').trim();
+  // 再归一一次：纠正历史写入的 usSOXL.AM 等脏代码
+  const code =
+    normalizeStockCode(String(cfg.code || '')) ||
+    String(cfg.code || '').trim();
   const klineSymbol =
-    String(cfg.klineSymbol || '').trim() || code;
+    normalizeStockCode(
+      String(cfg.klineSymbol || cfg.code || '').trim() || code
+    ) || code;
   const name =
     (typeof cfg.name === 'string' && cfg.name.trim()) ||
     widget.title ||
@@ -49,10 +54,12 @@ export function buildCustomStockConfig(input: {
   klineSymbol?: string;
 }): CustomStockConfig {
   const code = normalizeStockCode(input.code) || input.code.trim();
+  const klineSymbol =
+    normalizeStockCode((input.klineSymbol || code).trim()) || code;
   return {
     market: input.market,
     code,
-    klineSymbol: (input.klineSymbol || code).trim(),
+    klineSymbol,
     name: input.name.trim() || code,
   };
 }

@@ -4,6 +4,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Layout } from 'react-grid-layout';
+import {
+  buildCustomStockConfig,
+  isCustomStockWidget,
+  readCustomStockConfig,
+} from './customStock';
 import { createDefaultPersistedState, createDefaultWatchPreset } from './defaultLayouts';
 import { applyCatalogConstraints, WIDGET_CATALOG } from './widgetCatalog';
 import {
@@ -154,8 +159,37 @@ function stripNorthboundWidget(state: PortalPersistedState): PortalPersistedStat
   return changed ? { ...state, presets } : state;
 }
 
+/** 纠正自选个股历史脏码（如搜索写入的 usSOXL.AM） */
+function normalizeCustomStockWidgets(
+  state: PortalPersistedState
+): PortalPersistedState {
+  let changed = false;
+  const presets = state.presets.map((preset) => {
+    let presetChanged = false;
+    const widgets = preset.widgets.map((w) => {
+      if (!isCustomStockWidget(w)) return w;
+      const cfg = readCustomStockConfig(w);
+      if (!cfg) return w;
+      const next = buildCustomStockConfig(cfg);
+      const prevCode = String(w.config?.code || '');
+      const prevKline = String(w.config?.klineSymbol || '');
+      if (prevCode === next.code && prevKline === next.klineSymbol) return w;
+      presetChanged = true;
+      return {
+        ...w,
+        title: w.title || next.name,
+        config: { ...(w.config ?? {}), ...next },
+      };
+    });
+    if (!presetChanged) return preset;
+    changed = true;
+    return { ...preset, widgets };
+  });
+  return changed ? { ...state, presets } : state;
+}
+
 function upgradePortalState(state: PortalPersistedState): PortalPersistedState {
-  return stripNorthboundWidget(state);
+  return normalizeCustomStockWidgets(stripNorthboundWidget(state));
 }
 
 function loadState(): PortalPersistedState {

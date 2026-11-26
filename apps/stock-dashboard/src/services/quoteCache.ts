@@ -167,7 +167,7 @@ async function fetchLiveQuotesForMarket(
   });
 }
 
-const US_EXCHANGE_SUFFIX_RE = /\.(OQ|N|A|O|P|OB|PK|OTC)$/i;
+const US_EXCHANGE_SUFFIX_RE = /\.(OQ|AM|AQ|AS|PS|OB|PK|OTC|N|A|O|P)$/i;
 
 function collectUniqueQuotes(map: Map<string, FullQuote>): FullQuote[] {
   const uniqueQuotes: FullQuote[] = [];
