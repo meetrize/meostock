@@ -18,7 +18,7 @@ import {
   prepareFsChartBars,
 } from "./fs.mjs";
 import { isIntradayPeriod, resolveSessionOpenTs } from "./session.mjs";
-import { mountChrome, updateChrome, unmountChrome } from "./chrome.mjs";
+import { mountChrome, updateChrome, unmountChrome } from "./chrome.mjs?v=zt2";
 import { refreshCandleStatusOnChart } from "./candle-status.mjs";
 import {
   ensurePatternSignalOverlay,

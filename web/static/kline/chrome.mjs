@@ -26,11 +26,174 @@ let settingsMask = null;
 /** @type {object | null} */
 let settingsTarget = null;
 
+/** 顶栏「显示涨停主题」：页级共享 */
+let ztReasonEnabled = false;
+/** @type {Record<string, { theme?: string, drive?: string, reason?: string }>} */
+let ztReasonByCode = {};
+
+/** @type {Map<string, { at: number, items: any[] }>} */
+const ztHistCache = new Map();
+const ZT_HIST_TTL_MS = 5 * 60 * 1000;
+
+/** @type {HTMLElement | null} */
+let ztTipEl = null;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let ztTipHideTimer = null;
+
+/**
+ * @param {{ enabled?: boolean, byCode?: Record<string, { theme?: string, drive?: string, reason?: string }> }} opts
+ */
+export function setZtReasonDisplay(opts = {}) {
+  ztReasonEnabled = !!opts.enabled;
+  ztReasonByCode =
+    opts.byCode && typeof opts.byCode === "object" ? opts.byCode : {};
+}
+
+/** @param {Iterable<object> | object[]} panels */
+export function refreshChromeForPanels(panels) {
+  for (const p of panels || []) {
+    if (p) updateChrome(p);
+  }
+}
+
 function closeOpenMenu() {
   if (openMenuEl) {
     openMenuEl.hidden = true;
     openMenuEl = null;
   }
+}
+
+function pureAshareCode(raw) {
+  const s = String(raw ?? "").trim();
+  const m = s.match(/(\d{6})/);
+  return m ? m[1] : "";
+}
+
+function truncateText(s, max) {
+  const t = String(s || "").replace(/\s+/g, " ").trim();
+  if (!t) return "";
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(1, max))}…`;
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function fmtTradeDate(ymd) {
+  const s = String(ymd || "").replace(/\D/g, "");
+  if (s.length === 8) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  return String(ymd || "—");
+}
+
+function ensureZtTip() {
+  if (ztTipEl) return ztTipEl;
+  ztTipEl = document.createElement("div");
+  ztTipEl.className = "mp-zt-tip";
+  ztTipEl.hidden = true;
+  document.body.appendChild(ztTipEl);
+  return ztTipEl;
+}
+
+function hideZtTipSoon() {
+  if (ztTipHideTimer) clearTimeout(ztTipHideTimer);
+  ztTipHideTimer = setTimeout(() => {
+    if (ztTipEl) ztTipEl.hidden = true;
+  }, 120);
+}
+
+function placeZtTip(anchor) {
+  const tip = ensureZtTip();
+  const rect = anchor.getBoundingClientRect();
+  const pad = 8;
+  const tipW = Math.min(360, window.innerWidth - 16);
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + tipW > window.innerWidth - pad) {
+    left = Math.max(pad, window.innerWidth - pad - tipW);
+  }
+  tip.style.width = `${tipW}px`;
+  tip.hidden = false;
+  // 先显示再量高度，必要时翻到上方
+  const h = tip.offsetHeight || 160;
+  if (top + h > window.innerHeight - pad) {
+    top = Math.max(pad, rect.top - h - 6);
+  }
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+}
+
+async function loadZtHistory(code6) {
+  const hit = ztHistCache.get(code6);
+  if (hit && Date.now() - hit.at < ZT_HIST_TTL_MS) return hit.items;
+  const res = await fetch(
+    `/api/zt/history/stock?code=${encodeURIComponent(code6)}&limit=40`,
+    { cache: "no-store" }
+  );
+  const data = await res.json().catch(() => ({}));
+  const items = res.ok && data?.ok && Array.isArray(data.items) ? data.items : [];
+  ztHistCache.set(code6, { at: Date.now(), items });
+  return items;
+}
+
+function renderZtHistoryHtml(code6, items) {
+  if (!items.length) {
+    return `<div class="mp-zt-tip-hd">${escapeHtml(code6)} · 涨跌停历史</div>
+      <div class="mp-zt-tip-empty">暂无落库记录</div>`;
+  }
+  const rows = items
+    .map((it) => {
+      const pool = String(it.pool || "");
+      const isDown = pool.includes("down");
+      const poolCls = isDown ? "mp-zt-tip-pool-dn" : "mp-zt-tip-pool-up";
+      const poolLab = isDown ? "跌停" : "涨停";
+      const theme = String(it.plate_name || "").trim();
+      const drive = String(it.plate_reason || "").trim();
+      const reason = String(it.stock_reason || "").trim();
+      const body = [drive, reason].filter(Boolean).join(" · ");
+      return `<div class="mp-zt-tip-row">
+        <div class="mp-zt-tip-meta">
+          <span>${escapeHtml(fmtTradeDate(it.trade_date))}</span>
+          <span class="${poolCls}">${poolLab}</span>
+          ${theme ? `<span class="mp-zt-tip-theme">${escapeHtml(theme)}</span>` : ""}
+        </div>
+        ${body ? `<div class="mp-zt-tip-body">${escapeHtml(body)}</div>` : ""}
+      </div>`;
+    })
+    .join("");
+  return `<div class="mp-zt-tip-hd">${escapeHtml(code6)} · 涨跌停历史（${items.length}）</div>${rows}`;
+}
+
+function bindZtHover(el, code6) {
+  if (!el || el.dataset.ztBound === "1") return;
+  el.dataset.ztBound = "1";
+  el.addEventListener("mouseenter", () => {
+    if (ztTipHideTimer) {
+      clearTimeout(ztTipHideTimer);
+      ztTipHideTimer = null;
+    }
+    const tip = ensureZtTip();
+    tip.innerHTML = `<div class="mp-zt-tip-hd">${escapeHtml(code6)} · 涨跌停历史</div>
+      <div class="mp-zt-tip-empty">加载中…</div>`;
+    placeZtTip(el);
+    void loadZtHistory(code6)
+      .then((items) => {
+        if (!ztTipEl || ztTipEl.hidden) return;
+        // 仍悬停在同一锚点相关区域时才更新
+        tip.innerHTML = renderZtHistoryHtml(code6, items);
+        placeZtTip(el);
+      })
+      .catch(() => {
+        if (!ztTipEl || ztTipEl.hidden) return;
+        tip.innerHTML = `<div class="mp-zt-tip-hd">${escapeHtml(code6)}</div>
+          <div class="mp-zt-tip-empty">加载失败</div>`;
+      });
+  });
+  el.addEventListener("mouseleave", () => hideZtTipSoon());
 }
 
 function ensureDocListeners() {
@@ -301,6 +464,7 @@ export function mountChrome(panel) {
       <div class="mp-id-row">
         <button type="button" class="mp-name" title="打开单图 K 线">--</button>
         <span class="mp-code"></span>
+        <span class="mp-zt-reason" hidden></span>
       </div>
       <div class="mp-quote"></div>
     </div>
@@ -595,7 +759,7 @@ function escapeAttr(s) {
 }
 
 /**
- * 刷新浮层名称 / 代码 / 行情
+ * 刷新浮层名称 / 代码 / 行情 / 涨停主题
  * @param {import('./ChartPanel.mjs').ChartPanel} panel
  */
 export function updateChrome(panel) {
@@ -604,6 +768,7 @@ export function updateChrome(panel) {
   const nameEl = root.querySelector(".mp-name");
   const codeEl = root.querySelector(".mp-code");
   const quoteEl = root.querySelector(".mp-quote");
+  const ztEl = root.querySelector(".mp-zt-reason");
   const name = panel._name || panel.getState?.().name || "";
   nameEl.textContent = name || "--";
   codeEl.textContent = panel.symbol || "";
@@ -615,6 +780,53 @@ export function updateChrome(panel) {
   if (link) {
     link.href = singleChartUrl(panel.symbol, panel.period);
   }
+
+  if (!ztEl) return;
+  const code6 = pureAshareCode(panel.symbol);
+  const info =
+    ztReasonEnabled && code6 ? ztReasonByCode[code6] || null : null;
+  const theme = String(info?.theme || "").trim();
+  const drive = String(info?.drive || "").trim();
+  const reason = String(info?.reason || "").trim();
+  const sig = ztReasonEnabled
+    ? `${code6}|${theme}|${drive}|${reason}`
+    : "";
+  if (ztEl.dataset.ztSig === sig) return;
+  ztEl.dataset.ztSig = sig;
+  if (!info || (!theme && !drive && !reason)) {
+    ztEl.hidden = true;
+    ztEl.classList.remove("is-on");
+    ztEl.innerHTML = "";
+    return;
+  }
+  ztEl.hidden = false;
+  ztEl.classList.add("is-on");
+  ztEl.innerHTML = `
+    ${
+      theme
+        ? `<span class="mp-zt-theme" title="${escapeAttr(theme)}">${escapeHtml(
+            truncateText(theme, 8)
+          )}</span>`
+        : ""
+    }
+    ${
+      drive
+        ? `<span class="mp-zt-drive" title="${escapeAttr(drive)}">${escapeHtml(
+            truncateText(drive, 20)
+          )}</span>`
+        : ""
+    }
+    ${
+      reason
+        ? `<span class="mp-zt-stock" title="${escapeAttr(reason)}">${escapeHtml(
+            reason
+          )}</span>`
+        : ""
+    }
+  `;
+  ztEl.querySelectorAll(".mp-zt-theme, .mp-zt-drive, .mp-zt-stock").forEach((node) => {
+    bindZtHover(node, code6);
+  });
 }
 
 export function unmountChrome(panel) {

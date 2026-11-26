@@ -590,6 +590,162 @@
       cursor: pointer;
       user-select: none;
     }
+
+    /* 顶栏设置菜单 */
+    .mp-bar-settings {
+      position: relative;
+      flex: 0 0 auto;
+    }
+    .mp-bar-settings > summary {
+      list-style: none;
+      appearance: none;
+      border: 1px solid var(--line);
+      background: var(--btn-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .mp-bar-settings > summary::-webkit-details-marker { display: none; }
+    .mp-bar-settings > summary:hover,
+    .mp-bar-settings[open] > summary {
+      background: var(--btn-active-bg);
+      border-color: var(--accent);
+    }
+    .mp-bar-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 60;
+      width: min(320px, calc(100vw - 24px));
+      max-height: min(70vh, 420px);
+      overflow: auto;
+      overscroll-behavior: contain;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--modal-bg);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .mp-bar-menu-sec {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+    .mp-bar-menu-sec:last-child {
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .mp-bar-menu-label {
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .mp-bar-menu-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+    }
+    .mp-bar-menu-row label.muted {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .mp-bar-menu .mp-bar-check {
+      min-width: 42%;
+      flex: 1 1 42%;
+    }
+
+    /* 面板涨停主题行 */
+    .mp-zt-reason {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 1 1 120px;
+      max-width: 100%;
+      pointer-events: auto;
+    }
+    .mp-zt-reason.is-on { display: inline-flex; }
+    .mp-zt-theme {
+      flex: 0 0 auto;
+      max-width: 7em;
+      padding: 0 6px;
+      border-radius: 3px;
+      border: 1px solid color-mix(in srgb, var(--up) 45%, var(--line));
+      background: color-mix(in srgb, var(--up) 14%, transparent);
+      color: var(--up);
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 16px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: default;
+    }
+    .mp-zt-drive,
+    .mp-zt-stock {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 10px;
+      line-height: 1.2;
+      color: var(--muted);
+      cursor: default;
+    }
+    .mp-zt-drive { flex: 0 1 12em; max-width: 12em; }
+    .mp-zt-stock { flex: 1 1 8em; }
+
+    .mp-zt-tip {
+      position: fixed;
+      z-index: 1200;
+      width: min(360px, calc(100vw - 16px));
+      max-height: min(50vh, 320px);
+      overflow: auto;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--modal-bg);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+      font-size: 12px;
+      color: var(--text);
+      pointer-events: none;
+    }
+    .mp-zt-tip[hidden] { display: none !important; }
+    .mp-zt-tip-hd {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .mp-zt-tip-row {
+      padding: 6px 0;
+      border-top: 1px solid var(--line);
+    }
+    .mp-zt-tip-row:first-of-type { border-top: none; padding-top: 0; }
+    .mp-zt-tip-meta {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+    .mp-zt-tip-pool-up { color: var(--up); font-weight: 600; font-size: 11px; }
+    .mp-zt-tip-pool-dn { color: var(--down); font-weight: 600; font-size: 11px; }
+    .mp-zt-tip-theme { color: var(--text); font-weight: 600; }
+    .mp-zt-tip-body { color: var(--muted); line-height: 1.35; word-break: break-word; }
+    .mp-zt-tip-empty { color: var(--muted); padding: 8px 0; }
+
     .app.bar-hidden .mp-bar { display: none; }
     .mp-show-bar {
       display: none;
@@ -626,58 +782,6 @@
   <div class="app">
     <header class="mp-bar">
       <span class="title">多面板</span>
-      <label class="muted">
-        布局
-        <select id="layoutSel" title="布局预设"></select>
-      </label>
-      <button type="button" id="btnCustomLayout" title="自定义行列并保存">自定义</button>
-      <label class="muted">
-        周期
-        <select id="globalPeriod" title="全体周期（已单独设置的面板不跟随）">
-          <option value="fs">分时</option>
-          <option value="1m">1m</option>
-          <option value="5m">5m</option>
-          <option value="15m">15m</option>
-          <option value="1h">1H</option>
-          <option value="1d" selected>1D</option>
-          <option value="1w">1W</option>
-        </select>
-      </label>
-      <label class="muted">
-        图形
-        <select id="globalCandle" title="全体图形（已单独设置的面板不跟随）">
-          <option value="candle_solid">全实心</option>
-          <option value="candle_stroke">全空心</option>
-          <option value="candle_up_stroke">涨空心</option>
-          <option value="candle_down_stroke">跌空心</option>
-          <option value="ohlc">OHLC</option>
-          <option value="area">面积图</option>
-        </select>
-      </label>
-      <label class="mp-bar-check" title="全体隐藏 VOL 量能（已单独设置的面板不跟随）">
-        <input type="checkbox" id="hideVol" />
-        隐藏量能
-      </label>
-      <label class="mp-bar-check" title="全体隐藏 Y 轴与价签，主图水平铺满（已单独设置的面板不跟随）">
-        <input type="checkbox" id="hideYAxis" />
-        隐藏Y轴
-      </label>
-      <label class="mp-bar-check" title="全体隐藏主图 MA 均线（已单独设置的面板不跟随）">
-        <input type="checkbox" id="hideMa" />
-        隐藏均线
-      </label>
-      <label class="mp-bar-check" title="跨面板按时间戳同步十字线">
-        <input type="checkbox" id="syncCrosshair" />
-        同步十字线
-      </label>
-      <label class="mp-bar-check" title="缩放任一面板时间轴时，当前页全部面板同步柱宽">
-        <input type="checkbox" id="syncZoom" />
-        同步缩放
-      </label>
-      <label class="mp-bar-check" title="拖动任一面板时间轴时，当前页全部面板按右缘时间戳对齐">
-        <input type="checkbox" id="syncPan" />
-        同步平移
-      </label>
       <span class="mp-pager" id="mpPager" title="标的翻页（↓下一页 · ↑上一页）">
         <button type="button" id="btnPagePrev" title="上一页 (↑)">‹</button>
         <span class="muted" id="pageLabel">1/1</span>
@@ -685,6 +789,84 @@
       </span>
       <span class="muted" id="mpHint">—</span>
       <span class="spacer"></span>
+      <details class="mp-bar-settings" id="barSettings">
+        <summary title="布局 / 周期 / 同步 / 涨停主题">设置</summary>
+        <div class="mp-bar-menu" role="menu" aria-label="多面板设置">
+          <div class="mp-bar-menu-sec">
+            <div class="mp-bar-menu-label">布局与周期</div>
+            <div class="mp-bar-menu-row">
+              <label class="muted">
+                布局
+                <select id="layoutSel" title="布局预设"></select>
+              </label>
+              <button type="button" id="btnCustomLayout" title="自定义行列并保存">自定义</button>
+            </div>
+            <div class="mp-bar-menu-row">
+              <label class="muted">
+                周期
+                <select id="globalPeriod" title="全体周期（已单独设置的面板不跟随）">
+                  <option value="fs">分时</option>
+                  <option value="1m">1m</option>
+                  <option value="5m">5m</option>
+                  <option value="15m">15m</option>
+                  <option value="1h">1H</option>
+                  <option value="1d" selected>1D</option>
+                  <option value="1w">1W</option>
+                </select>
+              </label>
+              <label class="muted">
+                图形
+                <select id="globalCandle" title="全体图形（已单独设置的面板不跟随）">
+                  <option value="candle_solid">全实心</option>
+                  <option value="candle_stroke">全空心</option>
+                  <option value="candle_up_stroke">涨空心</option>
+                  <option value="candle_down_stroke">跌空心</option>
+                  <option value="ohlc">OHLC</option>
+                  <option value="area">面积图</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="mp-bar-menu-sec">
+            <div class="mp-bar-menu-label">显示</div>
+            <div class="mp-bar-menu-row">
+              <label class="mp-bar-check" title="全体隐藏 VOL 量能（已单独设置的面板不跟随）">
+                <input type="checkbox" id="hideVol" />
+                隐藏量能
+              </label>
+              <label class="mp-bar-check" title="全体隐藏 Y 轴与价签，主图水平铺满（已单独设置的面板不跟随）">
+                <input type="checkbox" id="hideYAxis" />
+                隐藏Y轴
+              </label>
+              <label class="mp-bar-check" title="全体隐藏主图 MA 均线（已单独设置的面板不跟随）">
+                <input type="checkbox" id="hideMa" />
+                隐藏均线
+              </label>
+              <label class="mp-bar-check" title="在名称右侧显示当日涨停主题 / 驱动 / 原因">
+                <input type="checkbox" id="showZtReason" />
+                显示涨停主题
+              </label>
+            </div>
+          </div>
+          <div class="mp-bar-menu-sec">
+            <div class="mp-bar-menu-label">同步</div>
+            <div class="mp-bar-menu-row">
+              <label class="mp-bar-check" title="跨面板按时间戳同步十字线">
+                <input type="checkbox" id="syncCrosshair" />
+                同步十字线
+              </label>
+              <label class="mp-bar-check" title="缩放任一面板时间轴时，当前页全部面板同步柱宽">
+                <input type="checkbox" id="syncZoom" />
+                同步缩放
+              </label>
+              <label class="mp-bar-check" title="拖动任一面板时间轴时，当前页全部面板按右缘时间戳对齐">
+                <input type="checkbox" id="syncPan" />
+                同步平移
+              </label>
+            </div>
+          </div>
+        </div>
+      </details>
       <button type="button" id="btnHideBar" title="隐藏顶栏以腾出空间">隐藏顶栏</button>
       <button type="button" id="btnReload" title="全部重新加载">刷新</button>
       <button type="button" id="btnTheme" title="切换配色">配色</button>
@@ -730,7 +912,11 @@
     import { getKlineData } from "/static/kline/data.mjs";
     import { THEME_KEY, CANDLE_TYPES } from "/static/kline/styles.mjs";
     import { createPool } from "/static/kline/pool.mjs";
-    import { ChartPanel } from "/static/kline/ChartPanel.mjs";
+    import { ChartPanel } from "/static/kline/ChartPanel.mjs?v=zt2";
+    import {
+      setZtReasonDisplay,
+      refreshChromeForPanels,
+    } from "/static/kline/chrome.mjs?v=zt2";
     import {
       LAYOUT_PRESETS,
       resolveLayout,
@@ -743,6 +929,7 @@
     import { loadSession, saveSession } from "/static/kline/store.mjs";
 
     const DEFAULT_SYMBOLS = ["600036", "000001", "510300", "sh000001", "300750", "601318"];
+    const BAR_PREFS_KEY = "multipanel-bar-prefs";
 
     const statusEl = document.getElementById("status");
     const hintEl = document.getElementById("mpHint");
@@ -751,6 +938,8 @@
     const candleSel = document.getElementById("globalCandle");
     const layoutSel = document.getElementById("layoutSel");
     const customMask = document.getElementById("customLayoutMask");
+    const barSettingsEl = document.getElementById("barSettings");
+    const showZtReasonEl = document.getElementById("showZtReason");
 
     // 填充图形下拉（与 styles.CANDLE_TYPES 对齐）
     candleSel.innerHTML = CANDLE_TYPES.map(
@@ -800,9 +989,121 @@
     const hideYAxisEl = document.getElementById("hideYAxis");
     const hideMaEl = document.getElementById("hideMa");
 
+    /** 当日涨停主题 map：6位码 → { theme, drive, reason } */
+    let ztReasonByCode = {};
+    let showZtReasonOn = false;
+    let ztPoolLoading = false;
+
     function livePanels() {
       return slotPanels.filter(Boolean);
     }
+
+    function pureAshareCode(raw) {
+      const s = String(raw ?? "").trim();
+      const m = s.match(/(\d{6})/);
+      return m ? m[1] : "";
+    }
+
+    function loadBarPrefs() {
+      try {
+        const raw = localStorage.getItem(BAR_PREFS_KEY);
+        if (!raw) return {};
+        const data = JSON.parse(raw);
+        return data && typeof data === "object" ? data : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveBarPrefs(patch) {
+      try {
+        const next = { ...loadBarPrefs(), ...(patch || {}) };
+        localStorage.setItem(BAR_PREFS_KEY, JSON.stringify(next));
+      } catch (_) {}
+    }
+
+    function applyZtReasonToChrome() {
+      setZtReasonDisplay({
+        enabled: showZtReasonOn,
+        byCode: ztReasonByCode,
+      });
+      refreshChromeForPanels(livePanels());
+    }
+
+    function parseLimitPoolItems(payload) {
+      if (!payload || typeof payload !== "object") return [];
+      if (Array.isArray(payload.items)) return payload.items;
+      if (Array.isArray(payload.data)) return payload.data;
+      if (Array.isArray(payload.stocks)) return payload.stocks;
+      return [];
+    }
+
+    async function fetchZtReasonMap() {
+      const out = {};
+      try {
+        const res = await fetch("/api/zt/pool?pool=limit_up", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data?.ok) return out;
+        for (const raw of parseLimitPoolItems(data)) {
+          if (!raw || typeof raw !== "object") continue;
+          const code = pureAshareCode(raw.symbol ?? raw.code);
+          if (!code || code.length !== 6) continue;
+          const surge =
+            raw.surge_reason && typeof raw.surge_reason === "object"
+              ? raw.surge_reason
+              : null;
+          const platesRaw = Array.isArray(surge?.related_plates)
+            ? surge.related_plates
+            : [];
+          let theme = "";
+          let drive = "";
+          for (const p of platesRaw) {
+            if (!p || typeof p !== "object") continue;
+            const name = String(p.plate_name || "").trim();
+            if (!name) continue;
+            theme = name;
+            drive = String(p.plate_reason || "").trim();
+            break;
+          }
+          const reason = String(surge?.stock_reason || "").trim();
+          if (!theme && !drive && !reason) continue;
+          out[code] = { theme, drive, reason };
+        }
+      } catch (_) {}
+      return out;
+    }
+
+    async function ensureZtReasonMap(force = false) {
+      if (!showZtReasonOn) {
+        ztReasonByCode = {};
+        applyZtReasonToChrome();
+        return;
+      }
+      if (ztPoolLoading) return;
+      if (!force && Object.keys(ztReasonByCode).length) {
+        applyZtReasonToChrome();
+        return;
+      }
+      ztPoolLoading = true;
+      try {
+        ztReasonByCode = await fetchZtReasonMap();
+        applyZtReasonToChrome();
+        const n = Object.keys(ztReasonByCode).length;
+        setStatus(n ? `涨停主题已加载 ${n} 只` : "今日涨停池暂无主题数据");
+      } finally {
+        ztPoolLoading = false;
+      }
+    }
+
+    // 设置菜单：点外部关闭（保留 summary 点击切换）
+    document.addEventListener("click", (e) => {
+      if (!barSettingsEl?.open) return;
+      if (barSettingsEl.contains(e.target)) return;
+      barSettingsEl.open = false;
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && barSettingsEl?.open) barSettingsEl.open = false;
+    });
 
     function handleCrosshair(data, sourcePanel) {
       if (!syncCrosshairOn) return;
@@ -1257,6 +1558,8 @@
       );
       persistSession();
       updatePagerUI();
+      if (showZtReasonOn) void ensureZtReasonMap(false);
+      else applyZtReasonToChrome();
     }
 
     function applyLayoutId(layoutId) {
@@ -1430,6 +1733,13 @@
       persistSession();
     });
 
+    showZtReasonEl?.addEventListener("change", () => {
+      showZtReasonOn = !!showZtReasonEl.checked;
+      saveBarPrefs({ showZtReason: showZtReasonOn });
+      void ensureZtReasonMap(true);
+      setStatus(showZtReasonOn ? "已开启涨停主题" : "已关闭涨停主题");
+    });
+
     periodSel.addEventListener("change", () => {
       currentPeriod = periodSel.value;
       let skipped = 0;
@@ -1478,6 +1788,7 @@
     });
 
     document.getElementById("btnCustomLayout").addEventListener("click", () => {
+      if (barSettingsEl) barSettingsEl.open = false;
       customMask.classList.add("show");
     });
     const closeCustom = () => customMask.classList.remove("show");
@@ -1544,6 +1855,11 @@
     hideMaEl.checked = hideMaGlobal;
     savedPanelStates = Array.isArray(session?.panels) ? session.panels.slice() : [];
     if (session?.hideGlobalBar) setBarHidden(true);
+
+    const barPrefs = loadBarPrefs();
+    showZtReasonOn = !!barPrefs.showZtReason;
+    if (showZtReasonEl) showZtReasonEl.checked = showZtReasonOn;
+    setZtReasonDisplay({ enabled: showZtReasonOn, byCode: {} });
 
     // 单图/多面板共用 kline-chart-settings：存默认后同步全体面板状态色
     window.addEventListener("kline-settings-saved", (ev) => {
