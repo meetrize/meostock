@@ -959,6 +959,11 @@
         limit: String(NOTICE_PAGE),
         offset: String(offset),
       });
+      // 首屏且本地可能为空时，按需拉该股近两年（全市场回填未完成也能看）
+      if (!append) qs.set("ensure", "1");
+      if (!append) {
+        setHtml(`<div class="side-empty">加载公告（若本地无数据将即时拉取）…</div>`);
+      }
       const res = await fetch(`/api/cninfo/announcements?${qs}`, { cache: "no-store" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data?.ok) {

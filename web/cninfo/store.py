@@ -49,6 +49,27 @@ def upsert_stocks(rows: list[dict[str, str]]) -> int:
     return len(rows)
 
 
+def get_stock(code: str) -> dict[str, Any] | None:
+    init_db()
+    code6 = str(code or "").strip()[-6:]
+    if not code6:
+        return None
+    conn = get_conn()
+    with _lock:
+        row = conn.execute(
+            """
+            SELECT s.code, s.org_id, s.name, s.market,
+                   IFNULL(st.backfill_done, 0) AS backfill_done,
+                   st.last_sync_at, st.last_error
+            FROM cninfo_stock s
+            LEFT JOIN cninfo_sync_state st ON st.code = s.code
+            WHERE s.code = ?
+            """,
+            (code6,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
 def list_stocks_for_sync(*, prefer_backfill: bool = True) -> list[dict[str, Any]]:
     """待同步股票：优先未 backfill 完的，其次按 last_sync_at 升序。"""
     init_db()

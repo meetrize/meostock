@@ -45,6 +45,12 @@ def cninfo_announcements(
     symbol: str = Query(..., description="如 301112 / sz301112"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    ensure: int = Query(
+        0,
+        ge=0,
+        le=1,
+        description="本地无数据时按需从巨潮拉该股近两年（侧栏用）",
+    ),
 ) -> JSONResponse:
     """本地库公告列表（近两年由夜间任务维护）。"""
     init_db()
@@ -54,8 +60,19 @@ def cninfo_announcements(
             {"ok": False, "error": "请提供 A 股六位代码", "error_code": "bad_symbol"},
             status_code=400,
         )
-    rows = cninfo_store.list_announcements(code, limit=limit, offset=offset)
+    ensured: dict[str, Any] | None = None
     total = cninfo_store.count_announcements(code)
+    stock = cninfo_store.get_stock(code)
+    need_ensure = bool(ensure) and offset == 0 and total == 0 and not (
+        stock and int(stock.get("backfill_done") or 0)
+    )
+    if need_ensure:
+        from cninfo.sync import ensure_stock_announcements
+
+        ensured = ensure_stock_announcements(code)
+        total = cninfo_store.count_announcements(code)
+
+    rows = cninfo_store.list_announcements(code, limit=limit, offset=offset)
     items: list[dict[str, Any]] = []
     for r in rows:
         ms = int(r.get("announce_time_ms") or 0)
@@ -79,6 +96,7 @@ def cninfo_announcements(
             "total": total,
             "limit": limit,
             "offset": offset,
+            "ensured": ensured,
             "announcements": items,
         }
     )

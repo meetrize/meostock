@@ -43,6 +43,11 @@ type SyncProgress = {
   inserted?: number;
   updated?: number;
   unchanged?: number;
+  current_code?: string;
+  current_name?: string;
+  backfill_done?: number;
+  backfill_pending?: number;
+  universe?: number;
   message?: string;
   last_error?: string | null;
 };
@@ -75,8 +80,8 @@ export function Scheduler() {
   const [cninfoProgress, setCninfoProgress] = useState<SyncProgress | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // 顶部条只给其它任务用；巨潮公告进度只画在对应任务卡片内
   const activeProgress = useMemo(() => {
-    if (cninfoProgress?.active) return cninfoProgress;
     if (calProgress?.active) return calProgress;
     if (emProgress?.active) return emProgress;
     if (thsProgress?.active) return thsProgress;
@@ -86,18 +91,19 @@ export function Scheduler() {
         ? emProgress
         : calProgress?.message
           ? calProgress
-          : cninfoProgress;
-  }, [calProgress, emProgress, thsProgress, cninfoProgress]);
+          : null;
+  }, [calProgress, emProgress, thsProgress]);
 
   const load = useCallback(async () => {
     try {
-      const [jRes, rRes, thsRes, emRes, calRes, cninfoRes] = await Promise.all([
+      const [jRes, rRes, thsRes, emRes, calRes, cninfoRes, cninfoStatsRes] = await Promise.all([
         fetch('/api/scheduler/jobs'),
         fetch('/api/scheduler/runs?limit=30'),
         fetch('/api/scheduler/ths-concept/progress'),
         fetch('/api/scheduler/em-board/progress'),
         fetch('/api/scheduler/finance-calendar/progress'),
         fetch('/api/scheduler/cninfo-announcement/progress'),
+        fetch('/api/cninfo/stats'),
       ]);
       const jData = await jRes.json().catch(() => ({}));
       const rData = await rRes.json().catch(() => ({}));
@@ -105,12 +111,31 @@ export function Scheduler() {
       const emData = await emRes.json().catch(() => ({}));
       const calData = await calRes.json().catch(() => ({}));
       const cninfoData = await cninfoRes.json().catch(() => ({}));
+      const cninfoStats = await cninfoStatsRes.json().catch(() => ({}));
       if (jData?.ok && Array.isArray(jData.jobs)) setJobs(jData.jobs);
       if (rData?.ok && Array.isArray(rData.runs)) setRuns(rData.runs);
       if (thsData?.ok) setThsProgress(thsData);
       if (emData?.ok) setEmProgress(emData);
       if (calData?.ok) setCalProgress(calData);
-      if (cninfoData?.ok) setCninfoProgress(cninfoData);
+      if (cninfoData?.ok) {
+        const merged: SyncProgress = { ...cninfoData };
+        // 用 stats 补全卡片上的全市场回填数（即使任务空闲）
+        if (cninfoStats?.ok) {
+          merged.universe = Number(cninfoStats.stocks) || merged.universe;
+          merged.backfill_done = Number(cninfoStats.backfill_done) || merged.backfill_done;
+          merged.backfill_pending =
+            Number(cninfoStats.backfill_pending) || merged.backfill_pending;
+        }
+        setCninfoProgress(merged);
+      } else if (cninfoStats?.ok) {
+        setCninfoProgress({
+          active: false,
+          universe: Number(cninfoStats.stocks) || 0,
+          backfill_done: Number(cninfoStats.backfill_done) || 0,
+          backfill_pending: Number(cninfoStats.backfill_pending) || 0,
+          message: '',
+        });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e));
     } finally {
@@ -154,24 +179,31 @@ export function Scheduler() {
       toast.success(`已启动：${job.name}`);
       await load();
 
-      // 财经日历：轮询进度并给出成功/失败结果提示
-      if (job.job_type === 'finance_calendar_sync') {
+      // 财经日历 / 巨潮公告：轮询进度并给出成功/失败结果提示
+      if (
+        job.job_type === 'finance_calendar_sync' ||
+        job.job_type === 'cninfo_announcement_sync'
+      ) {
+        const progressUrl =
+          job.job_type === 'cninfo_announcement_sync'
+            ? '/api/scheduler/cninfo-announcement/progress'
+            : '/api/scheduler/finance-calendar/progress';
+        const maxPoll =
+          job.job_type === 'cninfo_announcement_sync' ? 900 : 120; // 公告单轮可能很长
         let sawActive = false;
-        for (let i = 0; i < 120; i += 1) {
+        for (let i = 0; i < maxPoll; i += 1) {
           await new Promise((r) => setTimeout(r, 800));
-          const pRes = await fetch('/api/scheduler/finance-calendar/progress');
+          const pRes = await fetch(progressUrl);
           const pData = await pRes.json().catch(() => ({}));
           if (pData?.ok) {
-            setCalProgress(pData);
+            if (job.job_type === 'cninfo_announcement_sync') setCninfoProgress(pData);
+            else setCalProgress(pData);
             if (pData.active) sawActive = true;
             if (sawActive && !pData.active) {
               if (pData.phase === 'error' || pData.last_error) {
-                toast.error(pData.last_error || pData.message || '财经日历同步失败');
+                toast.error(pData.last_error || pData.message || '同步失败');
               } else {
-                toast.success(
-                  pData.message ||
-                    `财经日历同步完成：+${pData.inserted ?? 0} ~${pData.updated ?? 0} =${pData.unchanged ?? 0}`
-                );
+                toast.success(pData.message || '同步完成');
               }
               await load();
               break;
@@ -216,8 +248,16 @@ export function Scheduler() {
       {activeProgress?.active && (
         <div className={styles.progressBar}>
           <div className={styles.progressText}>
+            {activeProgress.current_code
+              ? `当前 ${activeProgress.current_code} ${activeProgress.current_name || ''} · `
+              : ''}
             {activeProgress.message || '同步中…'}
-            {activeProgress.total ? ` · ${activeProgress.done ?? 0}/${activeProgress.total}` : ''}
+            {activeProgress.total ? ` · 本轮 ${activeProgress.done ?? 0}/${activeProgress.total}` : ''}
+            {typeof activeProgress.backfill_pending === 'number' &&
+            typeof activeProgress.universe === 'number' &&
+            activeProgress.universe > 0
+              ? ` · 全市场已回填 ${activeProgress.backfill_done ?? 0}/${activeProgress.universe}`
+              : ''}
             {typeof activeProgress.tagged === 'number' ? ` · 标注 ${activeProgress.tagged}` : ''}
           </div>
           <div className={styles.progressTrack}>
@@ -287,7 +327,91 @@ export function Scheduler() {
                     ) : null}
                     {job.job_type === 'cninfo_announcement_sync' ? (
                       <div className={styles.jobHint}>
-                        夜间同步巨潮全 A 股近两年公告元数据（标题/时间/PDF 链接）；侧栏「公告」读本地库。
+                        夜间/手动分批回填巨潮全 A 股近两年公告；单次成功≠全市场完成，看「待回填」续跑。侧栏打开未入库个股会按需即时拉取。
+                      </div>
+                    ) : null}
+                    {job.job_type === 'cninfo_announcement_sync' ? (
+                      <div className={running ? styles.jobProgressLive : styles.jobProgressIdle}>
+                        {running ? (
+                          <>
+                            <div className={styles.jobProgressTitle}>
+                              同步中
+                              {p?.current_code
+                                ? ` · ${p.current_code} ${p.current_name || ''}`.trim()
+                                : ''}
+                            </div>
+                            <div className={styles.jobProgressMeta}>
+                              本轮 {p?.done ?? 0}/{p?.total ?? '—'}
+                              {typeof p?.inserted === 'number' ? ` · 新增 ${p.inserted}` : ''}
+                            </div>
+                            <div className={styles.progressTrack}>
+                              <div
+                                className={styles.progressFill}
+                                style={{
+                                  width: `${
+                                    p?.total
+                                      ? Math.min(
+                                          100,
+                                          Math.round(((p.done || 0) / p.total) * 100)
+                                        )
+                                      : 8
+                                  }%`,
+                                }}
+                              />
+                            </div>
+                            <div className={styles.jobProgressMeta}>
+                              {typeof p?.universe === 'number' && p.universe > 0
+                                ? `全市场已回填 ${p.backfill_done ?? 0}/${p.universe}（待 ${p.backfill_pending ?? '—'}）`
+                                : ''}
+                            </div>
+                            {typeof p?.universe === 'number' && p.universe > 0 ? (
+                              <div className={styles.progressTrack}>
+                                <div
+                                  className={styles.progressFillMuted}
+                                  style={{
+                                    width: `${Math.min(
+                                      100,
+                                      Math.round(
+                                        ((p.backfill_done || 0) / p.universe) * 100
+                                      )
+                                    )}%`,
+                                  }}
+                                />
+                              </div>
+                            ) : null}
+                            <div className={styles.jobProgressMsg}>{p?.message || '…'}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className={styles.jobProgressTitle}>回填进度</div>
+                            <div className={styles.jobProgressMeta}>
+                              {typeof p?.universe === 'number' && p.universe > 0
+                                ? `全市场已回填 ${p.backfill_done ?? 0}/${p.universe}（待 ${p.backfill_pending ?? 0}）`
+                                : '尚未开始或进度未加载'}
+                              {typeof p?.inserted === 'number' && p.message
+                                ? ` · 上次新增 ${p.inserted}`
+                                : ''}
+                            </div>
+                            {typeof p?.universe === 'number' && p.universe > 0 ? (
+                              <div className={styles.progressTrack}>
+                                <div
+                                  className={styles.progressFillMuted}
+                                  style={{
+                                    width: `${Math.min(
+                                      100,
+                                      Math.round(
+                                        ((p.backfill_done || 0) / p.universe) * 100
+                                      )
+                                    )}%`,
+                                  }}
+                                />
+                              </div>
+                            ) : null}
+                            {p?.message ? (
+                              <div className={styles.jobProgressMsg}>上次：{p.message}</div>
+                            ) : null}
+                          </>
+                        )}
                       </div>
                     ) : null}
                     {job.job_type === 'cn_daily_eod_patch' ? (
@@ -300,9 +424,7 @@ export function Scheduler() {
                         Dashboard portal 面积图日 K：按该市场盘后拉取并写入本地库（历史读盘、当日/缺口才打网）。
                       </div>
                     ) : null}
-                    {(job.job_type === 'finance_calendar_sync' ||
-                      job.job_type === 'cninfo_announcement_sync') &&
-                    p?.active ? (
+                    {job.job_type === 'finance_calendar_sync' && p?.active ? (
                       <div className={styles.jobHint}>
                         进度 {p.message || '同步中…'}
                         {p.total ? ` · ${p.done ?? 0}/${p.total}` : ''}

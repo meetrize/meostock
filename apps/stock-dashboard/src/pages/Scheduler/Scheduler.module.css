@@ -98,6 +98,12 @@
   transition: width 0.3s ease;
 }
 
+.progressFillMuted {
+  height: 100%;
+  background: color-mix(in srgb, var(--color-accent) 55%, var(--text-muted));
+  transition: width 0.3s ease;
+}
+
 .jobList {
   display: flex;
   flex-direction: column;
@@ -145,6 +151,48 @@
   font-size: 11px;
   color: var(--text-tertiary);
   line-height: 1.45;
+}
+
+.jobProgressLive,
+.jobProgressIdle {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.jobProgressLive {
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--border-primary));
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--text-primary);
+}
+
+.jobProgressIdle {
+  border: 1px solid var(--border-secondary);
+  background: color-mix(in srgb, var(--bg-secondary) 70%, transparent);
+  color: var(--text-secondary);
+}
+
+.jobProgressTitle {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.jobProgressMeta {
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.jobProgressLive .progressTrack,
+.jobProgressIdle .progressTrack {
+  margin-top: 6px;
+}
+
+.jobProgressMsg {
+  margin-top: 6px;
+  color: var(--text-tertiary);
+  word-break: break-word;
 }
 
 .jobActions {
