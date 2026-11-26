@@ -4,6 +4,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Layout } from 'react-grid-layout';
+import {
+  CUSTOM_STOCK_MAX_PER_PRESET,
+  CUSTOM_STOCK_WIDGET_TYPE,
+  countCustomStockWidgets,
+} from './customStock';
 import { createDefaultPersistedState, createDefaultWatchPreset } from './defaultLayouts';
 import { applyCatalogConstraints, WIDGET_CATALOG } from './widgetCatalog';
 import {
@@ -14,6 +19,11 @@ import {
   type PortalWidgetInstance,
   type PortalWidgetType,
 } from './types';
+
+export type AddWidgetOptions = {
+  title?: string;
+  config?: Record<string, unknown>;
+};
 
 function isLayoutItem(value: unknown): value is PortalLayoutItem {
   if (!value || typeof value !== 'object') return false;
@@ -100,8 +110,11 @@ function parseState(raw: string | null): PortalPersistedState | null {
   }
 }
 
-/** 旧布局升级时自动补上宏观利率面板（不覆盖用户已有） */
-function ensureMacroRates(state: PortalPersistedState): PortalPersistedState {
+/**
+ * 仅用于 v7/v8 → v9 一次性迁移：旧布局若尚无宏观利率则补上。
+ * 不可在每次 load 时调用，否则用户移除后刷新又会被加回来。
+ */
+function ensureMacroRatesOnce(state: PortalPersistedState): PortalPersistedState {
   const catalog = WIDGET_CATALOG['macro.rates'];
   if (!catalog) return state;
   let changed = false;
@@ -147,7 +160,7 @@ function stripNorthboundWidget(state: PortalPersistedState): PortalPersistedStat
 }
 
 function upgradePortalState(state: PortalPersistedState): PortalPersistedState {
-  return stripNorthboundWidget(ensureMacroRates(state));
+  return stripNorthboundWidget(state);
 }
 
 function loadState(): PortalPersistedState {
@@ -161,7 +174,8 @@ function loadState(): PortalPersistedState {
     for (const key of PORTAL_LEGACY_STORAGE_KEYS) {
       const legacy = parseState(localStorage.getItem(key));
       if (legacy) {
-        const ensured = upgradePortalState(legacy);
+        // 旧 key 迁入 v9：补一次宏观利率，之后尊重用户增删
+        const ensured = upgradePortalState(ensureMacroRatesOnce(legacy));
         saveState(ensured);
         return ensured;
       }
@@ -318,11 +332,19 @@ export function usePortalLayout() {
   );
 
   const addWidget = useCallback(
-    (type: PortalWidgetType) => {
+    (type: PortalWidgetType, opts?: AddWidgetOptions): string | null => {
       const catalog = WIDGET_CATALOG[type];
       const id = nextId(type);
       const { w, h } = catalog.defaultLayout;
+      let created: string | null = id;
       updateActivePreset(({ layout, widgets }) => {
+        if (
+          type === CUSTOM_STOCK_WIDGET_TYPE &&
+          countCustomStockWidgets(widgets) >= CUSTOM_STOCK_MAX_PER_PRESET
+        ) {
+          created = null;
+          return { layout, widgets };
+        }
         const { x, y } = findDropPosition(layout, w, h);
         const layoutItem = applyCatalogConstraints(type, {
           i: id,
@@ -337,13 +359,15 @@ export function usePortalLayout() {
           ...(type === 'embed.iframe'
             ? { title: '网页', config: { url: '' } }
             : {}),
+          ...(opts?.title ? { title: opts.title } : {}),
+          ...(opts?.config ? { config: opts.config } : {}),
         };
         return {
           layout: [...layout, layoutItem],
           widgets: [...widgets, widget],
         };
       });
-      return id;
+      return created;
     },
     [updateActivePreset]
   );

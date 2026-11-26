@@ -1,0 +1,65 @@
+.empty {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.emptyDesc {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+}
+
+.emptyBtn {
+  margin-top: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-accent, var(--border-strong));
+  background: color-mix(in srgb, var(--color-accent, #3b82f6) 14%, transparent);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.editBar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 2px 4px;
+}
+
+.changeBtn {
+  padding: 2px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.changeBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.chartFill {
+  height: 100%;
+  min-height: 0;
+}
+
+.chartWithBar {
+  height: calc(100% - 24px);
+  min-height: 0;
+}

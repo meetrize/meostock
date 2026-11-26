@@ -20,6 +20,7 @@ import { RankListWidget } from './RankListWidget';
 import { StatMarginWidget } from './StatMarginWidget';
 import { MacroRatesWidget } from './MacroRatesWidget';
 import { SparkPanelWidget } from './SparkPanelWidget';
+import { CustomStockWidget } from './CustomStockWidget';
 import { IframeWidget } from './IframeWidget';
 import { CalendarEventsWidget } from './CalendarEventsWidget';
 import {
@@ -92,6 +93,15 @@ export function renderWidget(
     case 'rank.hk':
     case 'rank.cb':
       return <RankListWidget type={type} gridH={gridH} />;
+    case 'stock.custom':
+      if (!widget) return null;
+      return (
+        <CustomStockWidget
+          widget={widget}
+          editing={Boolean(opts?.editing)}
+          onUpdate={opts?.onUpdate}
+        />
+      );
     case 'embed.iframe':
       if (!widget) return null;
       return (

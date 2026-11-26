@@ -11,6 +11,10 @@ import { WidgetChrome } from './WidgetChrome';
 import { renderWidget } from './widgets';
 import { getIndexCodeByType, isIndexWidgetType } from './indexCatalog';
 import { getSparkPanel, isSparkWidgetType } from './sparkCatalog';
+import {
+  isCustomStockWidget,
+  readCustomStockConfig,
+} from './customStock';
 import { openKlineTool } from '@/utils/multipanel';
 import {
   PORTAL_COLS,
@@ -26,16 +30,23 @@ function isCompactWidgetType(type: string): boolean {
     type.startsWith('index.') ||
     type.startsWith('spark.') ||
     type.startsWith('stat.') ||
-    type.startsWith('strip.')
+    type.startsWith('strip.') ||
+    type === 'stock.custom'
   );
 }
 
-function titleClickFor(type: string): (() => void) | undefined {
+function titleClickFor(widget: PortalWidgetInstance): (() => void) | undefined {
+  const { type } = widget;
   if (isIndexWidgetType(type)) {
     return () => openKlineTool(getIndexCodeByType(type));
   }
   if (isSparkWidgetType(type)) {
     return () => openKlineTool(getSparkPanel(type).klineSymbol);
+  }
+  if (isCustomStockWidget(widget)) {
+    const cfg = readCustomStockConfig(widget);
+    if (!cfg) return undefined;
+    return () => openKlineTool(cfg.klineSymbol);
   }
   return undefined;
 }
@@ -255,6 +266,7 @@ export function PortalCanvas({
           const h = item?.h ?? 8;
           const title =
             widget.title ?? WIDGET_CATALOG[widget.type]?.name ?? widget.type;
+          const onTitleClick = titleClickFor(widget);
           return (
             <div key={widget.id} className={styles.mobileItem}>
               <WidgetChrome
@@ -262,10 +274,8 @@ export function PortalCanvas({
                 editing={false}
                 compact={isCompactWidgetType(widget.type)}
                 onRemove={() => onRemoveWidget(widget.id)}
-                onTitleClick={titleClickFor(widget.type)}
-                titleHint={
-                  titleClickFor(widget.type) ? '打开日线 K 线' : undefined
-                }
+                onTitleClick={onTitleClick}
+                titleHint={onTitleClick ? '打开日线 K 线' : undefined}
               >
                 {renderWidget(widget.type, w, h, widget, {
                   editing: false,
@@ -320,6 +330,7 @@ export function PortalCanvas({
             if (!item) return null;
             const title =
               widget.title ?? WIDGET_CATALOG[widget.type]?.name ?? widget.type;
+            const onTitleClick = titleClickFor(widget);
             return (
               <div key={widget.id} className={styles.gridItem}>
                 <WidgetChrome
@@ -327,10 +338,8 @@ export function PortalCanvas({
                   editing={editing}
                   compact={isCompactWidgetType(widget.type)}
                   onRemove={() => onRemoveWidget(widget.id)}
-                  onTitleClick={titleClickFor(widget.type)}
-                  titleHint={
-                    titleClickFor(widget.type) ? '打开日线 K 线' : undefined
-                  }
+                  onTitleClick={onTitleClick}
+                  titleHint={onTitleClick ? '打开日线 K 线' : undefined}
                 >
                   {renderWidget(widget.type, item.w, item.h, widget, {
                     editing,

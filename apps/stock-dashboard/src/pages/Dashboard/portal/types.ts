@@ -32,6 +32,7 @@ export type PortalWidgetType =
   | 'topic.topList'
   | 'rank.hk'
   | 'rank.cb'
+  | 'stock.custom'
   | 'embed.iframe'
   | 'calendar.events'
   | 'research.regime'
@@ -44,6 +45,7 @@ export type PortalWidgetType =
 
 export type PortalCatalogGroupId =
   | 'ashare'
+  | 'stocks'
   | 'sentiment'
   | 'capital'
   | 'cross'

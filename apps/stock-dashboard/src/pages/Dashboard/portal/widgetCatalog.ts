@@ -24,6 +24,7 @@ export interface WidgetCatalogEntry {
 
 export const CATALOG_GROUP_LABELS: Record<PortalCatalogGroupId, string> = {
   ashare: 'A 股核心',
+  stocks: '个股',
   global: '全球指数',
   futuresSpark: '国内期货',
   metals: '贵金属/能源',
@@ -195,6 +196,16 @@ export const WIDGET_CATALOG: Record<PortalWidgetType, WidgetCatalogEntry> = {
     group: 'capital',
     lane: 'tushare',
     defaultLayout: { ...KPI_LAYOUT },
+    starred: true,
+  },
+  'stock.custom': {
+    type: 'stock.custom',
+    name: '自选个股',
+    description: '任意市场一只股票的报价与日线',
+    group: 'stocks',
+    lane: 'em-sina',
+    defaultLayout: { ...INDEX_LAYOUT },
+    allowMultiple: true,
     starred: true,
   },
   watchlist: {
@@ -424,6 +435,7 @@ export function catalogGroups(): Array<{
   const order: PortalCatalogGroupId[] = [
     'research',
     'ashare',
+    'stocks',
     'global',
     'futuresSpark',
     'metals',

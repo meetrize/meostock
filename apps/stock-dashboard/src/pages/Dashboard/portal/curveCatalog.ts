@@ -11,6 +11,7 @@ import {
   isSparkWidgetType,
   type SparkPanelDef,
 } from './sparkCatalog';
+import { isCustomStockWidget, readCustomStockConfig } from './customStock';
 import type { PortalWidgetInstance } from './types';
 
 export type PortalEodLane = 'cn' | 'asia' | 'eu' | 'us' | 'crypto';
@@ -90,11 +91,12 @@ export function curveSymbolsFromWidgets(
     if (isIndexWidgetType(w.type) || isSparkWidgetType(w.type)) {
       spec = getCurveSpecByType(w.type);
     }
-    // 未来：自定义曲线面板可在 widget.config.klineSymbol 声明
+    const customCfg = isCustomStockWidget(w) ? readCustomStockConfig(w) : null;
     const custom =
-      typeof w.config?.klineSymbol === 'string'
+      customCfg?.klineSymbol ||
+      (typeof w.config?.klineSymbol === 'string'
         ? String(w.config.klineSymbol).trim()
-        : '';
+        : '');
     const sym = (spec?.klineSymbol || custom || '').trim();
     if (!sym || seen.has(sym)) continue;
     seen.add(sym);
@@ -104,7 +106,11 @@ export function curveSymbolsFromWidgets(
 }
 
 export function isCurveWidgetType(type: string): boolean {
-  return isIndexWidgetType(type) || isSparkWidgetType(type);
+  return (
+    isIndexWidgetType(type) ||
+    isSparkWidgetType(type) ||
+    type === 'stock.custom'
+  );
 }
 
 /** 打开 K 线工具时用的符号 */

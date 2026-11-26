@@ -11,8 +11,14 @@ import { useToast } from '@/components/common';
 import { useAppSettings } from '@/contexts';
 import { syncQuoteSourceToServer } from '@/services/quoteCache';
 import type { QuoteSource } from '@/types';
+import {
+  CUSTOM_STOCK_MAX_PER_PRESET,
+  CUSTOM_STOCK_WIDGET_TYPE,
+  type CustomStockConfig,
+} from './customStock';
 import { catalogGroups, laneMetaOf } from './widgetCatalog';
 import type { PortalWidgetType } from './types';
+import { StockPickerModal } from './widgets/StockPickerModal';
 import styles from './PortalToolbar.module.css';
 
 const REFRESH_OPTIONS_MS = [
@@ -28,7 +34,10 @@ interface PortalToolbarProps {
   editing: boolean;
   mobile: boolean;
   onToggleEdit: () => void;
-  onAddWidget: (type: PortalWidgetType) => void;
+  onAddWidget: (
+    type: PortalWidgetType,
+    opts?: { title?: string; config?: Record<string, unknown> }
+  ) => string | null;
   onReset: () => void;
   onRefresh: () => Promise<void>;
 }
@@ -50,6 +59,7 @@ export function PortalToolbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshOpen, setRefreshOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [stockPickerOpen, setStockPickerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -133,6 +143,30 @@ export function PortalToolbar({
     if (editing) onToggleEdit();
     setMenuOpen(true);
     setRefreshOpen(false);
+  };
+
+  const handleCatalogPick = (type: PortalWidgetType) => {
+    if (type === CUSTOM_STOCK_WIDGET_TYPE) {
+      setAddOpen(false);
+      setStockPickerOpen(true);
+      return;
+    }
+    onAddWidget(type);
+    setAddOpen(false);
+  };
+
+  const handleStockPicked = (config: CustomStockConfig) => {
+    const id = onAddWidget(CUSTOM_STOCK_WIDGET_TYPE, {
+      title: config.name,
+      config: { ...config },
+    });
+    setStockPickerOpen(false);
+    if (!id) {
+      toast.error(`自选个股最多 ${CUSTOM_STOCK_MAX_PER_PRESET} 个`);
+      return;
+    }
+    if (!editing) onToggleEdit();
+    toast.success(`已添加 ${config.name}`);
   };
 
   return (
@@ -342,10 +376,7 @@ export function PortalToolbar({
                           key={entry.type}
                           type="button"
                           className={styles.catalogCard}
-                          onClick={() => {
-                            onAddWidget(entry.type);
-                            setAddOpen(false);
-                          }}
+                          onClick={() => handleCatalogPick(entry.type)}
                         >
                           <span className={styles.catalogNameRow}>
                             <span
@@ -373,6 +404,14 @@ export function PortalToolbar({
           </div>
         </div>
       )}
+
+      <StockPickerModal
+        open={stockPickerOpen}
+        title="添加自选个股"
+        confirmLabel="添加到总览"
+        onClose={() => setStockPickerOpen(false)}
+        onConfirm={handleStockPicked}
+      />
     </>
   );
 }

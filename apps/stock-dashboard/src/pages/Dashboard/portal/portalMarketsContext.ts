@@ -22,6 +22,8 @@ export type PortalMarketsValue = {
   stripQuotes: Record<string, FullQuote[]>;
   topics: Record<string, PortalTopicRows>;
   ranks: Record<string, FullQuote[]>;
+  /** 自定义个股面板：按代码点查的报价 */
+  customQuotes: FullQuote[];
   loading: boolean;
   refreshPortalMarkets: (opts?: { force?: boolean }) => Promise<void>;
 };

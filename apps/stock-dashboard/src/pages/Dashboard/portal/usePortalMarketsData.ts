@@ -11,6 +11,7 @@ import {
   fetchTopicMarket,
   pickCuratedQuotes,
 } from '@/services/portalMarkets';
+import { getQuotesByCodesPreferCache } from '@/services/quoteCache';
 import {
   CRYPTO_CURATED,
   FUTURES_CURATED,
@@ -20,6 +21,10 @@ import {
   RATES_CURATED,
   type CuratedQuote,
 } from './curatedSymbols';
+import {
+  isCustomStockWidget,
+  readCustomStockConfig,
+} from './customStock';
 import type { PortalMarketsValue, PortalTopicRows } from './portalMarketsContext';
 import { getSparkPanel, isSparkWidgetType } from './sparkCatalog';
 import type { PortalWidgetInstance, PortalWidgetType } from './types';
@@ -76,10 +81,27 @@ export function usePortalMarketsData(
   const { getRefreshInterval } = useAppSettings();
   const types = useMemo(() => new Set(widgets.map((w) => w.type)), [widgets]);
 
+  const customCodes = useMemo(() => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const w of widgets) {
+      if (!isCustomStockWidget(w)) continue;
+      const cfg = readCustomStockConfig(w);
+      if (!cfg) continue;
+      const key = cfg.code.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(cfg.code);
+    }
+    return out;
+  }, [widgets]);
+  const customCodesKey = customCodes.join(',');
+
   const [sparkQuotes, setSparkQuotes] = useState<Record<string, FullQuote[]>>({});
   const [stripQuotes, setStripQuotes] = useState<Record<string, FullQuote[]>>({});
   const [topics, setTopics] = useState<Record<string, PortalTopicRows>>({});
   const [ranks, setRanks] = useState<Record<string, FullQuote[]>>({});
+  const [customQuotes, setCustomQuotes] = useState<FullQuote[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refreshPortalMarkets = useCallback(
@@ -106,7 +128,16 @@ export function usePortalMarketsData(
         if (t === 'rank.cb') topicIds.add('ts:cb');
       }
 
+      const customPromise =
+        customCodes.length > 0
+          ? getQuotesByCodesPreferCache(customCodes, {
+              force,
+              onPartial: (partial) => setCustomQuotes(partial),
+            }).then((rows) => setCustomQuotes(rows))
+          : Promise.resolve().then(() => setCustomQuotes([]));
+
       if (!snapMarkets.size && !topicIds.size) {
+        await customPromise;
         setLoading(false);
         return;
       }
@@ -165,14 +196,15 @@ export function usePortalMarketsData(
 
       setTopics((prev) => ({ ...prev, ...nextTopics }));
       setRanks((prev) => ({ ...prev, ...nextRanks }));
+      await customPromise;
       setLoading(false);
     },
-    [types]
+    [customCodes, types]
   );
 
   useEffect(() => {
     void refreshPortalMarkets();
-  }, [refreshPortalMarkets]);
+  }, [refreshPortalMarkets, customCodesKey]);
 
   useEffect(() => {
     if (!softVersion || !completedLanes.length) return;
@@ -188,7 +220,7 @@ export function usePortalMarketsData(
   const interval = getRefreshInterval('list');
   usePolling(() => refreshPortalMarkets(), {
     interval: Math.max(interval * 2, 30000),
-    enabled: types.size > 0 && !loading,
+    enabled: (types.size > 0 || customCodes.length > 0) && !loading,
     immediate: false,
   });
 
@@ -197,6 +229,7 @@ export function usePortalMarketsData(
     stripQuotes,
     topics,
     ranks,
+    customQuotes,
     loading,
     refreshPortalMarkets,
   };
