@@ -47,6 +47,8 @@ export function setZtReasonDisplay(opts = {}) {
   ztReasonEnabled = !!opts.enabled;
   ztReasonByCode =
     opts.byCode && typeof opts.byCode === "object" ? opts.byCode : {};
+  // 池数据更新后清历史缓存，下次悬停会并入今日主题/驱动/原因
+  ztHistCache.clear();
 }
 
 /** @param {Iterable<object> | object[]} panels */
@@ -127,15 +129,81 @@ function placeZtTip(anchor) {
   tip.style.top = `${top}px`;
 }
 
+function todayYmdCompact() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}${m}${day}`;
+}
+
+function normTradeDate(ymd) {
+  return String(ymd || "").replace(/\D/g, "").slice(0, 8);
+}
+
+/** 用当日涨停池 JSON（页内已拉的 byCode）补一条「今日」记录 */
+function todayLiveRowFromPool(code6) {
+  const info = ztReasonByCode[code6];
+  if (!info) return null;
+  const theme = String(info.theme || "").trim();
+  const drive = String(info.drive || "").trim();
+  const reason = String(info.reason || "").trim();
+  if (!theme && !drive && !reason) return null;
+  return {
+    trade_date: todayYmdCompact(),
+    pool: "limit_up",
+    plate_name: theme || null,
+    plate_reason: drive || null,
+    stock_reason: reason || null,
+    source: "live_pool",
+  };
+}
+
+/**
+ * 历史库 + 当日实时池（stock-panel 服务端已合并 live；
+ * 再以页内 /api/zt/pool 结果兜底，确保今日主题/驱动/原因一定能显示）
+ */
 async function loadZtHistory(code6) {
   const hit = ztHistCache.get(code6);
   if (hit && Date.now() - hit.at < ZT_HIST_TTL_MS) return hit.items;
-  const res = await fetch(
-    `/api/zt/history/stock?code=${encodeURIComponent(code6)}&limit=40`,
-    { cache: "no-store" }
-  );
-  const data = await res.json().catch(() => ({}));
-  const items = res.ok && data?.ok && Array.isArray(data.items) ? data.items : [];
+
+  let items = [];
+  try {
+    const res = await fetch(
+      `/api/zt/history/stock-panel?code=${encodeURIComponent(code6)}&limit=40&theme_limit=1`,
+      { cache: "no-store" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data?.ok && Array.isArray(data.items)) {
+      items = data.items.slice();
+    }
+  } catch (_) {
+    items = [];
+  }
+
+  // 若 stock-panel 未带上今日，直接用页内已解析的涨停池 JSON 插入
+  const live = todayLiveRowFromPool(code6);
+  const today = todayYmdCompact();
+  if (live) {
+    const idx = items.findIndex(
+      (it) =>
+        normTradeDate(it.trade_date) === today &&
+        String(it.pool || "").includes("up")
+    );
+    if (idx < 0) {
+      items = [live, ...items];
+    } else {
+      const cur = items[idx] || {};
+      items[idx] = {
+        ...cur,
+        plate_name: cur.plate_name || live.plate_name,
+        plate_reason: cur.plate_reason || live.plate_reason,
+        stock_reason: cur.stock_reason || live.stock_reason,
+        source: cur.source || "live_pool",
+      };
+    }
+  }
+
   ztHistCache.set(code6, { at: Date.now(), items });
   return items;
 }
@@ -143,8 +211,9 @@ async function loadZtHistory(code6) {
 function renderZtHistoryHtml(code6, items) {
   if (!items.length) {
     return `<div class="mp-zt-tip-hd">${escapeHtml(code6)} · 涨跌停历史</div>
-      <div class="mp-zt-tip-empty">暂无落库记录</div>`;
+      <div class="mp-zt-tip-empty">暂无记录</div>`;
   }
+  const today = todayYmdCompact();
   const rows = items
     .map((it) => {
       const pool = String(it.pool || "");
@@ -154,14 +223,28 @@ function renderZtHistoryHtml(code6, items) {
       const theme = String(it.plate_name || "").trim();
       const drive = String(it.plate_reason || "").trim();
       const reason = String(it.stock_reason || "").trim();
-      const body = [drive, reason].filter(Boolean).join(" · ");
+      const isToday =
+        normTradeDate(it.trade_date) === today ||
+        String(it.source || "") === "live_pool";
+      const dateLab = isToday
+        ? `${fmtTradeDate(it.trade_date || today)} · 今日`
+        : fmtTradeDate(it.trade_date);
       return `<div class="mp-zt-tip-row">
         <div class="mp-zt-tip-meta">
-          <span>${escapeHtml(fmtTradeDate(it.trade_date))}</span>
+          <span>${escapeHtml(dateLab)}</span>
           <span class="${poolCls}">${poolLab}</span>
           ${theme ? `<span class="mp-zt-tip-theme">${escapeHtml(theme)}</span>` : ""}
         </div>
-        ${body ? `<div class="mp-zt-tip-body">${escapeHtml(body)}</div>` : ""}
+        ${
+          drive
+            ? `<div class="mp-zt-tip-drive">驱动：${escapeHtml(drive)}</div>`
+            : ""
+        }
+        ${
+          reason
+            ? `<div class="mp-zt-tip-reason">原因：${escapeHtml(reason)}</div>`
+            : ""
+        }
       </div>`;
     })
     .join("");
@@ -801,26 +884,21 @@ export function updateChrome(panel) {
   }
   ztEl.hidden = false;
   ztEl.classList.add("is-on");
+  // 不设 HTML title：原生 tooltip 会挡住涨跌停历史浮层
   ztEl.innerHTML = `
     ${
       theme
-        ? `<span class="mp-zt-theme" title="${escapeAttr(theme)}">${escapeHtml(
-            truncateText(theme, 8)
-          )}</span>`
+        ? `<span class="mp-zt-theme">${escapeHtml(truncateText(theme, 8))}</span>`
         : ""
     }
     ${
       drive
-        ? `<span class="mp-zt-drive" title="${escapeAttr(drive)}">${escapeHtml(
-            truncateText(drive, 20)
-          )}</span>`
+        ? `<span class="mp-zt-drive">${escapeHtml(truncateText(drive, 20))}</span>`
         : ""
     }
     ${
       reason
-        ? `<span class="mp-zt-stock" title="${escapeAttr(reason)}">${escapeHtml(
-            reason
-          )}</span>`
+        ? `<span class="mp-zt-stock">${escapeHtml(reason)}</span>`
         : ""
     }
   `;

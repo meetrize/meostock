@@ -700,11 +700,18 @@
       white-space: nowrap;
       font-size: 10px;
       line-height: 1.2;
-      color: var(--muted);
       cursor: default;
     }
-    .mp-zt-drive { flex: 0 1 12em; max-width: 12em; }
-    .mp-zt-stock { flex: 1 1 8em; }
+    /* 驱动理由：偏主题/概念色；个股原因：偏正文提示色 */
+    .mp-zt-drive {
+      flex: 0 1 12em;
+      max-width: 12em;
+      color: var(--accent);
+    }
+    .mp-zt-stock {
+      flex: 1 1 8em;
+      color: var(--muted);
+    }
 
     .mp-zt-tip {
       position: fixed;
@@ -743,7 +750,18 @@
     .mp-zt-tip-pool-up { color: var(--up); font-weight: 600; font-size: 11px; }
     .mp-zt-tip-pool-dn { color: var(--down); font-weight: 600; font-size: 11px; }
     .mp-zt-tip-theme { color: var(--text); font-weight: 600; }
-    .mp-zt-tip-body { color: var(--muted); line-height: 1.35; word-break: break-word; }
+    .mp-zt-tip-drive {
+      margin-top: 2px;
+      color: var(--accent);
+      line-height: 1.35;
+      word-break: break-word;
+    }
+    .mp-zt-tip-reason {
+      margin-top: 2px;
+      color: var(--muted);
+      line-height: 1.35;
+      word-break: break-word;
+    }
     .mp-zt-tip-empty { color: var(--muted); padding: 8px 0; }
 
     .app.bar-hidden .mp-bar { display: none; }
@@ -912,11 +930,11 @@
     import { getKlineData } from "/static/kline/data.mjs";
     import { THEME_KEY, CANDLE_TYPES } from "/static/kline/styles.mjs";
     import { createPool } from "/static/kline/pool.mjs";
-    import { ChartPanel } from "/static/kline/ChartPanel.mjs?v=zt2";
+    import { ChartPanel } from "/static/kline/ChartPanel.mjs?v=zt5";
     import {
       setZtReasonDisplay,
       refreshChromeForPanels,
-    } from "/static/kline/chrome.mjs?v=zt2";
+    } from "/static/kline/chrome.mjs?v=zt5";
     import {
       LAYOUT_PRESETS,
       resolveLayout,

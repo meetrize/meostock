@@ -120,9 +120,6 @@
     .group-hd .plate-reason:hover {
       background: #fff3e8; text-decoration: underline;
     }
-    .group-hd .plate-reason.copied {
-      color: var(--blue); background: #eef6fc; text-decoration: none;
-    }
     .hist-bar {
       display: none; align-items: center; gap: 8px; flex-wrap: wrap;
       margin-bottom: 8px; font-size: 12px; color: var(--muted);
@@ -1829,7 +1826,7 @@
               '<h2>' + nameHtml +
                 statsHtml +
                 (g.reason
-                  ? '<span class="plate-reason" data-copy-reason="1" title="点击复制主题驱动理由">' +
+                  ? '<span class="plate-reason" data-search-reason="1" title="点击用 Google 搜索驱动理由">' +
                       esc(g.reason) + '</span>'
                   : '') +
               '</h2>' +
@@ -2003,28 +2000,6 @@
     function bindRootInteractions() {
       const root = document.getElementById('root');
 
-      async function copyText(text) {
-        try {
-          if (navigator.clipboard && window.isSecureContext) {
-            await navigator.clipboard.writeText(text);
-            return true;
-          }
-        } catch (_) { /* fall through */ }
-        try {
-          const ta = document.createElement('textarea');
-          ta.value = text;
-          ta.setAttribute('readonly', '');
-          ta.style.cssText = 'position:fixed;left:-9999px;top:0';
-          document.body.appendChild(ta);
-          ta.select();
-          const ok = document.execCommand('copy');
-          document.body.removeChild(ta);
-          return ok;
-        } catch (_) {
-          return false;
-        }
-      }
-
       root.addEventListener('mouseover', (ev) => {
         const hover = ev.target.closest('.chart-hover[data-code]');
         if (hover && root.contains(hover)) {
@@ -2063,23 +2038,15 @@
           if (cacheRows.length) render(cacheRows);
           return;
         }
-        const reasonEl = ev.target.closest('[data-copy-reason]');
+        const reasonEl = ev.target.closest('[data-search-reason]');
         if (reasonEl && root.contains(reasonEl)) {
           ev.preventDefault();
           ev.stopPropagation();
           const text = (reasonEl.textContent || '').trim();
           if (!text) return;
-          void copyText(text).then((ok) => {
-            if (!ok) return;
-            reasonEl.classList.add('copied');
-            const prev = reasonEl.getAttribute('title') || '';
-            reasonEl.setAttribute('title', '已复制');
-            clearTimeout(reasonEl._copyTimer);
-            reasonEl._copyTimer = setTimeout(() => {
-              reasonEl.classList.remove('copied');
-              reasonEl.setAttribute('title', prev || '点击复制主题驱动理由');
-            }, 1200);
-          });
+          const url =
+            'https://www.google.com/search?q=' + encodeURIComponent(text);
+          window.open(url, '_blank', 'noopener,noreferrer');
           return;
         }
         const groupHd = ev.target.closest('[data-group-toggle]');
