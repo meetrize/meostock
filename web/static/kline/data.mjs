@@ -340,6 +340,7 @@ export function createKlineData(sdk = new StockSDK()) {
       bars: dedupeDayLikeBars(data.bars, market, period),
       source: data.from_cache ? `cache:${data.source || "local"}` : data.source || "cache",
       fromCache: Boolean(data.from_cache),
+      livePatched: Boolean(data.live_patched),
       stale: Boolean(data.stale),
       refreshing: Boolean(data.refreshing),
       name: data.name,

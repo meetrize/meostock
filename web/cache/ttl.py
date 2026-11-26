@@ -216,23 +216,6 @@ def is_cn_trade_daytime(now: datetime | None = None) -> bool:
     return _in_window(t, time(9, 15), time(15, 5))
 
 
-def cn_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
-    """日 K 最后一根早于上海今日 → 缺未收盘当日（需补实时）。"""
-    if not bars:
-        return False
-    if not is_cn_trade_daytime(now):
-        return False
-    try:
-        last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
-    except (TypeError, ValueError, AttributeError, IndexError):
-        return False
-    if last_ts <= 0:
-        return False
-    dt = (now or datetime.now(tz=_SH)).astimezone(_SH)
-    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=_SH).date()
-    return last_day < dt.date()
-
-
 def _session_date_for_tz(tz: ZoneInfo, open_t: time, now: datetime | None = None) -> date:
     """当前（或上一）交易日：开盘前回退到前一工作日。"""
     dt = (now or datetime.now(tz=tz)).astimezone(tz)
@@ -241,6 +224,16 @@ def _session_date_for_tz(tz: ZoneInfo, open_t: time, now: datetime | None = None
         d = d - timedelta(days=1)
     while d.weekday() >= 5:
         d = d - timedelta(days=1)
+    return d
+
+
+def cn_session_date(now: datetime | None = None) -> date:
+    """A 股当前（或上一）交易日，含节假日回退。"""
+    d = _session_date_for_tz(_SH, time(9, 15), now)
+    guard = 0
+    while (d.weekday() >= 5 or is_cn_holiday(d)) and guard < 15:
+        d = d - timedelta(days=1)
+        guard += 1
     return d
 
 
@@ -260,38 +253,39 @@ def hk_session_date(now: datetime | None = None) -> date:
     return d
 
 
-def us_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
-    """美股日 K 末根早于美东当前交易日 → 缺当日（Yahoo 常滞后，需东财/现价补）。
-
-    仅美东盘中强制过期；盘后不因「日历日」误判，避免北京白天把美股当 A 股盘中狂刷。
-    """
+def _last_bar_day(bars: list | None, tz: ZoneInfo) -> date | None:
     if not bars:
-        return False
-    if not is_session_open("us", now):
-        return False
+        return None
     try:
         last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
     except (TypeError, ValueError, AttributeError, IndexError):
-        return False
+        return None
     if last_ts <= 0:
+        return None
+    return datetime.fromtimestamp(last_ts / 1000.0, tz=tz).date()
+
+
+def cn_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
+    """日 K 末根早于 A 股当前交易日 → 缺当日（盘中/盘后均需补，直到追上）。"""
+    last_day = _last_bar_day(bars, _SH)
+    if last_day is None:
         return False
-    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=_NY).date()
+    return last_day < cn_session_date(now)
+
+
+def us_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
+    """美股日 K 末根早于美东当前交易日 → 缺当日（Yahoo 常滞后；盘后也要补到齐）。"""
+    last_day = _last_bar_day(bars, _NY)
+    if last_day is None:
+        return False
     return last_day < us_session_date(now)
 
 
 def hk_daily_bars_missing_today(bars: list | None, now: datetime | None = None) -> bool:
-    """港股日 K 末根早于港股当前交易日 → 缺当日。仅港股盘中强制过期。"""
-    if not bars:
+    """港股日 K 末根早于港股当前交易日 → 缺当日（盘后也要补到齐）。"""
+    last_day = _last_bar_day(bars, _HK)
+    if last_day is None:
         return False
-    if not is_session_open("hk", now):
-        return False
-    try:
-        last_ts = int(bars[-1].get("timestamp") or 0)  # type: ignore[union-attr]
-    except (TypeError, ValueError, AttributeError, IndexError):
-        return False
-    if last_ts <= 0:
-        return False
-    last_day = datetime.fromtimestamp(last_ts / 1000.0, tz=_HK).date()
     return last_day < hk_session_date(now)
 
 
@@ -306,6 +300,64 @@ def daily_bars_missing_today(
     if m == "hk":
         return hk_daily_bars_missing_today(bars, now)
     return False
+
+
+def daily_bars_need_live_patch(
+    market: str, bars: list | None, now: datetime | None = None
+) -> bool:
+    """日 K 是否需要用实时/现价补当日棒。
+
+    - 盘中（A 股含午休）：总是补，保证最新价
+    - 盘后：仅当末根落后于当前交易日时补（避免北京白天狂刷已齐的美股）
+    """
+    m = (market or "").lower()
+    if m not in ("cn", "hk", "us") or not bars:
+        return False
+    if m == "cn":
+        if is_cn_trade_daytime(now):
+            return True
+    elif is_session_open(m, now):
+        return True
+    return daily_bars_missing_today(m, bars, now)
+
+
+def _prev_trade_day(d: date, market: str) -> date:
+    """上一交易日（周末/A 股假日粗回退）。"""
+    m = (market or "").lower()
+    x = d - timedelta(days=1)
+    guard = 0
+    while guard < 15:
+        if x.weekday() >= 5:
+            x = x - timedelta(days=1)
+            guard += 1
+            continue
+        if m in ("cn", "hk") and is_cn_holiday(x):
+            x = x - timedelta(days=1)
+            guard += 1
+            continue
+        break
+    return x
+
+
+def daily_bars_multi_day_gap(
+    market: str, bars: list | None, now: datetime | None = None
+) -> bool:
+    """末根早于「上一交易日」→ 缺中间日，轻量现价补不够，需全量重拉。"""
+    m = (market or "").lower()
+    if m == "cn":
+        last = _last_bar_day(bars, _SH)
+        sess = cn_session_date(now)
+    elif m == "us":
+        last = _last_bar_day(bars, _NY)
+        sess = us_session_date(now)
+    elif m == "hk":
+        last = _last_bar_day(bars, _HK)
+        sess = hk_session_date(now)
+    else:
+        return False
+    if last is None:
+        return False
+    return last < _prev_trade_day(sess, m)
 
 
 def kline_ttl_seconds(mode: str, period: str, market: str = "", now: datetime | None = None) -> float:

@@ -18,6 +18,7 @@ from cache.providers.kline_fetch import (
     fetch_kline_bars_before,
     normalize_period,
     normalize_symbol,
+    patch_daily_live_bar,
 )
 from cache.providers.lazy_markets import enrich_index_quotes
 from cache import board_concepts as board_concepts_mod
@@ -31,6 +32,8 @@ from cache.sync_worker import (
 )
 from cache.ttl import (
     daily_bars_missing_today,
+    daily_bars_multi_day_gap,
+    daily_bars_need_live_patch,
     is_stale,
     kline_is_stale,
     kline_ttl_seconds,
@@ -785,26 +788,17 @@ def cache_kline(
     now = time.time()
     as_of = float(meta["as_of"]) if meta and meta.get("as_of") else None
     age = (now - as_of) if as_of is not None else None
-    stale = kline_is_stale(age, active_mode, period_n, market)
-    # 日 K 若尚无当前交易日棒，视为过期（Yahoo/新浪历史常缺未收盘或刚收盘日）
-    if (
-        not stale
-        and period_n == "1d"
-        and daily_bars_missing_today(market, bars)
-    ):
-        stale = True
+    ttl_stale = kline_is_stale(age, active_mode, period_n, market)
+    missing_today = period_n == "1d" and daily_bars_missing_today(market, bars)
+    need_live = period_n == "1d" and daily_bars_need_live_patch(market, bars)
+    stale = bool(ttl_stale or missing_today)
     allow_net = (not only_cache) and quote_source != "local"
-    if not allow_net:
-        need_net = False
-    elif quote_source == "network":
-        need_net = bool(force) or (not bars) or should_auto_sync(active_mode)
-    else:
-        need_net = bool(force) or (not bars) or (stale and should_auto_sync(active_mode))
 
     from_cache = bool(bars)
     source = (meta or {}).get("source")
     name = (meta or {}).get("name") or sym
     refreshing = False
+    live_patched = False
 
     # —— 缓存模式：只读盘，有则立即返回，无则 404 ——
     if only_cache:
@@ -840,8 +834,58 @@ def cache_kline(
             }
         )
 
-    # —— 多面板加速：有缓存则先返回，联网刷新放到后台 ——
-    if local_first and bars and not force:
+    # 落后超过 1 个交易日：现价只能补「当日」，中间空洞必须全量重拉
+    multi_gap = period_n == "1d" and daily_bars_multi_day_gap(market, bars)
+
+    # —— 日 K：本地历史 + 实时/现价轻量补当日（比全量重拉快）——
+    if (
+        period_n == "1d"
+        and bars
+        and allow_net
+        and need_live
+        and not multi_gap
+    ):
+        try:
+            patched, patch_name, changed = patch_daily_live_bar(norm, bars)
+            if changed:
+                kline_models.upsert_kline_bars(
+                    market,
+                    sym,
+                    period_n,
+                    patched[-5:],
+                    source=(f"{source}+live" if source else "live"),
+                    name=patch_name or name,
+                    touch_as_of=True,
+                )
+                bars = patched
+                if patch_name:
+                    name = patch_name
+                source = f"{source}+live" if source else "live"
+                live_patched = True
+                as_of = time.time()
+                missing_today = daily_bars_missing_today(market, bars)
+                need_live = daily_bars_need_live_patch(market, bars)
+                stale = bool(ttl_stale or missing_today)
+        except Exception as e:  # noqa: BLE001
+            _log.warning("kline live patch failed %s/%s: %s", market, sym, e)
+
+    # 全量拉网：无缓存 / force / 历史 TTL 过期 / 多日空洞；轻量补棒失败且仍缺当日也回退。
+    # 日 K 有本地时不再因 quote_source=network 每次全量重拉（当日已由 live patch 保证）。
+    if not allow_net:
+        need_net = False
+    else:
+        need_full = bool(force) or (not bars)
+        if should_auto_sync(active_mode):
+            if ttl_stale or multi_gap or (missing_today and not live_patched):
+                need_full = True
+            # 非日 K：network 源仍可每次同步；日 K 走「本地历史 + 当日 live」
+            if quote_source == "network" and period_n != "1d":
+                need_full = True
+        need_net = need_full
+
+    # —— 多面板加速：有缓存则先返回；当日已 live 补齐，历史过期再后台全量 ——
+    # 多日空洞时不走 local_first（否则首屏会缺中间交易日）
+    if local_first and bars and not force and not multi_gap:
         if need_net and allow_net:
             refreshing = _schedule_kline_bg(norm, period_n)
             stale = True
@@ -858,6 +902,7 @@ def cache_kline(
                 "count": len(out_bars),
                 "source": source,
                 "from_cache": True,
+                "live_patched": live_patched,
                 "stale": bool(stale),
                 "refreshing": refreshing,
                 "mode": active_mode,
@@ -885,6 +930,7 @@ def cache_kline(
                 source = fetch_source
                 from_cache = False
                 stale = False
+                live_patched = False
                 as_of = time.time()
             elif not bars:
                 return JSONResponse(
@@ -921,6 +967,7 @@ def cache_kline(
             "count": len(out_bars),
             "source": source,
             "from_cache": from_cache,
+            "live_patched": live_patched,
             "stale": bool(stale),
             "refreshing": False,
             "mode": active_mode,

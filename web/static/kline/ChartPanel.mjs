@@ -826,9 +826,13 @@ export class ChartPanel {
         ? `yfinance${data.yf?.symbol ? `(${data.yf.symbol})` : ""}`
         : data.source || "stock-sdk";
     const tag = data.fromCache
-      ? data.stale
-        ? "缓存·刷新中"
-        : "缓存"
+      ? data.livePatched
+        ? data.stale || data.refreshing
+          ? "缓存·已补当日·刷新中"
+          : "缓存·已补当日"
+        : data.stale || data.refreshing
+          ? "缓存·刷新中"
+          : "缓存"
       : src;
     this._status(
       `${this.symbol} · ${this.period} · ${bars.length} 根 · ${tag}` +

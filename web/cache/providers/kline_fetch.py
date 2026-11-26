@@ -1467,6 +1467,73 @@ def fetch_kline_bars(norm: dict[str, str], period: str) -> tuple[list[dict[str, 
     raise ValueError(f"unsupported market: {market}")
 
 
+def patch_daily_live_bar(
+    norm: dict[str, str],
+    bars: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], str | None, bool]:
+    """本地已有历史日 K 时，仅用实时/现价补或改当日棒。
+
+    返回 (bars, name_or_None, changed)。不拉全量历史，优先保证打开速度。
+    """
+    if not bars:
+        return bars, None, False
+    market = (norm.get("market") or "").lower()
+    symbol = norm.get("symbol") or ""
+    if market not in ("cn", "hk", "us") or not symbol:
+        return bars, None, False
+
+    before = bars[-1]
+    before_sig = (
+        int(before.get("timestamp") or 0),
+        float(before.get("open") or 0),
+        float(before.get("high") or 0),
+        float(before.get("low") or 0),
+        float(before.get("close") or 0),
+        float(before.get("volume") or 0),
+        len(bars),
+    )
+
+    name: str | None = None
+    out = bars
+    if market == "us":
+        spot = fetch_us_spot(symbol)
+        if not spot:
+            return bars, None, False
+        if spot.get("name"):
+            name = str(spot["name"])
+        out = merge_today_daily_bar(
+            list(bars), spot, tz_name="America/New_York", open_hm=(9, 30)
+        )
+    elif market == "hk":
+        spot = fetch_hk_spot(symbol)
+        if not spot:
+            return bars, None, False
+        if spot.get("name"):
+            name = str(spot["name"])
+        out = merge_today_daily_bar(
+            list(bars), spot, tz_name="Asia/Hong_Kong", open_hm=(9, 30)
+        )
+    else:
+        spot = fetch_cn_spot(symbol)
+        if not spot:
+            return bars, None, False
+        if spot.get("name"):
+            name = str(spot["name"])
+        out = merge_cn_today_daily_bar(list(bars), spot)
+
+    after = out[-1] if out else {}
+    after_sig = (
+        int(after.get("timestamp") or 0),
+        float(after.get("open") or 0),
+        float(after.get("high") or 0),
+        float(after.get("low") or 0),
+        float(after.get("close") or 0),
+        float(after.get("volume") or 0),
+        len(out),
+    )
+    return out, name, after_sig != before_sig
+
+
 def _try_em_before(
     *,
     secid: str,
