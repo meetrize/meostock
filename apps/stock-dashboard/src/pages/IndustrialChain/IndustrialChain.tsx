@@ -7,6 +7,12 @@ import {
   Download,
   Eye,
   FileWarning,
+  Maximize2,
+  Minimize2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Pencil,
   RefreshCw,
   RotateCcw,
@@ -226,6 +232,31 @@ export function IndustrialChain() {
   const [relationFilter, setRelationFilter] = useState<EntityRelationType | 'all'>('all');
   const [relationQuery, setRelationQuery] = useState('');
   const [egoMode, setEgoMode] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
+  const [centerFullscreen, setCenterFullscreen] = useState(false);
+  /** 全屏时是否同时临时收起系统左侧导航 */
+  const [immersiveNav, setImmersiveNav] = useState(true);
+  const panelBeforeFs = useRef<{ left: boolean; right: boolean } | null>(null);
+  const appSidebarBeforeFs = useRef<boolean | null>(null);
+
+  const setAppSidebarCollapsed = useCallback((collapsed: boolean, persist = false) => {
+    window.dispatchEvent(
+      new CustomEvent('meostock:app-sidebar', {
+        detail: { collapsed, persist },
+      })
+    );
+  }, []);
+
+  const readAppSidebarCollapsed = useCallback(() => {
+    const el = document.querySelector('[data-sidebar-collapsed]');
+    if (el) return el.getAttribute('data-sidebar-collapsed') === '1';
+    try {
+      return localStorage.getItem('app.sidebarCollapsed') === '1';
+    } catch {
+      return false;
+    }
+  }, []);
 
   const watchSnapshot = useSyncExternalStore(
     watchlistStore.subscribe,
@@ -236,6 +267,56 @@ export function IndustrialChain() {
 
   const catalogItem = CHAIN_CATALOG.find((c) => c.id === chainId);
 
+  const enterCenterFullscreen = useCallback(() => {
+    panelBeforeFs.current = { left: leftOpen, right: rightOpen };
+    setLeftOpen(false);
+    setRightOpen(false);
+    setCenterFullscreen(true);
+    if (immersiveNav) {
+      appSidebarBeforeFs.current = readAppSidebarCollapsed();
+      setAppSidebarCollapsed(true, false);
+    }
+  }, [leftOpen, rightOpen, immersiveNav, setAppSidebarCollapsed, readAppSidebarCollapsed]);
+
+  const exitCenterFullscreen = useCallback(() => {
+    const prev = panelBeforeFs.current;
+    setCenterFullscreen(false);
+    if (prev) {
+      setLeftOpen(prev.left);
+      setRightOpen(prev.right);
+      panelBeforeFs.current = null;
+    }
+    if (appSidebarBeforeFs.current != null) {
+      setAppSidebarCollapsed(appSidebarBeforeFs.current, false);
+      appSidebarBeforeFs.current = null;
+    }
+  }, [setAppSidebarCollapsed]);
+
+  const toggleCenterFullscreen = useCallback(() => {
+    if (centerFullscreen) exitCenterFullscreen();
+    else enterCenterFullscreen();
+  }, [centerFullscreen, enterCenterFullscreen, exitCenterFullscreen]);
+
+  const toggleImmersiveNav = useCallback(() => {
+    setImmersiveNav((prev) => {
+      const next = !prev;
+      if (centerFullscreen) {
+        if (next) {
+          if (appSidebarBeforeFs.current == null) {
+            appSidebarBeforeFs.current = readAppSidebarCollapsed();
+          }
+          setAppSidebarCollapsed(true, false);
+        } else if (appSidebarBeforeFs.current != null) {
+          setAppSidebarCollapsed(appSidebarBeforeFs.current, false);
+          appSidebarBeforeFs.current = null;
+        } else {
+          setAppSidebarCollapsed(false, false);
+        }
+      }
+      return next;
+    });
+  }, [centerFullscreen, setAppSidebarCollapsed, readAppSidebarCollapsed]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
@@ -243,10 +324,14 @@ export function IndustrialChain() {
         e.preventDefault();
         setCmdOpen(true);
       }
+      if (e.key === 'Escape' && centerFullscreen) {
+        e.preventDefault();
+        exitCenterFullscreen();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [centerFullscreen, exitCenterFullscreen]);
 
   // 可编辑链自动尝试拉一次行情（失败静默，可手动刷新）
   useEffect(() => {
@@ -787,49 +872,131 @@ export function IndustrialChain() {
         </div>
       </header>
 
-      <div className={styles.body}>
-        <aside className={styles.left}>
-          <div className={styles.panelTitle}>主链目录</div>
-          <ul className={styles.catalogList}>
-            {CHAIN_CATALOG.map((item) => {
-              const disabled = !!item.building;
-              const active = item.id === chainId;
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className={`${styles.catalogItem} ${active ? styles.catalogItemActive : ''}`}
-                    disabled={disabled}
-                    onClick={() => {
-                      setChainId(item.id);
-                      setMode('situation');
-                      setRightTab('signals');
-                      setSelectedEntityId(null);
-                      setRelationQuery('');
-                      setRelationFilter('all');
-                      setEgoMode(true);
-                      setCenterView('graph');
-                      reloadView(item.id, false);
-                    }}
-                  >
-                    <div className={styles.catalogName}>
-                      <span>
-                        {item.id} {item.name}
-                      </span>
-                      <span className={styles.badge}>{depthLabel(item.depth)}</span>
-                    </div>
-                    <p className={styles.catalogBlurb}>{item.blurb}</p>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
+      <div
+        className={[
+          styles.body,
+          !leftOpen || centerFullscreen ? styles.bodyNoLeft : '',
+          !rightOpen || centerFullscreen ? styles.bodyNoRight : '',
+          (!leftOpen || centerFullscreen) && (!rightOpen || centerFullscreen)
+            ? styles.bodySolo
+            : '',
+          centerFullscreen ? styles.bodyFullscreen : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {leftOpen && !centerFullscreen && (
+          <aside className={styles.left}>
+            <div className={styles.panelTitleRow}>
+              <div className={styles.panelTitle}>主链目录</div>
+              <button
+                type="button"
+                className={styles.panelIconBtn}
+                title="收起主链目录"
+                aria-label="收起主链目录"
+                onClick={() => setLeftOpen(false)}
+              >
+                <PanelLeftClose size={14} />
+              </button>
+            </div>
+            <ul className={styles.catalogList}>
+              {CHAIN_CATALOG.map((item) => {
+                const disabled = !!item.building;
+                const active = item.id === chainId;
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      className={`${styles.catalogItem} ${active ? styles.catalogItemActive : ''}`}
+                      disabled={disabled}
+                      onClick={() => {
+                        setChainId(item.id);
+                        setMode('situation');
+                        setRightTab('signals');
+                        setSelectedEntityId(null);
+                        setRelationQuery('');
+                        setRelationFilter('all');
+                        setEgoMode(true);
+                        setCenterView('graph');
+                        reloadView(item.id, false);
+                      }}
+                    >
+                      <div className={styles.catalogName}>
+                        <span>
+                          {item.id} {item.name}
+                        </span>
+                        <span className={styles.badge}>{depthLabel(item.depth)}</span>
+                      </div>
+                      <p className={styles.catalogBlurb}>{item.blurb}</p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </aside>
+        )}
 
-        <section className={styles.center}>
+        <section
+          className={`${styles.center} ${centerFullscreen ? styles.centerFullscreen : ''}`}
+        >
+          <div className={styles.centerChrome}>
+            {!leftOpen && !centerFullscreen && (
+              <button
+                type="button"
+                className={styles.panelIconBtn}
+                title="展开主链目录"
+                aria-label="展开主链目录"
+                onClick={() => setLeftOpen(true)}
+              >
+                <PanelLeftOpen size={14} />
+              </button>
+            )}
+            <CenterViewSwitch value={centerView} onChange={setCenterView} />
+            <div className={styles.centerChromeRight}>
+              {!rightOpen && !centerFullscreen && (
+                <button
+                  type="button"
+                  className={styles.panelIconBtn}
+                  title="展开右侧面板"
+                  aria-label="展开右侧面板"
+                  onClick={() => setRightOpen(true)}
+                >
+                  <PanelRightOpen size={14} />
+                </button>
+              )}
+              {centerFullscreen && (
+                <button
+                  type="button"
+                  className={`${styles.panelIconBtn} ${immersiveNav ? styles.panelIconBtnOn : ''}`}
+                  title={
+                    immersiveNav
+                      ? '已沉浸：系统导航已临时收起（点击保留导航）'
+                      : '保留系统左侧导航（图谱从导航右侧铺开）'
+                  }
+                  aria-label={immersiveNav ? '显示系统导航' : '收起系统导航'}
+                  aria-pressed={immersiveNav}
+                  onClick={toggleImmersiveNav}
+                >
+                  {immersiveNav ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
+                </button>
+              )}
+              <button
+                type="button"
+                className={`${styles.panelIconBtn} ${centerFullscreen ? styles.panelIconBtnOn : ''}`}
+                title={
+                  centerFullscreen
+                    ? '退出全屏 (Esc)'
+                    : '主面板全屏（默认沉浸收起系统导航；可再打开保留导航）'
+                }
+                aria-label={centerFullscreen ? '退出全屏' : '主面板全屏'}
+                onClick={toggleCenterFullscreen}
+              >
+                {centerFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </button>
+            </div>
+          </div>
           {graph ? (
             <>
-              <CenterViewSwitch value={centerView} onChange={setCenterView} />
               {centerView === 'graph' && layout && (
                 <>
                   <div className={styles.canvasWrap}>
@@ -1033,6 +1200,7 @@ export function IndustrialChain() {
           )}
         </section>
 
+        {rightOpen && !centerFullscreen && (
         <aside className={styles.right}>
           <div className={styles.rightTabs}>
             {(
@@ -1052,6 +1220,15 @@ export function IndustrialChain() {
                 {label}
               </button>
             ))}
+            <button
+              type="button"
+              className={`${styles.panelIconBtn} ${styles.rightCollapseBtn}`}
+              title="收起右侧面板"
+              aria-label="收起右侧面板"
+              onClick={() => setRightOpen(false)}
+            >
+              <PanelRightClose size={14} />
+            </button>
           </div>
 
           {rightTab === 'signals' && (
@@ -1430,6 +1607,7 @@ export function IndustrialChain() {
             </div>
           )}
         </aside>
+        )}
       </div>
 
       <CommandPalette

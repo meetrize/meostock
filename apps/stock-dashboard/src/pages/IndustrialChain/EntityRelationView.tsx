@@ -10,7 +10,9 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { ChevronDown, ChevronUp, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react';
 import { RELATION_META, RELATION_TYPES } from './relationMeta';
 import type {
   EntityRelation,
@@ -21,6 +23,33 @@ import type {
 import styles from './IndustrialChain.module.css';
 
 type Rect = { x: number; y: number; w: number; h: number };
+type ViewTransform = { scale: number; x: number; y: number };
+
+const MIN_SCALE = 0.35;
+const MAX_SCALE = 2.5;
+const DETAIL_HEIGHT_KEY = 'industrial-chain.relDetailHeight';
+const DETAIL_MIN = 96;
+const DETAIL_MAX = 420;
+const DETAIL_DEFAULT = 180;
+
+function clampScale(n: number) {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, n));
+}
+
+function clampDetailHeight(n: number) {
+  return Math.min(DETAIL_MAX, Math.max(DETAIL_MIN, n));
+}
+
+function readDetailHeight(): number {
+  try {
+    const raw = localStorage.getItem(DETAIL_HEIGHT_KEY);
+    if (!raw) return DETAIL_DEFAULT;
+    const n = Number(raw);
+    return Number.isFinite(n) ? clampDetailHeight(n) : DETAIL_DEFAULT;
+  } catch {
+    return DETAIL_DEFAULT;
+  }
+}
 
 const LAYER_ACCENTS = ['#a78bfa', '#38bdf8', '#34d399', '#f5b75c', '#f97316', '#e879f9', '#94a3b8'];
 
@@ -107,12 +136,40 @@ export function EntityRelationView({
   onAddRelation?: (rel: Omit<EntityRelation, 'id'> & { id?: string }) => void;
   onRemoveRelation?: (id: string) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [positions, setPositions] = useState<Record<string, Rect>>({});
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [view, setView] = useState<ViewTransform>({ scale: 1, x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(true);
+  const [detailHeight, setDetailHeight] = useState(readDetailHeight);
+  const viewRef = useRef(view);
+  const spaceDownRef = useRef(false);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
+  const resizeRef = useRef<{
+    pointerId: number;
+    startY: number;
+    originH: number;
+  } | null>(null);
+  const detailHeightRef = useRef(detailHeight);
+  detailHeightRef.current = detailHeight;
+  viewRef.current = view;
+
+  // 新选中节点时自动展开详情，避免收起后找不到
+  useEffect(() => {
+    if (selectedEntityId) setDetailOpen(true);
+  }, [selectedEntityId]);
 
   const relations = graph.relations ?? [];
 
@@ -223,10 +280,126 @@ export function EntityRelationView({
   }, [measure]);
 
   useEffect(() => {
-    const el = nodeRefs.current[selectedEntityId ?? ''];
+    setView({ scale: 1, x: 0, y: 0 });
+  }, [graph.id, egoMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) {
+        const tag = (e.target as HTMLElement | null)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        spaceDownRef.current = true;
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') spaceDownRef.current = false;
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    };
+  }, []);
+
+  const zoomAt = useCallback((clientX: number, clientY: number, nextScale: number) => {
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      setView((v) => ({ ...v, scale: clampScale(nextScale) }));
+      return;
+    }
+    const rect = viewport.getBoundingClientRect();
+    const mx = clientX - rect.left;
+    const my = clientY - rect.top;
+    const { scale, x, y } = viewRef.current;
+    const s = clampScale(nextScale);
+    const wx = (mx - x) / scale;
+    const wy = (my - y) / scale;
+    setView({ scale: s, x: mx - wx * s, y: my - wy * s });
+  }, []);
+
+  const zoomBy = useCallback(
+    (factor: number) => {
+      const viewport = viewportRef.current;
+      if (!viewport) {
+        setView((v) => ({ ...v, scale: clampScale(v.scale * factor) }));
+        return;
+      }
+      const rect = viewport.getBoundingClientRect();
+      zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, viewRef.current.scale * factor);
+    },
+    [zoomAt]
+  );
+
+  const resetView = useCallback(() => {
+    setView({ scale: 1, x: 0, y: 0 });
+  }, []);
+
+  useEffect(() => {
+    const el = viewportRef.current;
     if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-  }, [selectedEntityId]);
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const { scale } = viewRef.current;
+      const next = e.ctrlKey
+        ? scale * Math.exp(-e.deltaY * 0.01)
+        : scale * (e.deltaY > 0 ? 0.9 : 1.1);
+      zoomAt(e.clientX, e.clientY, next);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomAt]);
+
+  const beginPan = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (target.closest(`.${styles.relZoomBar}`)) return;
+    const onCard = !!target.closest('button');
+    const middle = e.button === 1;
+    const space = spaceDownRef.current;
+    if (onCard && !middle && !space) return;
+    if (e.button !== 0 && e.button !== 1) return;
+    e.preventDefault();
+    suppressClickRef.current = false;
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: viewRef.current.x,
+      originY: viewRef.current.y,
+      moved: false,
+    };
+    setPanning(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+
+  const onViewportPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && dx * dx + dy * dy > 9) {
+      drag.moved = true;
+      suppressClickRef.current = true;
+    }
+    setView({
+      scale: viewRef.current.scale,
+      x: drag.originX + dx,
+      y: drag.originY + dy,
+    });
+  }, []);
+
+  const endPan = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    setPanning(false);
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* already released */
+    }
+  }, []);
 
   const drawn = useMemo(() => {
     return relations.flatMap((relation) => {
@@ -316,13 +489,6 @@ export function EntityRelationView({
           </button>
         )}
       </div>
-      <p className={styles.relHint}>
-        点击卡片聚焦，悬停预览连接 · invest/tech 不进冲击沙盘 · 未核关系灰显
-        {egoMode && graph.focalEntityId
-          ? ' · 当前为锚点一阶邻居（可切全链）'
-          : ''}
-      </p>
-
       {addOpen && editable && onAddRelation && (
         <RelationAddForm
           graph={graph}
@@ -335,38 +501,92 @@ export function EntityRelationView({
       )}
 
       <div
-        className={styles.relCanvas}
-        ref={scrollRef}
-        onClick={() => onSelectEntity(null)}
+        className={`${styles.relCanvas} ${panning ? styles.relCanvasPanning : ''}`}
+        ref={viewportRef}
+        onClick={(e) => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+          }
+          if ((e.target as HTMLElement).closest('button')) return;
+          onSelectEntity(null);
+        }}
+        onPointerDown={beginPan}
+        onPointerMove={onViewportPointerMove}
+        onPointerUp={endPan}
+        onPointerCancel={endPan}
       >
-        <div className={styles.relStage} ref={stageRef}>
-          <svg className={styles.relSvg} aria-hidden>
-            {drawn.map(({ relation, d, mid, active, preview, muted }) => {
-              const meta = RELATION_META[relation.type];
-              const weak = relation.evidenceGrade === 'unverified';
-              return (
-                <g
-                  key={relation.id}
-                  className={`${styles.relEdge} ${active || preview ? styles.relEdgeHot : ''} ${muted ? styles.relEdgeMuted : ''} ${weak ? styles.relEdgeWeak : ''}`}
-                >
-                  <path d={d} stroke={meta.color} fill="none" />
-                  {(active || preview) && (
-                    <text
-                      x={mid.x}
-                      y={mid.y - 6}
-                      textAnchor="middle"
-                      className={styles.relEdgeLabel}
-                      fill={meta.color}
-                    >
-                      {relation.label}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
+        <div className={styles.relZoomBar} onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className={styles.panelIconBtn}
+            title="放大"
+            aria-label="放大"
+            onClick={() => zoomBy(1.15)}
+          >
+            <ZoomIn size={14} />
+          </button>
+          <button
+            type="button"
+            className={styles.relZoomReadout}
+            title="点击复位视图"
+            onClick={resetView}
+          >
+            {Math.round(view.scale * 100)}%
+          </button>
+          <button
+            type="button"
+            className={styles.panelIconBtn}
+            title="缩小"
+            aria-label="缩小"
+            onClick={() => zoomBy(1 / 1.15)}
+          >
+            <ZoomOut size={14} />
+          </button>
+          <button
+            type="button"
+            className={styles.panelIconBtn}
+            title="复位视图"
+            aria-label="复位视图"
+            onClick={resetView}
+          >
+            <LocateFixed size={14} />
+          </button>
+        </div>
+        <div
+          className={styles.relWorld}
+          style={{
+            transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+          }}
+        >
+          <div className={styles.relStage} ref={stageRef}>
+            <svg className={styles.relSvg} aria-hidden>
+              {drawn.map(({ relation, d, mid, active, preview, muted }) => {
+                const meta = RELATION_META[relation.type];
+                const weak = relation.evidenceGrade === 'unverified';
+                return (
+                  <g
+                    key={relation.id}
+                    className={`${styles.relEdge} ${active || preview ? styles.relEdgeHot : ''} ${muted ? styles.relEdgeMuted : ''} ${weak ? styles.relEdgeWeak : ''}`}
+                  >
+                    <path d={d} stroke={meta.color} fill="none" />
+                    {(active || preview) && (
+                      <text
+                        x={mid.x}
+                        y={mid.y - 6}
+                        textAnchor="middle"
+                        className={styles.relEdgeLabel}
+                        fill={meta.color}
+                      >
+                        {relation.label}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
 
-          <div className={styles.relLayers}>
+            <div className={styles.relLayers}>
             {layers.map((layer, li) => (
               <div className={styles.relLayerRow} key={layer.seg.id}>
                 <div
@@ -469,67 +689,138 @@ export function EntityRelationView({
                 当前筛选下无企业节点（可关闭「锚点邻居」或清空搜索）
               </div>
             )}
+            </div>
           </div>
         </div>
       </div>
 
       {selectedEnt && (
-        <div className={styles.relSideStrip}>
-          <div className={styles.memberTop}>
-            <span className={styles.memberName}>{selectedEnt.name}</span>
-            <span className={styles.badge}>{selectedEnt.symbols.join(' · ')}</span>
+        <div className={styles.relDetailDock}>
+          <div
+            className={styles.relResizeHandle}
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="拖动调整详情面板高度"
+            title="拖动调整高度"
+            onPointerDown={(e) => {
+              if (!detailOpen) {
+                setDetailOpen(true);
+                return;
+              }
+              e.preventDefault();
+              resizeRef.current = {
+                pointerId: e.pointerId,
+                startY: e.clientY,
+                originH: detailHeight,
+              };
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              const drag = resizeRef.current;
+              if (!drag || drag.pointerId !== e.pointerId) return;
+              // 手柄在面板上方：向上拖增大高度
+              const next = clampDetailHeight(drag.originH - (e.clientY - drag.startY));
+              detailHeightRef.current = next;
+              setDetailHeight(next);
+            }}
+            onPointerUp={(e) => {
+              const drag = resizeRef.current;
+              if (!drag || drag.pointerId !== e.pointerId) return;
+              resizeRef.current = null;
+              try {
+                localStorage.setItem(
+                  DETAIL_HEIGHT_KEY,
+                  String(detailHeightRef.current)
+                );
+              } catch {
+                /* ignore */
+              }
+              try {
+                (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+              } catch {
+                /* ignore */
+              }
+            }}
+          />
+          <div className={styles.relDetailHeader}>
+            <div className={styles.relDetailTitle}>
+              <span className={styles.memberName}>{selectedEnt.name}</span>
+              <span className={styles.badge}>{selectedEnt.symbols.join(' · ')}</span>
+              <span className={styles.badge}>
+                {selectedRels.length} 条关系
+              </span>
+            </div>
+            <div className={styles.relDetailHeaderActions}>
+              {onWatch && selectedEnt.symbols[0] && detailOpen && (
+                <button
+                  type="button"
+                  className={styles.btn}
+                  onClick={() => onWatch(selectedEnt.symbols[0], selectedEnt.name)}
+                >
+                  加入自选
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.panelIconBtn}
+                title={detailOpen ? '收起详情' : '展开详情'}
+                aria-label={detailOpen ? '收起详情' : '展开详情'}
+                aria-expanded={detailOpen}
+                onClick={() => setDetailOpen((v) => !v)}
+              >
+                {detailOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+              </button>
+            </div>
           </div>
-          {selectedEnt.revenueMix && (
-            <p className={styles.detailP}>{selectedEnt.revenueMix}</p>
-          )}
-          <ul className={styles.relSideList}>
-            {selectedRels.length === 0 && (
-              <li className={styles.detailP}>暂无出入关系</li>
-            )}
-            {selectedRels.map((r) => {
-              const otherId =
-                r.fromEntityId === selectedEnt.id ? r.toEntityId : r.fromEntityId;
-              const other = graph.entities.find((e) => e.id === otherId);
-              const dir = r.fromEntityId === selectedEnt.id ? '→' : '←';
-              const meta = RELATION_META[r.type];
-              return (
-                <li key={r.id} className={styles.relSideItem}>
-                  <button
-                    type="button"
-                    className={styles.relSideJump}
-                    onClick={() => onSelectEntity(otherId)}
-                  >
-                    <span style={{ color: meta.color }}>
-                      {meta.label} {dir}
-                    </span>{' '}
-                    {other?.name ?? otherId}
-                    <span className={styles.badge}>{gradeLabel(r.evidenceGrade)}</span>
-                  </button>
-                  <div className={styles.memberSymbols}>
-                    {r.label}
-                    {r.note ? ` · ${r.note}` : ''}
-                  </div>
-                  {editable && onRemoveRelation && (
-                    <button
-                      type="button"
-                      className={styles.btn}
-                      onClick={() => onRemoveRelation(r.id)}
-                    >
-                      删除关系
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {onWatch && selectedEnt.symbols[0] && (
-            <button
-              type="button"
-              className={styles.btn}
-              onClick={() => onWatch(selectedEnt.symbols[0], selectedEnt.name)}
+          {detailOpen && (
+            <div
+              className={styles.relSideStrip}
+              style={{ height: detailHeight }}
             >
-              加入自选
-            </button>
+              {selectedEnt.revenueMix && (
+                <p className={styles.detailP}>{selectedEnt.revenueMix}</p>
+              )}
+              <ul className={styles.relSideList}>
+                {selectedRels.length === 0 && (
+                  <li className={styles.detailP}>暂无出入关系</li>
+                )}
+                {selectedRels.map((r) => {
+                  const otherId =
+                    r.fromEntityId === selectedEnt.id ? r.toEntityId : r.fromEntityId;
+                  const other = graph.entities.find((e) => e.id === otherId);
+                  const dir = r.fromEntityId === selectedEnt.id ? '→' : '←';
+                  const meta = RELATION_META[r.type];
+                  return (
+                    <li key={r.id} className={styles.relSideItem}>
+                      <button
+                        type="button"
+                        className={styles.relSideJump}
+                        onClick={() => onSelectEntity(otherId)}
+                      >
+                        <span style={{ color: meta.color }}>
+                          {meta.label} {dir}
+                        </span>{' '}
+                        {other?.name ?? otherId}
+                        <span className={styles.badge}>{gradeLabel(r.evidenceGrade)}</span>
+                      </button>
+                      <div className={styles.memberSymbols}>
+                        {r.label}
+                        {r.note ? ` · ${r.note}` : ''}
+                      </div>
+                      {editable && onRemoveRelation && (
+                        <button
+                          type="button"
+                          className={styles.btn}
+                          onClick={() => onRemoveRelation(r.id)}
+                        >
+                          删除关系
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
         </div>
       )}

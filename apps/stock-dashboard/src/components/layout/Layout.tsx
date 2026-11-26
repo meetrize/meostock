@@ -88,11 +88,25 @@ export function Layout() {
     if (!isMobile) setMobileNavOpen(false);
   }, [isMobile]);
 
+  // 页面级「沉浸全屏」可临时收起/恢复系统侧栏（默认不写 localStorage）
+  useEffect(() => {
+    const onChrome = (event: Event) => {
+      if (isMobile) return;
+      const detail = (event as CustomEvent<{ collapsed?: boolean; persist?: boolean }>).detail;
+      if (typeof detail?.collapsed !== 'boolean') return;
+      setSidebarCollapsed(detail.collapsed);
+      if (detail.persist) persistSidebarCollapsed(detail.collapsed);
+    };
+    window.addEventListener('meostock:app-sidebar', onChrome);
+    return () => window.removeEventListener('meostock:app-sidebar', onChrome);
+  }, [isMobile]);
+
   return (
     <div
       className={`${styles.layout}${sidebarHidden ? ` ${styles.sidebarCollapsed}` : ''}${
         isMobile && mobileNavOpen ? ` ${styles.mobileNavOpen}` : ''
       }`}
+      data-sidebar-collapsed={sidebarHidden ? '1' : '0'}
     >
       {isMobile && mobileNavOpen && (
         <button

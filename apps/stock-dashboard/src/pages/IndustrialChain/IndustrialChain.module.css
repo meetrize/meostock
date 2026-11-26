@@ -95,6 +95,23 @@
   min-height: 0;
 }
 
+.bodyNoLeft {
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.bodyNoRight {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+.bodySolo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bodyFullscreen {
+  /* 全屏时由 .centerFullscreen 接管视口 */
+  min-height: 0;
+}
+
 .left,
 .right {
   display: flex;
@@ -118,6 +135,94 @@
   text-transform: uppercase;
   color: var(--text-tertiary);
   border-bottom: 1px solid var(--border-primary);
+}
+
+.panelTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.panelTitleRow .panelTitle {
+  border-bottom: none;
+  flex: 1;
+}
+
+.panelIconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.panelIconBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+  background: var(--bg-tertiary);
+}
+
+.panelIconBtnOn {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-tertiary);
+}
+
+.rightCollapseBtn {
+  margin-left: auto;
+}
+
+.centerChrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
+}
+
+.centerChromeRight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+/**
+ * 内容区全屏：避让系统侧栏 + 顶栏（勿用 inset:0，否则会被 z-index 更高的 Sidebar 挡住）
+ * 侧栏折叠时 --sidebar-width=0，自动铺满。
+ */
+.centerFullscreen {
+  position: fixed;
+  top: var(--header-height, 56px);
+  left: var(--sidebar-width, 220px);
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 1px var(--border-primary);
+  transition: left var(--transition-fast, 0.15s ease);
+}
+
+.centerFullscreen .relPanel,
+.centerFullscreen .canvasWrap,
+.centerFullscreen .p2Panel {
+  flex: 1;
+  min-height: 0;
 }
 
 .catalogList {
@@ -663,9 +768,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border-primary);
-  background: var(--bg-secondary);
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.centerChrome .centerSwitch {
+  flex: 1;
+  min-width: 0;
 }
 
 .p2Panel {
@@ -1019,13 +1129,62 @@
   position: relative;
   flex: 1;
   min-height: 320px;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
+  cursor: grab;
+  touch-action: none;
   background:
     linear-gradient(to right, color-mix(in srgb, var(--border-primary) 35%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
     linear-gradient(to bottom, color-mix(in srgb, var(--border-primary) 35%, transparent) 1px, transparent 1px) 0 0 / 28px 28px,
     var(--bg-primary);
+}
+
+.relCanvasPanning {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.relZoomBar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-secondary) 92%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 14px color-mix(in srgb, #000 8%, transparent);
+}
+
+.relZoomReadout {
+  min-width: 44px;
+  height: 28px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.relZoomReadout:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.relWorld {
+  transform-origin: 0 0;
+  will-change: transform;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
 }
 
 .relStage {
@@ -1221,11 +1380,74 @@
   color: var(--text-tertiary);
 }
 
+.relDetailDock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.relResizeHandle {
+  height: 8px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  touch-action: none;
+  position: relative;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.relResizeHandle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 3px;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: color-mix(in srgb, var(--text-tertiary) 55%, transparent);
+}
+
+.relResizeHandle:hover::after,
+.relResizeHandle:active::after {
+  background: var(--text-secondary);
+}
+
+.relDetailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-primary);
+  min-height: 36px;
+}
+
+.relDetailTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.relDetailHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .relSideStrip {
-  border-top: 1px solid var(--border-primary);
-  padding: 10px 4px 4px;
-  max-height: 180px;
+  padding: 8px 8px 10px;
   overflow: auto;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .relSideList {
@@ -1262,10 +1484,25 @@
   .body {
     grid-template-columns: 180px minmax(0, 1fr) 280px;
   }
+
+  .bodyNoLeft {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+
+  .bodyNoRight {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+
+  .bodySolo {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 860px) {
-  .body {
+  .body,
+  .bodyNoLeft,
+  .bodyNoRight,
+  .bodySolo {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(280px, 1fr) auto;
   }
