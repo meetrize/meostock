@@ -71,6 +71,9 @@ const PatternBacktest = lazy(() =>
 const AnnouncementImpact = lazy(() =>
   import('@/pages/AnnouncementImpact').then((mod) => ({ default: mod.AnnouncementImpact }))
 );
+const IndustrialChain = lazy(() =>
+  import('@/pages/IndustrialChain').then((mod) => ({ default: mod.IndustrialChain }))
+);
 
 function withSuspense(element: ReactNode) {
   return (
@@ -119,6 +122,14 @@ const browserRouter = createBrowserRouter(
         {
           path: 'announcement-impact',
           element: withSuspense(<AnnouncementImpact />),
+        },
+        {
+          path: 'industrial-chain',
+          element: withSuspense(<IndustrialChain />),
+        },
+        {
+          path: 'chains',
+          element: withSuspense(<IndustrialChain />),
         },
         {
           path: 'fupan',

@@ -27,6 +27,7 @@ import {
   Microscope,
   History,
   FileWarning,
+  GitBranch,
 } from 'lucide-react';
 import { Logo } from '@/components/common';
 import {
@@ -50,6 +51,7 @@ const navItems: NavItem[] = [
   { path: '/', label: '总览', icon: <LayoutDashboard size={18} /> },
   { path: '/research', label: '研判', icon: <Microscope size={18} /> },
   { path: '/announcement-impact', label: '公告异动', icon: <FileWarning size={18} /> },
+  { path: '/industrial-chain', label: '产业链', icon: <GitBranch size={18} /> },
   { path: '/quotes', label: '行情', icon: <CandlestickChart size={18} /> },
   { path: '/limit-up', label: '涨停池', icon: <Flame size={18} /> },
   { path: '/zt-history', label: '涨跌停历史', icon: <Flame size={18} /> },
@@ -132,7 +134,11 @@ export function Sidebar({ collapsed = false, onNavigate }: SidebarProps) {
           ? poolPaths.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))
           : item.path === '/zt-history'
             ? location.pathname === '/zt-history' || location.pathname.startsWith('/zt-history/')
-            : location.pathname.startsWith(item.path);
+            : item.path === '/industrial-chain'
+              ? location.pathname === '/industrial-chain' ||
+                location.pathname === '/chains' ||
+                location.pathname.startsWith('/industrial-chain/')
+              : location.pathname.startsWith(item.path);
 
     return (
       <NavLink
