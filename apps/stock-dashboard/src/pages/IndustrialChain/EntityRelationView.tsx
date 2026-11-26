@@ -561,25 +561,79 @@ export function EntityRelationView({
         >
           <div className={styles.relStage} ref={stageRef}>
             <svg className={styles.relSvg} aria-hidden>
+              <defs>
+                {RELATION_TYPES.map((t) => (
+                  <marker
+                    key={t}
+                    id={`rel-arrow-${t}`}
+                    viewBox="0 0 10 10"
+                    refX="9"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.2 L 9 5 L 0 8.8 Z" fill={RELATION_META[t].color} />
+                  </marker>
+                ))}
+              </defs>
               {drawn.map(({ relation, d, mid, active, preview, muted }) => {
                 const meta = RELATION_META[relation.type];
                 const weak = relation.evidenceGrade === 'unverified';
+                const hot = active || preview;
+                const flow = !muted;
                 return (
                   <g
                     key={relation.id}
-                    className={`${styles.relEdge} ${active || preview ? styles.relEdgeHot : ''} ${muted ? styles.relEdgeMuted : ''} ${weak ? styles.relEdgeWeak : ''}`}
+                    className={[
+                      styles.relEdge,
+                      hot ? styles.relEdgeHot : '',
+                      muted ? styles.relEdgeMuted : '',
+                      weak ? styles.relEdgeWeak : '',
+                      flow ? styles.relEdgeFlowing : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   >
-                    <path d={d} stroke={meta.color} fill="none" />
-                    {(active || preview) && (
-                      <text
-                        x={mid.x}
-                        y={mid.y - 6}
-                        textAnchor="middle"
-                        className={styles.relEdgeLabel}
-                        fill={meta.color}
-                      >
-                        {relation.label}
-                      </text>
+                    <path
+                      className={styles.relEdgeBase}
+                      d={d}
+                      stroke={meta.color}
+                      fill="none"
+                      markerEnd={`url(#rel-arrow-${relation.type})`}
+                    />
+                    {flow && (
+                      <path
+                        className={`${styles.relEdgeFlow} ${hot ? styles.relEdgeFlowHot : ''}`}
+                        d={d}
+                        stroke={meta.color}
+                        fill="none"
+                      />
+                    )}
+                    {hot && (
+                      <>
+                        <circle
+                          className={styles.relEdgeParticle}
+                          r="3.2"
+                          fill={meta.color}
+                        >
+                          <animateMotion
+                            key={`${relation.id}-${selectedEntityId ?? 'x'}-${hoveredId ?? 'h'}`}
+                            dur="2.4s"
+                            repeatCount="indefinite"
+                            path={d}
+                          />
+                        </circle>
+                        <text
+                          x={mid.x}
+                          y={mid.y - 6}
+                          textAnchor="middle"
+                          className={styles.relEdgeLabel}
+                          fill={meta.color}
+                        >
+                          {relation.label}
+                        </text>
+                      </>
                     )}
                   </g>
                 );

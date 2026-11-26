@@ -1203,22 +1203,47 @@
   z-index: 1;
 }
 
-.relEdge path {
-  stroke-width: 1.6;
-  opacity: 0.55;
+.relEdgeBase {
+  fill: none;
+  stroke-width: 1.4;
+  opacity: 0.38;
+  stroke-linecap: round;
 }
 
-.relEdgeHot path {
-  stroke-width: 2.4;
-  opacity: 0.95;
+.relEdgeHot .relEdgeBase {
+  stroke-width: 2.1;
+  opacity: 0.72;
 }
 
 .relEdgeMuted {
   opacity: 0.12;
 }
 
-.relEdgeWeak path {
+.relEdgeWeak .relEdgeBase {
   stroke-dasharray: 5 4;
+}
+
+/* 单向边：虚线沿 from→to 流动 */
+.relEdgeFlow {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 7 13;
+  opacity: 0.55;
+  animation: relDashFlow 1.25s linear infinite;
+  pointer-events: none;
+}
+
+.relEdgeFlowHot {
+  stroke-width: 2.2;
+  opacity: 0.95;
+  animation-duration: 1s;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.relEdgeParticle {
+  filter: drop-shadow(0 0 4px currentColor);
+  pointer-events: none;
 }
 
 .relEdgeLabel {
@@ -1227,6 +1252,23 @@
   paint-order: stroke;
   stroke: var(--bg-primary);
   stroke-width: 3px;
+}
+
+@keyframes relDashFlow {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relEdgeFlow,
+  .relEdgeFlowHot {
+    animation: none;
+  }
+
+  .relEdgeParticle {
+    display: none;
+  }
 }
 
 .relLayers {
