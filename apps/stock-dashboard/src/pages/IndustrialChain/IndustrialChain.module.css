@@ -1365,8 +1365,9 @@
 }
 
 .relCard {
-  width: 168px;
-  padding: 8px 10px;
+  position: relative;
+  width: 196px;
+  padding: 8px 10px 8px 12px;
   border: 1px solid var(--border-primary);
   border-radius: 10px;
   background: var(--bg-secondary);
@@ -1374,17 +1375,63 @@
   cursor: pointer;
   color: inherit;
   box-shadow: 0 1px 0 color-mix(in srgb, var(--node-accent, #94a3b8) 18%, transparent);
-  transition: opacity 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.relCardTrader {
+  min-height: 96px;
+}
+
+.relCardTrader::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: color-mix(in srgb, var(--node-accent, #94a3b8) 55%, transparent);
+}
+
+.relCardUp::before {
+  background: var(--color-rise, #ef4444);
+}
+
+.relCardDown::before {
+  background: var(--color-fall, #22c55e);
+}
+
+.relCardFlat::before {
+  background: color-mix(in srgb, var(--text-tertiary, #94a3b8) 55%, transparent);
+}
+
+.relCardLimitUp {
+  background: color-mix(in srgb, var(--color-rise, #ef4444) 14%, var(--bg-secondary));
+  border-color: color-mix(in srgb, var(--color-rise, #ef4444) 35%, var(--border-primary));
+}
+
+.relCardLimitUp::before {
+  background: #ca8a04;
+  width: 4px;
 }
 
 .relCard:hover {
   border-color: var(--node-accent, var(--border-strong));
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 16px color-mix(in srgb, #0f172a 12%, transparent),
+    0 1px 0 color-mix(in srgb, var(--node-accent, #94a3b8) 18%, transparent);
+  z-index: 2;
 }
 
 .relCardSelected {
   border-color: var(--node-accent, #3b82f6);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--node-accent, #3b82f6) 28%, transparent);
+  z-index: 3;
 }
 
 .relCardRelated {
@@ -1399,49 +1446,149 @@
   background: color-mix(in srgb, #ea580c 8%, var(--bg-secondary));
 }
 
+.relCardPulse {
+  animation: relLimitPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes relLimitPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in srgb, #ca8a04 0%, transparent),
+      0 1px 0 color-mix(in srgb, #ca8a04 18%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, #ca8a04 28%, transparent),
+      0 1px 0 color-mix(in srgb, #ca8a04 32%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relCardPulse {
+    animation: none;
+  }
+}
+
 .relCardTop {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 6px;
   font-size: 10px;
   color: var(--text-tertiary);
   font-family: var(--font-mono);
+  min-height: 16px;
+}
+
+.relCardStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.relCardCode {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+}
+
+.relCardPct {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.relLimitBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #422006;
+  background: #facc15;
+  border: 1px solid #ca8a04;
+  font-family: inherit;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent);
+}
+
+.relStrongBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-rise, #ef4444);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-rise, #ef4444) 55%, transparent);
+  font-family: inherit;
+}
+
+.relAnchorDot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ea580c;
+  background: color-mix(in srgb, #ea580c 16%, transparent);
+  font-family: inherit;
 }
 
 .relCardMain {
   display: flex;
   gap: 8px;
   align-items: center;
-  margin-top: 6px;
+  margin-top: 5px;
 }
 
 .relCardGlyph {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--node-accent, #3b82f6);
-  background: color-mix(in srgb, var(--node-accent, #3b82f6) 16%, transparent);
+  display: none;
 }
 
 .relCardText {
   min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
+.relCardNameRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
 .relCardName {
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 12.5px;
+  font-weight: 700;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.relCardPrice {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
 }
 
 .relCardSub {
@@ -1452,12 +1599,60 @@
   white-space: nowrap;
 }
 
+.relCardSpark {
+  display: block;
+  margin-top: 4px;
+  height: 22px;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
 .relCardFoot {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
   font-size: 10px;
   color: var(--text-tertiary);
+}
+
+.relCardMetrics {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.relCardSep {
+  margin: 0 3px;
+  opacity: 0.55;
+}
+
+.relCardIo {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.relCardTip {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(100% + 6px);
+  z-index: 8;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border-primary);
+  background: color-mix(in srgb, var(--bg-primary, #fff) 94%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, #0f172a 16%, transparent);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 .relDetailDock {

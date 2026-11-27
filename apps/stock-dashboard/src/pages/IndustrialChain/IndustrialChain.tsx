@@ -1125,11 +1125,7 @@ export function IndustrialChain() {
                       setRightTab('detail');
                     }
                   }}
-                  quotePct={
-                    new Map(
-                      [...quoteMap.entries()].map(([k, v]) => [k, v.changePercent])
-                    )
-                  }
+                  quotes={quoteMap}
                   onWatch={addSymbolToWatch}
                   egoMode={egoMode && !!graph.focalEntityId}
                   onEgoModeChange={setEgoMode}

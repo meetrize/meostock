@@ -15,7 +15,31 @@ export type LiveQuoteRow = {
   changePercent: number | null;
   pe: number | null;
   price: number | null;
+  circulatingMarketCap: number | null;
+  turnoverRate: number | null;
+  amount: number | null;
+  /** A 股涨停（含主板/创业/科创/ST 阈值兜底） */
+  limitUp: boolean;
 };
+
+/** 按板块涨停幅度推断（无涨停池标记时兜底） */
+export function inferLimitUp(
+  code: string,
+  name: string,
+  changePercent: number | null | undefined
+): boolean {
+  if (changePercent == null || !Number.isFinite(changePercent)) return false;
+  const bare = code
+    .replace(/^(sh|sz|bj)/i, '')
+    .replace(/\.(SH|SZ|BJ)$/i, '')
+    .replace(/\D/g, '')
+    .slice(-6);
+  const isST = /\*?ST/i.test(name);
+  const isChiNextOrStar = /^(300|301|688|689)/.test(bare);
+  if (isST) return changePercent >= 4.8;
+  if (isChiNextOrStar) return changePercent >= 19.8;
+  return changePercent >= 9.8;
+}
 
 function rankPercentile(values: number[], value: number): number {
   if (!values.length) return 50;
@@ -65,15 +89,41 @@ export async function fetchLiveQuoteRows(
   return map.map((m) => {
     const q =
       byCode.get(m.code.toLowerCase()) ||
-      [...byCode.values()].find((x) => x.code.toLowerCase().endsWith(m.code.replace(/^(sh|sz|bj|us|hk)/i, '').toLowerCase()));
+      [...byCode.values()].find((x) =>
+        x.code
+          .toLowerCase()
+          .endsWith(m.code.replace(/^(sh|sz|bj|us|hk)/i, '').toLowerCase())
+      );
+    const changePercent =
+      q && Number.isFinite(q.changePercent) ? Number(q.changePercent) : null;
+    const pe =
+      q && q.pe != null && Number.isFinite(Number(q.pe)) ? Number(q.pe) : null;
+    const price = q && Number.isFinite(q.price) ? Number(q.price) : null;
+    const circulatingMarketCap =
+      q &&
+      q.circulatingMarketCap != null &&
+      Number.isFinite(Number(q.circulatingMarketCap))
+        ? Number(q.circulatingMarketCap)
+        : null;
+    const turnoverRate =
+      q && q.turnoverRate != null && Number.isFinite(Number(q.turnoverRate))
+        ? Number(q.turnoverRate)
+        : null;
+    const amount =
+      q && q.amount != null && Number.isFinite(Number(q.amount))
+        ? Number(q.amount)
+        : null;
     return {
       entityId: m.entityId,
       code: m.code,
       name: m.name,
-      changePercent:
-        q && Number.isFinite(q.changePercent) ? Number(q.changePercent) : null,
-      pe: q && q.pe != null && Number.isFinite(Number(q.pe)) ? Number(q.pe) : null,
-      price: q && Number.isFinite(q.price) ? Number(q.price) : null,
+      changePercent,
+      pe,
+      price,
+      circulatingMarketCap,
+      turnoverRate,
+      amount,
+      limitUp: inferLimitUp(m.code, m.name, changePercent),
     };
   });
 }

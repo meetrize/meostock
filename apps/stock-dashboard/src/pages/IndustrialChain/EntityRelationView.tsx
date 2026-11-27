@@ -13,7 +13,19 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react';
 import { ChevronDown, ChevronUp, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react';
+import { openKlineTool } from '@/utils/multipanel';
+import {
+  formatAmount,
+  formatMarketCap,
+  formatPercent,
+  formatPrice,
+  formatRatio,
+  formatTurnover,
+  getChangeColorClass,
+} from '@/utils/format';
 import { RELATION_META, RELATION_TYPES } from './relationMeta';
+import { NodeSparkline } from './NodeSparkline';
+import type { LiveQuoteRow } from './liveQuotes';
 import type {
   EntityRelation,
   EntityRelationType,
@@ -21,6 +33,8 @@ import type {
   IndustrialChainGraph,
 } from './types';
 import styles from './IndustrialChain.module.css';
+
+type QuoteMoveFilter = 'all' | 'limitUp' | 'up5' | 'down';
 
 type Rect = { x: number; y: number; w: number; h: number };
 type ViewTransform = { scale: number; x: number; y: number };
@@ -111,10 +125,40 @@ function gradeLabel(g: EvidenceGrade) {
   return '未核';
 }
 
+function displaySymbol(raw: string | undefined): string {
+  if (!raw) return '—';
+  if (/^\d{6}\.(SH|SZ|BJ)$/i.test(raw)) return raw.toUpperCase();
+  const pref = raw.match(/^(sh|sz|bj)(\d{6})$/i);
+  if (pref) return `${pref[2]}.${pref[1].toUpperCase()}`;
+  return raw;
+}
+
+function passQuoteFilter(q: LiveQuoteRow | undefined, filter: QuoteMoveFilter): boolean {
+  if (filter === 'all') return true;
+  if (!q || q.changePercent == null) return false;
+  if (filter === 'limitUp') return q.limitUp;
+  if (filter === 'up5') return q.changePercent >= 5;
+  return q.changePercent < 0;
+}
+
+function compactMcap(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return '流通—';
+  if (v >= 10000) return `流通${(v / 10000).toFixed(1)}万亿`;
+  if (v >= 100) return `流通${v.toFixed(0)}亿`;
+  return `流通${v.toFixed(1)}亿`;
+}
+
+function compactPe(v: number | null | undefined): string {
+  if (v == null || !Number.isFinite(v)) return 'PE—';
+  if (v < 0) return 'PE亏';
+  return `PE ${v >= 100 ? v.toFixed(0) : v.toFixed(1)}`;
+}
+
 export function EntityRelationView({
   graph,
   selectedEntityId,
   onSelectEntity,
+  quotes,
   quotePct,
   onWatch,
   egoMode,
@@ -130,6 +174,9 @@ export function EntityRelationView({
   graph: IndustrialChainGraph;
   selectedEntityId: string | null;
   onSelectEntity: (id: string | null) => void;
+  /** 完整行情（优先） */
+  quotes?: Map<string, LiveQuoteRow>;
+  /** @deprecated 兼容旧调用，仅涨跌幅 */
   quotePct?: Map<string, number | null | undefined>;
   onWatch?: (symbol: string, name: string) => void;
   egoMode: boolean;
@@ -145,15 +192,24 @@ export function EntityRelationView({
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const tipTimerRef = useRef<number | null>(null);
   const [positions, setPositions] = useState<Record<string, Rect>>({});
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [tipId, setTipId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [view, setView] = useState<ViewTransform>({ scale: 1, x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
   const [detailOpen, setDetailOpen] = useState(true);
   const [detailHeight, setDetailHeight] = useState(readDetailHeight);
   const [ioFilter, setIoFilter] = useState<IoRole | 'all'>('all');
+  const [quoteFilter, setQuoteFilter] = useState<QuoteMoveFilter>('all');
   const viewRef = useRef(view);
+
+  useEffect(() => {
+    return () => {
+      if (tipTimerRef.current) window.clearTimeout(tipTimerRef.current);
+    };
+  }, []);
   const spaceDownRef = useRef(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -225,6 +281,35 @@ export function EntityRelationView({
     );
   }, [graph.entities, query]);
 
+  const getQuote = useCallback(
+    (entityId: string): LiveQuoteRow | undefined => {
+      const full = quotes?.get(entityId);
+      if (full) return full;
+      const pct = quotePct?.get(entityId);
+      if (pct == null) return undefined;
+      return {
+        entityId,
+        code: '',
+        name: '',
+        changePercent: pct ?? null,
+        pe: null,
+        price: null,
+        circulatingMarketCap: null,
+        turnoverRate: null,
+        amount: null,
+        limitUp: false,
+      };
+    },
+    [quotes, quotePct]
+  );
+
+  const chainChgRank = useMemo(() => {
+    const vals = graph.entities
+      .map((e) => getQuote(e.id)?.changePercent)
+      .filter((v): v is number => v != null);
+    return vals;
+  }, [graph.entities, getQuote]);
+
   const visibleEntityIds = useMemo(() => {
     const ids = new Set<string>();
     const passIo = (id: string) => {
@@ -234,10 +319,12 @@ export function EntityRelationView({
       if (ioFilter === 'both') return role === 'both';
       return role === ioFilter || role === 'both';
     };
+    const passMove = (id: string) => passQuoteFilter(getQuote(id), quoteFilter);
     for (const ent of graph.entities) {
       if (!placement.has(ent.id)) continue;
       if (egoIds && !egoIds.has(ent.id)) continue;
       if (!passIo(ent.id)) continue;
+      if (!passMove(ent.id)) continue;
       ids.add(ent.id);
     }
     // 保证关系两端都在（若未 ego 过滤掉）
@@ -245,12 +332,16 @@ export function EntityRelationView({
       if (relationFilter !== 'all' && r.type !== relationFilter) continue;
       if (egoIds && !egoIds.has(r.fromEntityId) && !egoIds.has(r.toEntityId)) continue;
       if (egoIds) {
-        if (egoIds.has(r.fromEntityId) && passIo(r.fromEntityId)) ids.add(r.fromEntityId);
-        if (egoIds.has(r.toEntityId) && passIo(r.toEntityId)) ids.add(r.toEntityId);
+        if (egoIds.has(r.fromEntityId) && passIo(r.fromEntityId) && passMove(r.fromEntityId)) {
+          ids.add(r.fromEntityId);
+        }
+        if (egoIds.has(r.toEntityId) && passIo(r.toEntityId) && passMove(r.toEntityId)) {
+          ids.add(r.toEntityId);
+        }
       }
     }
     return ids;
-  }, [graph.entities, placement, egoIds, relations, relationFilter, ioFilter]);
+  }, [graph.entities, placement, egoIds, relations, relationFilter, ioFilter, quoteFilter, getQuote]);
 
   const layers = useMemo(() => {
     return graph.segments
@@ -291,7 +382,7 @@ export function EntityRelationView({
   useLayoutEffect(() => {
     const frame = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(frame);
-  }, [measure, layers, selectedEntityId, egoMode, relationFilter, ioFilter, query]);
+  }, [measure, layers, selectedEntityId, egoMode, relationFilter, ioFilter, quoteFilter, query]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -542,6 +633,36 @@ export function EntityRelationView({
             ))}
           </div>
         )}
+        <div className={styles.relFilters} role="group" aria-label="行情筛选">
+          {(
+            [
+              ['all', '全部行情'],
+              ['limitUp', '涨停'],
+              ['up5', '涨幅≥5%'],
+              ['down', '下跌'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`${styles.relChip} ${quoteFilter === id ? styles.relChipOn : ''}`}
+              style={{
+                ['--rel-color' as string]:
+                  id === 'limitUp'
+                    ? '#ca8a04'
+                    : id === 'up5'
+                      ? '#ef4444'
+                      : id === 'down'
+                        ? '#22c55e'
+                        : '#94a3b8',
+              }}
+              onClick={() => setQuoteFilter(id)}
+            >
+              <span className={styles.relDot} />
+              {label}
+            </button>
+          ))}
+        </div>
         {graph.focalEntityId && (
           <button
             type="button"
@@ -757,7 +878,7 @@ export function EntityRelationView({
                   </span>
                 </div>
                 <div className={styles.relTrack}>
-                  {layer.nodes.map((node, ni) => {
+                  {layer.nodes.map((node) => {
                     const selected = selectedEntityId === node.id;
                     const related =
                       !!selectedEntityId &&
@@ -771,10 +892,20 @@ export function EntityRelationView({
                     const searchMuted = !!matchedIds && !matchedIds.has(node.id);
                     const focusMuted =
                       !!selectedEntityId && node.id !== selectedEntityId && !related;
-                    const pct = quotePct?.get(node.id);
-                    const secondary = placement.get(node.id)?.secondary ?? 0;
+                    const q = getQuote(node.id);
+                    const pct = q?.changePercent ?? null;
                     const ioRole = placement.get(node.id)?.ioRole;
                     const isFocal = node.id === graph.focalEntityId;
+                    const limitUp = !!q?.limitUp;
+                    const strongUp = !limitUp && pct != null && pct >= 5;
+                    const toneClass =
+                      limitUp
+                        ? styles.relCardLimitUp
+                        : pct != null && pct > 0
+                          ? styles.relCardUp
+                          : pct != null && pct < 0
+                            ? styles.relCardDown
+                            : styles.relCardFlat;
                     const ioClass =
                       ioRole === 'input'
                         ? styles.relIoIn
@@ -783,6 +914,15 @@ export function EntityRelationView({
                           : ioRole === 'both'
                             ? styles.relIoBoth
                             : '';
+                    const sym = displaySymbol(node.symbols[0]);
+                    const sparkSym = q?.code || node.symbols[0] || '';
+                    const showTip = tipId === node.id && !!q;
+                    let chgRankLabel = '';
+                    if (q?.changePercent != null && chainChgRank.length >= 3) {
+                      const below = chainChgRank.filter((v) => v < q.changePercent!).length;
+                      const pctl = Math.round((below / chainChgRank.length) * 100);
+                      chgRankLabel = `链内涨幅分位 ${pctl}%`;
+                    }
                     return (
                       <button
                         key={node.id}
@@ -792,70 +932,111 @@ export function EntityRelationView({
                         }}
                         className={[
                           styles.relCard,
+                          styles.relCardTrader,
+                          toneClass,
                           selected ? styles.relCardSelected : '',
                           related ? styles.relCardRelated : '',
                           searchMuted || focusMuted ? styles.relCardDim : '',
                           isFocal ? styles.relCardFocal : '',
+                          limitUp && !selected ? styles.relCardPulse : '',
                           ioClass,
                         ]
                           .filter(Boolean)
                           .join(' ')}
                         style={{ ['--node-accent' as string]: layer.accent } as CSSProperties}
+                        title="单击选中 · 双击打开日K"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectEntity(selected ? null : node.id);
                         }}
-                        onMouseEnter={() => setHoveredId(node.id)}
-                        onMouseLeave={() => setHoveredId(null)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          const code = sparkSym || node.symbols[0];
+                          if (code) openKlineTool(code, '1d');
+                        }}
+                        onMouseEnter={() => {
+                          setHoveredId(node.id);
+                          if (tipTimerRef.current) window.clearTimeout(tipTimerRef.current);
+                          tipTimerRef.current = window.setTimeout(() => {
+                            setTipId(node.id);
+                          }, 240);
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredId(null);
+                          if (tipTimerRef.current) {
+                            window.clearTimeout(tipTimerRef.current);
+                            tipTimerRef.current = null;
+                          }
+                          setTipId((cur) => (cur === node.id ? null : cur));
+                        }}
                       >
                         <span className={styles.relCardTop}>
-                          <span>
-                            {String(li + 1).padStart(2, '0')}-
-                            {String(ni + 1).padStart(2, '0')}
+                          <span className={styles.relCardStatus}>
+                            {limitUp ? (
+                              <span className={styles.relLimitBadge}>涨停</span>
+                            ) : strongUp ? (
+                              <span className={styles.relStrongBadge}>强势</span>
+                            ) : null}
+                            {isFocal ? (
+                              <span className={styles.relAnchorDot} title="锚点">
+                                锚
+                              </span>
+                            ) : null}
+                            <span className={styles.relCardCode}>{sym}</span>
                           </span>
-                          <span>
-                            {node.symbols[0] ?? '—'}
-                            {secondary > 0 ? ` · +${secondary}挂` : ''}
+                          <span className={`${styles.relCardPct} ${getChangeColorClass(pct)}`}>
+                            {pct != null ? formatPercent(pct) : '—'}
                           </span>
                         </span>
                         <span className={styles.relCardMain}>
-                          <span className={styles.relCardGlyph}>
-                            {(node.name.slice(0, 1) || '?').toUpperCase()}
-                          </span>
                           <span className={styles.relCardText}>
-                            <span className={styles.relCardName}>
-                              {node.name}
-                              {isFocal ? ' · 锚点' : ''}
-                              {ioRole === 'input' && (
-                                <span className={`${styles.ioBadge} ${styles.ioBadgeIn}`}>
-                                  入
-                                </span>
-                              )}
-                              {ioRole === 'output' && (
-                                <span className={`${styles.ioBadge} ${styles.ioBadgeOut}`}>
-                                  出
-                                </span>
-                              )}
-                              {ioRole === 'both' && (
-                                <span className={`${styles.ioBadge} ${styles.ioBadgeBoth}`}>
-                                  双
-                                </span>
-                              )}
-                            </span>
-                            <span className={styles.relCardSub}>
-                              {node.revenueMix?.slice(0, 28) ?? layer.seg.name}
-                              {node.revenueMix && node.revenueMix.length > 28 ? '…' : ''}
+                            <span className={styles.relCardNameRow}>
+                              <span className={styles.relCardName}>{node.name}</span>
+                              <span className={`${styles.relCardPrice} ${getChangeColorClass(pct)}`}>
+                                {q?.price != null ? formatPrice(q.price) : '—'}
+                              </span>
                             </span>
                           </span>
                         </span>
+                        {sparkSym ? (
+                          <NodeSparkline
+                            symbol={sparkSym}
+                            tone={pct}
+                            className={styles.relCardSpark}
+                          />
+                        ) : (
+                          <span className={styles.relCardSpark} />
+                        )}
                         <span className={styles.relCardFoot}>
-                          <span>
-                            {pct != null
-                              ? `${pct > 0 ? '+' : ''}${pct.toFixed(2)}%`
-                              : '行情—'}
+                          <span className={styles.relCardMetrics}>
+                            {compactMcap(q?.circulatingMarketCap)}
+                            <span className={styles.relCardSep}>·</span>
+                            {compactPe(q?.pe)}
                           </span>
-                          <span>↗</span>
+                          <span className={styles.relCardIo}>
+                            {ioRole === 'input' && (
+                              <span className={`${styles.ioBadge} ${styles.ioBadgeIn}`}>入</span>
+                            )}
+                            {ioRole === 'output' && (
+                              <span className={`${styles.ioBadge} ${styles.ioBadgeOut}`}>出</span>
+                            )}
+                            {ioRole === 'both' && (
+                              <span className={`${styles.ioBadge} ${styles.ioBadgeBoth}`}>双</span>
+                            )}
+                          </span>
                         </span>
+                        {showTip && (
+                          <span className={styles.relCardTip} role="tooltip">
+                            <span>换手 {formatTurnover(q?.turnoverRate)}</span>
+                            <span>额 {formatAmount(q?.amount)}</span>
+                            {q?.pe != null && <span>PE {formatRatio(q.pe)}</span>}
+                            {q?.circulatingMarketCap != null && (
+                              <span>流通 {formatMarketCap(q.circulatingMarketCap)}</span>
+                            )}
+                            {chgRankLabel ? <span>{chgRankLabel}</span> : null}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -864,7 +1045,7 @@ export function EntityRelationView({
             ))}
             {layers.length === 0 && (
               <div className={styles.detailEmpty}>
-                当前筛选下无企业节点（可关闭「锚点邻居」或清空搜索）
+                当前筛选下无企业节点（可切换行情筛选、关闭「锚点邻居」或清空搜索）
               </div>
             )}
             </div>
