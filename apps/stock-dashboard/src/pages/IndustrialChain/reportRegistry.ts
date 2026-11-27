@@ -6,6 +6,7 @@
 import huaweiAscendHtml from './reports/huawei-ascend-chain.html?raw';
 import domesticAiChipHtml from './reports/domestic-ai-chip-chain.html?raw';
 import robotChainHtml from './reports/robot-chain.html?raw';
+import cloudDcHtml from './reports/cloud-dc-chain.html?raw';
 
 export type ChainReportMeta = {
   id: string;
@@ -33,6 +34,12 @@ const REPORTS: Record<string, ChainReportMeta> = {
     title: '机器人产业链全景与输入输出关系图谱（2026-11-27）',
     publicPath: 'reports/robot-chain.html',
     html: robotChainHtml,
+  },
+  'cloud-dc-chain': {
+    id: 'cloud-dc-chain',
+    title: '云计算数据中心产业链全景与公司关系图谱（2026-11-27）',
+    publicPath: 'reports/cloud-dc-chain.html',
+    html: cloudDcHtml,
   },
 };
 

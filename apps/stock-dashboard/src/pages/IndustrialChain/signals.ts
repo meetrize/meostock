@@ -167,75 +167,74 @@ function c01SpecificCards(
   return cards;
 }
 
-/** C05：报告型链条风险 + 预算闸门 + 利润迁移 */
+/** C05：I1–I9→枢纽→O1–O6 报告型传导信号 */
 function c05SpecificCards(
   graph: IndustrialChainGraph,
   indicators: LeadingIndicator[],
   now: string
 ): ChainSignalCard[] {
   const cards: ChainSignalCard[] = [];
-  const govIt = indicators.find((i) => i.id === 'ind-c05-gov-it');
-  const siBacklog = indicators.find((i) => i.id === 'ind-c05-si-backlog');
-  if (govIt && govIt.direction === 'down' && (govIt.percentile ?? 50) < 55) {
-    const si = membersOnSegment(graph, 'c05-si', ['core', 'elastic']);
+
+  const capex = indicators.find((i) => i.id === 'ind-c05-ai-capex');
+  if (capex && (capex.percentile ?? 0) >= 65 && capex.direction === 'up') {
+    const servers = membersOnSegment(graph, 'c05-server', ['core', 'elastic']);
+    const optical = membersOnSegment(graph, 'c05-optical', ['core', 'elastic']);
+    const facility = membersOnSegment(graph, 'c05-facility', ['elastic']);
     cards.push({
-      id: 'sig-c05-budget-gate',
+      id: 'sig-c05-capex-cascade',
       chainId: graph.id,
-      type: 'regime_downgrade',
-      level: 'watch',
+      type: 'event_cascade',
+      level: 'intel',
       urgency: 'U1',
-      trigger: `政企数字化预算温度分位 ${govIt.percentile}（${govIt.direction}）`,
-      path: '需求方预算收缩 → 系统集成订单/验收放缓 → 经常性运维承接不及预期',
-      names: `集成关注：${pickNames(si)}`,
-      segmentIds: ['c05-demand', 'c05-si', 'c05-ops'],
-      entityIds: si.map((c) => c.entity!.id),
-      confidenceNote: '报告风险「政企 IT 预算收缩」映射；种子分位非实盘',
-      action: '观察：核对锚点与高可比集成商在手订单；勿因「数字经济」概念升级',
+      trigger: `云厂商/AI 资本开支分位 ${capex.percentile}（${capex.direction}）`,
+      path: '资本开支 → 服务器/超节点 → 光模块与液冷机电 → IDC/智算上架',
+      names: `整机：${pickNames(servers)}；光通信：${pickNames(optical)}；机电：${pickNames(facility)}`,
+      segmentIds: ['c05-server', 'c05-optical', 'c05-facility', 'c05-idc'],
+      entityIds: [...servers, ...optical, ...facility].map((c) => c.entity!.id),
+      confidenceNote: '全景报告传导模板；种子分位非实盘',
+      action: '情报：核对服务器招标与光模块/液冷订单；区分实质供货与题材扩散',
       createdAt: now,
     });
   }
 
-  const chip = indicators.find((i) => i.id === 'ind-c05-chip-supply');
-  if (chip && (chip.percentile ?? 0) >= 75) {
+  const chip = indicators.find((i) => i.id === 'ind-c05-chip');
+  if (chip && (chip.percentile ?? 0) >= 50) {
     const chips = membersOnSegment(graph, 'c05-chip', ['core', 'elastic']);
-    const servers = membersOnSegment(graph, 'c05-server', ['core']);
+    const servers = membersOnSegment(graph, 'c05-server', ['core', 'elastic']);
     cards.push({
       id: 'sig-c05-chip-cascade',
       chainId: graph.id,
       type: 'event_cascade',
       level: 'intel',
       urgency: 'U1',
-      trigger: `国产算力芯片供给紧度分位 ${chip.percentile}`,
-      path: 'L1 芯片 → L2 服务器整机 → L3 集成交付交期（信创项目）',
+      trigger: `国产算力芯片供给分位 ${chip.percentile}`,
+      path: 'I2 芯片 → I6 服务器整机 → 枢纽 → O2/O4 智算与算力租赁',
       names: `芯片：${pickNames(chips)}；整机：${pickNames(servers)}`,
-      segmentIds: ['c05-chip', 'c05-server', 'c05-si'],
+      segmentIds: ['c05-chip', 'c05-server', 'c05-hub', 'c05-gpuas'],
       entityIds: [...chips, ...servers].map((c) => c.entity!.id),
       confidenceNote: '链条风险「算力供给」模板；有真实缺货/管制文本时升 U0',
-      action: '情报：沿芯片→服务器→集成边核对时滞；集成商毛利勿与芯片弹性混谈',
+      action: '情报：沿芯片→整机→智算边核对交期；勿把芯片弹性直接套到行业云毛利',
       createdAt: now,
     });
   }
 
-  if (siBacklog && graph.focalEntityId) {
-    const focal = membersOnSegment(graph, 'c05-si', ['core']).filter(
-      (m) => m.entity!.id === graph.focalEntityId
-    );
-    const peers = membersOnSegment(graph, 'c05-si', ['elastic']).filter(
-      (m) => m.membership.peerTag === 'high'
-    );
+  const gpuas = indicators.find((i) => i.id === 'ind-c05-gpuas');
+  if (gpuas && (gpuas.direction === 'flat' || gpuas.direction === 'down')) {
+    const lease = membersOnSegment(graph, 'c05-gpuas', ['core', 'elastic']);
+    const idc = membersOnSegment(graph, 'c05-idc', ['core', 'elastic']);
     cards.push({
-      id: 'sig-c05-margin-peer',
+      id: 'sig-c05-lease-price',
       chainId: graph.id,
       type: 'margin_shift',
-      level: 'intel',
+      level: 'watch',
       urgency: 'U2',
-      trigger: `锚点环节毛利带 ${graph.segments.find((s) => s.id === 'c05-si')?.grossMarginHint ?? '中低'}；在手订单分位 ${siBacklog.percentile}`,
-      path: '标准化算力/云资源毛利结构 ≠ 项目制集成；利润池比较应限定高可比同环',
-      names: `锚点：${pickNames(focal)}；高可比：${pickNames(peers)}`,
-      segmentIds: ['c05-si'],
-      entityIds: [...focal, ...peers].map((c) => c.entity!.id),
-      confidenceNote: '报告「可比性」字段驱动；禁止把上游芯片弹性套到集成锚点',
-      action: '情报：只与高可比集成商对照毛利/回款；上游标的单独分层',
+      trigger: `算力租赁/Token 价格分位 ${gpuas.percentile}（${gpuas.direction}）`,
+      path: '输出侧价格战 → GPUaaS/Token 毛利承压 → 反噬 IDC 上架溢价',
+      names: `租赁：${pickNames(lease)}；IDC：${pickNames(idc)}`,
+      segmentIds: ['c05-gpuas', 'c05-idc', 'c05-hub'],
+      entityIds: [...lease, ...idc].map((c) => c.entity!.id),
+      confidenceNote: '报告风险「价格战」映射；需跟踪真实 Token/机时单价',
+      action: '观察：核对算力租赁利用率与单价；输入侧景气≠输出侧利润',
       createdAt: now,
     });
   }

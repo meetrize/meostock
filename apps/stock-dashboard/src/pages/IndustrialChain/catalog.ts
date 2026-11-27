@@ -12,7 +12,7 @@ export const CHAIN_CATALOG: ChainCatalogItem[] = [
     id: 'C05',
     name: '云计算数据中心',
     depth: 'observe',
-    blurb: 'IDC→算力→基础软→安全→集成→应用 · 常山北明锚点',
+    blurb: '输入 I1–I9 → 数据中心枢纽 → 输出 O1–O6 · 报告全文可点 K 线',
   },
   {
     id: 'C06',

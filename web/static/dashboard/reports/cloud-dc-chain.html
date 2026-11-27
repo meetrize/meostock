@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta name="data-asof" content="2026-11-27"/>
+<meta name="chain-id" content="C05"/>
+<meta name="seed-entities" content="187"/>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>云计算数据中心产业链全景与公司关系图谱（2026年11月27日）</title>
+<style>
+:root{--ink:#12161c;--sub:#5b6472;--line:#e3e7ee;--bg:#f6f8fb;--accent:#0b4f8a;--accent2:#c0392b;--green:#1e7b52;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.75;font-size:16px;}
+.wrap{max-width:1080px;margin:0 auto;padding:0 18px 60px;}
+header{background:linear-gradient(135deg,#0b2b47 0%,#0b4f8a 55%,#1769a8 100%);color:#fff;padding:44px 0 38px;margin-bottom:26px;}
+header .wrap{padding-bottom:0;}
+header .kicker{font-size:13px;letter-spacing:2px;opacity:.85;margin-bottom:10px;}
+header h1{font-size:clamp(22px,3.4vw,34px);line-height:1.35;margin:0 0 14px;font-weight:700;}
+header .meta{font-size:13.5px;opacity:.9;}
+header .meta span{display:inline-block;margin-right:18px;}
+.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:26px 26px 22px;margin:22px 0;box-shadow:0 1px 3px rgba(16,32,64,.04);}
+h2{font-size:21px;margin:38px 0 14px;padding-left:12px;border-left:5px solid var(--accent);line-height:1.3;}
+h3{font-size:17px;margin:26px 0 10px;color:#0b2b47;}
+h4{font-size:15.5px;margin:18px 0 8px;color:#123;}
+p{margin:10px 0;}
+ul,ol{padding-left:22px;margin:10px 0;}
+li{margin:5px 0;}
+.small{font-size:13.5px;color:var(--sub);}
+.lead{font-size:15.5px;color:#26313f;background:#f0f6fc;border-left:4px solid var(--accent);padding:14px 16px;border-radius:0 8px 8px 0;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0;background:#fff;}
+th,td{border:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top;}
+th{background:#eef3f9;font-weight:600;color:#0b2b47;white-space:nowrap;}
+tbody tr:nth-child(even){background:#fbfcfe;}
+.tw{overflow-x:auto;}
+td.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#456;white-space:nowrap;}
+td.nm{font-weight:600;white-space:nowrap;}
+td.up10{color:#c0392b;font-weight:600;white-space:nowrap;}
+td.up20{color:#8e1b8e;font-weight:600;white-space:nowrap;}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0;}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:9px;padding:14px 15px;}
+.kpi b{display:block;font-size:23px;color:var(--accent);line-height:1.2;}
+.kpi span{font-size:12.5px;color:var(--sub);}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;margin:2px 4px 2px 0;border:1px solid #cfe0f2;background:#f2f8ff;color:#0b4f8a;}
+.tag.out{border-color:#f2d5d0;background:#fff5f3;color:#a5341f;}
+.tag.in{border-color:#cfe9dc;background:#f2fbf6;color:#1e7b52;}
+.flow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0;}
+.flow .box{border:1px solid var(--line);border-radius:9px;padding:14px 16px;background:#fff;}
+.flow .box.in{border-top:4px solid var(--green);}
+.flow .box.out{border-top:4px solid var(--accent2);}
+.flow .box h4{margin-top:0;}
+blockquote{margin:14px 0;padding:12px 16px;background:#f7f9fc;border-left:4px solid #b9c9db;color:#3a4655;font-size:14px;}
+.note{font-size:12.5px;color:var(--sub);margin-top:8px;}
+.rel{background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px 18px 14px;margin:14px 0;}
+.rel h4{color:var(--accent);}
+footer{text-align:center;font-size:12.5px;color:var(--sub);padding:26px 0 0;border-top:1px solid var(--line);margin-top:34px;}
+@media(max-width:640px){
+ body{font-size:15px;}
+ .card{padding:18px 14px;}
+ .flow{grid-template-columns:1fr;}
+ header{padding:32px 0 26px;}
+}
+
+  .co{line-height:1.35;vertical-align:middle;}
+  .co-name{display:block;white-space:nowrap;line-height:1.35;font-weight:600;}
+  .co-name strong{font-weight:800;}
+  .co-code,td .code{display:block;margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.3;white-space:nowrap;color:var(--muted,#64748b);font-weight:400;}
+  span.co{display:inline-block;margin:2px 6px 2px 0;vertical-align:top;}
+
+</style>
+</head>
+<body>
+<header>
+ <div class="wrap">
+  <div class="kicker">产业链研究 · 主题复盘</div>
+  <h1>云计算数据中心产业链全景与公司关系图谱</h1>
+  <div class="meta"><span>数据日期：2026年11月27日（周五）收盘</span><span>市场：A股</span><span>数据源：Wind</span></div>
+ </div>
+</header>
+<div class="wrap">
+
+<div class="card">
+<h2 style="margin-top:4px;">核心结论</h2>
+<div class="lead">
+今日是A股罕见的普涨型“涨停潮”：全市场 <b>439 只</b>个股涨停，上证指数涨 <b>3.73%</b> 重回3600点，创业板指涨超 <b>11%</b>，科创50涨超 <b>15%</b>，两市成交额重回2万亿元上方。云计算数据中心不是独立行情，而是这轮普涨中<b>逻辑最完整、涨停家数最集中</b>的主线之一。
+</div>
+<ol>
+<li><b>涨停结构：上游“卖铲子”的远多于下游“卖服务”的。</b>Wind概念标签命中的62只算力链涨停股中，<b>输入侧（向数据中心提供产品/服务）43只，占69.4%</b>；输出侧（通过数据中心对外提供服务）19只，占30.6%。资金优先买“确定性订单”，而非“算力租金弹性”。</li>
+<li><b>时间结构说明这是“补涨”而非“抢筹”。</b>62只中<b>41只在13:00后封板</b>，早盘仅4只在9:30前封板（常山北明、证通电子、浙大网新、大位科技）。真正有独立逻辑的是早盘封板的华为昇腾链与IDC运营；午后封板更多是全市场风险偏好修复的β。</li>
+<li><b>催化是“海外收紧＋国内加码”的双击。</b>隔夜英伟达暂停向马来西亚、新加坡、泰国、印尼发运搭载其芯片的服务器；11月26日广东印发《算力发展“十五五”规划》、三部门印发《新一代通信网建设实施方案》、八部门发文推动云计算与大模型服务出海。外部供给收缩把预算挤回国内，内部规划把订单锁在国产链上。</li>
+<li><b>产业链可分“9个输入节点＋6个输出节点”。</b>输入侧为算力金属与电子材料、芯片与半导体制造、PCB与高速连接、光通信、网络设备与交换芯片、服务器整机、数据中心机电（温控/电源）、基础软件、工程与运维；输出侧为电信运营商、第三方IDC/智算中心、云平台（IaaS/PaaS/MaaS）、算力租赁与Token服务、行业云与SaaS、CDN与AI应用。</li>
+<li><b>公司间关系可归为六类：</b>股权与集团归属、生态绑定（昇腾/鲲鹏/飞腾麒麟/互联网平台）、客户—供应商、同环节竞合、成本与价格传导、区域集群与政策绑定。其中“生态绑定”是A股算力链最强的股价联动机制——今日早盘涨停的拓维信息、常山北明、润和软件、软通动力、华胜天成，全部是华为生态标签。</li>
+</ol>
+</div>
+
+<div class="card" style="padding:18px 24px;">
+<h3 style="margin-top:2px;">目录</h3>
+<ol class="small" style="columns:2;column-gap:28px;margin-bottom:4px;">
+<li><a href="#s1" style="color:#0b4f8a;text-decoration:none;">今日盘面：一场普涨中的算力主线</a></li>
+<li><a href="#s2" style="color:#0b4f8a;text-decoration:none;">相关涨停股全景（62只）</a></li>
+<li><a href="#s3" style="color:#0b4f8a;text-decoration:none;">各平台概念池覆盖（222只）</a></li>
+<li><a href="#s4" style="color:#0b4f8a;text-decoration:none;">输入侧：九个节点</a></li>
+<li><a href="#s5" style="color:#0b4f8a;text-decoration:none;">输出侧：六个节点</a></li>
+<li><a href="#s6" style="color:#0b4f8a;text-decoration:none;">公司间关系的六类分法</a></li>
+<li><a href="#s7" style="color:#0b4f8a;text-decoration:none;">今日涨停归因矩阵</a></li>
+<li><a href="#s8" style="color:#0b4f8a;text-decoration:none;">产业链总图</a></li>
+<li><a href="#s9" style="color:#0b4f8a;text-decoration:none;">风险提示与跟踪指标</a></li>
+<li><a href="#sa" style="color:#0b4f8a;text-decoration:none;">附录：222只个股全名单</a></li>
+</ol>
+</div>
+<h2 id="s1">一、今日盘面：一场普涨中的算力主线</h2>
+<div class="card">
+<div class="kpis">
+ <div class="kpi"><b>439</b><span>全市场涨停家数（只）</span></div>
+ <div class="kpi"><b>+3.73%</b><span>上证指数，收复3600点</span></div>
+ <div class="kpi"><b>&gt;11%</b><span>创业板指涨幅</span></div>
+ <div class="kpi"><b>2.0万亿+</b><span>两市成交额，放量6824亿</span></div>
+ <div class="kpi"><b>62</b><span>算力/云/IDC标签涨停股</span></div>
+</div>
+<h3>1.1 五条当日/隔夜催化（按影响力排序）</h3>
+<div class="tw"><table>
+<thead><tr><th style="width:24%">催化</th><th style="width:14%">时间</th><th>内容与传导路径</th></tr></thead>
+<tbody>
+<tr><td><b>英伟达暂停向东南亚四国发运服务器</b></td><td>11月26日隔夜</td><td>英伟达通知合作伙伴暂停向马来西亚、新加坡、泰国、印度尼西亚发运搭载其芯片的服务器，戴尔、超微已告知当地买家订单无法发货，以规避转运风险。过去两年阿里、腾讯、字节通过在东南亚租用英伟达云服务维持训练节奏，通道被切断后<b>算力预算被动回流国内</b>，直接利好算力租赁、第三方IDC、国产算力平台（昇腾、海光）。这是今日算力链最直接的触发器。</td></tr>
+<tr><td><b>《广东省算力发展“十五五”规划》</b></td><td>11月26日印发</td><td>到2028年智算规模突破<b>1000 EFlops（FP16）</b>，数据中心绿电占比超80%，新建大型及以上数据中心PUE&lt;1.2；<b>鼓励算力中心优先使用国产算力芯片</b>，发挥超节点架构与高速互联优势；2030年智算规模超2500 EFlops（力争4000）。规划同时强调高速互联、芯片协同适配、液冷配套与“算力券”，投资机会沿“集群建设→光通信、PCB、电源散热、算力服务”扩散。</td></tr>
+<tr><td><b>《新一代通信网建设实施方案》</b></td><td>11月下旬（工信部、网信办、发改委）</td><td>到2030年建成覆盖完善、性能领先的新一代通信网，适时开展6G建设，明确“优化算力资源供给，构建枢纽区域、边缘多层级算力设施架构”。为网络设备、光纤光缆、数据中心互联提供中期需求锚。</td></tr>
+<tr><td><b>八部门《服务贸易发展“十五五”规划》</b></td><td>11月26日</td><td>稳妥有序推动<b>云计算、大模型等人工智能相关服务出海</b>，鼓励整合硬件制造商、算力提供商、IT基础设施运营商，形成“技术+产品+服务”一体化方案。直接对应润建股份“词元出海”、云服务出海逻辑。</td></tr>
+<tr><td><b>华为ISSCC 2027论文与昇腾自研HBM</b></td><td>11月24—27日</td><td>IEEE公布ISSCC 2027议程草案，华为4篇论文入选，含HBM内存方案与逻辑折叠旗舰SoC；昇腾950PR容量128GB/带宽1.6TB/s，950DT 144GB/4TB/s。生态与工具链同步补短板（韬定律、3D-Native EDA）。这是早盘华为昇腾链集体涨停的技术催化。</td></tr>
+</tbody></table></div>
+<h3>1.2 基本面与资金面的配合</h3>
+<ul>
+<li><b>云厂资本开支：</b>腾讯2026Q3资本开支<b>814.33亿元</b>，同比+527%、环比+54%，超市场预期；阿里Q3约504.77亿元、百度73.49亿元，三家整体仍增长。北美四大CSP 2026Q3合计资本开支约<b>2087亿美元</b>，同比+84.2%。</li>
+<li><b>产业规模：</b>IDC与浪潮信息《2026年中国人工智能计算力发展评估报告》预计2026年中国智能算力规模达<b>2576.5 EFLOPS</b>，同比+87.9%，2030年达10524.3 EFLOPS（2025—2030 CAGR 50.3%）。花旗测算2026年国内AI基建投资<b>10480亿元</b>，同比约+106%。</li>
+<li><b>盈利验证：</b>国家统计局数据显示1—10月电子行业利润同比<b>增长1.0倍</b>，拉动规上工业利润增长9.7个百分点；其中计算机整机制造利润增长4.1倍、电子专用材料2.2倍、光电子器件69.7%。10月单月规上工业利润同比+20.1%。</li>
+<li><b>风险偏好：</b>央行11月27日开展7940亿元隔夜逆回购，单日净投放2225亿元；国常会一个月内两次提及资本市场。流动性＋政策共同构成普涨背景。</li>
+</ul>
+<blockquote>需要强调：今日439只涨停、创业板指涨超11%，属于<b>指数级别的风险偏好修复</b>。算力链的涨停中有相当部分是个股β，不应把“涨停”直接等同于“产业链景气度验证”。真正有独立产业逻辑的，是早盘封板的昇腾生态与IDC/算力租赁，以及有订单、有业绩兑现的上游硬件。</blockquote>
+</div>
+
+<h2 id="s2">二、今日云计算数据中心相关涨停股全景（62只）</h2>
+<div class="card">
+<p>筛选口径：2026年11月27日涨停，且满足以下任一条件——Wind概念标签含“云计算 / AI算力 / IDC / 东数西算 / 算力租赁 / 液冷服务器 / 服务器 / 光模块 / 超节点 / 算力”之一，或属于“数据中心互联 / 光通信”环节（长飞光纤、永鼎股份、通鼎互联、长江通信）。对仅有题材标签、主业与算力链无实质关联的标的予以保留并单独标注。合计<b>62只</b>。</p>
+<div class="kpis">
+ <div class="kpi"><b>43</b><span>输入侧涨停（69.4%）</span></div>
+ <div class="kpi"><b>19</b><span>输出侧涨停（30.6%）</span></div>
+ <div class="kpi"><b>41</b><span>13:00后封板（66.1%）</span></div>
+ <div class="kpi"><b>4</b><span>9:30前封板</span></div>
+</div>
+<h3>2.1 输入侧涨停（43只）：向数据中心提供产品与服务</h3>
+<div class="tw"><table>
+<thead><tr><th>公司</th><th>涨跌幅</th><th>封板时间</th><th>所处节点</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">超讯科技</span><span class="code co-code">603322.SH</span></td><td class='up10'>10.00%</td><td>09:33</td><td>网络建设+算力租赁</td></tr>
+<tr><td class="co"><span class="co-name">中贝通信</span><span class="code co-code">603220.SH</span></td><td class='up10'>10.03%</td><td>09:37</td><td>网络建设+算力租赁</td></tr>
+<tr><td class="co"><span class="co-name">润建股份</span><span class="code co-code">002929.SZ</span></td><td class='up10'>10.01%</td><td>11:25</td><td>网络规划建设/算力运维</td></tr>
+<tr><td class="co"><span class="co-name">东山精密</span><span class="code co-code">002384.SZ</span></td><td class='up10'>10.00%</td><td>13:02</td><td>PCB</td></tr>
+<tr><td class="co"><span class="co-name">禾盛新材</span><span class="code co-code">002290.SZ</span></td><td class='up10'>10.01%</td><td>13:10</td><td>家电复合材料（题材联动）</td></tr>
+<tr><td class="co"><span class="co-name">江丰电子</span><span class="code co-code">300666.SZ</span></td><td class='up20'>20.00%</td><td>13:26</td><td>靶材/半导体零部件</td></tr>
+<tr><td class="co"><span class="co-name">旭光电子</span><span class="code co-code">600353.SH</span></td><td class='up10'>10.01%</td><td>13:26</td><td>电真空器件/光模块配套</td></tr>
+<tr><td class="co"><span class="co-name">新金路</span><span class="code co-code">000510.SZ</span></td><td class='up10'>10.00%</td><td>13:29</td><td>算力金属/电子材料</td></tr>
+<tr><td class="co"><span class="co-name">有研新材</span><span class="code co-code">600206.SH</span></td><td class='up10'>10.00%</td><td>13:36</td><td>靶材/稀有金属</td></tr>
+<tr><td class="co"><span class="co-name">东方钽业</span><span class="code co-code">000962.SZ</span></td><td class='up10'>10.01%</td><td>13:43</td><td>算力金属（钽）</td></tr>
+<tr><td class="co"><span class="co-name">兴业银锡</span><span class="code co-code">000426.SZ</span></td><td class='up10'>9.99%</td><td>14:25</td><td>算力金属（锡/锗）</td></tr>
+<tr><td class="co"><span class="co-name">中钨高新</span><span class="code co-code">000657.SZ</span></td><td class='up10'>10.01%</td><td>14:31</td><td>算力金属（钨/六氟化钨）</td></tr>
+<tr><td class="co"><span class="co-name">顺灏股份</span><span class="code co-code">002565.SZ</span></td><td class='up10'>9.96%</td><td>14:31</td><td>包装材料（题材联动）</td></tr>
+<tr><td class="co"><span class="co-name">云南锗业</span><span class="code co-code">002428.SZ</span></td><td class='up10'>10.00%</td><td>14:31</td><td>锗（红外/半导体）</td></tr>
+<tr><td class="co"><span class="co-name">火炬电子</span><span class="code co-code">603678.SH</span></td><td class='up10'>9.99%</td><td>14:43</td><td>MLCC</td></tr>
+<tr><td class="co"><span class="co-name">航锦科技</span><span class="code co-code">000818.SZ</span></td><td class='up10'>9.98%</td><td>09:33</td><td>AI芯片/特种化工</td></tr>
+<tr><td class="co"><span class="co-name">通富微电</span><span class="code co-code">002156.SZ</span></td><td class='up10'>10.01%</td><td>13:35</td><td>封测</td></tr>
+<tr><td class="co"><span class="co-name">芯原股份</span><span class="code co-code">688521.SH</span></td><td class='up20'>20.00%</td><td>13:43</td><td>芯片IP/ASIC定制</td></tr>
+<tr><td class="co"><span class="co-name">深科技</span><span class="code co-code">000021.SZ</span></td><td class='up10'>9.99%</td><td>13:46</td><td>存储封测/先进封装</td></tr>
+<tr><td class="co"><span class="co-name">腾景科技</span><span class="code co-code">688195.SH</span></td><td class='up20'>20.00%</td><td>10:30</td><td>光学元件/OCS</td></tr>
+<tr><td class="co"><span class="co-name">光迅科技</span><span class="code co-code">002281.SZ</span></td><td class='up10'>9.99%</td><td>13:04</td><td>光模块/光器件</td></tr>
+<tr><td class="co"><span class="co-name">星网锐捷</span><span class="code co-code">002396.SZ</span></td><td class='up10'>10.00%</td><td>13:05</td><td>交换机/网络设备</td></tr>
+<tr><td class="co"><span class="co-name">长飞光纤</span><span class="code co-code">601869.SH</span></td><td class='up10'>10.00%</td><td>13:43</td><td>光纤光缆/空芯光纤</td></tr>
+<tr><td class="co"><span class="co-name">永鼎股份</span><span class="code co-code">600105.SH</span></td><td class='up10'>10.02%</td><td>14:29</td><td>光纤光缆</td></tr>
+<tr><td class="co"><span class="co-name">长江通信</span><span class="code co-code">600345.SH</span></td><td class='up10'>10.02%</td><td>14:33</td><td>数据中心互联/光纤</td></tr>
+<tr><td class="co"><span class="co-name">通鼎互联</span><span class="code co-code">002491.SZ</span></td><td class='up10'>9.99%</td><td>14:45</td><td>光纤光缆/数据中心互联</td></tr>
+<tr><td class="co"><span class="co-name">新易盛</span><span class="code co-code">300502.SZ</span></td><td class='up20'>20.00%</td><td>14:46</td><td>光模块（800G/1.6T）</td></tr>
+<tr><td class="co"><span class="co-name">润和软件</span><span class="code co-code">300339.SZ</span></td><td class='up20'>19.99%</td><td>09:39</td><td>操作系统（鸿蒙/欧拉）</td></tr>
+<tr><td class="co"><span class="co-name">太极股份</span><span class="code co-code">002368.SZ</span></td><td class='up10'>10.03%</td><td>10:09</td><td>云软件/信创集成</td></tr>
+<tr><td class="co"><span class="co-name">中国软件</span><span class="code co-code">600536.SH</span></td><td class='up10'>10.00%</td><td>11:01</td><td>操作系统（麒麟）</td></tr>
+<tr><td class="co"><span class="co-name">佳力图</span><span class="code co-code">603912.SH</span></td><td class='up10'>9.96%</td><td>10:36</td><td>精密空调/温控</td></tr>
+<tr><td class="co"><span class="co-name">英维克</span><span class="code co-code">002837.SZ</span></td><td class='up10'>10.01%</td><td>13:06</td><td>液冷/精密温控</td></tr>
+<tr><td class="co"><span class="co-name">欧陆通</span><span class="code co-code">300870.SZ</span></td><td class='up20'>20.01%</td><td>14:40</td><td>服务器电源</td></tr>
+<tr><td class="co"><span class="co-name">科华数据</span><span class="code co-code">002335.SZ</span></td><td class='up10'>10.01%</td><td>14:41</td><td>UPS/液冷+IDC运营</td></tr>
+<tr><td class="co"><span class="co-name">拓维信息</span><span class="code co-code">002261.SZ</span></td><td class='up10'>10.02%</td><td>09:33</td><td>昇腾整机+行业云</td></tr>
+<tr><td class="co"><span class="co-name">恒为科技</span><span class="code co-code">603496.SH</span></td><td class='up10'>10.03%</td><td>09:58</td><td>网络可视化/算力硬件</td></tr>
+<tr><td class="co"><span class="co-name">神州数码</span><span class="code co-code">000034.SZ</span></td><td class='up10'>9.99%</td><td>10:01</td><td>服务器整机/ICT分销</td></tr>
+<tr><td class="co"><span class="co-name">软通动力</span><span class="code co-code">301236.SZ</span></td><td class='up20'>20.01%</td><td>13:00</td><td>算力一体机/软件</td></tr>
+<tr><td class="co"><span class="co-name">智微智能</span><span class="code co-code">001339.SZ</span></td><td class='up10'>10.01%</td><td>13:07</td><td>边缘算力/服务器硬件</td></tr>
+<tr><td class="co"><span class="co-name">紫光股份</span><span class="code co-code">000938.SZ</span></td><td class='up10'>9.99%</td><td>13:30</td><td>服务器+交换机（新华三）</td></tr>
+<tr><td class="co"><span class="co-name">中国长城</span><span class="code co-code">000066.SZ</span></td><td class='up10'>10.00%</td><td>14:42</td><td>服务器/信创整机</td></tr>
+<tr><td class="co"><span class="co-name">浪潮信息</span><span class="code co-code">000977.SZ</span></td><td class='up10'>10.01%</td><td>14:47</td><td>AI服务器/超节点</td></tr>
+<tr><td class="co"><span class="co-name">中科曙光</span><span class="code co-code">603019.SH</span></td><td class='up10'>9.99%</td><td>14:48</td><td>服务器/液冷/超节点</td></tr>
+</tbody></table></div>
+<h3>2.2 输出侧涨停（19只）：通过数据中心对外提供服务</h3>
+<div class="tw"><table>
+<thead><tr><th>公司</th><th>涨跌幅</th><th>封板时间</th><th>所处节点</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">常山北明</span><span class="code co-code">000158.SZ</span></td><td class='up10'>10.01%</td><td>09:25</td><td>IDC+行业云（华为生态）</td></tr>
+<tr><td class="co"><span class="co-name">证通电子</span><span class="code co-code">002197.SZ</span></td><td class='up10'>10.07%</td><td>09:25</td><td>IDC运营（自建8个数据中心）</td></tr>
+<tr><td class="co"><span class="co-name">浙大网新</span><span class="code co-code">600797.SH</span></td><td class='up10'>10.07%</td><td>09:30</td><td>云服务/IDC</td></tr>
+<tr><td class="co"><span class="co-name">大位科技</span><span class="code co-code">600589.SH</span></td><td class='up10'>10.02%</td><td>09:30</td><td>IDC运营</td></tr>
+<tr><td class="co"><span class="co-name">天源迪科</span><span class="code co-code">300047.SZ</span></td><td class='up20'>20.00%</td><td>09:33</td><td>行业云/BSS</td></tr>
+<tr><td class="co"><span class="co-name">中科金财</span><span class="code co-code">002657.SZ</span></td><td class='up10'>10.02%</td><td>10:06</td><td>金融云/数据要素</td></tr>
+<tr><td class="co"><span class="co-name">华胜天成</span><span class="code co-code">600410.SH</span></td><td class='up10'>10.00%</td><td>10:11</td><td>云服务/系统集成</td></tr>
+<tr><td class="co"><span class="co-name">南兴股份</span><span class="code co-code">002757.SZ</span></td><td class='up10'>10.01%</td><td>11:02</td><td>IDC+专用设备双主业</td></tr>
+<tr><td class="co"><span class="co-name">莲花控股</span><span class="code co-code">600186.SH</span></td><td class='up10'>9.95%</td><td>11:23</td><td>算力租赁（跨界）</td></tr>
+<tr><td class="co"><span class="co-name">盛视科技</span><span class="code co-code">002990.SZ</span></td><td class='up10'>10.01%</td><td>13:00</td><td>智慧口岸AI应用</td></tr>
+<tr><td class="co"><span class="co-name">梦网科技</span><span class="code co-code">002123.SZ</span></td><td class='up10'>10.05%</td><td>13:00</td><td>云通信/5G消息</td></tr>
+<tr><td class="co"><span class="co-name">电科数字</span><span class="code co-code">600850.SH</span></td><td class='up10'>10.05%</td><td>13:04</td><td>行业云/数据中心集成</td></tr>
+<tr><td class="co"><span class="co-name">东华软件</span><span class="code co-code">002065.SZ</span></td><td class='up10'>9.98%</td><td>13:05</td><td>行业云软件</td></tr>
+<tr><td class="co"><span class="co-name">博彦科技</span><span class="code co-code">002649.SZ</span></td><td class='up10'>10.04%</td><td>13:08</td><td>云服务/软件服务</td></tr>
+<tr><td class="co"><span class="co-name">利通电子</span><span class="code co-code">603629.SH</span></td><td class='up10'>10.00%</td><td>13:30</td><td>算力租赁（AI算力占比超六成）</td></tr>
+<tr><td class="co"><span class="co-name">新炬网络</span><span class="code co-code">605398.SH</span></td><td class='up10'>10.00%</td><td>13:35</td><td>IT运维/云服务</td></tr>
+<tr><td class="co"><span class="co-name">高乐股份</span><span class="code co-code">002348.SZ</span></td><td class='up10'>10.07%</td><td>13:39</td><td>算力租赁（跨界）</td></tr>
+<tr><td class="co"><span class="co-name">宏景科技</span><span class="code co-code">301396.SZ</span></td><td class='up20'>20.00%</td><td>13:49</td><td>智算中心/算力服务</td></tr>
+<tr><td class="co"><span class="co-name">云赛智联</span><span class="code co-code">600602.SH</span></td><td class='up10'>10.02%</td><td>14:36</td><td>IDC+云服务（上海国资）</td></tr>
+</tbody></table></div>
+<p class="note">涨跌幅为2026-11-27收盘值；封板时间为首次触及涨停时间（Wind）。20%涨停为创业板/科创板标的。节点归类为研究口径，依据Wind概念标签与公开披露业务，不等同于公司官方分类。</p>
+<h3>2.3 涨停结构读法</h3>
+<ul>
+<li><b>材料与元件是最大涨停簇（12只）。</b>兴业银锡、云南锗业、中钨高新、东方钽业、有研新材、江丰电子、新金路——本质是“算力金属”涨价与国产替代叙事，属于链条最上游、与数据中心资本开支的<b>间接</b>关联。它们14:25—14:43才封板，是典型的午后情绪扩散。</li>
+<li><b>整机与服务器（9只）是权重核心。</b>浪潮信息、中科曙光、紫光股份、中国长城四家14:42—14:48几乎同时封板，说明是资金对“国产算力整机”板块的整体配置，而非个股逻辑。</li>
+<li><b>输出侧19只中，13只在13:00后封板。</b>早盘封板的常山北明（09:25）、证通电子（09:25）、浙大网新（09:30）、大位科技（09:30）是IDC/华为生态，有独立逻辑；午后的莲花控股、高乐股份属于跨界算力租赁的题材弹性品种。</li>
+</ul>
+</div>
+
+<h2 id="s3">三、各平台概念池覆盖：222只个股的全景底图</h2>
+<div class="card">
+<p>市场对“云计算数据中心”的划分并不统一，不同平台/指数的成分股差异很大。本报告取Wind五个相关概念池做并集与重叠分析，作为产业链个股覆盖的底图（数据日期2026-11-27）。</p>
+<div class="tw"><table>
+<thead><tr><th>概念池</th><th>成分股数</th><th>覆盖侧重</th><th>与“云计算”池重叠</th><th>与“IDC”池重叠</th></tr></thead>
+<tbody>
+<tr><td>云计算</td><td>62</td><td>云服务、云软件、服务器、IDC运营，偏“软件+服务”</td><td>—</td><td>19</td></tr>
+<tr><td>IDC（数据中心）</td><td>74</td><td>数据中心运营、机电配套、光通信、算力租赁，偏“基础设施”</td><td>19</td><td>—</td></tr>
+<tr><td>东数西算</td><td>42</td><td>枢纽节点、区域IDC、服务器、光模块，偏“工程与布局”</td><td>17</td><td>27</td></tr>
+<tr><td>液冷服务器 / 超节点</td><td>75</td><td>温控、电源、机柜结构件、连接器，偏“机电配套”</td><td>5</td><td>7</td></tr>
+<tr><td>光模块（CPO）/ 服务器</td><td>106</td><td>光模块、光芯片、PCB、整机、散热，偏“AI硬件”</td><td>5</td><td>14</td></tr>
+</tbody></table></div>
+<p><b>五个池去重后共222只个股。</b>其中云计算∪IDC为117只，是“云计算数据中心”最贴近的口径；若并入东数西算、液冷超节点、光模块服务器，则扩展到222只，但其中大量是PCB、连接器、铝材、泵阀等泛AI硬件标的，与“数据中心”本体关联度递减。</p>
+<blockquote>口径提示：<b>“云计算”池偏软件与服务，“IDC”池偏基础设施</b>，两者仅重叠19只。这解释了为什么同一天“云计算板块”和“算力硬件板块”的涨停名单几乎不重合——它们本来就是两套叙事。做产业链研究应以“环节”而非“概念池”为主轴。</blockquote>
+<h3>3.1 重叠度揭示的三条主线</h3>
+<ul>
+<li><b>“云计算∩IDC”19只＝真正的数据中心运营商与云服务商。</b>包括中科曙光、科华数据、光环新网、奥飞数据、数据港、宝信软件、云赛智联、首都在线、优刻得、青云科技、浙大网新、美利云、常山北明、东方国信、网宿科技、深信服、太极股份、普天科技、宇顺电子。这是“既有数据中心、又对外卖云”的双重身份群体。</li>
+<li><b>“IDC∩东数西算”27只＝枢纽节点建设受益方。</b>润泽科技、光环新网、奥飞数据、数据港、城地香江、杭钢股份、美利云、立昂技术、证通电子、依米康、佳力图等，地域上对应京津冀、内蒙、宁夏、成渝、新疆等枢纽。</li>
+<li><b>“液冷超节点∩光模块服务器”65只＝AI硬件大本营。</b>两个池高度重叠，说明市场把“液冷”与“服务器/光模块”视作同一个AI算力硬件包，而非独立环节。这也意味着液冷标的的股价更多跟随服务器与光模块，而非自身订单。</li>
+</ul>
+</div>
+
+<h2 id="s4">四、输入侧：向云计算数据中心提供产品或服务的九个节点</h2>
+<div class="card">
+<p class="note" style="margin-bottom:12px;">图例：公司名后的 <b>★</b> 表示该股在2026年11月27日涨停（含62只口径之外的关联标的）；未标★为概念池内的产业链相关公司，当日未涨停。</p>
+<p>输入侧是“卖铲子”的一侧：把材料、芯片、设备、软件、工程能力卖给数据中心建设方与运营方。它的收入确认<b>先于</b>数据中心的算力租金收入，因此股价与订单、资本开支的关联更直接。今日62只涨停中43只属于这一侧。</p>
+<div class="flow">
+<div class="box in"><h4>输入侧的收入公式</h4><p class="small">收入 ＝ 云厂/运营商资本开支 × 环节价值占比 × 国产化率 × 公司份额</p><p class="small">关键变量是<b>资本开支</b>与<b>国产化率</b>，而非算力价格。今日两条催化正好同时作用于这两个变量。</p></div>
+<div class="box out"><h4>输出侧的收入公式</h4><p class="small">收入 ＝ 上架率 × 单机柜功率 × 算力单价 × 出租率</p><p class="small">关键变量是<b>上架节奏</b>与<b>算力价格</b>。收入确认滞后于资本开支，业绩弹性大但兑现慢。</p></div>
+</div>
+
+<h3>节点 I1　算力金属与电子材料</h3>
+<p><b>功能：</b>提供锗、锡、钨、钽、高纯金属靶材、铜箔、铝材、金刚石等基础材料。锗用于红外与光通信、锡用于焊料、钨用于六氟化钨（半导体沉积气体）、钽用于电容、靶材用于晶圆镀膜。这是链条最上游，价格弹性最大、与数据中心资本开支的关联最间接。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">云南锗业</span><span class="code co-code">002428.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">兴业银锡</span><span class="code co-code">000426.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">中钨高新</span><span class="code co-code">000657.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">东方钽业</span><span class="code co-code">000962.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">有研新材</span><span class="code co-code">600206.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">江丰电子</span><span class="code co-code">300666.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">新金路</span><span class="code co-code">000510.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">博威合金</span><span class="code co-code">601137.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">江南新材</span><span class="code co-code">603124.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">华峰铝业</span><span class="code co-code">601702.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">银邦股份</span><span class="code co-code">300337.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">常铝股份</span><span class="code co-code">002160.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">四方达</span><span class="code co-code">300179.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>价格传导链</b>：金属价格→靶材/焊料/结构件成本→芯片与服务器BOM→数据中心造价，是全链唯一“成本推动型”环节；②<b>国产替代链</b>：江丰电子、有研新材的靶材直接供应国内晶圆厂，与芯片制造节点构成上下游；③<b>题材联动</b>：禾盛新材（家电复合材料）、顺灏股份（包装材料）今日因“AI算力”标签涨停，但主业与数据中心无实质关联，属于纯情绪扩散，需与真材料股区分。</p>
+
+<h3>节点 I2　芯片与半导体制造（AI芯片 / IP / 存储 / 封测 / 光芯片）</h3>
+<p><b>功能：</b>提供GPU/ASIC/NPU等算力芯片、芯片设计IP、存储颗粒与模组、先进封装、光通信芯片。这是数据中心的“大脑”，也是国产化率最低、政策关注度最高的环节。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">寒武纪</span><span class="code co-code">688256.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">芯原股份</span><span class="code co-code">688521.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">航锦科技</span><span class="code co-code">000818.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">深科技</span><span class="code co-code">000021.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">通富微电</span><span class="code co-code">002156.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">盛合晶微</span><span class="code co-code">688820.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">澜起科技</span><span class="code co-code">688008.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">源杰科技</span><span class="code co-code">688498.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">长光华芯</span><span class="code co-code">688048.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">仕佳光子</span><span class="code co-code">688313.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">优迅股份</span><span class="code co-code">688807.SH</span></span> ★</span></p>
+<p><b>关系要点：</b>①<b>垂直分工</b>：芯原（IP/设计服务）→ 晶圆厂 → 深科技/通富微电/盛合晶微（封测）→ 模组/服务器，是典型的Fabless—Foundry—OSAT三段式；②<b>光芯片—光模块耦合</b>：源杰、长光华芯、仕佳光子、优迅股份向新易盛、光迅、中际旭创供应光芯片/光器件，是光模块国产化的“卡脖子”上游；③<b>存储与AI服务器绑定</b>：深科技存储封测满产并投18.5亿元布局2.5D/3D先进封装，直接对应AI服务器HBM与高端存储需求。</p>
+
+<h3>节点 I3　PCB与高速连接（含覆铜板、连接器、铜连接）</h3>
+<p><b>功能：</b>AI服务器与交换机的高速主板、加速卡PCB、背板、高速铜缆与连接器。随着单机柜功率与互连速率提升，PCB层数与材料等级（M6/M7/M8）同步升级，是“单机价值量提升”最确定的环节之一。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">东山精密</span><span class="code co-code">002384.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">胜宏科技</span><span class="code co-code">300476.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">四会富仕</span><span class="code co-code">300852.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">科翔股份</span><span class="code co-code">300903.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">奕东电子</span><span class="code co-code">301123.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">一博科技</span><span class="code co-code">301366.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">鼎通科技</span><span class="code co-code">688668.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">意华股份</span><span class="code co-code">002897.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">胜蓝股份</span><span class="code co-code">300843.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">中航光电</span><span class="code co-code">002179.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">兆龙互连</span><span class="code co-code">300913.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>客户绑定</b>：深南电路、沪电股份、胜宏科技深度绑定英伟达/AMD加速卡与国内服务器厂，是“英伟达产业链”标签最集中的环节；②<b>铜连接替代光连接</b>：机柜内短距互连用高速铜缆（兆龙互连、鼎通科技、意华股份），与光模块形成<b>互补而非替代</b>，共同构成“Scale-up用铜、Scale-out用光”的互连分工；③<b>材料升级</b>：华正新材覆铜板随PCB等级提升而涨价，属成本传导型受益。</p>
+
+<h3>节点 I4　光通信（光纤光缆 / 光模块 / 光器件 / OCS）</h3>
+<p><b>功能：</b>承担数据中心内部（Scale-out）与数据中心之间（DCI）的高速光互连。800G已规模放量、1.6T进入规模交付、3.2T加速研发；CPO（共封装光学）与OCS（光电路交换）是下一代方向。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">新易盛</span><span class="code co-code">300502.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">光迅科技</span><span class="code co-code">002281.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">长飞光纤</span><span class="code co-code">601869.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">腾景科技</span><span class="code co-code">688195.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">永鼎股份</span><span class="code co-code">600105.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">长江通信</span><span class="code co-code">600345.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">通鼎互联</span><span class="code co-code">002491.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">中际旭创</span><span class="code co-code">300308.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">天孚通信</span><span class="code co-code">300394.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">剑桥科技</span><span class="code co-code">603083.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">联特科技</span><span class="code co-code">301205.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">德科立</span><span class="code co-code">688205.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">华工科技</span><span class="code co-code">000988.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">光库科技</span><span class="code co-code">300620.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">罗博特科</span><span class="code co-code">300757.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">亨通光电</span><span class="code co-code">600487.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">华脉科技</span><span class="code co-code">603042.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">通光线缆</span><span class="code co-code">300265.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>模块厂—器件厂—芯片厂</b>三级供货：天孚通信（光器件）→ 新易盛/中际旭创（光模块）→ 云厂商；源杰/长光华芯（光芯片）→ 模块厂；②<b>光纤光缆的独立周期</b>：长飞、亨通、永鼎、通鼎的驱动力是运营商集采＋DCI＋空芯光纤新技术，与光模块的云厂订单周期不同步，今日长飞（+10%，空芯光纤交付破1万芯公里）、永鼎、通鼎、长江通信同步涨停，属于“光通信二线补涨”；③<b>竞争格局</b>：光模块是A股算力链全球化程度最高的环节，新易盛、中际旭创、天孚通信合称“易中天”，直接对标海外云厂需求，与国内资本开支相关性反而较低。</p>
+<blockquote>数据参照：1H26光模块板块业绩延续高景气，800G持续放量叠加1.6T规模交付，头部厂商收入利润均高速增长；光芯片企业利润增速显著快于收入。2026年全球光模块市场预计约260亿美元。</blockquote>
+
+<h3>节点 I5　网络设备与交换芯片（交换机 / 路由器 / DPU / 网络可视化）</h3>
+<p><b>功能：</b>数据中心的“神经系统”。超节点架构要求高带宽、低时延的无阻塞网络，交换机、交换芯片、DPU/网卡、光电路交换（OCS）随之升级。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">紫光股份</span><span class="code co-code">000938.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">星网锐捷</span><span class="code co-code">002396.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">恒为科技</span><span class="code co-code">603496.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">中兴通讯</span><span class="code co-code">000063.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">锐捷网络</span><span class="code co-code">301165.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">盛科通信-U</span><span class="code co-code">688702.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">共进股份</span><span class="code co-code">603118.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">菲菱科思</span><span class="code co-code">301191.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">瑞斯康达</span><span class="code co-code">603803.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">初灵信息</span><span class="code co-code">300250.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">直真科技</span><span class="code co-code">003007.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">南凌科技</span><span class="code co-code">300921.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>整机—芯片配套</b>：盛科通信是国产交换芯片稀缺标的，向紫光股份（新华三）、锐捷、星网锐捷提供芯片，是“国产交换芯片”主线的核心；②<b>同环节竞争</b>：新华三（紫光股份）、锐捷（星网锐捷控股）、中兴通讯三家占据国内数据中心交换机主要份额，互为直接竞争对手；③<b>超节点催化</b>：广东省规划明确“发挥超节点产品架构与高速互联技术优势”，直接对应交换机与铜/光互连环节。</p>
+
+<h3>节点 I6　服务器与整机（AI服务器 / 超节点 / 一体机）</h3>
+<p><b>功能：</b>把芯片、内存、存储、电源、散热集成为可交付的算力单元。AI服务器单价与功率密度远高于通用服务器，超节点（如昇腾CloudMatrix、新华三UniServer）是2026年的产品主线。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">浪潮信息</span><span class="code co-code">000977.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">中科曙光</span><span class="code co-code">603019.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">紫光股份</span><span class="code co-code">000938.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">中国长城</span><span class="code co-code">000066.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">神州数码</span><span class="code co-code">000034.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">拓维信息</span><span class="code co-code">002261.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">智微智能</span><span class="code co-code">001339.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">软通动力</span><span class="code co-code">301236.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">华勤技术</span><span class="code co-code">603296.SH</span></span></span></p>
+<p><b>关系要点：</b>①<b>两条技术路线</b>：x86路线（浪潮信息、紫光股份/新华三、中科曙光）与国产ARM路线（中国长城—飞腾、拓维信息—昇腾、神州数码—鲲鹏）；②<b>生态绑定是最强股价联动机制</b>：拓维信息（昇腾整机）、神州数码（鲲鹏/昇腾）、软通动力（鸿蒙/欧拉/盘古一体机）今日早盘即封板，而浪潮、曙光、长城、紫光午后同步封板，前者买“华为生态”，后者买“国产算力总量”；③<b>竞合</b>：浪潮信息与中科曙光在AI服务器正面竞争，但曙光同时是液冷（曙光数创）与超节点的供给侧，具备“整机＋机电”双重身份。</p>
+
+<h3>节点 I7　数据中心机电（温控液冷 / 电源UPS / 机柜结构件）</h3>
+<p><b>功能：</b>决定数据中心的PUE与可靠性。单机柜功率从8kW升至40—100kW后，风冷失效，液冷（冷板式/浸没式）成为必选项；同时UPS、HVDC、服务器电源、母线、机柜、管路同步升级。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">英维克</span><span class="code co-code">002837.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">佳力图</span><span class="code co-code">603912.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">科华数据</span><span class="code co-code">002335.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">欧陆通</span><span class="code co-code">300870.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">依米康</span><span class="code co-code">300249.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">高澜股份</span><span class="code co-code">300499.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">曙光数创</span><span class="code co-code">920808.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">同飞股份</span><span class="code co-code">300990.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">飞荣达</span><span class="code co-code">300602.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">中石科技</span><span class="code co-code">300684.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">思泉新材</span><span class="code co-code">301489.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">苏州天脉</span><span class="code co-code">301626.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">鸿富瀚</span><span class="code co-code">301086.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">盛弘股份</span><span class="code co-code">300693.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">科泰电源</span><span class="code co-code">300153.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">易事特</span><span class="code co-code">300376.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">艾华集团</span><span class="code co-code">603989.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">金洲管道</span><span class="code co-code">002443.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">海鸥股份</span><span class="code co-code">603269.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">宏盛股份</span><span class="code co-code">603090.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">祥鑫科技</span><span class="code co-code">002965.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>直接供货关系</b>：英维克、佳力图、依米康、申菱环境向润泽科技、光环新网、奥飞数据、数据港及三大运营商供应精密空调/液冷，是“IDC运营商资本开支”的最直接受益者；②<b>温控内部的路线竞争</b>：风冷（佳力图传统优势）vs 冷板液冷（英维克、高澜）vs 浸没液冷（曙光数创），技术路线尚未收敛，是竞争最激烈的环节；③<b>PUE政策强绑定</b>：广东规划要求新建大型数据中心PUE&lt;1.2、绿电占比&gt;80%，直接把这部分需求制度化；④<b>盈利分化</b>：1H26五家液冷代表企业收入67亿元、同比+12.6%，但合计归母净利润2.8亿元、同比-32.9%，说明“增收不增利”，价格战明显——这是本节点最重要的风险点。</p>
+
+<h3>节点 I8　基础软件与云平台软件（操作系统 / 虚拟化 / 数据库 / 中间件 / 安全）</h3>
+<p><b>功能：</b>数据中心的“软件栈”：云操作系统、虚拟化、分布式数据库、中间件、云安全、IT运维。国产化率提升的核心战场，也是“信创”与“算力”叙事的交汇点。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">中国软件</span><span class="code co-code">600536.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">润和软件</span><span class="code co-code">300339.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">太极股份</span><span class="code co-code">002368.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">麒麟信安</span><span class="code co-code">688152.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">青云科技-U</span><span class="code co-code">688316.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">优刻得-W</span><span class="code co-code">688158.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">品高股份</span><span class="code co-code">688227.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">卓易信息</span><span class="code co-code">688258.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">普元信息</span><span class="code co-code">688118.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">海量数据</span><span class="code co-code">603138.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">深信服</span><span class="code co-code">300454.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">电科网安</span><span class="code co-code">002268.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">天融信</span><span class="code co-code">002212.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">新炬网络</span><span class="code co-code">605398.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">华大九天</span><span class="code co-code">301269.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>PKS体系</b>：中国长城（飞腾CPU）＋中国软件（麒麟OS）＋麒麟信安构成“芯—OS”闭环，与华为“昇腾＋欧拉/鸿蒙”体系形成<b>双生态竞争</b>；②<b>生态绑定</b>：润和软件、软通动力是开放原子基金会/openEuler/OpenHarmony的核心贡献者，与华为形成深度绑定，因此华为有任何技术催化（如ISSCC论文）它们就同步异动；③<b>云平台软件与云服务双重身份</b>：青云科技、优刻得既卖软件也卖云资源，归类上同时出现在输入侧与输出侧。</p>
+
+<h3>节点 I9　工程设计与运维（网络规划 / IDC建设 / 算力运维）</h3>
+<p><b>功能：</b>承担数据中心的选址、设计、机电施工、网络规划优化、后续运维。是“资本开支→实物资产”的转换器，收入确认早、毛利率低、区域属性强。</p>
+<p><b>代表公司：</b><span class='tag in'><span class="co"><span class="co-name">润建股份</span><span class="code co-code">002929.SZ</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">中贝通信</span><span class="code co-code">603220.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">超讯科技</span><span class="code co-code">603322.SH</span></span> ★</span><span class='tag in'><span class="co"><span class="co-name">立昂技术</span><span class="code co-code">300603.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">城地香江</span><span class="code co-code">603887.SH</span></span></span><span class='tag in'><span class="co"><span class="co-name">真视通</span><span class="code co-code">002771.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">万马科技</span><span class="code co-code">300698.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">华星创业</span><span class="code co-code">300025.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">普天科技</span><span class="code co-code">002544.SZ</span></span></span><span class='tag in'><span class="co"><span class="co-name">国网信通</span><span class="code co-code">600131.SH</span></span></span></p>
+<p><b>关系要点：</b>①<b>“工程商→运营商”的转型</b>：中贝通信、超讯科技、润建股份原本是通信网络规划优化服务商，2023年后陆续转型算力租赁/智算中心运营，是典型的<b>双属性公司</b>——收入端既有工程服务（输入侧），又有算力租金（输出侧）；②<b>客户关系</b>：直接对接三大运营商与地方政府智算项目，是“东数西算”枢纽节点建设的施工方；③<b>出海叙事</b>：润建股份落地约13.38亿元AI词元跨境销售合同，算力部署在国内五象云谷、境外客户跨境调用，是八部门“服务出海”政策的直接对应标的。</p>
+</div>
+
+<h2 id="s5">五、输出侧：通过云计算数据中心对外提供服务的六个节点</h2>
+<div class="card">
+<p>输出侧是“卖算力、卖云、卖应用”的一侧：以数据中心为生产工具，向下游客户交付IaaS资源、PaaS能力、MaaS模型服务、SaaS应用与AI解决方案。它的收入确认<b>滞后</b>于资本开支，弹性大、兑现慢，估值更多取决于上架率与算力价格预期。</p>
+
+<h3>节点 O1　电信运营商（云 + IDC + 算力网络）</h3>
+<p><b>功能：</b>以“东数西算”枢纽节点和全国骨干网为基础，提供IDC机柜、天翼云/移动云/联通云、算力调度与算力网络服务。是国内数据中心新增机柜的<b>最大建设方</b>。</p>
+<p><b>代表公司：</b><span class='tag out'><span class="co"><span class="co-name">中国移动</span><span class="code co-code">600941.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">中国电信</span><span class="code co-code">601728.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">中国联通</span><span class="code co-code">600050.SH</span></span></span></p>
+<p><b>关系要点：</b>①<b>双重身份</b>：既是输入侧的<b>最大买方</b>（采购服务器、交换机、光模块、空调、电源），又是输出侧的<b>最大卖方</b>（卖机柜、卖云、卖算力）。运营商资本开支是整条链的总闸门；②<b>业务验证</b>：1H26中国移动数据中心业务收入同比+13.2%（AIDC收入+486.1%）、云计算服务收入+18.0%（智算服务+130.1%）；中国电信AIDC收入+9.3%、智算收入+95.0%；③<b>格局变化</b>：花旗预计2027—2028年运营商将重新拿回数据中心建设主导权，占新增机电配套容量的一半以上，这意味着IDC运营商与运营商云的关系从“互补”转向“竞争＋合作”。</p>
+
+<h3>节点 O2　第三方IDC / 智算中心运营</h3>
+<p><b>功能：</b>自建或租入数据中心，向云厂商、AI公司、金融/政府客户出租机柜与批发型（Wholesale）容量，或直接提供智算服务。核心指标是<b>上架率、单机柜功率、签约率、客户结构</b>。</p>
+<p><b>代表公司：</b><span class='tag out'><span class="co"><span class="co-name">润泽科技</span><span class="code co-code">300442.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">光环新网</span><span class="code co-code">300383.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">奥飞数据</span><span class="code co-code">300738.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">数据港</span><span class="code co-code">603881.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">宝信软件</span><span class="code co-code">600845.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">云赛智联</span><span class="code co-code">600602.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">大位科技</span><span class="code co-code">600589.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">美利云</span><span class="code co-code">000815.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">首都在线</span><span class="code co-code">300846.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">证通电子</span><span class="code co-code">002197.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">南兴股份</span><span class="code co-code">002757.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">宏景科技</span><span class="code co-code">301396.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">杭钢股份</span><span class="code co-code">600126.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">城地香江</span><span class="code co-code">603887.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">铜牛信息</span><span class="code co-code">300895.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">科新发展</span><span class="code co-code">600234.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">盈峰环境</span><span class="code co-code">000967.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>客户绑定极强</b>：数据港核心客户是阿里（同时有腾讯、百度平台标签）；光环新网是AWS中国北京区域运营商；奥飞数据绑定字节、阿里；润泽科技绑定字节与运营商。客户集中度高，既是护城河也是风险；②<b>批发vs零售</b>：润泽、数据港、奥飞以批发型大单为主（单笔数百MW），上架快、毛利低；光环、云赛以零售型为主，毛利高、爬坡慢；③<b>业绩节奏</b>：1H26润泽科技、奥飞数据、光环新网、数据港、大位科技五家合计营收约95.9亿元、同比+14.5%，归母净利约14.8亿元、同比+19.3%，利润增速快于收入，说明上架率在改善；④<b>“东数西算”标签</b>：美利云（宁夏）、数据港（张北）、城地香江、杭钢股份（浙江）是枢纽节点的区域卡位者。</p>
+<blockquote>行业特征：IDC是“累积型”业务，业绩爆发性弱于设备商，但持续性与稳定性更强。在需求扩大、供给有序的背景下，其估值锚是“在手订单+上架率”，而非单季利润。</blockquote>
+
+<h3>节点 O3　云平台（IaaS / PaaS / MaaS）</h3>
+<p><b>功能：</b>把数据中心资源封装成可调用的云服务，提供计算、存储、网络（IaaS）、数据库/中间件/AI开发平台（PaaS）、模型即服务（MaaS）。竞争焦点已从“IaaS价格战”转向“AI PaaS＋MaaS”。</p>
+<p><b>代表公司：</b><span class='tag out'><span class="co"><span class="co-name">优刻得-W</span><span class="code co-code">688158.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">青云科技-U</span><span class="code co-code">688316.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">首都在线</span><span class="code co-code">300846.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">品高股份</span><span class="code co-code">688227.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">亚信集团</span><span class="code co-code">688225.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">卓易信息</span><span class="code co-code">688258.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">华胜天成</span><span class="code co-code">600410.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">电科数字</span><span class="code co-code">600850.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">并行科技</span><span class="code co-code">920493.SH</span></span></span></p>
+<p><b>关系要点：</b>①<b>非上市巨头主导</b>：阿里云、腾讯云、华为云、百度智能云、金山云占据绝大部分份额，A股云平台公司多为<b>中立云/行业云</b>，走差异化路线（优刻得的中立性、青云的私有云、首都在线的游戏/出海）；②<b>“云平台＋IDC”一体化</b>：宝信软件（宝武系，IDC＋工业云）、云赛智联（上海国资，IDC＋政务云）是“自建自营”模式，利润率优于纯资源转售；③<b>MaaS是新战场</b>：南兴股份在异构算力、MaaS平台投入研发，润建股份做“词元工厂”，本质都是把算力封装成Token计价的服务。</p>
+
+<h3>节点 O4　算力租赁 / GPUaaS / Token服务</h3>
+<p><b>功能：</b>不自建机房，通过租入或自建小规模算力，向AI公司、模型厂商、视频生成/短剧客户出租GPU小时或Token调用量。是算力涨价周期中弹性最大的环节，也是“跨界玩家”最集中的环节。</p>
+<p><b>代表公司：</b><span class='tag out'><span class="co"><span class="co-name">利通电子</span><span class="code co-code">603629.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">莲花控股</span><span class="code co-code">600186.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">高乐股份</span><span class="code co-code">002348.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">华升股份</span><span class="code co-code">600156.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">中贝通信</span><span class="code co-code">603220.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">超讯科技</span><span class="code co-code">603322.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">润建股份</span><span class="code co-code">002929.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">行云科技</span><span class="code co-code">300209.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">宏景科技</span><span class="code co-code">301396.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">南兴股份</span><span class="code co-code">002757.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">并行科技</span><span class="code co-code">920493.SH</span></span></span></p>
+<p><b>关系要点：</b>①<b>“跨界转型”是共同特征</b>：利通电子（原液晶显示结构件）、莲花控股（原味精）、高乐股份（原玩具）、华升股份（原纺织）均通过收购/自建切入算力租赁，股价弹性极大但业务可持续性需验证；②<b>与IDC的关系</b>：算力租赁商是IDC的<b>下游客户</b>（租机柜）或<b>竞争者</b>（自建小集群），二者边界模糊；③<b>价格周期</b>：2026年3月阿里云、腾讯云、百度智能云十天内相继提价，AWS、谷歌云亦上调价格，打破二十年“只降不升”传统，算力租赁价格上行、部分订单排至2028年——这是该节点最强的基本面支撑；④<b>合规红利</b>：海外算力通道收紧后，境内合规算力租赁成为稀缺资源，润建股份“境内算力＋境外Token调用”模式即受益于此。</p>
+
+<h3>节点 O5　行业云与SaaS（政务 / 金融 / 工业 / 办公）</h3>
+<p><b>功能：</b>基于云基础设施交付行业应用软件与数据服务。是“云计算”概念池的主体（62只中过半），但与数据中心资本开支的关联最弱，更多受信创、数据要素、AI应用催化。</p>
+<p><b>代表公司：</b><span class='tag out'><span class="co"><span class="co-name">金山办公</span><span class="code co-code">688111.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">用友网络</span><span class="code co-code">600588.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">泛微网络</span><span class="code co-code">603039.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">广联达</span><span class="code co-code">002410.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">恒生电子</span><span class="code co-code">600570.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">东方国信</span><span class="code co-code">300166.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">超图软件</span><span class="code co-code">300036.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">拓尔思</span><span class="code co-code">300229.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">东华软件</span><span class="code co-code">002065.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">华宇软件</span><span class="code co-code">300271.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">太极股份</span><span class="code co-code">002368.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">浙大网新</span><span class="code co-code">600797.SH</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">常山北明</span><span class="code co-code">000158.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">天源迪科</span><span class="code co-code">300047.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">中科金财</span><span class="code co-code">002657.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">博彦科技</span><span class="code co-code">002649.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">梦网科技</span><span class="code co-code">002123.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">二六三</span><span class="code co-code">002467.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">顺网科技</span><span class="code co-code">300113.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">光云科技</span><span class="code co-code">688365.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">科大国创</span><span class="code co-code">300520.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">佳都科技</span><span class="code co-code">600728.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">东软集团</span><span class="code co-code">600718.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">浪潮软件</span><span class="code co-code">600756.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">同方股份</span><span class="code co-code">600100.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">国脉科技</span><span class="code co-code">002093.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">岩山科技</span><span class="code co-code">002195.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>“集成商—软件商—云平台”三层</b>：太极股份、东华软件、华胜天成、电科数字做系统集成（项目制、低毛利），用友、金蝶、泛微做标准化SaaS（订阅制、高毛利），阿里云/华为云做底座；②<b>信创绑定</b>：太极股份、中国软件、常山北明深度参与党政信创，与国产CPU/OS形成“整机＋OS＋集成”铁三角；③<b>AI改造</b>：金山办公（AI办公）、用友（企业AI）、恒生电子（金融AI）是“AI应用”主线的核心，与算力链的关系是“需求端”——它们消耗Token，从而间接拉动算力。</p>
+
+<h3>节点 O6　CDN / 边缘计算 / AI应用</h3>
+<p><b>功能：</b>把算力下沉到离用户更近的边缘节点，提供内容分发、边缘推理、AI应用服务。是“云计算数据中心”向“边缘”延伸的部分。</p>
+<p><b>代表公司：</b><span class='tag out'><span class="co"><span class="co-name">网宿科技</span><span class="code co-code">300017.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">南凌科技</span><span class="code co-code">300921.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">盛视科技</span><span class="code co-code">002990.SZ</span></span> ★</span><span class='tag out'><span class="co"><span class="co-name">汉鑫科技</span><span class="code co-code">920092.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">华信永道</span><span class="code co-code">920592.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">艾融软件</span><span class="code co-code">920799.SH</span></span></span><span class='tag out'><span class="co"><span class="co-name">琏升科技</span><span class="code co-code">300051.SZ</span></span></span><span class='tag out'><span class="co"><span class="co-name">科创信息</span><span class="code co-code">300730.SZ</span></span></span></p>
+<p><b>关系要点：</b>①<b>CDN与云的竞合</b>：网宿科技从CDN转型云安全与边缘计算，与阿里云CDN形成直接竞争，但边缘节点是数据中心的补充而非替代；②<b>AI应用落地</b>：盛视科技（智慧口岸）、汉鑫科技（数字政府）、艾融软件（金融IT）属于“AI应用”末端，今日涨停更多是创业板普涨＋AI情绪，与数据中心资本开支无直接关系。</p>
+</div>
+
+<h2 id="s6">六、公司间关系的六类分法</h2>
+<div class="card">
+<p>产业链不是一张“名单”，而是一组关系。把222只概念股按关系拆开，可以归为六类。这六类关系的<b>股价联动强度</b>依次递减：生态绑定 &gt; 股权归属 &gt; 客户供应商 &gt; 区域集群 &gt; 竞合 &gt; 成本传导。</p>
+
+<div class="rel">
+<h4>R1　股权与集团归属关系（同一实控人 → 同步异动）</h4>
+<p>同一央企/地方国资集团下的上市平台，常在集团战略、资产注入、考核变化时同步反应。这是A股算力链最稳定的“板块内板块”。</p>
+<div class="tw"><table>
+<thead><tr><th style="width:20%">集团/实控人</th><th style="width:46%">上市平台（代码）</th><th>关系含义</th></tr></thead>
+<tbody>
+<tr><td>中国电子（CEC）</td><td>中国长城 000066、深科技 000021、太极股份 002368、中国软件 600536、麒麟信安 688152、中电鑫龙 002298</td><td>“PKS体系”主力：飞腾CPU＋麒麟OS＋长城整机＋太极集成，是国产化算力最完整的集团内闭环</td></tr>
+<tr><td>中国电科（CETC）</td><td>电科数字 600850、电科网安 002268、普天科技 002544</td><td>军工电子背景的行业云与安全能力，与CEC形成“两电”并行格局</td></tr>
+<tr><td>中国信科</td><td>光迅科技 002281、长江通信 600345</td><td>光芯片—光模块—光传输的集团内协同，光迅H股上市后资源协同强化</td></tr>
+<tr><td>中科院系</td><td>中科曙光 603019</td><td>曙光＋海光（参股）＋曙光数创（液冷），是“芯片—整机—液冷”一体化程度最高的平台</td></tr>
+<tr><td>宝武系</td><td>宝信软件 600845</td><td>工业软件＋自建IDC（宝之云），钢铁主业提供土地与电力资源</td></tr>
+<tr><td>上海国资</td><td>云赛智联 600602、数据港 603881</td><td>上海政务云与IDC双平台，受益上海及长三角智算建设</td></tr>
+<tr><td>山东国资</td><td>浪潮信息 000977、浪潮软件 600756</td><td>服务器整机＋行业软件，是国内AI服务器份额第一的国资平台</td></tr>
+<tr><td>深圳国资</td><td>特发信息 000070</td><td>光纤光缆＋数据中心互联</td></tr>
+<tr><td>河北国资</td><td>常山北明 000158</td><td>软件服务＋IDC（常山云数据中心），华为战略合作伙伴</td></tr>
+<tr><td>诚通系</td><td>美利云 000815</td><td>宁夏中卫数据中心（东数西算枢纽），央企轻工转型IDC</td></tr>
+<tr><td>中航工业系</td><td>深南电路 002916</td><td>高端PCB，AI服务器与封装基板</td></tr>
+<tr><td>中核系</td><td>同方股份 600100</td><td>计算机整机＋智慧城市＋云计算</td></tr>
+</tbody></table></div>
+</div>
+
+<div class="rel">
+<h4>R2　生态绑定关系（芯片—OS—整机—应用，股价联动最强）</h4>
+<p>这是今日最有效的关系：<b>只要华为有技术催化，华为生态成员集体涨停</b>。生态绑定的本质是“技术路线共同体”，成员共享芯片供给、工具链、渠道与政策资源。</p>
+<div class="tw"><table>
+<thead><tr><th style="width:18%">生态</th><th style="width:42%">A股成员（代码）</th><th>绑定机制</th></tr></thead>
+<tbody>
+<tr><td><b>华为昇腾 / 鲲鹏</b></td><td>拓维信息 002261（昇腾整机）、神州数码 000034（鲲鹏/昇腾分销与整机）、常山北明 000158（战略合作，百余项联合方案）、软通动力 301236（鸿蒙/欧拉/盘古）、润和软件 300339（鸿蒙/欧拉代码贡献）、华胜天成 600410（昇腾生态）、高新发展（未在池）</td><td>芯片供给＋整机授权＋软件适配＋联合方案。昇腾950系列自研HBM、ISSCC论文是直接催化</td></tr>
+<tr><td><b>飞腾 / 麒麟（PKS）</b></td><td>中国长城 000066（飞腾整机）、中国软件 600536（麒麟OS）、麒麟信安 688152、太极股份 002368（集成）</td><td>CPU＋OS＋整机＋集成的国产化闭环，党政信创主力</td></tr>
+<tr><td><b>阿里 / 腾讯 / 百度平台</b></td><td>数据港 603881（阿里）、光环新网 300383（AWS中国）、奥飞数据 300738（字节/阿里）、润泽科技 300442（字节/运营商）、浙大网新 600797（阿里）、云赛智联 600602（腾讯/阿里）</td><td>机柜批发长约＋定制化建设，客户集中度极高</td></tr>
+<tr><td><b>英伟达产业链</b></td><td>胜宏科技 300476、沪电股份 002463、深南电路 002916、东山精密 002384、华工科技 000988、博杰股份 002975</td><td>加速卡PCB/光模块/测试设备，海外算力资本开支直接受益</td></tr>
+<tr><td><b>开源社区（openEuler/OpenHarmony）</b></td><td>润和软件 300339、软通动力 301236、诚迈科技（未在池）、麒麟信安 688152</td><td>代码贡献＋发行版＋行业落地，技术话语权换订单</td></tr>
+</tbody></table></div>
+</div>
+
+<div class="rel">
+<h4>R3　客户—供应商关系（订单沿链条向上传导）</h4>
+<p>这是产业链的“物理连接”。理解谁买谁，才能判断催化落在哪个环节。</p>
+<div class="tw"><table>
+<thead><tr><th style="width:22%">供应方</th><th style="width:26%">客户/需方</th><th>产品与传导含义</th></tr></thead>
+<tbody>
+<tr><td>云南锗业、有研新材、江丰电子、中钨高新</td><td>晶圆厂、芯片设计公司</td><td>锗/靶材/钨化学品 → 芯片制造；涨价先体现在材料端</td></tr>
+<tr><td>源杰科技、长光华芯、仕佳光子、优迅股份</td><td>新易盛、光迅科技、中际旭创、天孚通信</td><td>光芯片/光器件 → 光模块；国产光芯片是模块降本关键</td></tr>
+<tr><td>新易盛、光迅科技、中际旭创、天孚通信</td><td>海外云厂商、国内运营商、新华三/锐捷</td><td>光模块 → 交换机/数据中心；1.6T放量直接拉订单</td></tr>
+<tr><td>盛科通信</td><td>紫光股份（新华三）、锐捷网络、星网锐捷</td><td>交换芯片 → 交换机整机；国产交换芯片稀缺</td></tr>
+<tr><td>英维克、佳力图、依米康、高澜股份、申菱环境</td><td>润泽科技、光环新网、奥飞数据、数据港、三大运营商</td><td>精密空调/液冷 → IDC机柜；PUE政策直接创造需求</td></tr>
+<tr><td>科华数据、欧陆通、盛弘股份、科泰电源</td><td>浪潮信息、中科曙光、紫光股份、IDC运营商</td><td>UPS/服务器电源 → 整机与机房；单机柜功率提升带动价值量</td></tr>
+<tr><td>深科技、通富微电、盛合晶微</td><td>存储模组厂、芯片设计公司、服务器厂</td><td>封测 → 存储/算力芯片；先进封装产能是瓶颈</td></tr>
+<tr><td>润建股份、中贝通信、超讯科技、立昂技术</td><td>三大运营商、地方政府智算项目</td><td>网络规划/机电施工 → 数据中心；工程收入确认最早</td></tr>
+<tr><td>中国软件（麒麟OS）、润和软件（欧拉）</td><td>中国长城、浪潮信息、整机厂、行业集成商</td><td>OS → 整机；国产OS适配决定整机可用性</td></tr>
+</tbody></table></div>
+</div>
+
+<div class="rel">
+<h4>R4　同环节竞合关系（份额之争决定弹性）</h4>
+<div class="tw"><table>
+<thead><tr><th style="width:20%">环节</th><th style="width:42%">主要玩家</th><th>竞争焦点</th></tr></thead>
+<tbody>
+<tr><td>AI服务器/整机</td><td>浪潮信息 000977、中科曙光 603019、紫光股份 000938、中国长城 000066、拓维信息 002261、华勤技术 603296</td><td>x86 vs 国产ARM路线；超节点整柜交付能力；运营商集采份额</td></tr>
+<tr><td>光模块</td><td>新易盛 300502、中际旭创 300308、光迅科技 002281、剑桥科技 603083、联特科技 301205、德科立 688205</td><td>1.6T/3.2T进度、CPO技术路线、海外大客户份额</td></tr>
+<tr><td>交换机</td><td>紫光股份（新华三）、星网锐捷 002396、锐捷网络 301165、中兴通讯 000063、盛科通信 688702</td><td>国产交换芯片自给率、超节点无损网络</td></tr>
+<tr><td>温控/液冷</td><td>英维克 002837、佳力图 603912、依米康 300249、高澜股份 300499、曙光数创 920808、申菱环境</td><td>风冷 vs 冷板 vs 浸没；PUE指标；价格战导致增收不增利</td></tr>
+<tr><td>第三方IDC</td><td>润泽科技 300442、光环新网 300383、奥飞数据 300738、数据港 603881、万国数据（港股/美股）</td><td>核心区域能耗指标、批发大单、上架率</td></tr>
+<tr><td>云平台</td><td>阿里云、腾讯云、华为云、天翼云、移动云、优刻得 688158、青云科技 688316</td><td>MaaS能力、Token价格、政企客户资源</td></tr>
+<tr><td>算力租赁</td><td>利通电子 603629、莲花控股 600186、中贝通信 603220、润建股份 002929、宏景科技 301396</td><td>GPU获取能力、客户锁定、单位算力成本</td></tr>
+</tbody></table></div>
+</div>
+
+<div class="rel">
+<h4>R5　成本与价格传导关系（一条链、两种价格周期）</h4>
+<p>这条链上同时存在<b>两个方向相反的价格周期</b>，是本轮行情最容易被误读的地方。</p>
+<div class="tw"><table>
+<thead><tr><th style="width:26%">传导段</th><th>方向与机制</th><th style="width:26%">2026年现实</th></tr></thead>
+<tbody>
+<tr><td>金属/材料 → 芯片/器件</td><td>成本推动：锗、钨、钽、铜、铝涨价 → 靶材、焊料、结构件成本上升 → 芯片与服务器BOM上行</td><td>算力金属涨价，材料股（云南锗业、中钨高新等）业绩弹性最大</td></tr>
+<tr><td>芯片/器件 → 服务器/IDC</td><td>成本推动：HBM、光模块、电源涨价 → 单机柜造价上升 → IDC资本开支增加</td><td>微软称1900亿美元资本开支中250亿美元用于应对组件涨价；Meta、谷歌同样上调</td></tr>
+<tr><td>IDC → 云/算力租赁</td><td>成本推动＋供需紧张：机柜与GPU稀缺 → 云厂商提价</td><td>2026年1月AWS EC2涨价15%、谷歌云数据传输涨价；3月阿里云、腾讯云、百度智能云十天内相继提价</td></tr>
+<tr><td>Token需求 → 推理算力 → AIDC</td><td>需求拉动（反向）：应用调用增加 → 推理算力需求 → 上架率提升 → 机电配套订单</td><td>2026年3月日均Token调用量突破140万亿，较2025年末增长超40%</td></tr>
+</tbody></table></div>
+<p class="small">读法：材料与设备赚“涨价的钱”，IDC与云赚“稀缺的钱”，应用赚“Token的钱”。三者节奏不同，不能用一个“算力景气”概括。</p>
+</div>
+
+<div class="rel">
+<h4>R6　区域集群与政策绑定关系（政策落到地图上）</h4>
+<div class="tw"><table>
+<thead><tr><th style="width:18%">区域/枢纽</th><th style="width:34%">政策/资源</th><th>A股相关标的</th></tr></thead>
+<tbody>
+<tr><td>粤港澳（广东）</td><td>《广东省算力发展“十五五”规划》：2028年1000 EFlops、PUE&lt;1.2、优先国产芯片；2030年2500 EFlops</td><td>证通电子 002197、南兴股份 002757、宏景科技 301396、利通电子 603629、易事特 300376、深科技 000021、中兴通讯 000063、特发信息 000070</td></tr>
+<tr><td>长三角（沪苏浙）</td><td>上海国资云、苏州工业园区半导体集群、浙江“东数西算”节点</td><td>宝信软件 600845、云赛智联 600602、数据港 603881、网宿科技 300017、盛科通信 688702、优刻得 688158、杭钢股份 600126</td></tr>
+<tr><td>京津冀/内蒙/宁夏</td><td>张北、中卫等枢纽节点，绿电资源丰富</td><td>美利云 000815（宁夏）、数据港 603881（张北）、光环新网 300383</td></tr>
+<tr><td>成渝</td><td>东数西算成渝枢纽，电子信息产业集群</td><td>新金路 000510、创意信息（未在池）</td></tr>
+<tr><td>新疆</td><td>向西开放、低电价</td><td>立昂技术 300603</td></tr>
+<tr><td>山东</td><td>济南/青岛智算中心</td><td>浪潮信息 000977、浪潮软件 600756</td></tr>
+</tbody></table></div>
+</div>
+</div>
+
+<h2 id="s7">七、今日涨停归因矩阵：哪个环节在涨、为什么涨、能持续吗</h2>
+<div class="card">
+<p>把62只涨停股按环节与催化对应，可以看清资金到底在交易什么。</p>
+<div class="tw"><table>
+<thead><tr><th style="width:15%">环节</th><th style="width:7%">涨停数</th><th style="width:30%">主要催化</th><th style="width:22%">封板时点特征</th><th>持续性判断</th></tr></thead>
+<tbody>
+<tr><td><b>上游·材料与元件</b></td><td>12</td><td>算力金属涨价＋国产替代＋“AI算力”标签扩散（云南锗业、兴业银锡、中钨高新、东方钽业、有研新材、江丰电子）</td><td>13:10—14:43，全部午后，典型补涨</td><td><b>弱—中。</b>与数据中心资本开支的关联最间接，涨价逻辑需金属价格持续验证；禾盛新材、顺灏股份为纯题材扩散，无业务支撑</td></tr>
+<tr><td><b>上游·核心器件</b></td><td>4</td><td>先进封装（深科技18.5亿投2.5D/3D）、AI芯片（芯原、航锦）、封测（通富微电、盛合晶微）</td><td>13:35—14:18</td><td><b>强。</b>AI服务器放量→高端存储与先进封装订单，有业绩支撑（深科技扣非+40.32%）</td></tr>
+<tr><td><b>上游·网络与光互联</b></td><td>8</td><td>1.6T光模块放量（新易盛、光迅）、空芯光纤（长飞）、OCS（腾景）、DCI（长江通信、通鼎、永鼎）</td><td>10:30腾景先行，13:04—14:46集中</td><td><b>强。</b>订单能见度最高、业绩兑现最实（新易盛营收+90%、光迅净利+78.65%、长飞净利+12倍）</td></tr>
+<tr><td><b>上游·软件与基础架构</b></td><td>3</td><td>华为欧拉/鸿蒙（润和09:39）、信创集成（太极10:09）、麒麟OS（中国软件11:01）</td><td>早盘为主，10:09前完成</td><td><b>中—强。</b>政策与生态催化明确，但业绩弹性依赖信创招标节奏</td></tr>
+<tr><td><b>中游·整机与设备</b></td><td>9</td><td>昇腾整机（拓维09:33、神州数码10:01）、超节点（曙光14:48）、国产算力总量（浪潮14:47、长城14:42、紫光13:30）</td><td>早盘华为链＋尾盘权重，两波</td><td><b>强。</b>运营商与云厂资本开支直接对应，是“国产算力”最正统的载体</td></tr>
+<tr><td><b>中游·数据中心机电</b></td><td>4</td><td>液冷渗透率提升（英维克、科华）、PUE政策（佳力图）、服务器电源（欧陆通）</td><td>10:36—14:41</td><td><b>中。</b>需求确定但价格战激烈，1H26五家液冷企业净利同比-32.9%，“增收不增利”是硬伤</td></tr>
+<tr><td><b>上游·工程与运维</b></td><td>3</td><td>算力出海（润建13.38亿Token合同）、网络建设（中贝09:37、超讯09:33）</td><td>早盘两连板，午后一板</td><td><b>中。</b>订单充足（润建在手236亿）但毛利率低，且“跨界算力租赁”估值需业绩验证</td></tr>
+<tr><td><b>下游·云与算力服务</b></td><td>19</td><td>IDC运营（常山、证通、浙大网新、大位09:25—09:30）、算力租赁（利通、莲花、高乐）、行业云（东华、梦网、博彦）</td><td>早盘4只＋午后15只</td><td><b>分化极大。</b>IDC运营商（上架率改善、利润增速19.3%）可持续；跨界算力租赁（高乐、莲花）为纯弹性品种，需警惕</td></tr>
+</tbody></table></div>
+<h3>7.1 一句话总结今日资金偏好</h3>
+<blockquote><b>资金优先买“有订单、有业绩、有海外客户”的光模块与先进封装，其次买“有政策、有生态”的国产整机与OS，最后才买“有标签、无业绩”的材料与跨界算力租赁。</b>早盘封板的四只（常山北明、证通电子、浙大网新、大位科技）全部是IDC运营——这说明最聪明的钱在交易“算力预算回流国内”这个最直接的逻辑，而不是交易“算力金属涨价”。</blockquote>
+</div>
+
+<h2 id="s8">八、产业链总图：一条从金属到Token的传导链</h2>
+<div class="card">
+<div class="tw"><table>
+<thead><tr><th style="width:6%">序</th><th style="width:20%">输入侧节点</th><th style="width:24%">核心公司</th><th style="width:22%">交付物</th><th>下一站</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>算力金属与电子材料</td><td>云南锗业、兴业银锡、中钨高新、东方钽业、有研新材、江丰电子</td><td>锗/锡/钨/钽、靶材、铜箔、铝材</td><td>→ 芯片制造</td></tr>
+<tr><td>2</td><td>芯片与半导体制造</td><td>寒武纪、芯原、深科技、通富微电、盛合晶微、源杰、长光华芯</td><td>GPU/ASIC、存储、封测、光芯片</td><td>→ 服务器整机 / 光模块</td></tr>
+<tr><td>3</td><td>PCB与高速连接</td><td>深南电路、沪电股份、胜宏科技、东山精密、鼎通科技、兆龙互连</td><td>加速卡PCB、背板、高速铜缆、连接器</td><td>→ 服务器整机 / 交换机</td></tr>
+<tr><td>4</td><td>光通信</td><td>新易盛、中际旭创、光迅科技、天孚通信、长飞光纤、腾景科技</td><td>800G/1.6T光模块、光器件、光纤、OCS</td><td>→ 交换机 / DCI</td></tr>
+<tr><td>5</td><td>网络设备与交换芯片</td><td>紫光股份（新华三）、星网锐捷、锐捷网络、盛科通信、中兴通讯</td><td>交换机、路由器、DPU、交换芯片</td><td>→ 数据中心组网</td></tr>
+<tr><td>6</td><td>服务器与整机</td><td>浪潮信息、中科曙光、紫光股份、中国长城、拓维信息、神州数码</td><td>AI服务器、超节点、算力一体机</td><td>→ 数据中心</td></tr>
+<tr><td>7</td><td>数据中心机电</td><td>英维克、佳力图、依米康、高澜股份、曙光数创、科华数据、欧陆通</td><td>液冷/精密空调、UPS、电源、机柜</td><td>→ 数据中心</td></tr>
+<tr><td>8</td><td>基础软件与云平台软件</td><td>中国软件、麒麟信安、润和软件、青云科技、优刻得、深信服</td><td>OS、虚拟化、数据库、中间件、安全</td><td>→ 数据中心软件栈</td></tr>
+<tr><td>9</td><td>工程设计与运维</td><td>润建股份、中贝通信、超讯科技、立昂技术、城地香江</td><td>选址设计、机电施工、网络规划、运维</td><td>→ 数据中心交付</td></tr>
+<tr style="background:#eef3f9;font-weight:600;"><td colspan="5" style="text-align:center;">▼　数据中心（IDC / AIDC）＝ 产业链的物理枢纽　▼</td></tr>
+<tr><td>10</td><td><b>电信运营商</b></td><td>中国移动、中国电信、中国联通</td><td>机柜、天翼云/移动云/联通云、算力网络</td><td>→ 政企与个人客户</td></tr>
+<tr><td>11</td><td><b>第三方IDC/智算中心</b></td><td>润泽科技、光环新网、奥飞数据、数据港、宝信软件、云赛智联</td><td>批发/零售机柜、智算服务</td><td>→ 云厂商与AI公司</td></tr>
+<tr><td>12</td><td><b>云平台（IaaS/PaaS/MaaS）</b></td><td>优刻得、青云科技、首都在线、品高股份、华胜天成</td><td>云资源、数据库、模型服务</td><td>→ 开发者与企业</td></tr>
+<tr><td>13</td><td><b>算力租赁/Token服务</b></td><td>利通电子、莲花控股、中贝通信、润建股份、宏景科技</td><td>GPU小时、Token调用、算力出海</td><td>→ AI应用公司</td></tr>
+<tr><td>14</td><td><b>行业云与SaaS</b></td><td>金山办公、用友网络、恒生电子、太极股份、东华软件、常山北明</td><td>政务云、金融云、办公SaaS、行业方案</td><td>→ 终端用户</td></tr>
+<tr><td>15</td><td><b>CDN/边缘/AI应用</b></td><td>网宿科技、南凌科技、盛视科技、汉鑫科技</td><td>边缘推理、内容分发、AI应用</td><td>→ 终端场景</td></tr>
+</tbody></table></div>
+<p class="note">说明：节点1—9为输入侧（向数据中心提供产品或服务），节点10—15为输出侧（通过数据中心对外提供服务）。部分公司具备双重身份（科华数据、中贝通信、超讯科技、润建股份、优刻得、首都在线、南兴股份、常山北明、宝信软件），已在文中标注。</p>
+</div>
+
+<h2 id="s9">九、风险提示与跟踪指标</h2>
+<div class="card">
+<h3>9.1 四条主要风险</h3>
+<ol>
+<li><b>“普涨”掩盖“分化”。</b>今日439只涨停、创业板指涨超11%，是极端风险偏好修复。62只算力涨停中41只午后封板，意味着大部分个股是β而非α。一旦指数回落，这类标的回撤会显著大于有订单支撑的龙头。</li>
+<li><b>液冷环节“增收不增利”。</b>1H26五家液冷代表企业收入67亿元、同比+12.6%，但合计归母净利润2.8亿元、同比-32.9%。价格战已经发生，若2027年招标价格继续下行，温控板块的业绩兑现会低于股价涨幅。</li>
+<li><b>跨界算力租赁的可持续性存疑。</b>利通电子、莲花控股、高乐股份、华升股份均为跨界转型，算力业务收入占比、客户质量、GPU获取能力差异极大，部分公司算力收入尚未形成规模，估值已充分反映乐观预期。</li>
+<li><b>海外政策与供应链的双向扰动。</b>英伟达暂停向东南亚发运服务器，短期利好国产替代，但若美国BIS进一步将“算力远程访问”纳入管制（已对1200万TPP以上算力设许可要求），国内云厂商的海外训练通道与高端芯片获取都会受冲击，进而影响资本开支节奏。</li>
+</ol>
+<h3>9.2 十个跟踪指标（按重要性排序）</h3>
+<div class="tw"><table>
+<thead><tr><th style="width:6%">#</th><th style="width:28%">指标</th><th style="width:22%">最新值/状态</th><th>跟踪意义</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>阿里/腾讯/百度季度资本开支</td><td>腾讯Q3 814亿（+527%）、阿里505亿、百度73亿</td><td>整条链的总闸门，决定设备商订单</td></tr>
+<tr><td>2</td><td>北美四大CSP资本开支</td><td>2026Q3合计2087亿美元（+84.2%），全年约7300亿美元</td><td>光模块、PCB的海外需求锚</td></tr>
+<tr><td>3</td><td>日均Token调用量</td><td>2026年3月突破140万亿，较2025年末+40%</td><td>推理算力需求的先行指标</td></tr>
+<tr><td>4</td><td>智算规模（EFLOPS）</td><td>2026年2576.5（+87.9%），2030年10524.3</td><td>行业总量，验证规划落地</td></tr>
+<tr><td>5</td><td>IDC上架率与批发订单</td><td>世纪互联年内新增862MW；万国数据上架率79.2%</td><td>判断IDC运营商收入确认节奏</td></tr>
+<tr><td>6</td><td>光模块速率迭代（1.6T/3.2T/CPO）</td><td>1.6T规模交付，3.2T研发，CPO商用元年</td><td>决定光通信环节的份额重排</td></tr>
+<tr><td>7</td><td>数据中心PUE与绿电占比</td><td>广东要求新建PUE&lt;1.2、绿电&gt;80%</td><td>液冷渗透率的政策强制力</td></tr>
+<tr><td>8</td><td>算力租赁价格</td><td>2026年3月三大云厂十天内相继提价</td><td>算力租赁与云服务的盈利弹性</td></tr>
+<tr><td>9</td><td>国产AI芯片供给（昇腾/海光/寒武纪）</td><td>昇腾950PR 128GB/1.6TB/s；国产份额预计接近九成</td><td>国产整机与信创链的天花板</td></tr>
+<tr><td>10</td><td>美国BIS出口管制清单</td><td>“算力远程访问”已纳入，覆盖D:5组国家</td><td>海外算力可得性，影响资本开支节奏</td></tr>
+</tbody></table></div>
+<blockquote><b>本报告不构成投资建议。</b>所有涨停数据、财务数据来自Wind，新闻与研报观点已标注来源，公司环节归类为研究口径，可能与公司官方分类存在差异。涨停原因分析引用公开资讯的异动解读，不代表公司确认。</blockquote>
+</div>
+
+<h2 id="sa">附录　五个概念池222只个股全名单（按代码排序）</h2>
+<div class="card">
+<p class="small">说明：同一只个股可能同时属于多个概念池，标签已全部列出。本表为“云计算数据中心”相关个股的完整底图，可作为进一步筛选的起点。</p>
+<div class="tw"><table>
+<thead><tr><th style="width:16%">公司</th><th>所属概念池</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">深科技</span><span class="code co-code">000021.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">神州数码</span><span class="code co-code">000034.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">中兴通讯</span><span class="code co-code">000063.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中国长城</span><span class="code co-code">000066.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">常山北明</span><span class="code co-code">000158.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">汇源通信</span><span class="code co-code">000586.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">美利云</span><span class="code co-code">000815.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">沃顿科技</span><span class="code co-code">000920.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">紫光股份</span><span class="code co-code">000938.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">盈峰环境</span><span class="code co-code">000967.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">浪潮信息</span><span class="code co-code">000977.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">华工科技</span><span class="code co-code">000988.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">智微智能</span><span class="code co-code">001339.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">东华软件</span><span class="code co-code">002065.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">国脉科技</span><span class="code co-code">002093.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">梦网科技</span><span class="code co-code">002123.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">银轮股份</span><span class="code co-code">002126.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">拓邦股份</span><span class="code co-code">002139.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">常铝股份</span><span class="code co-code">002160.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中航光电</span><span class="code co-code">002179.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">岩山科技</span><span class="code co-code">002195.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">证通电子</span><span class="code co-code">002197.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">天融信</span><span class="code co-code">002212.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">奥特佳</span><span class="code co-code">002239.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">拓维信息</span><span class="code co-code">002261.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">电科网安</span><span class="code co-code">002268.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">光迅科技</span><span class="code co-code">002281.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">宇顺电子</span><span class="code co-code">002289.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">中电鑫龙</span><span class="code co-code">002298.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">科华数据</span><span class="code co-code">002335.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">高乐股份</span><span class="code co-code">002348.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">太极股份</span><span class="code co-code">002368.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">东山精密</span><span class="code co-code">002384.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">星网锐捷</span><span class="code co-code">002396.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">广联达</span><span class="code co-code">002410.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">金洲管道</span><span class="code co-code">002443.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">盛路通信</span><span class="code co-code">002446.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">松芝股份</span><span class="code co-code">002454.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">二六三</span><span class="code co-code">002467.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">通鼎互联</span><span class="code co-code">002491.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">飞龙股份</span><span class="code co-code">002536.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">普天科技</span><span class="code co-code">002544.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">领益智造</span><span class="code co-code">002600.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">安洁科技</span><span class="code co-code">002635.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">博彦科技</span><span class="code co-code">002649.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">中科金财</span><span class="code co-code">002657.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">南兴股份</span><span class="code co-code">002757.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">真视通</span><span class="code co-code">002771.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">通宇通讯</span><span class="code co-code">002792.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">世嘉科技</span><span class="code co-code">002796.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">英维克</span><span class="code co-code">002837.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">捷荣技术</span><span class="code co-code">002855.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">意华股份</span><span class="code co-code">002897.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">铭普光磁</span><span class="code co-code">002902.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">润建股份</span><span class="code co-code">002929.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">科瑞技术</span><span class="code co-code">002957.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">祥鑫科技</span><span class="code co-code">002965.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">博杰股份</span><span class="code co-code">002975.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">华盛昌</span><span class="code co-code">002980.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">声迅股份</span><span class="code co-code">003004.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">竞业达</span><span class="code co-code">003005.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">直真科技</span><span class="code co-code">003007.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">金富科技</span><span class="code co-code">003018.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">网宿科技</span><span class="code co-code">300017.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">华星创业</span><span class="code co-code">300025.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">超图软件</span><span class="code co-code">300036.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">琏升科技</span><span class="code co-code">300051.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">顺网科技</span><span class="code co-code">300113.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">科泰电源</span><span class="code co-code">300153.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">东方国信</span><span class="code co-code">300166.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">四方达</span><span class="code co-code">300179.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">行云科技</span><span class="code co-code">300209.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">*ST易录</span><span class="code co-code">300212.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">拓尔思</span><span class="code co-code">300229.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">ST天玑</span><span class="code co-code">300245.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">依米康</span><span class="code co-code">300249.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">初灵信息</span><span class="code co-code">300250.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">通光线缆</span><span class="code co-code">300265.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">华宇软件</span><span class="code co-code">300271.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">ST荣科</span><span class="code co-code">300290.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">中际旭创</span><span class="code co-code">300308.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">银邦股份</span><span class="code co-code">300337.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">永贵智能</span><span class="code co-code">300351.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">易事特</span><span class="code co-code">300376.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">光环新网</span><span class="code co-code">300383.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">天孚通信</span><span class="code co-code">300394.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">五洋自控</span><span class="code co-code">300420.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">润泽科技</span><span class="code co-code">300442.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">深信服</span><span class="code co-code">300454.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">胜宏科技</span><span class="code co-code">300476.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">高澜股份</span><span class="code co-code">300499.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">新易盛</span><span class="code co-code">300502.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">科大国创</span><span class="code co-code">300520.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">川环科技</span><span class="code co-code">300547.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">长芯博创</span><span class="code co-code">300548.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">太辰光</span><span class="code co-code">300570.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">飞荣达</span><span class="code co-code">300602.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">立昂技术</span><span class="code co-code">300603.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">欣天科技</span><span class="code co-code">300615.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">光库科技</span><span class="code co-code">300620.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">超频三</span><span class="code co-code">300647.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中石科技</span><span class="code co-code">300684.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">智动力</span><span class="code co-code">300686.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">澄天伟业</span><span class="code co-code">300689.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">盛弘股份</span><span class="code co-code">300693.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">万马科技</span><span class="code co-code">300698.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">精研科技</span><span class="code co-code">300709.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">科创信息</span><span class="code co-code">300730.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">科创新源</span><span class="code co-code">300731.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">奥飞数据</span><span class="code co-code">300738.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">罗博特科</span><span class="code co-code">300757.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">锐新科技</span><span class="code co-code">300828.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">胜蓝股份</span><span class="code co-code">300843.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">首都在线</span><span class="code co-code">300846.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">四会富仕</span><span class="code co-code">300852.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">欧陆通</span><span class="code co-code">300870.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">铜牛信息</span><span class="code co-code">300895.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">科翔股份</span><span class="code co-code">300903.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">兆龙互连</span><span class="code co-code">300913.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">朗特智能</span><span class="code co-code">300916.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">南凌科技</span><span class="code co-code">300921.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">同飞股份</span><span class="code co-code">300990.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">鸿富瀚</span><span class="code co-code">301086.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">奕东电子</span><span class="code co-code">301123.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">锐捷网络</span><span class="code co-code">301165.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">菲菱科思</span><span class="code co-code">301191.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">联特科技</span><span class="code co-code">301205.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">华大九天</span><span class="code co-code">301269.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">唯特偶</span><span class="code co-code">301319.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">一博科技</span><span class="code co-code">301366.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">英特科技</span><span class="code co-code">301399.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">阿莱德</span><span class="code co-code">301419.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">思泉新材</span><span class="code co-code">301489.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">众捷股份</span><span class="code co-code">301560.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">黄山谷捷</span><span class="code co-code">301581.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">苏州天脉</span><span class="code co-code">301626.SZ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中国联通</span><span class="code co-code">600050.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">同方股份</span><span class="code co-code">600100.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">永鼎股份</span><span class="code co-code">600105.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">杭钢股份</span><span class="code co-code">600126.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">国网信通</span><span class="code co-code">600131.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">华升股份</span><span class="code co-code">600156.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">光电股份</span><span class="code co-code">600184.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">莲花控股</span><span class="code co-code">600186.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">科新发展</span><span class="code co-code">600234.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">*ST景谷</span><span class="code co-code">600265.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">天通股份</span><span class="code co-code">600330.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">长江通信</span><span class="code co-code">600345.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">旭光电子</span><span class="code co-code">600353.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">华胜天成</span><span class="code co-code">600410.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">亨通光电</span><span class="code co-code">600487.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中国软件</span><span class="code co-code">600536.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">恒生电子</span><span class="code co-code">600570.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">用友网络</span><span class="code co-code">600588.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">大位科技</span><span class="code co-code">600589.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">方正科技</span><span class="code co-code">600601.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">云赛智联</span><span class="code co-code">600602.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">东软集团</span><span class="code co-code">600718.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">佳都科技</span><span class="code co-code">600728.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">浪潮软件</span><span class="code co-code">600756.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">浙大网新</span><span class="code co-code">600797.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">宝信软件</span><span class="code co-code">600845.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">电科数字</span><span class="code co-code">600850.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">中国移动</span><span class="code co-code">600941.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">博威合金</span><span class="code co-code">601137.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">华峰铝业</span><span class="code co-code">601702.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中国电信</span><span class="code co-code">601728.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">长飞光纤</span><span class="code co-code">601869.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">合锻智能</span><span class="code co-code">603011.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中科曙光</span><span class="code co-code">603019.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">泛微网络</span><span class="code co-code">603039.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">华脉科技</span><span class="code co-code">603042.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">剑桥科技</span><span class="code co-code">603083.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">宏盛股份</span><span class="code co-code">603090.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">共进股份</span><span class="code co-code">603118.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">江南新材</span><span class="code co-code">603124.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">海量数据</span><span class="code co-code">603138.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">腾龙股份</span><span class="code co-code">603158.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">中贝通信</span><span class="code co-code">603220.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">海鸥股份</span><span class="code co-code">603269.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">华勤技术</span><span class="code co-code">603296.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">华懋科技</span><span class="code co-code">603306.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">超讯科技</span><span class="code co-code">603322.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">利通电子</span><span class="code co-code">603629.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">大元泵业</span><span class="code co-code">603757.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">瑞斯康达</span><span class="code co-code">603803.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">数据港</span><span class="code co-code">603881.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">城地香江</span><span class="code co-code">603887.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span></td></tr>
+<tr><td class="co"><span class="co-name">春秋电子</span><span class="code co-code">603890.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">龙蟠科技</span><span class="code co-code">603906.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">佳力图</span><span class="code co-code">603912.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">威派格</span><span class="code co-code">603956.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">艾华集团</span><span class="code co-code">603989.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">新炬网络</span><span class="code co-code">605398.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">澜起科技</span><span class="code co-code">688008.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span></td></tr>
+<tr><td class="co"><span class="co-name">长光华芯</span><span class="code co-code">688048.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">派能科技</span><span class="code co-code">688063.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">金山办公</span><span class="code co-code">688111.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">鼎阳科技</span><span class="code co-code">688112.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">普元信息</span><span class="code co-code">688118.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">麒麟信安</span><span class="code co-code">688152.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">优刻得-W</span><span class="code co-code">688158.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">腾景科技</span><span class="code co-code">688195.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">ST信安</span><span class="code co-code">688201.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">德科立</span><span class="code co-code">688205.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">亚信集团</span><span class="code co-code">688225.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">品高股份</span><span class="code co-code">688227.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">寒武纪</span><span class="code co-code">688256.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">东数西算</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">卓易信息</span><span class="code co-code">688258.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">仕佳光子</span><span class="code co-code">688313.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">青云科技-U</span><span class="code co-code">688316.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span></td></tr>
+<tr><td class="co"><span class="co-name">光云科技</span><span class="code co-code">688365.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">赛特新材</span><span class="code co-code">688398.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">源杰科技</span><span class="code co-code">688498.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">鼎通科技</span><span class="code co-code">688668.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">盛科通信-U</span><span class="code co-code">688702.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">联讯仪器</span><span class="code co-code">688808.SH</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+<tr><td class="co"><span class="co-name">并行科技</span><span class="code co-code">920493.BJ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">云计算</span></td></tr>
+<tr><td class="co"><span class="co-name">曙光数创</span><span class="code co-code">920808.BJ</span></td><td><span class="tag" style="font-size:11px;padding:1px 6px;">IDC</span><span class="tag" style="font-size:11px;padding:1px 6px;">液冷/超节点</span><span class="tag" style="font-size:11px;padding:1px 6px;">光模块/服务器</span></td></tr>
+</tbody></table></div>
+</div>
+
+<footer>
+<p>云计算数据中心产业链全景与公司关系图谱 · 数据日期 2026年11月27日 · 数据来源：Wind金融终端、公开新闻与券商研报</p>
+<p>本报告仅供研究参考，不构成任何投资建议</p>
+</footer>
+</div>
+</body>
+</html>
