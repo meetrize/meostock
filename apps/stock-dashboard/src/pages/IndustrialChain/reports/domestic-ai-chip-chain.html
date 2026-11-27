@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>国产算力芯片产业链全景与"输入—输出"关系图谱（2026-11-27）</title>
+<style>
+  :root{
+    --ink:#12181f; --ink2:#3c4652; --muted:#6b7785; --line:#e2e7ee;
+    --bg:#f6f7f9; --card:#ffffff; --accent:#0b5cff; --accent2:#00309a;
+    --in:#0e7a5f; --inbg:#eaf6f1; --out:#b04a00; --outbg:#fdf1e7;
+    --hub:#5a2ea6; --hubbg:#f1ecfb; --warn:#b3261e;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans CJK JP","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+    line-height:1.75; font-size:16px; -webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:1080px; margin:0 auto; padding:clamp(16px,4vw,56px) clamp(14px,3vw,40px) 80px;}
+  header.hero{
+    background:linear-gradient(135deg,#0b1b3a 0%,#0b3f8f 55%,#0b5cff 100%);
+    color:#fff; border-radius:18px; padding:clamp(24px,4.5vw,48px);
+    box-shadow:0 12px 34px rgba(11,60,143,.22);
+  }
+  header.hero .kicker{font-size:.78rem; letter-spacing:.22em; text-transform:uppercase; opacity:.85}
+  header.hero h1{font-size:clamp(1.5rem,4vw,2.3rem); line-height:1.35; margin:.5em 0 .35em; font-weight:800}
+  header.hero p.sub{margin:0; opacity:.92; font-size:clamp(.92rem,2.2vw,1.02rem)}
+  header.hero .meta{margin-top:1.4em; display:flex; flex-wrap:wrap; gap:.5em .6em; font-size:.8rem}
+  header.hero .meta span{background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); padding:.28em .7em; border-radius:999px}
+  h2{
+    font-size:clamp(1.2rem,3vw,1.55rem); margin:2.6em 0 .9em; padding-left:.65em;
+    border-left:5px solid var(--accent); line-height:1.4;
+  }
+  h3{font-size:clamp(1.02rem,2.4vw,1.18rem); margin:1.9em 0 .6em; color:var(--accent2)}
+  h4{font-size:.98rem; margin:1.3em 0 .4em; color:var(--ink)}
+  p{margin:.7em 0}
+  .lead{font-size:1.02rem; color:var(--ink2)}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:clamp(16px,3vw,26px); margin:1.1em 0; box-shadow:0 2px 8px rgba(18,24,31,.04)}
+  .grid{display:grid; gap:14px}
+  .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  @media (max-width:860px){ .g3,.g4{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  @media (max-width:600px){ .g2,.g3,.g4{grid-template-columns:1fr} }
+  .kpi{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+  .kpi .n{font-size:clamp(1.35rem,3.4vw,1.8rem); font-weight:800; color:var(--accent2); letter-spacing:-.01em}
+  .kpi .n.up{color:#c62828}
+  .kpi .l{font-size:.8rem; color:var(--muted); margin-top:.15em}
+  .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:12px; margin:1em 0; background:#fff}
+  table{border-collapse:collapse; width:100%; font-size:.86rem; min-width:640px}
+  thead th{background:#eef2f9; color:var(--accent2); text-align:left; padding:.7em .8em; font-weight:700; white-space:nowrap; border-bottom:2px solid #d5deec}
+  tbody td{padding:.62em .8em; border-bottom:1px solid var(--line); vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(even){background:#fafbfd}
+  .code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.82em; color:var(--muted); white-space:nowrap}
+  .tag{display:inline-block; font-size:.72rem; padding:.1em .55em; border-radius:999px; border:1px solid; white-space:nowrap; margin:.1em .2em .1em 0}
+  .t-in{color:var(--in); border-color:#9fd3c2; background:var(--inbg)}
+  .t-out{color:var(--out); border-color:#f0c39c; background:var(--outbg)}
+  .t-hub{color:var(--hub); border-color:#c9b6ea; background:var(--hubbg)}
+  .t-both{color:#1a5f8a; border-color:#a9cbe0; background:#eaf4fa}
+  .node{
+    border-radius:12px; padding:14px 16px; border:1px solid var(--line); background:#fff;
+  }
+  .node.in{border-left:5px solid var(--in); background:linear-gradient(90deg,var(--inbg),#fff 42%)}
+  .node.out{border-left:5px solid var(--out); background:linear-gradient(90deg,var(--outbg),#fff 42%)}
+  .node.hub{border-left:5px solid var(--hub); background:linear-gradient(90deg,var(--hubbg),#fff 42%)}
+  .node h4{margin:0 0 .3em; font-size:.95rem}
+  .node .who{font-size:.82rem; color:var(--ink2); line-height:1.65}
+  .flow{display:grid; gap:10px; margin:1.2em 0}
+  .flow-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .arrow{color:var(--muted); font-weight:700}
+  blockquote{margin:1.1em 0; padding:.9em 1.1em; background:#f3f7ff; border-left:4px solid var(--accent); border-radius:0 10px 10px 0; color:var(--ink2); font-size:.93rem}
+  .callout{border-radius:12px; padding:14px 16px; margin:1em 0; font-size:.9rem}
+  .callout.warn{background:#fdecea; border:1px solid #f5c6c2; color:#7a1c15}
+  .callout.info{background:#eef4ff; border:1px solid #cfdcfb; color:#123a7a}
+  .callout.ok{background:#eaf6f1; border:1px solid #bfe3d5; color:#0b5a45}
+  ul,ol{margin:.6em 0 .6em 1.1em; padding:0}
+  li{margin:.3em 0}
+  .src{font-size:.82rem; color:var(--muted)}
+  .src li{margin:.25em 0; word-break:break-all}
+  .divider{height:1px; background:var(--line); margin:2.4em 0}
+  .legend{display:flex; gap:10px; flex-wrap:wrap; font-size:.8rem; color:var(--muted); margin:.6em 0}
+  .num{font-variant-numeric:tabular-nums}
+  footer{margin-top:3em; padding-top:1.4em; border-top:1px solid var(--line); font-size:.8rem; color:var(--muted)}
+  .tight p{margin:.35em 0}
+  .center{text-align:center}
+  .small{font-size:.85rem}
+  .chainmap{background:#0d1a2b; color:#e8eef8; border-radius:14px; padding:clamp(14px,3vw,24px); font-size:.83rem; overflow-x:auto}
+  .chainmap pre{margin:0; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.78rem; line-height:1.6; white-space:pre; color:#dbe6f7}
+  .chainmap .cin{color:#6fe0b8}
+  .chainmap .cout{color:#ffb066}
+  .chainmap .chub{color:#c9a8ff}
+  @media (max-width:600px){ .chainmap pre{font-size:.68rem} }
+
+  td.co{white-space:nowrap;vertical-align:top;min-width:6.8em;}
+  .co-name{display:block;white-space:nowrap;line-height:1.35;font-weight:600;}
+  .co-name strong{font-weight:800;}
+  .co-code,td .code{display:block;margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.3;white-space:nowrap;color:var(--muted);font-weight:400;}
+
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <div class="kicker">Industry Chain Research · 2026-11-27</div>
+  <h1>国产算力芯片产业链全景与"输入—输出"关系图谱</h1>
+  <p class="sub">从今日 304 只涨停说起：一张图看清谁在为国产算力芯片供货，谁又靠国产算力芯片赚钱</p>
+  <div class="meta">
+    <span>数据时点：2026-11-27 14:09（盘中）</span>
+    <span>覆盖公司：约 122 家 A 股（另含港股/未上市；meostock C04 入库）</span>
+    <span>框架：输入侧 9 层 / 输出侧 5 层 / 7 类关系</span>
+  </div>
+</header>
+
+<div class="callout info">
+  <strong>阅读提示：</strong>本报告以"芯片本体"为枢纽。凡<strong>向芯片厂商提供产品、设备、材料、服务</strong>的，归入<span class="tag t-in">输入</span>；凡<strong>以国产算力芯片为底座，对外提供整机、集群、算力、软件与行业服务</strong>的，归入<span class="tag t-out">输出</span>。同时为芯片厂供货、又用芯片做产品的（如紫光股份、华勤技术），标注为<span class="tag t-both">双向</span>。
+</div>
+
+<h2>一、今日盘面：一次"全链条"而非"单点"的涨停潮</h2>
+
+<p class="lead">11 月 27 日 A 股的上涨不是某一只题材股的脉冲，而是沿着"设备—材料—代工—封测—存储—芯片—整机—算力"整条链条同时点火。截至 14:07，全市场涨停家数已从上午 10:35 的 64 只扩张到 <strong>304 只</strong>，其中带算力、芯片、HBM、封装、存储、光模块、液冷、服务器、超节点、华为等标签的达 <strong>160 只</strong>。</p>
+
+<div class="grid g3">
+  <div class="kpi"><div class="n up">+13.63%</div><div class="l">申万半导体指数（成交 2,435 亿元）</div></div>
+  <div class="kpi"><div class="n up">+13.17%</div><div class="l">科创 50 指数</div></div>
+  <div class="kpi"><div class="n up">+11.69%</div><div class="l">申万电子指数（成交 4,591 亿元）</div></div>
+  <div class="kpi"><div class="n up">+9.68%</div><div class="l">创业板指</div></div>
+  <div class="kpi"><div class="n up">+6.16%</div><div class="l">深证成指（成交 8,905 亿元）</div></div>
+  <div class="kpi"><div class="n up">+3.26%</div><div class="l">上证指数（成交 7,756 亿元）</div></div>
+</div>
+
+<h3>1.1 龙头涨幅：芯片本体全线 10% 以上</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>证券简称</th><th>涨跌幅</th><th>最新价（元）</th><th>总市值（亿元）</th><th>PE(TTM)</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">华虹宏力</span><span class="code co-code">688347.SH</span></td><td class="num">+20.00%（涨停）</td><td class="num">212.40</td><td class="num">2,173</td><td class="num">237.0</td></tr>
+<tr><td class="co"><span class="co-name">芯原股份</span><span class="code co-code">688521.SH</span></td><td class="num">+19.36%</td><td class="num">89.33</td><td class="num">470</td><td class="num">亏损</td></tr>
+<tr><td class="co"><span class="co-name">燧原科技-U</span><span class="code co-code">688801.SH</span></td><td class="num">+16.08%</td><td class="num">401.50</td><td class="num">1,728</td><td class="num">亏损</td></tr>
+<tr><td class="co"><span class="co-name">寒武纪</span><span class="code co-code">688256.SH</span></td><td class="num">+15.74%</td><td class="num">1,091.23</td><td class="num">6,862</td><td class="num">164.6</td></tr>
+<tr><td class="co"><span class="co-name">海光信息</span><span class="code co-code">688041.SH</span></td><td class="num">+14.28%</td><td class="num">180.42</td><td class="num">4,193</td><td class="num">122.2</td></tr>
+<tr><td class="co"><span class="co-name">沐曦股份-U</span><span class="code co-code">688802.SH</span></td><td class="num">+13.36%</td><td class="num">378.63</td><td class="num">1,515</td><td class="num">776.7</td></tr>
+<tr><td class="co"><span class="co-name">中芯国际</span><span class="code co-code">688981.SH</span></td><td class="num">+13.31%</td><td class="num">132.01</td><td class="num">6,104</td><td class="num">132.4</td></tr>
+<tr><td class="co"><span class="co-name">景嘉微</span><span class="code co-code">300474.SZ</span></td><td class="num">+12.35%</td><td class="num">47.94</td><td class="num">251</td><td class="num">亏损</td></tr>
+<tr><td class="co"><span class="co-name">摩尔线程-U</span><span class="code co-code">688795.SH</span></td><td class="num">+11.97%</td><td class="num">289.99</td><td class="num">1,363</td><td class="num">亏损</td></tr>
+<tr><td class="co"><span class="co-name">龙芯中科</span><span class="code co-code">688047.SH</span></td><td class="num">+10.58%</td><td class="num">94.67</td><td class="num">380</td><td class="num">亏损</td></tr>
+</tbody>
+</table>
+</div>
+<p class="src">数据来源：Wind，2026-11-27 14:08 盘中快照。市值、PE 为盘中动态值，收盘后可能变化。</p>
+
+<h3>1.2 涨停的时间结构：上午抢"生态"，下午抢"产能"</h3>
+<div class="card tight">
+<p><strong>09:25–09:40｜开盘一字与秒板</strong>——常山北明（09:25）、证通电子（09:25）、大位科技（09:30）、浙大网新（09:30）、中电鑫龙（09:30）、航锦科技（09:33）、拓维信息（09:33）、天源迪科（09:33）、深圳华强（09:36）、中贝通信（09:37）、润和软件（09:39）、云鼎科技（09:39）。这一批是<strong>纯"生态/租赁"标签</strong>，资金先买最熟悉的名字。</p>
+<p><strong>09:40–11:30｜扩散到"卖铲子"</strong>——太极股份（10:09）、时空科技（10:09）、华胜天成（10:11）、华懋科技（10:28）、意华股份（10:29）、腾景科技（10:30）、金海通（10:31）、华海诚科（10:35）、大港股份（10:43）、康强电子（10:42）、兴森科技（10:51）、京仪装备（10:52）、精测电子（11:09）、灿芯股份（11:11）、卡莱特（11:13）、高新发展（11:16）、深南电路（11:17）、芯碁微装（11:20）、润建股份（11:25）。</p>
+<p><strong>13:00–14:05｜午后主升：设备、封测、存储、交换集中涨停</strong>——<strong>北方华创（13:01）</strong>、中科飞测（13:03）、长川科技（13:04）、光迅科技（13:04）、雅克科技（13:04）、华工科技（13:09）、华虹宏力（13:25）、盛科通信（13:26）、甬矽电子（13:45）、紫光股份（13:30）、通富微电（13:35）、深科技（13:46）、拓荆科技（13:44）、伟测科技（13:25）、华海清科（13:26）、中科飞测、英维克（13:06）、杰华特（13:06）、华峰测控（13:44）。</p>
+<p class="small" style="color:var(--muted)">这一时间结构说明：<strong>资金上午买"叙事"，下午买"卡位"</strong>——真正决定国产算力芯片能否放量的设备、封测、存储、交换环节，是午后集中定价的对象。这也是本报告把"输入侧"放在前半部分的原因。</p>
+</div>
+
+<h2>二、今天为什么涨：四个催化，一条主线</h2>
+
+<div class="grid g2">
+  <div class="card">
+    <h4>① 英伟达暂停向东南亚四国发运（11/27 盘前）</h4>
+    <p class="small">据英国《金融时报》报道，英伟达已暂停向<strong>马来西亚、新加坡、泰国、印度尼西亚</strong>发运 AI 芯片与服务器。这四国长期是"转口贸易"的关键节点。若该通道收紧，意味着：<strong>（a）</strong>国内可获得的合规算力进一步减少，国产替代的紧迫性上升；<strong>(b)</strong> 以东南亚为跳板出海的国产算力方案反而获得窗口。</p>
+  </div>
+  <div class="card">
+    <h4>② 广东《算力发展"十五五"规划》印发（11/26）</h4>
+    <p class="small">明确到 <strong>2028 年智算规模突破 1,000 EFlops（FP16）</strong>，<strong>2030 年超 2,500 EFlops、力争 4,000 EFlops</strong>，并<strong>鼓励算力中心优先使用国产算力芯片</strong>。这是首个把"国产芯片优先"写进省级算力规划的量化文件，直接对应采购端的确定性。</p>
+  </div>
+  <div class="card">
+    <h4>③ 华为自研 HBM 入选 ISSCC 2027（11/24–11/26）</h4>
+    <p class="small">华为 4 篇论文入选 ISSCC 2027：HBM 方案 <strong>64 通道、4,096bit 位宽</strong>（为 HBM4 标准 2,048bit 的两倍），采用 <strong>5 层 W2W 晶圆混合键合</strong>，并把内存控制器集成进堆叠体。对应 <strong>昇腾 950PR（HiBL 1.0，128GB / 1.6TB/s）</strong>与 <strong>950DT（HiZQ 2.0，144GB / 4TB/s）</strong>。这是"国产算力芯片第一次在存储墙问题上给出自研答案"。</p>
+  </div>
+  <div class="card">
+    <h4>④ 政策叠加与产业数据</h4>
+    <p class="small">工信部等《新一代通信网建设实施方案》、商务部等 8 部门服务贸易规划同期落地。产业侧：2025 年国产 AI 芯片出货约 <strong>165 万张</strong>、份额首破 40%；2026H1 国内 AI 芯片出货 <strong>200.8 万卡</strong>，英伟达份额降至 <strong>34%</strong>（较 2025 年降 21pct）；2026Q3 五家上市芯片公司单季营收 <strong>136.5 亿元</strong>（同比 +113%、环比 +27%），归母净利 <strong>24.1 亿元</strong>（同比 +450%）。</p>
+  </div>
+</div>
+
+<blockquote>
+<strong>一句话概括今日逻辑：</strong>"外部通道收紧（英伟达东南亚断供）+ 内部需求被文件锁定（广东规划）+ 最硬的技术瓶颈出现国产解（华为自研 HBM）"三者叠加，把行情从"主题炒作"推到了"产能与订单重估"。所以涨的不只是芯片设计公司，而是<strong>给芯片厂供货的全部环节</strong>——这正是"输入侧"的定义。
+</blockquote>
+
+<h2>三、分析框架：两大类、九层输入、五层输出、七种关系</h2>
+
+<h3>3.1 输入 / 输出的界定</h3>
+<div class="grid g2">
+  <div class="node in">
+    <h4><span class="tag t-in">输入</span> 为芯片提供产品或服务</h4>
+    <p class="who">收入来自"芯片厂的资本开支或 BOM"。判断标准：<strong>它的客户是芯片设计公司、晶圆厂、封测厂</strong>。典型：EDA、IP、代工、HBM、封装基板、刻蚀/薄膜设备、前驱体、探针卡、高速连接器。<br><strong>商业特征：</strong>订单前置于芯片出货 1–3 个季度，是产业链的"先行指标"；毛利率高但周期弹性大。</p>
+  </div>
+  <div class="node out">
+    <h4><span class="tag t-out">输出</span> 通过芯片对外提供产品或服务</h4>
+    <p class="who">收入来自"把算力卖出去"。判断标准：<strong>它的产品里装的是国产算力芯片</strong>。典型：AI 服务器、超节点整机柜、智算中心、算力租赁、MaaS、行业大模型。<br><strong>商业特征：</strong>订单滞后于芯片出货，是产业链的"兑现环节"；收入体量大但毛利率低（整机 10–20%、租赁 20–35%）。</p>
+  </div>
+</div>
+
+<h3>3.2 七种关系类型（本报告的"关系分类"）</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>编号</th><th>关系类型</th><th>方向</th><th>含义</th><th>典型例子</th></tr></thead>
+<tbody>
+<tr><td>R1</td><td><strong>供货关系</strong></td><td>输入 → 芯片</td><td>按 BOM 或按台套供应，可替代性取决于验证周期</td><td>兴森科技 ABF 载板供昇腾；华丰科技 224G 高速线模组供昇腾服务器</td></tr>
+<tr><td>R2</td><td><strong>代工/委外</strong></td><td>输入 → 芯片</td><td>晶圆制造、封装、测试外包，产能即份额</td><td>中芯国际/华虹代工；长电、通富、甬矽封测；伟测测试</td></tr>
+<tr><td>R3</td><td><strong>授权与生态认证</strong></td><td>双向</td><td>IP 授权、软件栈适配、伙伴等级（钻石/金牌/优选）</td><td>芯原 IP 授权；常山北明钻石级经销商；卡莱特昇腾钻石 APN</td></tr>
+<tr><td>R4</td><td><strong>联合开发/共建</strong></td><td>双向</td><td>定制 ASIC、共同定义产品、共建智算中心</td><td>芯原/灿芯定制芯片；长鑫与通富开发 HBM 样品；恒为与中贝共建前海智算中心</td></tr>
+<tr><td>R5</td><td><strong>渠道与集成</strong></td><td>输出</td><td>总经销、整机集成、总集/分包</td><td>深圳华强（华为计算部件总经销）、神州数码（神州鲲泰）、太极股份（总集）</td></tr>
+<tr><td>R6</td><td><strong>资本关系</strong></td><td>双向</td><td>参股、并购、战略投资、基石投资</td><td>高新发展拟收购华鲲振宇 70%；慧博云通拟收购宝德计算；腾讯持股燧原 19.95%</td></tr>
+<tr><td>R7</td><td><strong>竞争/替代</strong></td><td>芯片 ↔ 芯片</td><td>同一算力预算下的此消彼长</td><td>昇腾 vs 寒武纪 vs 海光 vs 四小龙；CUDA 生态 vs CANN/MUSA/MXMACA</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>四、产业链总图</h2>
+
+<div class="chainmap">
+<pre>
+<span class="cin">【输 入 侧】为芯片提供产品与服务（9 层）</span>
+ I1 设计工具与IP    EDA/IP/定制服务      → 华大九天 广立微 芯原 灿芯
+ I2 晶圆代工        先进制程/成熟制程     → 中芯国际 华虹宏力 晶合集成
+ I3 存储与HBM       DRAM/HBM/接口/模组    → 长鑫科技 兆易创新 澜起 佰维 深科技
+ I4 先进封装与测试   2.5D/3D/混合键合/CP  → 盛合晶微 长电 通富 华天 甬矽 伟测
+ I5 半导体设备      刻蚀/薄膜/键合/量测   → 北方华创 中微 拓荆 盛美 中科飞测 长川
+ I6 材料与零部件    前驱体/塑封料/硅微粉  → 雅克 华海诚科 联瑞 华正 江丰
+ I7 载板/PCB/连接    ABF载板/高多层/铜连接→ 兴森 深南 沪电 华丰 中航光电
+ I8 光互联与交换     光模块/CPO/交换芯片   → 盛科 光迅 中际旭创 新易盛 华工
+ I9 电源与散热       供电/液冷/CDU        → 杰华特 麦格米特 英维克 申菱 飞荣达
+                              ↓  ↓  ↓
+<span class="chub">【枢 纽】芯片本体：把"输入"变成"算力"</span>
+   华为昇腾(未上市) · 寒武纪 688256 · 海光 688041 · 摩尔线程 688795
+   沐曦 688802 · 燧原 688801 · 壁仞 6082.HK · 天数 9903.HK
+   昆仑芯(百度) · 平头哥(阿里) · 龙芯 688047 · 景嘉微 300474
+                              ↓  ↓  ↓
+<span class="cout">【输 出 侧】通过芯片对外提供产品与服务（5 层）</span>
+ O1 整机/服务器     AI服务器/一体机       → 浪潮 中科曙光 紫光 中兴 华勤
+ O2 超节点/集群     整机柜/交换/光互联    → 紫光UniPoD 曙光ScaleX 浪潮SD200 锐捷
+ O3 智算中心/租赁    IDC/算力批发/云      → 优刻得 首都在线 光环新网 润建 中贝
+ O4 软件栈/模型      CANN/MUSA/框架/模型  → 中国软件 达梦 海量 麒麟信安 科大讯飞
+ O5 行业应用/集成    政务/金融/制造/能源  → 常山北明 东华 太极 华胜天成 天源迪科
+</pre>
+</div>
+
+<h2>五、输入侧：九层"卖铲人"</h2>
+<p class="lead">输入侧的共同特征是——<strong>它们的收入不取决于芯片卖多少钱，而取决于芯片要做多少颗、用什么工艺、堆几层存储器</strong>。因此当"国产算力芯片放量"从预期变成订单时，输入侧的弹性往往大于芯片本体。</p>
+
+<h3>I1　设计工具与 IP：芯片的"图纸与积木"</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>在链条中的位置</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">华大九天</span><span class="code co-code">301269.SZ</span></td><td>EDA 全流程（模拟/存储/数字/先进封装/3DIC）</td><td>EDA 软件销售占 76.68%、技术服务 18.27%；存储电路与 3DIC 设计工具直接对应 HBM 堆叠</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">广立微</span><span class="code co-code">301095.SZ</span></td><td>良率提升 EDA + 晶圆级电性测试机</td><td>测试机及配件 62.41%、软件 37.04%；覆盖设计到量产全周期</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">芯原股份</span><span class="code co-code">688521.SH</span></td><td>半导体 IP 授权 + 一站式定制（ASIC）</td><td>量产业务 62.39%；今日 +19.36%，是"定制算力芯片"需求的直接映射</td><td>R1 / R3 / R4</td></tr>
+<tr><td class="co"><span class="co-name">灿芯股份</span><span class="code co-code">688691.SH</span></td><td>一站式定制芯片及 IP</td><td>量产业务 61.37%、设计业务 38.63%；今日 11:11 涨停</td><td>R4</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small"><strong>关系解读：</strong>EDA 是"卡脖子中的卡脖子"。国产算力芯片要绕开先进制程，只能靠<strong>Chiplet + 先进封装</strong>，而 Chiplet 设计必须依赖 3DIC 与先进封装 EDA——这让华大九天的 3DIC 工具从"配角"变成"必需品"。芯原、灿芯则是"没有芯片设计团队的公司"（如云厂商、车企、设备商）造芯的通道，属于 R4 联合开发的典型。</p>
+
+<h3>I2　晶圆代工：产能就是份额</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>定位</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">中芯国际</span><span class="code co-code">688981.SH</span></td><td>国内最大晶圆代工，先进逻辑主力</td><td>今日 +13.31%，市值 6,104 亿元，PE 132 倍；国产 GPU/CPU 的主代工方</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">华虹宏力</span><span class="code co-code">688347.SH</span></td><td>特色工艺（BCD/功率/嵌入式存储）</td><td>今日 <strong>+20.00% 涨停</strong>，市值 2,173 亿元；电源管理、接口、MCU 类配套芯片主供</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">晶合集成</span><span class="code co-code">688249.SH</span></td><td>12 英寸，150–40nm</td><td>代工占 96.8%；DDIC/CIS/MCU/PMIC 平台</td><td>R2</td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout ok">
+<strong>为什么代工是最硬的"输入"：</strong>一颗 7nm 级国产 GPU 的晶圆成本占其 BOM 的 30–40%，且产能不可临时扩张。2026 年国产算力芯片出货量从 165 万张向 300 万颗级别跃升的过程，本质是"代工产能的分配过程"。代工厂的产能分配表，就是国产算力芯片厂商的真实排位表。
+</div>
+
+<h3>I3　存储与 HBM：本轮最紧的瓶颈</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>位置</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">长鑫科技</span><span class="code co-code">688825.SH</span></td><td>国产 DRAM / HBM 唯一规模玩家</td><td>合肥两座 + 北京一座 12 英寸厂合计月产能约 30 万片；HBM2E 月产能约 5,000 片，HBM3 预计 2027Q2 末–Q3 交付、月产能 2 万片以上；单晶圆容量 300–350GB（三星 600–700GB），良率约为三星一半</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">兆易创新</span><span class="code co-code">603986.SH</span></td><td>NOR Flash + 利基 DRAM + MCU</td><td>存储芯片 84.97%、MCU 12.36%；利基 DRAM（DDR4/DDR3L/LPDDR4）承接外溢需求</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">澜起科技</span><span class="code co-code">688008.SH</span></td><td>内存接口芯片（RCD/MRCD/MDB/CKD）</td><td>内存接口 93.28%；HBM 与高带宽 DDR5 模组的"必要配套"，每一条内存模组都要用</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">佰维存储</span><span class="code co-code">688525.SH</span></td><td>存储模组与先进封测</td><td>具备存储器研发封测一体化能力，承接国产存储颗粒的模组化</td><td>R1 / R2</td></tr>
+<tr><td class="co"><span class="co-name">深科技</span><span class="code co-code">000021.SZ</span></td><td>存储封测（沛顿科技）</td><td>沛顿为长鑫最大外部封测方；今日 13:46 涨停，HBM/先进封装标签</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">香农芯创</span><span class="code co-code">300475.SZ</span></td><td>存储分销 + 企业级 SSD</td><td>连接原厂与整机厂的流通环节，价格上行期弹性大</td><td>R5</td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout warn">
+<strong>HBM 的三个硬数字：</strong>①国产 HBM 自供率目前基本为 <strong>0</strong>；②HBM 占 H100/H200 级 GPU 物料成本近 <strong>50%</strong>，单价约为 DDR5 的 <strong>5 倍</strong>；③按 2027 年出货测算（寒武纪 55 万、海光 45 万、华为 290 万、其他 260 万颗），等效 24GB HBM3 需求约 <strong>3,900 万颗</strong>，而国产供给仅能覆盖约 <strong>15%</strong>。这就是华为必须自研 HBM 的原因，也是今日存储链集体涨停的原因。
+</div>
+
+<h3>I4　先进封装与测试：HBM 的"另一半"</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>位置</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">盛合晶微</span><span class="code co-code">688820.SH</span></td><td>2.5D/3D 封装（硅中介层/硅桥）</td><td>已完成 4 SoC + 8 HBM 的六倍光罩硅桥验证，是国内最接近 CoWoS 路线的玩家</td><td>R2 / R4</td></tr>
+<tr><td class="co"><span class="co-name">长电科技</span><span class="code co-code">600584.SH</span></td><td>封测龙头（SiP/2.5D/3D）</td><td>今日 13:03 涨停；承接高性能计算与存储封装</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">通富微电</span><span class="code co-code">002156.SZ</span></td><td>CPU/GPU 封测 + HBM 样品</td><td>与长鑫合作开发 HBM 样品；今日 13:35 涨停，标签含 HBM/GPU/存储</td><td>R2 / R4</td></tr>
+<tr><td class="co"><span class="co-name">华天科技</span><span class="code co-code">002185.SZ</span></td><td>封测（TSV/FC/扇出）</td><td>国内第三大封测，承接存储与射频封装外溢</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">甬矽电子</span><span class="code co-code">688362.SH</span></td><td>中高端封测（FC-BGA/系统级）</td><td>今日 13:45 涨停；以先进封装占比高著称</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">汇成股份</span><span class="code co-code">688403.SH</span></td><td>金凸块 + CP + COG/COF</td><td>显示驱动封测占 94.15%，但金凸块与晶圆测试能力可复用于先进封装</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">伟测科技</span><span class="code co-code">688372.SH</span></td><td>第三方晶圆/成品测试</td><td>今日 13:25 涨停；CP/FT 产能是芯片放量的"闸门"</td><td>R2</td></tr>
+<tr><td class="co"><span class="co-name">精智达</span><span class="code co-code">688627.SH</span></td><td>HBM 测试设备 + 存储测试</td><td>今日 13:02 涨停；HBM 堆叠后的测试方案为国内稀缺</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">华峰测控</span><span class="code co-code">688200.SH</span></td><td>模拟/混合信号测试机</td><td>今日 13:44 涨停；电源、接口类配套芯片测试主力</td><td>R1</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small"><strong>关系解读：</strong>HBM 的价值量不在"造出来"，而在"堆起来"——5 层 W2W 混合键合 + TSV + 六倍光罩硅桥，任何一步良率不达标都会让整颗芯片报废。因此封装环节拿到的是"技术溢价"而非"加工费"，这是它与传统封测最大的区别。</p>
+
+<h3>I5　半导体设备：扩产周期的第一受益人</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>覆盖工艺</th><th>与 HBM / 算力芯片的关系</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">北方华创</span><span class="code co-code">002371.SZ</span></td><td>刻蚀/薄膜/炉管/清洗（平台型）</td><td>今日 <strong>13:01 涨停</strong>，是午后设备行情的发令枪；国产产线扩产的最大单一体量受益者</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">中微公司</span><span class="code co-code">688012.SH</span></td><td>刻蚀（CCP/ICP）+ MOCVD</td><td>TSV 深孔刻蚀是 HBM 的关键工序</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">拓荆科技</span><span class="code co-code">688072.SH</span></td><td>PECVD/ALD + <strong>W2W 混合键合</strong></td><td>今日 13:44 涨停；华为 HBM 采用 5 层 W2W 混合键合，该设备是"唯一入口"级卡位</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">盛美上海</span><span class="code co-code">688082.SH</span></td><td>清洗/电镀/先进封装湿法</td><td>TSV 电镀、三维堆叠电镀、面板级先进封装设备</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">中科飞测</span><span class="code co-code">688361.SH</span></td><td>检测 68.17% + 量测 28.22%</td><td>今日 13:03 涨停；已覆盖"光学+电子束+X 光"，明确指向 HBM 2.5D/3D 封装良率管理</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">长川科技</span><span class="code co-code">300604.SZ</span></td><td>测试机 + 分选机</td><td>今日 13:04 涨停；存储/SoC 测试产能扩张直接受益</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">芯碁微装</span><span class="code co-code">688630.SH</span></td><td>直写光刻（PCB/先进封装）</td><td>今日 11:20 涨停；先进封装 RDL 与载板线路直写的主力设备</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">华海清科</span><span class="code co-code">688120.SH</span></td><td>CMP + 减薄 + 清洗</td><td>今日 13:26 涨停；晶圆减薄是 HBM 堆叠前必经工序</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">京仪装备</span><span class="code co-code">688652.SH</span></td><td>温控/废气处理配套设备</td><td>今日 10:52 涨停；扩产的"隐形配套"</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">富创精密</span><span class="code co-code">688409.SH</span></td><td>设备精密零部件</td><td>今日 13:06 涨停；设备厂的"卖铲人的卖铲人"</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">正帆科技</span><span class="code co-code">688596.SH</span></td><td>气体/化学品输送系统</td><td>今日 13:26 涨停；晶圆厂 capex 的先行项</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">至纯科技</span><span class="code co-code">603690.SH</span></td><td>湿法清洗 + 高纯工艺系统</td><td>今日 13:26 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">芯源微</span><span class="code co-code">688037.SH</span></td><td>涂胶显影 + 清洗</td><td>今日 13:06 涨停；先进封装涂胶显影国产替代</td><td>R1</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>I6　材料与零部件：涨价弹性最大的一层</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>材料</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">雅克科技</span><span class="code co-code">002409.SZ</span></td><td>HBM 前驱体</td><td>HBM4 前驱体国内唯一量产、SK 海力士供应商；今日 13:04 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">华海诚科</span><span class="code co-code">688535.SH</span></td><td>GMC 塑封料 / 环氧塑封料</td><td>HBM 专用 GMC 塑封料国内唯一量产；今日 10:35 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">联瑞新材</span><span class="code co-code">688300.SH</span></td><td>球形硅微粉</td><td>塑封料与载板的核心填料，直接随 HBM/先进封装用量提升</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></td><td>CBF 膜（积层绝缘膜）</td><td>ABF 膜国产替代，已小批量；今日 13:00 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">江丰电子</span><span class="code co-code">300666.SZ</span></td><td>超高纯金属溅射靶材</td><td>今日 13:26 涨停；先进制程互连与 TSV 必需</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">有研新材</span><span class="code co-code">600206.SH</span></td><td>靶材/稀有金属</td><td>今日 13:36 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">彤程新材</span><span class="code co-code">603650.SH</span></td><td>光刻胶</td><td>今日 13:06 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">东材科技</span><span class="code co-code">601208.SH</span></td><td>电子树脂/绝缘材料</td><td>今日 13:27 涨停；高频高速覆铜板树脂</td><td>R1</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>I7　载板 / PCB / 连接器：算力"物理层"</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>产品</th><th>关键事实与份额</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">兴森科技</span><span class="code co-code">002436.SZ</span></td><td>IC 载板（ABF）/ PCB</td><td><strong>昇腾 ABF 载板份额 60–70%</strong>；22 层已量产、良率 &gt;90%；950DT 相关订单约 5 亿元量级；今日 10:51 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td>FC-BGA 载板 + 高多层 PCB</td><td>昇腾 AI 服务器核心电路板与封装基板供应商；FC-BGA 为二供，26 层以下批量、线宽 9–12μm；今日 11:17 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td>高多层高速 PCB</td><td>AI 服务器/交换机主板，受益 800G 与超节点背板</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">广合科技</span><span class="code co-code">001389.SZ</span></td><td>服务器 PCB</td><td>今日 13:31 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">景旺电子</span><span class="code co-code">603228.SH</span></td><td>PCB</td><td>今日 13:47 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">崇达技术</span><span class="code co-code">002815.SZ</span></td><td>PCB</td><td>今日 13:26 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">华丰科技</span><span class="code co-code">688629.SH</span></td><td>高速线模组 / 铜连接</td><td><strong>昇腾服务器铜缆连接器份额 &gt;60%</strong>；224G 高速线模组批量交付；2027 年高速互联份额预计维持 50%+；2026Q3 交付千套级、Q4 万套级；今日 13:02 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">中航光电</span><span class="code co-code">002179.SZ</span></td><td>高速连接器</td><td>2027 年高速互联份额预计 20%+</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">意华股份</span><span class="code co-code">002897.SZ</span></td><td>连接器 + 光模块结构件</td><td>2027 年高速互联份额预计 20%+；今日 10:29 涨停（CPO/超节点标签）</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">长飞光纤</span><span class="code co-code">601869.SH</span></td><td>光纤光缆 / 多模光纤</td><td>今日 13:43 涨停；超节点内短距光互联用量随集群规模非线性增长</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">长盈通</span><span class="code co-code">688143.SH</span></td><td>保偏光纤 / 光纤环</td><td>今日 13:25 涨停；NPO/光互联配套</td><td>R1</td></tr>
+</tbody>
+</table>
+</div>
+<div class="callout info">
+<strong>一个可验证的量化锚：</strong>以 2027 年 300 万颗昇腾芯片测算，高速互联市场约 <strong>200 亿元</strong>、液冷约 <strong>150 亿元</strong>，合计约 <strong>350 亿元</strong>；按净利率 10–15% 对应行业利润 <strong>35–50 亿元</strong>。这是华丰科技、意华股份、英维克等"配套股"估值弹性的来源。
+</div>
+
+<h3>I8　光互联与交换芯片：超节点的"神经系统"</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>产品</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">盛科通信-U</span><span class="code co-code">688702.SH</span></td><td><strong>以太网交换芯片</strong></td><td>交换芯片占 83.56%、交换机 9.09%；今日 13:26 涨停，标签含"超节点"；国产超节点最稀缺的一颗"非 GPU 芯片"</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">光迅科技</span><span class="code co-code">002281.SZ</span></td><td>光模块 / 光器件</td><td>今日 13:04 涨停；NPO 光互联（华为 Hi-ONE 路线）核心配套</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">中际旭创</span><span class="code co-code">300308.SZ</span></td><td>800G/1.6T 光模块</td><td>11/26 单日主力净流入 16.9 亿元，为通信板块第一</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">新易盛</span><span class="code co-code">300502.SZ</span></td><td>高速光模块（99.87%）</td><td>OSFP-XD 1.6T 等全系列；11/26 主力净流入 9.6 亿元</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">华工科技</span><span class="code co-code">000988.SZ</span></td><td>光模块 / 激光装备</td><td>今日 13:09 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">源杰科技</span><span class="code co-code">688498.SH</span></td><td>光芯片（DFB/EML）</td><td>今日 13:10 涨停；光模块的上游"芯"</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">德科立</span><span class="code co-code">688205.SH</span></td><td>光传输/光模块</td><td>今日 13:00 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">腾景科技</span><span class="code co-code">688195.SH</span></td><td>精密光学元件</td><td>今日 10:30 涨停（CPO 标签）</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">长光华芯</span><span class="code co-code">688048.SH</span></td><td>半导体激光芯片</td><td>今日 13:44 涨停</td><td>R1</td></tr>
+</tbody>
+</table>
+</div>
+<p class="small"><strong>关系解读：</strong>超节点把"一台服务器"变成"一个机柜级整机"，互联从"插卡"变成"背板+铜缆+光"。华为已发布业界首个量产 NPO 光互联产品 <strong>Hi-ONE</strong>（内置光源），并联合 20 余家伙伴启动 <strong>OPEN NPO</strong>、发起国内首个 NPO 光互连 MSA。这使盛科（交换芯片）、光迅（光模块）、长盈通（保偏光纤）从"通用通信股"变成"算力专用配套股"。</p>
+
+<h3>I9　电源与散热：功率密度逼出来的刚需</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>产品</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">杰华特</span><span class="code co-code">688141.SH</span></td><td>电源管理芯片</td><td>今日 13:06 涨停；GPU 多相供电与 DrMOS 国产替代</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">麦格米特</span><span class="code co-code">002851.SZ</span></td><td>电源产品（30.38%）</td><td>服务器电源 / HVDC 供电，受益单机柜功率从 30kW 向 130kW 升级</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">英维克</span><span class="code co-code">002837.SZ</span></td><td>液冷 / 精密温控</td><td>今日 13:06 涨停；2027 年液冷市场约 150 亿元</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">申菱环境</span><span class="code co-code">301018.SZ</span></td><td>数据中心专用空调 / 液冷</td><td>智算中心温控主力</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">飞荣达</span><span class="code co-code">300602.SZ</span></td><td>散热材料 / 液冷板</td><td>与昇腾绑定较深</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">佳力图</span><span class="code co-code">603912.SH</span></td><td>机房温控</td><td>今日 10:36 涨停（液冷/CDU 标签）</td><td>R1</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>六、枢纽：芯片本体（13 家，含 4 家未上市主体）</h2>
+<p class="lead">芯片本体是整个链条唯一同时"向输入侧下单"和"向输出侧供货"的环节。它决定了两侧的价值分配：<strong>制程与 HBM 决定成本，软件生态决定售价</strong>。</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>厂商</th><th>产品与节奏</th><th>最新经营数据（2026 年三季报累计）</th><th>资本状态</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name"><strong>华为昇腾</strong></span><span class="code co-code">未上市</span></td><td>910B → 910C（超节点已部署 &gt;1,000 套）→ 950PR（128GB/1.6TB/s）→ 950DT（144GB/4TB/s）→ 960DT（2027Q1，288GB/9.6TB/s）→ 960PR（2027Q3）→ 970（2028）/ 980（2029）</td><td>2027 年出货预计 290 万颗；实测吞吐 910B 120–170 Token/s、910C 约 500、950DT 1,800–2,000（H200 为 2,200）</td><td>海思全资，未分拆</td></tr>
+<tr><td class="co"><span class="co-name">寒武纪</span><span class="code co-code">688256.SH</span></td><td>云端训练/推理加速卡（云端产品线 99.98%）</td><td>营收 <strong>95.26 亿元</strong>（+106.8%）、归母净利 <strong>37.15 亿元</strong>（+131.5%）、研发 12.25 亿元；2025 年营收 64.97 亿元（+453%）、净利 20.59 亿元</td><td>A 股，市值 6,862 亿元，PE 164.6</td></tr>
+<tr><td class="co"><span class="co-name">海光信息</span><span class="code co-code">688041.SH</span></td><td>高端处理器（CPU+DCU，占 99.98%）</td><td>营收 <strong>149.55 亿元</strong>（+57.6%）、归母净利 <strong>28.47 亿元</strong>（+45.1%）、研发 42.80 亿元</td><td>A 股，市值 4,193 亿元，PE 122.2</td></tr>
+<tr><td class="co"><span class="co-name">摩尔线程-U</span><span class="code co-code">688795.SH</span></td><td>全功能 GPU（MUSA 架构），云端产品 97.49%</td><td>营收 <strong>32.89 亿元</strong>（+319.1%）、归母净利 0.38 亿元、研发 13.40 亿元；2026H1 营收 17.36 亿元（+147.4%）</td><td>2025-12-05 科创板上市，IPO 募近 80 亿元；2026-08 启动港股</td></tr>
+<tr><td class="co"><span class="co-name">沐曦股份-U</span><span class="code co-code">688802.SH</span></td><td>曦云 C 系列训推一体 GPU（XCore 架构 + MXMACA 软件栈）</td><td>营收 <strong>28.24 亿元</strong>（+128.4%）、归母净利 <strong>6.39 亿元</strong>（+284.9%）、研发 8.28 亿元</td><td>2025-12-17 科创板上市；四小龙中唯一账面盈利（含 8.87 亿元公允价值变动收益，不可持续）</td></tr>
+<tr><td class="co"><span class="co-name">燧原科技-U</span><span class="code co-code">688801.SH</span></td><td>云端 AI 加速卡及模组（76.22%）</td><td>营收 <strong>23.32 亿元</strong>（+331.7%）、归母净利 −7.54 亿元、研发 9.89 亿元；2023–2025 累计亏损超 43 亿元</td><td>2026-09-11 科创板上市，发行价 142.18 元、募 61.4 亿元；腾讯持股 19.95%，83.79% 营收来自腾讯</td></tr>
+<tr><td class="co"><span class="co-name">壁仞科技</span><span class="code co-code">6082.HK</span></td><td>GPGPU + BIRENSUPA 软件平台</td><td>2026H1 营收 12.36 亿元（+1,997.6%）、归母净利 −3.77 亿元</td><td>2026-01-02 港股上市，为"港股 GPU 第一股"</td></tr>
+<tr><td class="co"><span class="co-name">天数智芯</span><span class="code co-code">9903.HK</span></td><td>通用 GPU（天垓/智铠）+ 定制算力方案</td><td>2024 年收入约 7 亿元，阿里曾投资 1 亿元</td><td>港股上市</td></tr>
+<tr><td class="co"><span class="co-name">昆仑芯</span><span class="code co-code">百度旗下</span></td><td>昆仑芯系列 AI 加速卡（含超节点方案）</td><td>未单独披露</td><td>未分拆上市（母公司百度 9888.HK）</td></tr>
+<tr><td class="co"><span class="co-name">平头哥</span><span class="code co-code">阿里旗下</span></td><td>真武 M890（144GB HBM）；真武 V900 预计 2027Q1 量产，性能约为 M890 的 3 倍</td><td>未单独披露</td><td>2026-09-11 保密递表港交所，11-10 公告分拆</td></tr>
+<tr><td class="co"><span class="co-name">龙芯中科</span><span class="code co-code">688047.SH</span></td><td>信息化芯片（53.93%）+ 工控芯片</td><td>营收 3.94 亿元（+12.5%）、归母净利 −4.13 亿元、研发 3.51 亿元</td><td>A 股，市值 380 亿元</td></tr>
+<tr><td class="co"><span class="co-name">景嘉微</span><span class="code co-code">300474.SZ</span></td><td>图形显控（71.4%）+ 小型专用雷达</td><td>营收 5.53 亿元（+11.7%）、归母净利 −1.85 亿元、研发 4.41 亿元</td><td>A 股，市值 251 亿元</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout info">
+<strong>枢纽层的三个结构性判断：</strong><br>
+① <strong>份额高度集中</strong>——2026H1 国内 AI 芯片出货 200.8 万卡，英伟达份额降至 34%（较 2025 年降 21pct），剩余 66% 中昇腾占绝对多数，寒武纪/海光为第二梯队，四小龙合计仍在十万卡量级。<br>
+② <strong>盈利分化已经发生</strong>——寒武纪、海光已规模盈利；沐曦靠投资收益转正；摩尔线程接近盈亏平衡（管理层指引最早 2027 年合并报表盈利）；燧原、壁仞、龙芯、景嘉微仍亏损。<br>
+③ <strong>生态是下一道分水岭</strong>——CUDA 的护城河不在硬件而在"迁移成本"。CANN（昇腾）、MUSA（摩尔线程）、MXMACA（沐曦）、BIRENSUPA（壁仞）能否让客户"零改动迁移"，决定 2027 年之后的份额。
+</div>
+
+<h2>七、输出侧：五层"把算力卖出去"</h2>
+
+<h3>O1　整机与服务器：第一层兑现</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>角色</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">浪潮信息</span><span class="code co-code">000977.SZ</span></td><td>AI 服务器龙头</td><td>服务器及部件 92.51%；元脑 SD200 超节点；全线服务器支持液冷</td><td>R5 / R7</td></tr>
+<tr><td class="co"><span class="co-name">中科曙光</span><span class="code co-code">603019.SH</span></td><td>高端计算 + 超节点</td><td>IT 设备 89.28%；ScaleX640 超节点；全国 50+ 城市云计算中心</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">紫光股份</span><span class="code co-code">000938.SZ</span></td><td>ICT 全栈（新华三）</td><td>ICT 基础设施 80.18%；UniPoD S8000 支持 32–1,024 卡、可扩至 16,384 卡；今日 13:30 涨停</td><td>R5 / R1（自供交换机）</td></tr>
+<tr><td class="co"><span class="co-name">中兴通讯</span><span class="code co-code">000063.SZ</span></td><td>通信 + 算力</td><td>运营商网络 40.71%、政企 35.41%；OEX 超节点；亦为燧原 IPO 基石投资者</td><td>R5 / R6</td></tr>
+<tr><td class="co"><span class="co-name">华勤技术</span><span class="code co-code">603296.SH</span></td><td>ODM（服务器/超节点整机柜）</td><td>计算及数据业务 46.23%；AI 超节点整机柜系统；2026Q3 超节点收入 61.9 亿元</td><td>R2（代工）/ R5</td></tr>
+<tr><td class="co"><span class="co-name">神州数码</span><span class="code co-code">000034.SZ</span></td><td>神州鲲泰整机 + 分销</td><td>昇腾优选级伙伴；2026-03 发布基于昇腾 950PR 的整机；今日 10:01 涨停</td><td>R5 / R3</td></tr>
+<tr><td class="co"><span class="co-name">拓维信息</span><span class="code co-code">002261.SZ</span></td><td>兆瀚服务器</td><td>首批昇腾硬件生产合作厂商；2025 年承接约 35% 昇腾服务器订单；今日 09:33 涨停</td><td>R2 / R5</td></tr>
+<tr><td class="co"><span class="co-name">高新发展</span><span class="code co-code">000628.SZ</span></td><td>华鲲振宇（拟收购 70%）</td><td>华鲲振宇为华为服务器 OEM 份额第一梯队；今日 11:16 涨停</td><td>R6（并购）</td></tr>
+<tr><td class="co"><span class="co-name">烽火通信</span><span class="code co-code">600498.SH</span></td><td>长江计算整机</td><td>昇腾整机伙伴，已发布基于 950PR 的 Atlas 350 服务器</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">四川长虹</span><span class="code co-code">600839.SH</span></td><td>虹信软件天宫系列</td><td>昇腾 AI 服务器；今日 13:20 涨停</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">广电运通</span><span class="code co-code">002152.SZ</span></td><td>广电五舟</td><td>鲲鹏 + 昇腾"存算双引擎"</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">软通动力</span><span class="code co-code">301236.SZ</span></td><td>软通华方 + 天璇 2.0 MaaS</td><td>昇腾部件伙伴 + 钻石 APN；今日 13:00 涨停</td><td>R3 / R5</td></tr>
+<tr><td class="co"><span class="co-name">慧博云通</span><span class="code co-code">301316.SZ</span></td><td>拟收购宝德计算</td><td>宝德在手订单 30.33 亿元，昇腾服务器曾中标联通数科智算集采第一</td><td>R6</td></tr>
+<tr><td colspan="5" class="small"><strong>未上市整机厂：</strong>超聚变（FusionPod 超节点）、华鲲振宇、宝德计算、河南昆仑——四家合计占据华为服务器 OEM 的主要份额，是"输出侧"最大的一块非上市资产。</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>O2　超节点与集群：把"卡"变成"一台机器"</h3>
+<div class="grid g2">
+  <div class="card tight">
+    <h4>整机柜方案（Scale-up）</h4>
+    <ul class="small">
+      <li><strong>紫光股份</strong> UniPoD S8000：32–1,024 卡，可扩至 16,384 卡</li>
+      <li><strong>中科曙光</strong> ScaleX640</li>
+      <li><strong>浪潮信息</strong> 元脑 SD200</li>
+      <li><strong>中兴通讯</strong> OEX</li>
+      <li><strong>超聚变</strong> FusionPod（未上市）</li>
+      <li><strong>华勤技术</strong>：昇腾超节点核心 ODM</li>
+    </ul>
+  </div>
+  <div class="card tight">
+    <h4>芯片厂自研超节点（互联规格）</h4>
+    <ul class="small">
+      <li>华为昇腾 960：<strong>1,024 卡</strong></li>
+      <li>沐曦 曦景 S600</li>
+      <li>燧原 ESL64-O</li>
+      <li>天数 IXL144</li>
+      <li>壁仞 光跃 128 卡</li>
+      <li>摩尔线程 MTTC256</li>
+    </ul>
+    <p class="small" style="color:var(--muted)">卡数即互联复杂度，直接决定交换芯片、铜连接、光模块、液冷的用量。</p>
+  </div>
+</div>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>在超节点中的角色</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">锐捷网络</span><span class="code co-code">301165.SZ</span></td><td>数据中心交换机（网络设备 91.7%）</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">星网锐捷</span><span class="code co-code">002396.SZ</span></td><td>交换机/网络设备，今日 13:05 涨停</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">盛科通信-U</span><span class="code co-code">688702.SH</span></td><td>交换芯片（超节点的"交通枢纽"）</td><td>R1</td></tr>
+<tr><td class="co"><span class="co-name">恒为科技</span><span class="code co-code">603496.SH</span></td><td>OCS 光交换机；与中贝通信共建前海智算中心</td><td>R1 / R4</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>O3　智算中心 / 算力租赁 / 云：把"卡"变成"Token"</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>模式</th><th>关键事实</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">优刻得-W</span><span class="code co-code">688158.SH</span></td><td>中立公有云 + 智算</td><td>云计算 59.47%、IDC/AIDC 28.97%；GPU 云主机</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">首都在线</span><span class="code co-code">300846.SZ</span></td><td>全球云网 + 智算云</td><td>云主机 65.9%、IDC 32.72%；30 个可用区</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">光环新网</span><span class="code co-code">300383.SZ</span></td><td>IDC + 云</td><td>云计算 63.79%、IDC 35.17%；已推出高性能算力业务</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">润建股份</span><span class="code co-code">002929.SZ</span></td><td>算力网络运维 + 智算</td><td>算力网络业务 13.82%、通信网络 49.33%；今日 11:25 涨停</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">弘信电子</span><span class="code co-code">300657.SZ</span></td><td>算力产品及服务</td><td>算力相关已占 43.41%，FPC 主业 48.74%</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">中贝通信</span><span class="code co-code">603220.SH</span></td><td>算力租赁</td><td>今日 09:37 涨停；与恒为共建前海智算中心</td><td>R4 / R5</td></tr>
+<tr><td class="co"><span class="co-name">大位科技</span><span class="code co-code">600589.SH</span></td><td>算力租赁</td><td>今日 09:30 涨停</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">浙大网新</span><span class="code co-code">600797.SH</span></td><td>算力租赁 / 智慧城市</td><td>今日 09:30 涨停</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">证通电子</span><span class="code co-code">002197.SZ</span></td><td>IDC + 算力租赁</td><td>今日 09:25 涨停（最早一批）</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">利通电子</span><span class="code co-code">603629.SH</span></td><td>算力租赁</td><td>今日 13:30 涨停</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">新炬网络</span><span class="code co-code">605398.SH</span></td><td>IT 运维 + 算力</td><td>今日 13:35 涨停</td><td>R5</td></tr>
+<tr><td colspan="5" class="small"><strong>云厂商侧：</strong>阿里云、华为云、腾讯云为最大三家国产算力采购方。资本开支：腾讯 2026Q2 <strong>527.84 亿元</strong>（+176%）、阿里 <strong>676.78 亿元</strong>（+75%）、字节 2026 年最高 <strong>700 亿美元</strong>。</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>O4　软件栈与基础软件：生态的"收费站"</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>产品</th><th>与国产算力的关系</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">中国软件</span><span class="code co-code">600536.SH</span></td><td>麒麟操作系统（参股）+ 行业软件</td><td>今日 11:01 涨停；国产算力底座的操作系统层</td><td>R3</td></tr>
+<tr><td class="co"><span class="co-name">达梦数据</span><span class="code co-code">688692.SH</span></td><td>数据库</td><td>与国产 CPU/加速卡完成适配，是"整机—数据库"联调的关键</td><td>R3</td></tr>
+<tr><td class="co"><span class="co-name">海量数据</span><span class="code co-code">603138.SH</span></td><td>数据库（Vastbase）</td><td>鲲鹏/昇腾生态适配</td><td>R3</td></tr>
+<tr><td class="co"><span class="co-name">麒麟信安</span><span class="code co-code">688152.SH</span></td><td>操作系统 + 信息安全</td><td>电力、国防等关键行业国产化底座</td><td>R3</td></tr>
+<tr><td class="co"><span class="co-name">诚迈科技</span><span class="code co-code">300598.SZ</span></td><td>操作系统技术 + 鸿蒙生态</td><td>今日 13:30 涨停；统信软件参股方</td><td>R3</td></tr>
+<tr><td class="co"><span class="co-name">润和软件</span><span class="code co-code">300339.SZ</span></td><td>鸿蒙/欧拉 + 昇腾一体机</td><td>IntelliCore 昇腾一体机；今日 09:39 涨停（20CM）</td><td>R3 / R5</td></tr>
+<tr><td class="co"><span class="co-name">科大讯飞</span><span class="code co-code">002230.SZ</span></td><td>大模型 + 行业应用</td><td>星火大模型全面基于国产算力训练，是"输出侧"最大的单一买家之一</td><td>R5</td></tr>
+</tbody>
+</table>
+</div>
+
+<h3>O5　行业应用与系统集成：最后一百米</h3>
+<div class="table-wrap">
+<table>
+<thead><tr><th>公司</th><th>行业</th><th>与国产算力的关系</th><th>关系</th></tr></thead>
+<tbody>
+<tr><td class="co"><span class="co-name">常山北明</span><span class="code co-code">000158.SZ</span></td><td>软件与信息技术服务</td><td>北明软件为华为多产品<strong>钻石级经销商</strong>、昇腾生态核心伙伴；系统集成及行业解决方案占 82.72%；今日 09:25 涨停</td><td>R5 / R3</td></tr>
+<tr><td class="co"><span class="co-name">东华软件</span><span class="code co-code">002065.SZ</span></td><td>医疗/金融 IT</td><td>具备 CANN 全栈服务能力；今日 13:05 涨停</td><td>R3 / R5</td></tr>
+<tr><td class="co"><span class="co-name">太极股份</span><span class="code co-code">002368.SZ</span></td><td>政务总集</td><td>华为/鲲鹏生态总集商；今日 10:09 涨停</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">华胜天成</span><span class="code co-code">600410.SH</span></td><td>算力平台集成运维</td><td>多省智算中心建设与运维；今日 10:11 涨停</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">天源迪科</span><span class="code co-code">300047.SZ</span></td><td>电信/公安 IT</td><td>华为/鲲鹏/AI 算力标签；今日 09:33 涨停（20CM）</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">云鼎科技</span><span class="code co-code">000409.SZ</span></td><td>矿山智能化</td><td>今日 09:39 涨停；行业大模型落地</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">神州信息</span><span class="code co-code">000555.SZ</span></td><td>金融科技</td><td>今日 13:03 涨停；鲲鹏生态</td><td>R5</td></tr>
+<tr><td class="co"><span class="co-name">科蓝软件</span><span class="code co-code">300663.SZ</span></td><td>银行 IT</td><td>今日 13:00 涨停；鲲鹏/华为标签</td><td>R5</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>八、关系分类总表：谁靠谁赚钱</h2>
+<p class="lead">把前面九层输入、五层输出压缩成一张"关系表"，可以看出价值在链条上的分布：<strong>越靠近"物理不可替代"的环节，议价权越强；越靠近"集成与租赁"的环节，收入越大但利润越薄。</strong></p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th>关系</th><th>方向</th><th>代表组合</th><th>商业含义</th><th>今日涨停验证</th></tr></thead>
+<tbody>
+<tr><td><strong>设备 → 晶圆厂/HBM 厂</strong></td><td>输入</td><td>拓荆（W2W 键合）→ 长鑫/盛合晶微；北方华创 → 中芯/华虹</td><td>capex 先行，订单领先出货 2–4 个季度；国产化率仍低，弹性最大</td><td>北方华创 13:01、拓荆 13:44、中科飞测 13:03、长川 13:04 集体涨停</td></tr>
+<tr><td><strong>材料 → 封装/HBM</strong></td><td>输入</td><td>雅克（前驱体）→ SK 海力士/长鑫；华海诚科（GMC）→ 封测厂</td><td>单位用量随堆叠层数上升，涨价传导最快</td><td>雅克 13:04、华海诚科 10:35、华正 13:00、新金路 13:29</td></tr>
+<tr><td><strong>载板/连接器 → 芯片/整机</strong></td><td>输入</td><td>兴森（ABF 载板 60–70%）→ 昇腾；华丰（铜连接 &gt;60%）→ 昇腾服务器</td><td>份额即定价权，验证周期 12–18 个月形成护城河</td><td>兴森 10:51、深南 11:17、华丰 13:02、意华 10:29</td></tr>
+<tr><td><strong>代工/封测 → 芯片</strong></td><td>输入</td><td>中芯/华虹 → 寒武纪/海光/四小龙；通富 → 长鑫 HBM 样品</td><td>产能分配决定芯片厂出货上限</td><td>华虹 +20.00% 涨停、甬矽 13:45、通富 13:35、长电 13:03、伟测 13:25</td></tr>
+<tr><td><strong>芯片 → 整机厂</strong></td><td>输出</td><td>昇腾 → 华鲲振宇/神州鲲泰/宝德/超聚变；寒武纪 → 浪潮/曙光</td><td>整机厂毛利率 10–20%，靠规模与交付速度取胜</td><td>神州数码 10:01、拓维 09:33、高新发展 11:16、四川长虹 13:20</td></tr>
+<tr><td><strong>芯片 → 超节点/集群</strong></td><td>输出</td><td>昇腾 960（1,024 卡）→ 紫光 UniPoD / 曙光 ScaleX / 浪潮 SD200</td><td>单柜价值量是普通服务器的 5–10 倍，互联与液冷占比大幅提升</td><td>紫光 13:30、盛科 13:26、恒为 09:58、星网锐捷 13:05</td></tr>
+<tr><td><strong>芯片 → 算力运营</strong></td><td>输出</td><td>昇腾/寒武纪 → 智算中心 → 按卡时/Token 出租</td><td>重资产、高折旧，利用率是生死线（通常需 &gt;60%）</td><td>证通 09:25、大位 09:30、浙大网新 09:30、中贝 09:37、润建 11:25</td></tr>
+<tr><td><strong>生态认证/渠道</strong></td><td>双向</td><td>常山北明（钻石级）、卡莱特（钻石 APN）、软通动力（钻石 APN）、奥尼电子（银牌）</td><td>认证等级决定拿货价与项目投标资格，是"软壁垒"</td><td>常山北明 09:25（最早涨停）、软通 13:00、卡莱特 11:13</td></tr>
+<tr><td><strong>资本关系</strong></td><td>双向</td><td>高新发展→华鲲振宇 70%；慧博云通→宝德；腾讯→燧原 19.95%；中兴→燧原基石</td><td>并购/参股是"A 股获得未上市算力资产"的唯一通道，估值弹性最大</td><td>高新发展 11:16</td></tr>
+<tr><td><strong>竞争/替代</strong></td><td>芯片 ↔ 芯片</td><td>昇腾 vs 寒武纪 vs 海光 vs 四小龙；CANN vs CUDA</td><td>同一笔算力预算的零和分配；生态迁移成本决定长期格局</td><td>寒武纪 +15.74%、海光 +14.28%、燧原 +16.08% 同步大涨——当前是"共同做大"而非"互相蚕食"</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>九、今日涨停股全景映射（按产业链节点归类）</h2>
+<p class="lead">14:07 时点全市场 304 只涨停，其中 160 只带算力/半导体相关标签。下表按本报告的节点体系归类，括号内为<strong>首次涨停时间</strong>——时间越早，代表资金对该节点的"共识"越强。</p>
+
+<div class="table-wrap">
+<table>
+<thead><tr><th style="width:15%">节点</th><th>涨停个股（代码 · 首次涨停时间）</th></tr></thead>
+<tbody>
+<tr><td><strong>芯片设计 / IP / 定制</strong><br><span class="tag t-in">输入</span></td><td class="small">芯原股份（688521 · 13:43）、灿芯股份（688691 · 11:11）、国科微（300672 · 13:59）、瑞芯微（603893 · 13:29）、博通集成（603068 · 13:26）、新洁能（605111 · 13:28）、立昂微（605358 · 13:06）、燕东微（688172 · 13:10）</td></tr>
+<tr><td><strong>晶圆代工</strong><br><span class="tag t-in">输入</span></td><td class="small">华虹宏力（688347 · 13:25，+20.00% 涨停）</td></tr>
+<tr><td><strong>存储 / HBM</strong><br><span class="tag t-in">输入</span></td><td class="small">深科技（000021 · 13:46）、德明利（001309 · 14:00）、时空科技（605178 · 10:09）、中电鑫龙（002298 · 09:30）</td></tr>
+<tr><td><strong>封装 / 测试</strong><br><span class="tag t-in">输入</span></td><td class="small">通富微电（002156 · 13:35）、长电科技（600584 · 13:03）、甬矽电子（688362 · 13:45）、晶方科技（603005 · 13:26）、金海通（603061 · 10:31）、华峰测控（688200 · 13:44）、伟测科技（688372 · 13:25）、精智达（688627 · 13:02）、大港股份（002077 · 10:43）、康强电子（002119 · 10:42）、华亚智能（003043 · 13:02）、赛腾股份（603283 · 13:00）</td></tr>
+<tr><td><strong>半导体设备</strong><br><span class="tag t-in">输入</span></td><td class="small">北方华创（002371 · 13:01）、拓荆科技（688072 · 13:44）、中科飞测（688361 · 13:03）、长川科技（300604 · 13:04）、芯碁微装（688630 · 11:20）、华海清科（688120 · 13:26）、京仪装备（688652 · 10:52）、芯源微（688037 · 13:06）、富创精密（688409 · 13:06）、正帆科技（688596 · 13:26）、至纯科技（603690 · 13:26）、精测电子（300567 · 11:09）、强一股份（688809 · 13:03）、臻宝科技（688797 · 13:25）、恒运昌（688785 · 13:25）、大族激光（002008 · 13:26）</td></tr>
+<tr><td><strong>材料 / 光刻配套</strong><br><span class="tag t-in">输入</span></td><td class="small">雅克科技（002409 · 13:04）、华海诚科（688535 · 10:35）、江丰电子（300666 · 13:26）、有研新材（600206 · 13:36）、彤程新材（603650 · 13:06）、东材科技（601208 · 13:27）、新金路（000510 · 13:29）、东方钽业（000962 · 13:43）、福晶科技（002222 · 13:00）、奥普光电（002338 · 13:07）、茂莱光学（688502 · 13:45）、波长光电（301421 · 14:02）、联合化学（301209 · 13:26）、英杰电气（300820 · 13:25）、张江高科（600895 · 13:28）、东方嘉盛（002889 · 13:17）、冠石科技（605588 · 13:10）</td></tr>
+<tr><td><strong>载板 / PCB / 连接器</strong><br><span class="tag t-in">输入</span></td><td class="small">兴森科技（002436 · 10:51）、深南电路（002916 · 11:17）、广合科技（001389 · 13:31）、景旺电子（603228 · 13:47）、崇达技术（002815 · 13:26）、红板科技（603459 · 13:49）、东山精密（002384 · 13:02）、华丰科技（688629 · 13:02）、意华股份（002897 · 10:29）、长飞光纤（601869 · 13:43）、长盈通（688143 · 13:25）、航天电器（002025 · 13:00）、中瓷电子（003031 · 13:35）、宏和科技（603256 · 13:41）、江南新材（603124 · 13:29）</td></tr>
+<tr><td><strong>光互联 / 交换芯片</strong><br><span class="tag t-in">输入</span></td><td class="small">盛科通信-U（688702 · 13:26）、光迅科技（002281 · 13:04）、华工科技（000988 · 13:09）、腾景科技（688195 · 10:30）、源杰科技（688498 · 13:10）、德科立（688205 · 13:00）、剑桥科技（603083 · 13:09）、长光华芯（688048 · 13:44）、天通股份（600330 · 13:26）、旭光电子（600353 · 13:26）、华懋科技（603306 · 10:28）</td></tr>
+<tr><td><strong>电源 / 液冷 / 温控</strong><br><span class="tag t-in">输入</span></td><td class="small">杰华特（688141 · 13:06）、英维克（002837 · 13:06）、佳力图（603912 · 10:36）、飞龙股份（002536 · 11:11）、宏盛股份（603090 · 10:52）、大元泵业（603757 · 13:43）、胜蓝股份（300843 · 13:00）、博杰股份（002975 · 13:47）、捷荣技术（002855 · 09:59）、华升股份（600156 · 14:02）、威派格（603956 · 13:22）</td></tr>
+<tr><td><strong>整机 / 超节点 / 华为生态</strong><br><span class="tag t-out">输出</span></td><td class="small">常山北明（000158 · 09:25）、深圳华强（000062 · 09:36）、拓维信息（002261 · 09:33）、天源迪科（300047 · 09:33）、润和软件（300339 · 09:39）、云鼎科技（000409 · 09:39）、荣联科技（002642 · 09:46）、恒为科技（603496 · 09:58）、神州数码（000034 · 10:01）、太极股份（002368 · 10:09）、华胜天成（600410 · 10:11）、中国软件（600536 · 11:01）、高新发展（000628 · 11:16）、卡莱特（301391 · 11:13）、软通动力（301236 · 13:00）、科蓝软件（300663 · 13:00）、竞业达（003005 · 13:00）、神州信息（000555 · 13:03）、电科数字（600850 · 13:04）、东华软件（002065 · 13:05）、南天信息（000948 · 13:07）、四川长虹（600839 · 13:20）、紫光股份（000938 · 13:30）、诚迈科技（300598 · 13:30）、星网锐捷（002396 · 13:05）</td></tr>
+<tr><td><strong>算力租赁 / IDC / 智算</strong><br><span class="tag t-out">输出</span></td><td class="small">证通电子（002197 · 09:25）、大位科技（600589 · 09:30）、浙大网新（600797 · 09:30）、航锦科技（000818 · 09:33）、中贝通信（603220 · 09:37）、南兴股份（002757 · 11:02）、莲花控股（600186 · 11:23）、润建股份（002929 · 11:25）、梦网科技（002123 · 13:00）、盛视科技（002990 · 13:00）、智微智能（001339 · 13:07）、利通电子（603629 · 13:30）、新炬网络（605398 · 13:35）、高乐股份（002348 · 13:39）、宏景科技（301396 · 13:49）</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="callout ok">
+<strong>从涨停结构能读出三件事：</strong><br>
+① <strong>输入侧涨停家数明显多于输出侧（本表归类约 95 只 vs 约 40 只）</strong>——说明本轮定价的核心是"扩产"而非"需求"，资金在买设备、材料、封测、存储的订单弹性。<br>
+② <strong>时间上"输出侧先、输入侧后"</strong>——09:25–09:40 先由算力租赁与华为生态秒板打开情绪，13:00 后设备与封测接力。这是典型的"情绪—基本面"传导路径。<br>
+③ <strong>20CM 品种集中在输出侧</strong>——天源迪科、润和软件、法本信息、艾布鲁、天亿马等创业板/科创板标的涨幅更大，说明小市值+生态标签的弹性最高，但也意味着波动风险最高。
+</div>
+
+<h2>十、重点公司卡片（10 家）</h2>
+
+<div class="grid g2">
+  <div class="card">
+    <h4>寒武纪 · 688256.SH <span class="tag t-hub">枢纽</span></h4>
+    <p class="small">国产 AI 芯片"纯正标的"：云端产品线占 99.98%。2026 年前三季度营收 95.26 亿元（+106.8%）、归母净利 37.15 亿元（+131.5%），已进入规模盈利。2025 年营收 64.97 亿元（+453%）、净利 20.59 亿元。股权激励考核目标为 2026–2028 年营收 135/270/595 亿元，隐含三年 4.4 倍增长。今日 +15.74%，市值 6,862 亿元，PE 164.6 倍。<br><strong>关键变量：</strong>能否进入更多云厂商的推理集群；思元系列对 HBM 的采购保障。</p>
+  </div>
+  <div class="card">
+    <h4>海光信息 · 688041.SH <span class="tag t-hub">枢纽</span></h4>
+    <p class="small">"CPU+DCU"双轮，高端处理器占 99.98%。2026 年前三季度营收 149.55 亿元（+57.6%）、归母净利 28.47 亿元（+45.1%），研发投入 42.80 亿元（全链条最高）。x86 生态兼容性是其相对昇腾的差异化优势，金融、电信、能源行业渗透深。今日 +14.28%，市值 4,193 亿元，PE 122.2 倍。<br><strong>关键变量：</strong>深算三号流片进度；与中科曙光的协同（同一实控体系）。</p>
+  </div>
+  <div class="card">
+    <h4>摩尔线程-U · 688795.SH <span class="tag t-hub">枢纽</span></h4>
+    <p class="small">"全功能 GPU"路线，MUSA 架构同时覆盖 AI 计算与图形渲染。2026 年前三季度营收 32.89 亿元（+319.1%）、归母净利 0.38 亿元（接近盈亏平衡）、研发 13.40 亿元；2026H1 营收 17.36 亿元（+147.4%），已超 2025 年全年。管理层指引最早 2027 年合并报表盈利。2025-12-05 科创板上市、IPO 募近 80 亿元，2026-08 启动港股。今日 +11.97%，市值 1,363 亿元。<br><strong>关键变量：</strong>MUSA 生态的迁移工具成熟度；港股融资进度。</p>
+  </div>
+  <div class="card">
+    <h4>沐曦股份-U · 688802.SH <span class="tag t-hub">枢纽</span></h4>
+    <p class="small">曦云 C 系列训推一体 GPU，XCore 架构 + MXMACA 软件栈。2026 年前三季度营收 28.24 亿元（+128.4%）、归母净利 6.39 亿元（+284.9%），是"四小龙"中唯一账面盈利者——但需注意其中 8.87 亿元来自交易性金融资产公允价值变动（占利润总额 105.75%），公司明确"不具有可持续性"。今日 +13.36%，市值 1,515 亿元，PE 776.7 倍（估值最贵）。<br><strong>关键变量：</strong>剔除投资收益后的主营盈利能力；解禁压力。</p>
+  </div>
+  <div class="card">
+    <h4>中芯国际 · 688981.SH <span class="tag t-in">输入</span></h4>
+    <p class="small">国产算力芯片的"总产能阀门"。所有 7nm 级国产 GPU/CPU 的出货上限，最终由它的产能分配决定。今日 +13.31%，市值 6,104 亿元，PE 132.4 倍，单日成交额居科创板前列。<br><strong>关键变量：</strong>先进制程扩产节奏；设备与零部件供应（尤其光刻）；产能向 AI 芯片的倾斜比例。</p>
+  </div>
+  <div class="card">
+    <h4>长鑫科技 · 688825.SH <span class="tag t-in">输入</span></h4>
+    <p class="small">国产 DRAM/HBM 唯一规模玩家。合肥两座 + 北京一座 12 英寸厂合计月产能约 30 万片；HBM2E 月产能约 5,000 片，HBM3 预计 2027Q2 末–Q3 交付、月产能 2 万片以上（上限近 3 万片）。单晶圆容量 300–350GB（三星 600–700GB），良率约为三星一半。已与通富微电合作开发 HBM 样品。若 2027 年出货 300 万颗 24GB 等效 HBM3，可支撑 50–75 万颗国产 GPU。<br><strong>关键变量：</strong>HBM3 良率爬坡；混合键合设备（拓荆）交付。</p>
+  </div>
+  <div class="card">
+    <h4>兴森科技 · 002436.SZ <span class="tag t-in">输入</span></h4>
+    <p class="small">昇腾 ABF 载板份额 60–70%，22 层已量产、良率 &gt;90%，950DT 相关订单约 5 亿元量级；IC 载板已进入华为鲲鹏供应链，昇腾载板处于验证中。今日 10:51 涨停，是"载板国产化"最纯粹的标的。<br><strong>关键变量：</strong>ABF 膜（华正新材）国产替代进度；载板产能利用率。</p>
+  </div>
+  <div class="card">
+    <h4>华丰科技 · 688629.SH <span class="tag t-in">输入</span></h4>
+    <p class="small">昇腾服务器铜缆连接器份额 &gt;60%，224G 高速线模组已批量交付；2026Q3 交付千套级、Q4 万套级；2027 年高速互联份额预计维持 50%+；NPO Socket 2025 年已有百万级收入、2027 年起量。按 2027 年 300 万颗昇腾测算，高速互联市场约 200 亿元。今日 13:02 涨停。<br><strong>关键变量：</strong>铜连接 vs 光连接的路线之争；单柜价值量提升幅度。</p>
+  </div>
+  <div class="card">
+    <h4>紫光股份 · 000938.SZ <span class="tag t-out">输出</span> <span class="tag t-in">输入</span></h4>
+    <p class="small">ICT 全栈（新华三），ICT 基础设施占 80.18%。UniPoD S8000 超节点支持 32–1,024 卡、可扩至 16,384 卡，是国内卡数规格最高的整机柜方案之一；同时自供数据中心交换机（既是"输入"也是"输出"）。今日 13:30 涨停。<br><strong>关键变量：</strong>运营商与互联网客户的超节点集采份额；自研交换芯片进度。</p>
+  </div>
+  <div class="card">
+    <h4>浪潮信息 · 000977.SZ <span class="tag t-out">输出</span></h4>
+    <p class="small">全球 AI 服务器出货量第一梯队，服务器及部件占 92.51%；元脑 SD200 超节点、全线服务器支持液冷，建成亚洲最大液冷数据中心研发生产基地。是国产算力芯片"出货量兑现"的最直接载体。<br><strong>关键变量：</strong>毛利率（受芯片采购成本挤压）；互联网客户 capex 节奏；海外供应链限制。</p>
+  </div>
+</div>
+
+<h2>十一、投资逻辑、验证指标与风险</h2>
+
+<h3>11.1 三条主线</h3>
+<div class="grid g3">
+  <div class="card tight">
+    <h4>主线一：HBM 国产化（弹性最大）</h4>
+    <p class="small">华为自研 HBM 入选 ISSCC 2027，把"存储墙"从不可能变成"2027 年可交付"。对应设备（拓荆 W2W 键合、中微 TSV 刻蚀、华海清科减薄）、材料（雅克前驱体、华海诚科 GMC、联瑞硅微粉）、封测（盛合晶微、通富、长电）、载板（兴森）四条支线。</p>
+  </div>
+  <div class="card tight">
+    <h4>主线二：超节点与互联（确定性最高）</h4>
+    <p class="small">卡数从 8 卡/台走向 1,024 卡/柜，互联与散热的价值占比从 10% 提升到 25–30%。对应交换芯片（盛科）、铜连接（华丰、中航光电、意华）、光模块（光迅、中际旭创、新易盛）、液冷（英维克、申菱、飞荣达）。2027 年高速互联+液冷合计约 350 亿元市场。</p>
+  </div>
+  <div class="card tight">
+    <h4>主线三：芯片厂盈利兑现（分化最大）</h4>
+    <p class="small">寒武纪、海光已规模盈利；摩尔线程接近平衡；沐曦靠投资收益；燧原、壁仞仍亏损。2026Q3 五家上市芯片公司单季营收 136.5 亿元（+113%）、归母净利 24.1 亿元（+450%）。选股应从"讲路线"转向"看毛利率与在手订单"。</p>
+  </div>
+</div>
+
+<h3>11.2 五个可跟踪的验证指标</h3>
+<ol>
+  <li><strong>长鑫 HBM3 月产能</strong>：从 5,000 片（HBM2E）到 2 万片以上的爬坡节奏，是 2027 年国产 GPU 出货的硬约束。</li>
+  <li><strong>中芯国际先进制程产能分配</strong>：AI 芯片占其 12 英寸产能的比例，决定寒武纪/海光/四小龙的出货上限。</li>
+  <li><strong>三大运营商超节点集采</strong>：2026 年 10 月以来已近 380 亿元，下一轮招标的卡数规格与国产化率是直接读数。</li>
+  <li><strong>昇腾 960 的量产时点</strong>：2027Q1 出货、288GB/9.6TB/s，若如期则国产算力首次在带宽上超过 B300（8TB/s）。</li>
+  <li><strong>芯片厂毛利率</strong>：HBM 成本占 GPU 物料近 50%，若 HBM 涨价而售价不能传导，芯片厂毛利率将率先反映。</li>
+</ol>
+
+<h3>11.3 风险提示</h3>
+<div class="callout warn">
+<strong>① 估值风险：</strong>沐曦 PE 776.7 倍、华虹 237 倍、寒武纪 164.6 倍、中芯 132.4 倍，多数标的已透支 2027 年业绩；今日 304 只涨停中相当比例为"标签涨停"，与基本面无关。<br>
+<strong>② 产能与良率风险：</strong>国产 HBM 良率约为三星一半，单晶圆容量仅 300–350GB（三星 600–700GB）；HBM3 若延期，2027 年出货预测需下修。<br>
+<strong>③ 供应链风险：</strong>先进制程设备、EDA、ABF 膜、部分光芯片仍依赖进口；外部管制若进一步收紧，扩产节奏会被打断。<br>
+<strong>④ 生态迁移风险：</strong>CUDA 迁移成本是国产芯片最大的隐性壁垒，若 CANN/MUSA/MXMACA 的适配工具不成熟，客户"买了卡用不起来"，将导致库存与减值。<br>
+<strong>⑤ 情绪与流动性风险：</strong>单日 304 只涨停、半导体指数 +13.63% 属于极端情绪读数，历史上此类交易日之后 5–10 个交易日的波动率显著抬升；追高需严格止损。
+</div>
+
+<h2>十二、数据来源与免责声明</h2>
+
+<div class="card">
+<h4>数据来源</h4>
+<ul class="src">
+<li>Wind 金融终端：A 股涨跌停与概念板块（2026-11-27 14:07 快照，304 只）、个股行情与估值（14:08–14:09 快照）、公司主营构成与公司简介、财务数据（2026 年三季报累计口径）。</li>
+<li>指数行情：申万半导体（801081.SI）+13.63%、申万电子（801080.SI）+11.69%、科创 50（000688.SH）+13.17%、创业板指（399006.SZ）+9.68%、深证成指（399001.SZ）+6.16%、上证指数（000001.SH）+3.26%。</li>
+<li>政策文件：广东省《算力发展"十五五"规划》（2026-11-26 印发）；工信部等《新一代通信网建设实施方案》；商务部等 8 部门服务贸易规划。</li>
+<li>行业与公司信息：华为 ISSCC 2027 入选论文（2026-11-24 至 11-26 报道）；英国《金融时报》关于英伟达暂停向马来西亚、新加坡、泰国、印尼发运的报道（2026-11-27）；各公司招股说明书、半年报、三季报、投资者关系活动记录表。</li>
+<li>券商研究：国投证券、光大证券、招商证券、长江证券、华创证券、华西证券、开源证券相关周报与行业深度（2026 年 8–11 月）。</li>
+<li>媒体来源：证券时报、上海证券报、财联社、格隆汇、腾讯新闻、金融界、凤凰财经等公开报道。</li>
+</ul>
+</div>
+
+<div class="callout info">
+<strong>口径说明：</strong>①"最新经营数据"为 2026 年三季报累计口径（年初至 9 月末），与单季数据不可直接比较；②市值与 PE 为 2026-11-27 盘中 14:08 动态值，收盘后可能变化；③"份额""订单金额"等来自公司公告、投资者关系记录或券商测算，属于预测性数据，存在偏差；④未上市公司（华为海思、超聚变、华鲲振宇、宝德计算、河南昆仑、昆仑芯、平头哥）无证券代码，仅作产业链定位说明。
+</div>
+
+<footer>
+<p><strong>免责声明：</strong>本报告基于公开信息与 Wind 数据整理，仅用于产业链研究与信息梳理，不构成任何投资建议或买卖推荐。报告中的预测、份额、订单等前瞻性表述受宏观环境、技术路线、供应链与政策变化影响，可能与实际情况存在重大差异。投资者应独立判断并自行承担投资风险。文中提及的证券仅作产业链环节的示例说明，不代表对其投资价值的评价。</p>
+<p>报告生成时间：2026-11-27（盘中）｜数据时点：14:07–14:09｜框架：输入侧 9 层 / 输出侧 5 层 / 7 类关系</p>
+</footer>
+
+</div>
+</body>
+</html>

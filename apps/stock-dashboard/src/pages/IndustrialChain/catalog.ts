@@ -1,6 +1,6 @@
 import type { ChainCatalogItem } from './types';
 
-/** 官方主链目录（§1.2）；已开放 C01 / C05 / C06 */
+/** 官方主链目录（§1.2）；已开放 C01 / C04 / C05 / C06 */
 export const CHAIN_CATALOG: ChainCatalogItem[] = [
   {
     id: 'C01',
@@ -21,6 +21,12 @@ export const CHAIN_CATALOG: ChainCatalogItem[] = [
     blurb: 'L1–L5 + 输入/输出 · 报告全文可点 K 线',
   },
   {
+    id: 'C04',
+    name: '国产算力芯片',
+    depth: 'observe',
+    blurb: '输入 I1–I9 → 芯片枢纽 → 输出 O1–O5 · 报告全文可点 K 线',
+  },
+  {
     id: 'C02',
     name: '铜',
     depth: 'placeholder',
@@ -33,13 +39,6 @@ export const CHAIN_CATALOG: ChainCatalogItem[] = [
     depth: 'placeholder',
     building: true,
     blurb: '资源 → 电芯 → 整车 / 储能（建设中）',
-  },
-  {
-    id: 'C04',
-    name: 'AI 算力',
-    depth: 'placeholder',
-    building: true,
-    blurb: '可与 C01 / C05 交叉（建设中）',
   },
   {
     id: 'C07',

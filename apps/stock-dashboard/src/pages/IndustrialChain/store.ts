@@ -3,6 +3,7 @@
  */
 
 import { C01_SEED } from './seed/c01Semiconductor';
+import { C04_SEED } from './seed/c04DomesticAiChip';
 import { C05_SEED } from './seed/c05CloudDc';
 import { C06_SEED } from './seed/c06Ascend';
 import type { IndustrialChainGraph } from './types';
@@ -12,6 +13,7 @@ const STORAGE_VERSION = 'v1';
 
 const SEEDS: Record<string, IndustrialChainGraph> = {
   C01: C01_SEED,
+  C04: C04_SEED,
   C05: C05_SEED,
   C06: C06_SEED,
 };
