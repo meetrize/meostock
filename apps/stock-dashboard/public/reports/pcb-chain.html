@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta name="data-asof" content="2026-11-27"/>
+<meta name="chain-id" content="C09"/>
+<meta name="seed-entities" content="74"/>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PCB（印制电路板）产业链全景与涨停复盘报告 · 2026-11-27</title>
+<style>
+  :root{
+    --ink:#0f1b2d; --ink2:#25344a; --muted:#5d6b80; --line:#dfe5ee;
+    --bg:#f4f6fa; --card:#ffffff; --brand:#12467b; --brand2:#1f6fb2;
+    --accent:#c8952a; --up:#c62828; --soft:#eef3f9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans CJK JP","PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+    line-height:1.75; font-size:15.5px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:0 18px 64px;}
+  header.hero{
+    background:linear-gradient(135deg,#0b2b4d 0%,#12467b 55%,#1f6fb2 100%);
+    color:#fff; padding:44px 18px 38px; margin-bottom:26px;
+  }
+  header.hero .inner{max-width:1120px; margin:0 auto;}
+  .kicker{font-size:12.5px; letter-spacing:.18em; text-transform:uppercase; color:#a9cbe8; margin-bottom:10px;}
+  h1{font-size:clamp(22px,3.4vw,34px); line-height:1.35; margin:0 0 12px; font-weight:700;}
+  header.hero p.sub{margin:0; color:#d5e5f5; font-size:clamp(13px,1.6vw,15px); max-width:820px;}
+  .metaline{margin-top:18px; display:flex; flex-wrap:wrap; gap:10px;}
+  .tag{background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.22); color:#eaf3fb;
+       padding:4px 11px; border-radius:999px; font-size:12.5px;}
+  section{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:26px 24px 22px; margin-bottom:22px;}
+  h2{font-size:clamp(18px,2.2vw,22px); margin:0 0 6px; color:var(--brand); letter-spacing:.01em;}
+  h2 .num{color:var(--accent); font-size:.82em; margin-right:8px; font-weight:700;}
+  h3{font-size:16.5px; margin:26px 0 8px; color:var(--ink2); border-left:4px solid var(--brand2); padding-left:10px;}
+  h4{font-size:14.8px; margin:18px 0 6px; color:var(--brand);}
+  p{margin:9px 0; color:var(--ink2);}
+  .lead{font-size:15.5px; color:var(--ink);}
+  ul,ol{margin:8px 0 8px 20px; padding:0; color:var(--ink2);}
+  li{margin:5px 0;}
+  .muted{color:var(--muted); font-size:13px;}
+  .tablewrap{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:14px 0 6px; border:1px solid var(--line); border-radius:8px;}
+  table{border-collapse:collapse; width:100%; min-width:640px; font-size:13.4px; background:#fff;}
+  th,td{padding:9px 10px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top;}
+  th{background:var(--soft); color:var(--brand); font-weight:600; white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfcfe;}
+  td.num,th.num{text-align:right; white-space:nowrap;}
+  .up{color:var(--up); font-weight:600;}
+  .code{font-family:"SFMono-Regular",Consolas,monospace; font-size:12.6px; color:var(--muted);}
+  .kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:16px 0 4px;}
+  .kpi{background:var(--soft); border:1px solid #d8e3f0; border-radius:9px; padding:13px 14px;}
+  .kpi .v{font-size:21px; font-weight:700; color:var(--brand); line-height:1.25;}
+  .kpi .l{font-size:12.4px; color:var(--muted); margin-top:3px;}
+  .callout{background:#fbf6ea; border-left:4px solid var(--accent); padding:13px 16px; border-radius:0 8px 8px 0; margin:16px 0;}
+  .callout p{margin:4px 0; color:#4a3c1e;}
+  .note{background:var(--soft); border-radius:8px; padding:13px 16px; margin:14px 0;}
+  .note p{margin:4px 0; font-size:13.6px;}
+  .chain{display:grid; gap:10px; margin:16px 0;}
+  .node{display:grid; grid-template-columns:104px 1fr; gap:12px; background:#fff; border:1px solid var(--line);
+        border-left:5px solid var(--brand2); border-radius:8px; padding:12px 14px;}
+  .node .nlab{font-weight:700; color:var(--brand); font-size:13.5px; line-height:1.5;}
+  .node .nbody{font-size:13.4px; color:var(--ink2);}
+  .node.out{border-left-color:var(--accent);}
+  .node .nbody b{color:var(--ink);}
+  .arrow{text-align:center; color:var(--brand2); font-size:18px; line-height:1; margin:-3px 0;}
+  .pill{display:inline-block; padding:2px 8px; border-radius:999px; font-size:11.8px; border:1px solid #cfdceb;
+        background:#f7fafd; color:var(--brand); margin:2px 4px 2px 0;}
+  .pill.in{background:#eef6f0; border-color:#c8e2cf; color:#1e6b3a;}
+  .pill.out{background:#fbf3e3; border-color:#e8d3a6; color:#8a6416;}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  .panel{border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:#fcfdff;}
+  .panel.inp{border-top:4px solid #2f8f5b;}
+  .panel.outp{border-top:4px solid var(--accent);}
+  .panel h4{margin-top:2px;}
+  footer{color:var(--muted); font-size:12.6px; text-align:center; padding:10px 0 0; line-height:1.9;}
+  @media (max-width:760px){
+    .two{grid-template-columns:1fr;}
+    .node{grid-template-columns:1fr; gap:4px;}
+    section{padding:20px 15px 18px; border-radius:10px;}
+    body{font-size:15px;}
+  }
+
+  .co{line-height:1.35;vertical-align:middle;}
+  .co-name{display:block;white-space:nowrap;line-height:1.35;font-weight:600;}
+  .co-name strong{font-weight:800;}
+  .co-code,td .code{display:block;margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.3;white-space:nowrap;color:var(--muted,#64748b);font-weight:400;}
+
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="inner">
+    <div class="kicker">Industry Chain Report · PCB</div>
+    <h1>PCB（印制电路板）产业链全景与今日涨停复盘</h1>
+    <p class="sub">以 2026 年 11 月 27 日 A 股 PCB 板块 18 只涨停股为切入点，贯通“上游输入—中游制造—下游输出”全链条，并按输入型/输出型两大类拆解产业链企业之间的供应、股权与客户关系。</p>
+    <div class="metaline">
+      <span class="tag">数据日期：2026-11-27（周五）收盘</span>
+      <span class="tag">涨停家数：18 只</span>
+      <span class="tag">概念口径：Wind 高频PCB / 电路板</span>
+      <span class="tag">报告类型：产业链梳理</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section id="s0">
+  <h2><span class="num">00</span>核心结论</h2>
+  <p class="lead">今日 PCB 板块并非单点事件驱动，而是“<b>上游材料涨价 + 全产业链缺货 + AI 服务器需求上修</b>”三条主线在同一交易日共振，并以覆铜板、电子布等材料环节为弹性最强的突破口，向 PCB 制造端扩散。</p>
+  <div class="kpis">
+    <div class="kpi"><div class="v">18 只</div><div class="l">今日 PCB 相关涨停股</div></div>
+    <div class="kpi"><div class="v">13 只</div><div class="l">属 PCB 制造环节</div></div>
+    <div class="kpi"><div class="v">5 只</div><div class="l">属覆铜板/电子布等材料环节</div></div>
+    <div class="kpi"><div class="v">约 1.15 万亿</div><div class="l">18 只涨停股合计总市值（17 只可统计）</div></div>
+    <div class="kpi"><div class="v">+3.02% / +6.04%</div><div class="l">电路板指数 / 覆铜板指数日内涨幅</div></div>
+  </div>
+  <p>三点判断：</p>
+  <ol>
+    <li><b>涨价是主线，AI 是底色。</b>覆铜板龙头建滔积层板年内第八次提价（薄布类板料及半固化片上调 15%），常规 FR-4 由约 100 元/张升至约 400 元/张，较低点累计涨幅超 220%；7628 电子布由 2025 年 9 月约 3.9 元/米升至 2026 年 11 月的 14.6—14.65 元/米。<b>价格沿“电子布→覆铜板→PCB”顺序传导</b>，决定了今日材料股弹性大于板厂。</li>
+    <li><b>供给刚性放大涨幅。</b>全球电子协会（GEA）报告显示，截至 2026 年 9 月的一年内 PCB 订单量同比增长 56.1%，出货量仅增长 13.3%，高多层板交期已达 16—20 周；常规材料紧缺预计至少延续至 2027 年上半年。</li>
+    <li><b>利润分配上移。</b>2026 年第三季度毛利率：电子布约 51%、覆铜板约 38%、PCB 约 27%；净利率分别约 32%、23%、11%。产业链呈现“<b>上游拿价差、中游拿卡位、尾部受成本</b>”的格局。</li>
+  </ol>
+  <div class="callout">
+    <p><b>对“输入 / 输出”的定义（本报告统一口径）：</b>凡为 PCB 产业提供原材料、辅料、设备、耗材、设计或代工服务的，归为 <b>输入侧</b>；凡由 PCB 产业对外提供产品与服务、并形成收入的（PCB 板、覆铜板对外销售、封装基板、PCBA 等），归为 <b>输出侧</b>。同一家公司可能同时出现在两侧（如覆铜板企业既是 PCB 的输入，也是上游材料的输出），报告中以“主归属 + 兼营”标注。</p>
+  </div>
+</section>
+
+<section id="s1">
+  <h2><span class="num">01</span>今日涨停复盘：18 只个股与涨停逻辑</h2>
+  <p>按申万三级行业“电子—元件—印制电路板”筛选，并结合“高频PCB/电路板”概念，2026 年 11 月 27 日收盘共有 <b>18 只</b> PCB 相关个股封涨停（含 1 只玻纤电子布标的宏和科技）。结构上呈明显的“<b>午后集体封板</b>”特征：15 只在 13:00 之后涨停，仅兴森科技、深南电路、骏亚科技在上午封板，骏亚科技为 09:25 竞价即封的首板。</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr>
+        <th>公司</th><th class="num">涨幅</th><th>首次涨停时间</th><th class="num">总市值(亿元)</th><th>产业链位置</th><th>今日涨停的核心逻辑</th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td class="num up">+10.00%</td><td>13:36</td><td class="num">1725.5</td><td>PCB制造·AI服务器/交换机高多层</td><td>AI 服务器与高速交换机高多层板龙头，英伟达/谷歌产业链标签；订单能见度延伸至 2027 年，前三季归母净利同比 +106.87%</td></tr>
+        <tr><td class="co"><span class="co-name">生益科技</span><span class="code co-code">600183.SH</span></td><td class="num up">+10.01%</td><td>14:23</td><td class="num">1652.7</td><td>覆铜板（CCL）龙头</td><td>全球覆铜板龙头，前三季归母净利 67.27 亿元、同比 +175.36%，Q3 单季毛利率 41.63%；松山湖二厂定位 AI 服务器高频高速产品</td></tr>
+        <tr><td class="co"><span class="co-name">东山精密</span><span class="code co-code">002384.SZ</span></td><td class="num up">+10.00%</td><td>13:02</td><td class="num">1551.1</td><td>PCB制造（FPC/HDI）+光模块</td><td>Multek 超高多层与高阶 HDI 产能对接 AI 服务器/交换机；索尔思光电 EML 光芯片+光模块一体化，10G—1.6T 全速率</td></tr>
+        <tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td class="num up">+10.00%</td><td>11:17</td><td class="num">1532.0</td><td>PCB制造 + 封装基板</td><td>全球 PCB 厂商营收第 4；前三季营收 257.7 亿元、同比 +53.84%，归母净利 +77.54%；FC-BGA 已具备 26 层及以下批量能力，无锡 AI 算力项目推进</td></tr>
+        <tr><td class="co"><span class="co-name">鹏鼎控股</span><span class="code co-code">002938.SZ</span></td><td class="num up">+10.00%</td><td>14:33</td><td class="num">1167.6</td><td>PCB制造（FPC/SLP 全球第一）</td><td>全球 PCB 营收第一，苹果链 FPC/SLP 龙头；AI 终端与 AI 服务器、光模块产品线延伸</td></tr>
+        <tr><td class="co"><span class="co-name">景旺电子</span><span class="code co-code">603228.SH</span></td><td class="num up">+10.01%</td><td>13:47</td><td class="num">685.6</td><td>PCB制造（全品类）</td><td>全品类 PCB 平台型厂商，英伟达产业链+汽车电子双轮；覆铜板/半固化片/铜箔涨价下具备顺价能力</td></tr>
+        <tr><td class="co"><span class="co-name">宏和科技</span><span class="code co-code">603256.SH</span></td><td class="num up">+10.01%</td><td>13:41</td><td class="num">637.5</td><td>电子布（高端超薄/极薄）</td><td>高端电子布龙头，前三季归母净利 7.43 亿元、同比 +435.63%，电子布均价同比 +194.37%，订单排至 2027 年</td></tr>
+        <tr><td class="co"><span class="co-name">兴森科技</span><span class="code co-code">002436.SZ</span></td><td class="num up">+10.00%</td><td>10:51</td><td class="num">448.9</td><td>PCB制造（样板/小批量）+IC载板</td><td>PCB 样板龙头并布局 FC-BGA 载板，叠加玻璃基板、HBM、高速铜连接等概念，属“算力+先进封装”交叉标的</td></tr>
+        <tr><td class="co"><span class="co-name">红板科技</span><span class="code co-code">603459.SH</span></td><td class="num up">+9.99%</td><td>13:49</td><td class="num">415.6</td><td>PCB制造</td><td>次新股，PCB 制造弹性标的，机构调研标签，行业缺货下小市值高 β</td></tr>
+        <tr><td class="co"><span class="co-name">广合科技</span><span class="code co-code">001389.SZ</span></td><td class="num up">+10.00%</td><td>13:31</td><td class="num">407.0</td><td>PCB制造（服务器/存储）</td><td>服务器、存储、800G 光模块 PCB，绑定头部云厂商；含 H 股、出海贸易标签</td></tr>
+        <tr><td class="co"><span class="co-name">金安国纪</span><span class="code co-code">002636.SZ</span></td><td class="num up">+10.00%</td><td>13:44</td><td class="num">374.6</td><td>覆铜板 + 自供电子布</td><td>国内覆铜板前三，前三季归母净利 19.24 亿元、同比 +1012.67%；玻纤布—覆铜板—PCB 全链条覆盖，拟 5 亿元建电子布项目</td></tr>
+        <tr><td class="co"><span class="co-name">奥士康</span><span class="code co-code">002913.SZ</span></td><td class="num up">+10.00%</td><td>13:28</td><td class="num">219.8</td><td>PCB制造（服务器/汽车）</td><td>Q3 单季归母净利同比 +329.24%、环比 +470.03%；数据中心及高性能计算、通信、汽车电子三大下游，泰国基地投产</td></tr>
+        <tr><td class="co"><span class="co-name">崇达技术</span><span class="code co-code">002815.SZ</span></td><td class="num up">+10.03%</td><td>13:26</td><td class="num">207.8</td><td>PCB制造（中大批量）</td><td>首板；AI 服务器 PCB 为高端转型核心方向，泰国基地已封顶，客户结构多元、对美依赖度低</td></tr>
+        <tr><td class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></td><td class="num up">+10.00%</td><td>13:00</td><td class="num">196.4</td><td>覆铜板</td><td>覆铜板占营收约 85%，前三季归母净利 8.00 亿元、同比 +1177.71%；拟 10 亿元建年产 1200 万张高等级覆铜板专线</td></tr>
+        <tr><td class="co"><span class="co-name">宝鼎科技</span><span class="code co-code">002552.SZ</span></td><td class="num up">+10.00%</td><td>14:49</td><td class="num">116.5</td><td>覆铜板 + 铜箔（金宝电子）</td><td>旗下金宝电子覆盖覆铜板与 PCB 铜箔，HVLP-1 已小批量销售、HVLP-2/3 通过样品测试；山东国资背景</td></tr>
+        <tr><td class="co"><span class="co-name">博敏电子</span><span class="code co-code">603936.SH</span></td><td class="num up">+10.01%</td><td>13:00</td><td class="num">82.0</td><td>PCB制造（高多层/HDI/陶瓷基板）</td><td>具备 52 层板、厚径比 30:1、7 阶 HDI 能力；400G/800G 光模块 PCB 批量交付，1.6T 推进中；AMB 陶瓷衬板产能国内第二</td></tr>
+        <tr><td class="co"><span class="co-name">骏亚科技</span><span class="code co-code">603386.SH</span></td><td class="num up">+9.99%</td><td>09:25</td><td class="num">52.1</td><td>PCB制造</td><td>竞价即封的首板，小市值+小米产业链+外资/合资标签，属情绪扩散型涨停</td></tr>
+        <tr><td class="co"><span class="co-name">超颖电子</span><span class="code co-code">603175.SH</span></td><td class="num up">+10.00%</td><td>13:26</td><td class="num">—</td><td>PCB制造（汽车/服务器）</td><td>PCB 制造新股/次新标的，QFII 与社保重仓标签，随板块补涨</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">注：“—”表示该字段未取得可核验数值；涨幅与涨停时间取自 Wind 行情。表中“涨停逻辑”为公开信息（公司公告、投资者关系记录、券商研报与财经媒体报道）与该股所属概念标签的对应梳理，不构成对涨停原因的唯一解释。</p>
+
+  <h3>1.1 今日行情的三个盘面特征</h3>
+  <ul>
+    <li><b>材料先动、板厂跟随。</b>覆铜板指数盘中一度涨 6.04%（南亚新材 +17.29%、方邦股份、华正新材涨停），强于电路板指数的 +3.02%。资金按“涨价弹性”排序，而非按“营收体量”排序。</li>
+    <li><b>大市值同步涨停，非纯题材炒作。</b>沪电股份（1725 亿）、生益科技（1653 亿）、东山精密（1551 亿）、深南电路（1532 亿）四家千亿级公司同日封板，说明是产业逻辑驱动的板块性重估，而非小盘股情绪博弈。</li>
+    <li><b>资金结构偏机构。</b>11 月 27 日电路板板块机构资金净流入 17.95 亿元、大户净流入 10.16 亿元；覆铜板板块机构净流入 7.38 亿元、大户净流入 5.11 亿元。</li>
+  </ul>
+
+  <h3>1.2 今日消息面：四条催化剂</h3>
+  <ol>
+    <li><b>供给预警。</b>全球电子协会（GEA）发布《PCB紧缺：全球电子产业的警钟》，指出从玻纤布、树脂到成品电路板各环节需求均超供应能力，常规材料紧张至少持续至 2027 年上半年，2028 年中期前难明显缓解，风险量级可比 2021 年芯片短缺。</li>
+    <li><b>龙头连续提价。</b>建滔积层板 10 月 13 日发出年内第八次提价，薄布类板料及半固化片上调 15%；松下通知部分一般多层板用覆铜板自 2027 年 1 月出货起上调 200%。</li>
+    <li><b>需求端上修。</b>多家头部服务器厂商计划上调 AI 服务器售价，最高涨幅达 45%；OpenAI 首席科学家预警 2027 年 AI 将迎“雪崩式爆发”，带动算力产业链需求预期上行。</li>
+    <li><b>公司层面验证。</b>11 月 25—26 日密集披露的投资者关系记录显示：深南电路 AI 服务器、高速交换机、光模块及处理器载板订单饱满、产能利用率高位；崇达技术泰国基地封顶；奥士康 Q3 净利同比 +329%；民爆光电旗下厦芝精密 PCB 钻针 Q3 营收环比 +50%。</li>
+  </ol>
+</section>
+
+<section id="s2">
+  <h2><span class="num">02</span>概念股全景：两个统计口径下的 PCB 标的池</h2>
+  <p>不同平台对“PCB 概念”的定义宽窄差异很大。本报告采用 Wind 的两套口径交叉核对：<b>“高频PCB”</b>（19 只，聚焦高频高速材料与高多层/HDI 板，成分更“纯”）与<b>“电路板”</b>（63 只，覆盖从玻纤、铜箔、树脂到设备、耗材、PCB 制造的全链条，成分更“全”）。两套口径合计去重后覆盖 A 股 PCB 产业链绝大部分上市标的。</p>
+
+  <h3>2.1 口径一：高频PCB 概念（19 只）</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>主归属环节</th><th>在链条中的角色</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td class="num">1725.5</td><td>PCB制造</td><td>AI 服务器/交换机高多层板，英伟达、谷歌链核心供应商</td></tr>
+        <tr><td class="co"><span class="co-name">生益科技</span><span class="code co-code">600183.SH</span></td><td class="num">1652.7</td><td>覆铜板</td><td>全球 CCL 龙头，高频高速基材，PCB 厂的直接原料供应商</td></tr>
+        <tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td class="num">1532.0</td><td>PCB制造 + 封装基板</td><td>通信/算力 PCB 与 FC-BGA 载板双主线</td></tr>
+        <tr><td class="co"><span class="co-name">景旺电子</span><span class="code co-code">603228.SH</span></td><td class="num">685.6</td><td>PCB制造</td><td>全品类平台，英伟达链 + 汽车电子</td></tr>
+        <tr><td class="co"><span class="co-name">宏和科技</span><span class="code co-code">603256.SH</span></td><td class="num">637.5</td><td>电子布</td><td>高端超薄/极薄电子布，CCL 的增强骨架材料</td></tr>
+        <tr><td class="co"><span class="co-name">兴森科技</span><span class="code co-code">002436.SZ</span></td><td class="num">448.9</td><td>PCB制造 + 载板</td><td>样板/小批量龙头，FC-BGA 载板国产化主力</td></tr>
+        <tr><td class="co"><span class="co-name">红板科技</span><span class="code co-code">603459.SH</span></td><td class="num">415.6</td><td>PCB制造</td><td>PCB 制造弹性标的，机构调研密集</td></tr>
+        <tr><td class="co"><span class="co-name">广合科技</span><span class="code co-code">001389.SZ</span></td><td class="num">407.0</td><td>PCB制造</td><td>服务器/存储/800G 光模块板</td></tr>
+        <tr><td class="co"><span class="co-name">南亚新材</span><span class="code co-code">688519.SH</span></td><td class="num">395.4</td><td>覆铜板</td><td>内资 CCL 全球前十，M8 已批量、M9 认证中，今日涨 17.29%</td></tr>
+        <tr><td class="co"><span class="co-name">方正科技</span><span class="code co-code">600601.SH</span></td><td class="num">383.4</td><td>PCB制造</td><td>已批量生产 1.6T 交换机、1.6T 光模块、AI 服务器用 PCB</td></tr>
+        <tr><td class="co"><span class="co-name">科翔股份</span><span class="code co-code">300903.SZ</span></td><td class="num">306.3</td><td>PCB制造</td><td>光模块/CPO、AI 手机、氮化铝陶瓷基板</td></tr>
+        <tr><td class="co"><span class="co-name">宝鼎科技</span><span class="code co-code">002552.SZ</span></td><td class="num">116.5</td><td>覆铜板 + 铜箔</td><td>金宝电子 HVLP 铜箔 + CCL 一体化</td></tr>
+        <tr><td class="co"><span class="co-name">奕东电子</span><span class="code co-code">301123.SZ</span></td><td class="num">94.9</td><td>PCB制造（FPC）+ 连接器</td><td>FPC、连接器与高速铜连接，今日涨 15.91%</td></tr>
+        <tr><td class="co"><span class="co-name">民爆光电</span><span class="code co-code">301362.SZ</span></td><td class="num">94.7</td><td>输入·耗材（PCB钻针）</td><td>子公司厦芝精密做 0.09—0.35mm 微钻，客户含深南、胜宏、华通、健鼎</td></tr>
+        <tr><td class="co"><span class="co-name">光华科技</span><span class="code co-code">002741.SZ</span></td><td class="num">86.6</td><td>输入·电子化学品</td><td>PCB 专用化学品（电镀药水、氧化铜等）</td></tr>
+        <tr><td class="co"><span class="co-name">方邦股份</span><span class="code co-code">688020.SH</span></td><td class="num">53.5</td><td>输入·铜箔/屏蔽膜</td><td>带载体可剥离超薄铜箔、电磁屏蔽膜，用于载板与 HDI</td></tr>
+        <tr><td class="co"><span class="co-name">沃特股份</span><span class="code co-code">002886.SZ</span></td><td class="num">46.7</td><td>输入·树脂材料</td><td>LCP、PEEK 等高频材料，用于高频高速基材</td></tr>
+        <tr><td class="co"><span class="co-name">中英科技</span><span class="code co-code">300936.SZ</span></td><td class="num">35.0</td><td>输入·高频基材</td><td>高频覆铜板/微波材料，5G 与毫米波应用</td></tr>
+        <tr><td class="co"><span class="co-name">协和电子</span><span class="code co-code">605258.SH</span></td><td class="num">29.5</td><td>PCB制造</td><td>小批量印制电路板，今日涨 9.11%</td></tr>
+        <tr><td class="co"><span class="co-name">华塑控股</span><span class="code co-code">000509.SZ</span></td><td class="num">28.8</td><td>其他（关联较弱）</td><td>概念标签包含高频PCB，主营与 PCB 关联度低，属主题扩散标的</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">口径特征：19 只中 11 只为 PCB 制造、4 只为材料/基材、2 只为设备耗材与化学品、1 只为弱关联标的。该口径更贴近“AI 算力 + 高频高速”交易主线，也是今日涨停最集中的池子（19 只中有 9 只涨停）。</p>
+
+  <h3>2.2 口径二：电路板概念（63 只，按产业链环节分组）</h3>
+  <p>下表将 63 只成分股按“输入—中游—输出周边”分组，便于与第 03、04 章的产业链结构对照阅读。同一公司若横跨多环节，归入其收入占比最高或市场认知最强的一类。</p>
+
+  <h4>A. 输入侧 · 电子布 / 玻纤（CCL 的骨架材料）</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>在链条中的具体作用</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">中国巨石</span><span class="code co-code">600176.SH</span></td><td class="num">1137.7</td><td>全球玻纤龙头，电子布量价齐升，一代/二代低介电布批量供应 M8 级覆铜板</td></tr>
+        <tr><td class="co"><span class="co-name">国际复材</span><span class="code co-code">301526.SZ</span></td><td class="num">703.6</td><td>国内唯一同时掌握“坩埚法+池窑法”低介电电子纱并批量稳定生产者，LDK 二代布供不应求</td></tr>
+        <tr><td class="co"><span class="co-name">中材科技</span><span class="code co-code">002080.SZ</span></td><td class="num">583.8</td><td>旗下泰山玻纤，特种电子布全球市占率约 70%，定增扩产低介电纤维布</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">补充：宏和科技（603256，637.5 亿）为高端超薄/极薄电子布龙头，属“高频PCB”口径但不在本 63 只名单内，是电子布环节技术壁垒最高的标的之一。</p>
+
+  <h4>B. 输入侧 · 铜箔（CCL 的导体层）</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>在链条中的具体作用</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">铜冠铜箔</span><span class="code co-code">301217.SZ</span></td><td class="num">554.4</td><td>PCB 铜箔营收占比约 62%，RTF 产销内资第一，HVLP1-4 已批量供货</td></tr>
+        <tr><td class="co"><span class="co-name">诺德股份</span><span class="code co-code">600110.SH</span></td><td class="num">137.6</td><td>HVLP1-4 全系通过头部 CCL/PCB 客户送样认证，RTF-3 及 HVLP-1/2 小批量供货</td></tr>
+        <tr><td class="co"><span class="co-name">逸豪新材</span><span class="code co-code">301176.SZ</span></td><td class="num">64.2</td><td>铜箔+铝基 PCB 一体化，具备 HVLP1/2 制造能力，HVLP3/4 送样中</td></tr>
+        <tr><td class="co"><span class="co-name">方邦股份</span><span class="code co-code">688020.SH</span></td><td class="num">53.5</td><td>带载体可剥离超薄铜箔（载板/HDI 基材）+ 电磁屏蔽膜</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>C. 输入侧 · 树脂、填料、化学品与辅材</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>在链条中的具体作用</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">东材科技</span><span class="code co-code">601208.SH</span></td><td class="num">286.2</td><td>电子级树脂（PPO/OPE、碳氢树脂等），高频高速 CCL 关键基体</td></tr>
+        <tr><td class="co"><span class="co-name">圣泉集团</span><span class="code co-code">605589.SH</span></td><td class="num">231.7</td><td>PPO/OPE 电子级树脂满产满销，2026 年 7 月起提价 15%—20%</td></tr>
+        <tr><td class="co"><span class="co-name">平安电工</span><span class="code co-code">001359.SZ</span></td><td class="num">141.9</td><td>云母绝缘材料，用于耐高温绝缘与新能源场景</td></tr>
+        <tr><td class="co"><span class="co-name">中化国际</span><span class="code co-code">600500.SH</span></td><td class="num">140.3</td><td>化工新材料平台，环氧树脂等基体材料供应</td></tr>
+        <tr><td class="co"><span class="co-name">江南新材</span><span class="code co-code">603124.SH</span></td><td class="num">99.1</td><td>磷铜球/铜球，PCB 电镀工序的核心阳极耗材</td></tr>
+        <tr><td class="co"><span class="co-name">容大感光</span><span class="code co-code">300576.SZ</span></td><td class="num">97.7</td><td>PCB 感光阻焊油墨、光刻胶；募投年产 6000 吨阻焊油墨 + 300 吨喷墨油墨</td></tr>
+        <tr><td class="co"><span class="co-name">光华科技</span><span class="code co-code">002741.SZ</span></td><td class="num">86.6</td><td>PCB 专用化学品：电镀药水、氧化铜粉、表面处理剂</td></tr>
+        <tr><td class="co"><span class="co-name">广信材料</span><span class="code co-code">300537.SZ</span></td><td class="num">39.9</td><td>PCB 光刻胶、阻焊油墨、感光覆盖膜</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>D. 输入侧 · 设备与刀具耗材</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>在链条中的具体作用</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">中钨高新</span><span class="code co-code">000657.SZ</span></td><td class="num">828.9</td><td>控股子公司金洲公司为国内 PCB 微钻领先企业，率先量产 63 倍极小超长径微钻</td></tr>
+        <tr><td class="co"><span class="co-name">大族激光</span><span class="code co-code">002008.SZ</span></td><td class="num">490.3</td><td>激光加工平台，PCB 激光钻孔/切割设备（关联大族数控）</td></tr>
+        <tr><td class="co"><span class="co-name">合锻智能</span><span class="code co-code">603011.SH</span></td><td class="num">74.1</td><td>压机与成形设备，PCB 层压/压制环节配套</td></tr>
+        <tr><td class="co"><span class="co-name">欧科亿</span><span class="code co-code">688308.SH</span></td><td class="num">72.6</td><td>硬质合金刀具，PCB 铣刀/钻针的上游刀具基材</td></tr>
+        <tr><td class="co"><span class="co-name">英诺激光</span><span class="code co-code">301021.SZ</span></td><td class="num">72.2</td><td>超快激光钻孔设备，IC 载板/算力 PCB 钻孔，2026 年 5 月首台客户验收</td></tr>
+        <tr><td class="co"><span class="co-name">欧克科技</span><span class="code co-code">001223.SZ</span></td><td class="num">39.4</td><td>专用设备制造，PCB 概念关联度较弱</td></tr>
+        <tr><td class="co"><span class="co-name">正业科技</span><span class="code co-code">300410.SZ</span></td><td class="num">24.4</td><td>PCB 检测设备（外观检测、在线检测）与锂电检测</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>E. 中游 · 覆铜板与半固化片（CCL，产业链枢纽）</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>在链条中的具体作用</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">生益科技</span><span class="code co-code">600183.SH</span></td><td class="num">1652.7</td><td>全球 CCL 龙头，刚性覆铜板全球前三，覆铜板营收占比约 64%</td></tr>
+        <tr><td class="co"><span class="co-name">金安国纪</span><span class="code co-code">002636.SZ</span></td><td class="num">374.6</td><td>国内 CCL 前三，通用 FR-4/CEM-3 为主，自供电子级玻纤布（安徽金瑞约 1.6 亿米/年）</td></tr>
+        <tr><td class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></td><td class="num">196.4</td><td>覆铜板占营收约 85%，M7 材料批量中，定增投向高等级 CCL</td></tr>
+        <tr><td class="co"><span class="co-name">超声电子</span><span class="code co-code">000823.SZ</span></td><td class="num">134.2</td><td>覆铜板 + PCB + 液晶显示一体化，地方国企</td></tr>
+        <tr><td class="co"><span class="co-name">亨通股份</span><span class="code co-code">600226.SH</span></td><td class="num">112.4</td><td>覆铜板业务标签，兼营其他新材料</td></tr>
+        <tr><td class="co"><span class="co-name">贤丰控股</span><span class="code co-code">002141.SZ</span></td><td class="num">50.6</td><td>覆铜板概念标的，小市值高弹性</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>F. 中游 · PCB 制造（32 只，按下游侧重排序）</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>产品定位与主要下游</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td class="num">1725.5</td><td>AI 服务器/高速交换机高多层背板，英伟达、谷歌链</td></tr>
+        <tr><td class="co"><span class="co-name">东山精密</span><span class="code co-code">002384.SZ</span></td><td class="num">1551.1</td><td>FPC/HDI + 超高多层（Multek），AI 服务器、光模块、消费电子</td></tr>
+        <tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td class="num">1532.0</td><td>通信/算力 PCB + FC-BGA 封装基板，全球营收第 4</td></tr>
+        <tr><td class="co"><span class="co-name">胜宏科技</span><span class="code co-code">300476.SZ</span></td><td class="num">1341.3</td><td>高阶 HDI、显卡/算力卡 PCB，GB200 板核心供应商，AI 算力卡全球份额领先</td></tr>
+        <tr><td class="co"><span class="co-name">鹏鼎控股</span><span class="code co-code">002938.SZ</span></td><td class="num">1167.6</td><td>FPC/SLP 全球第一，苹果链 + AI 终端/服务器</td></tr>
+        <tr><td class="co"><span class="co-name">生益电子</span><span class="code co-code">688183.SH</span></td><td class="num">822.8</td><td>生益科技旗下，AI 服务器/1.6T 交换机高多层板</td></tr>
+        <tr><td class="co"><span class="co-name">景旺电子</span><span class="code co-code">603228.SH</span></td><td class="num">685.6</td><td>全品类平台（刚性/柔性/金属基），英伟达链 + 汽车</td></tr>
+        <tr><td class="co"><span class="co-name">兴森科技</span><span class="code co-code">002436.SZ</span></td><td class="num">448.9</td><td>PCB 样板/小批量 + FC-BGA 载板</td></tr>
+        <tr><td class="co"><span class="co-name">广合科技</span><span class="code co-code">001389.SZ</span></td><td class="num">407.0</td><td>服务器、存储、800G 光模块 PCB，绑定头部云厂商</td></tr>
+        <tr><td class="co"><span class="co-name">方正科技</span><span class="code co-code">600601.SH</span></td><td class="num">383.4</td><td>1.6T 交换机/1.6T 光模块/AI 服务器 PCB 已批量生产</td></tr>
+        <tr><td class="co"><span class="co-name">科翔股份</span><span class="code co-code">300903.SZ</span></td><td class="num">306.3</td><td>光模块/CPO、AI 手机、陶瓷基板</td></tr>
+        <tr><td class="co"><span class="co-name">世运电路</span><span class="code co-code">603920.SH</span></td><td class="num">271.6</td><td>汽车板为主，英伟达产业链、特斯拉链</td></tr>
+        <tr><td class="co"><span class="co-name">奥士康</span><span class="code co-code">002913.SZ</span></td><td class="num">219.8</td><td>数据中心/服务器、通信、汽车；泰国基地投产</td></tr>
+        <tr><td class="co"><span class="co-name">崇达技术</span><span class="code co-code">002815.SZ</span></td><td class="num">207.8</td><td>中大批量 PCB，AI 服务器为转型核心，泰国基地封顶</td></tr>
+        <tr><td class="co"><span class="co-name">中富电路</span><span class="code co-code">300814.SZ</span></td><td class="num">171.2</td><td>高频高速板 + 光模块 PCB，800G/1.6T 受益</td></tr>
+        <tr><td class="co"><span class="co-name">弘信电子</span><span class="code co-code">300657.SZ</span></td><td class="num">143.9</td><td>FPC 柔性板，消费电子/AI 穿戴/折叠屏</td></tr>
+        <tr><td class="co"><span class="co-name">中京电子</span><span class="code co-code">002579.SZ</span></td><td class="num">139.2</td><td>FPC/HDI，消费电子、存储；2026 前三季亏损 1.17 亿元</td></tr>
+        <tr><td class="co"><span class="co-name">依顿电子</span><span class="code co-code">603328.SH</span></td><td class="num">101.1</td><td>汽车板占比 50%—60%（博世、法雷奥、比亚迪、零跑），HLC/HDI 扩产</td></tr>
+        <tr><td class="co"><span class="co-name">一博科技</span><span class="code co-code">301366.SZ</span></td><td class="num">98.6</td><td>PCB 设计仿真 + 高速样板打样（设计服务型），珠海 AI 算力高端 PCB 项目</td></tr>
+        <tr><td class="co"><span class="co-name">威尔高</span><span class="code co-code">301251.SZ</span></td><td class="num">92.9</td><td>中小批量 PCB，工控与消费电子</td></tr>
+        <tr><td class="co"><span class="co-name">四会富仕</span><span class="code co-code">300852.SZ</span></td><td class="num">91.7</td><td>小批量高端板，工控 + 算力配套，小鹏产业链</td></tr>
+        <tr><td class="co"><span class="co-name">金禄电子</span><span class="code co-code">301282.SZ</span></td><td class="num">87.1</td><td>汽车电子 PCB（BMS、车载），新能源车链</td></tr>
+        <tr><td class="co"><span class="co-name">满坤科技</span><span class="code co-code">301132.SZ</span></td><td class="num">87.0</td><td>汽车 Tier1 + AI 服务器电源/光模块，泰国基地 2027 年投产</td></tr>
+        <tr><td class="co"><span class="co-name">博敏电子</span><span class="code co-code">603936.SH</span></td><td class="num">82.0</td><td>52 层高多层、7 阶 HDI、AMB 陶瓷衬板，400G/800G 光模块</td></tr>
+        <tr><td class="co"><span class="co-name">明阳电路</span><span class="code co-code">300739.SZ</span></td><td class="num">79.9</td><td>中小批量多层板，海外收入占比高</td></tr>
+        <tr><td class="co"><span class="co-name">澳弘电子</span><span class="code co-code">605058.SH</span></td><td class="num">66.3</td><td>家电/工控 PCB，小市值弹性</td></tr>
+        <tr><td class="co"><span class="co-name">强达电路</span><span class="code co-code">301628.SZ</span></td><td class="num">59.3</td><td>样板/小批量，折叠屏与消费电子</td></tr>
+        <tr><td class="co"><span class="co-name">迅捷兴</span><span class="code co-code">688655.SH</span></td><td class="num">55.7</td><td>快件样板，探索 NPCF RCC 新材料 + FPS 细线路减法工艺</td></tr>
+        <tr><td class="co"><span class="co-name">骏亚科技</span><span class="code co-code">603386.SH</span></td><td class="num">52.1</td><td>中小批量 PCB，小米产业链</td></tr>
+        <tr><td class="co"><span class="co-name">天津普林</span><span class="code co-code">002134.SZ</span></td><td class="num">41.2</td><td>工控/通信/汽车 PCB，小盘弹性</td></tr>
+        <tr><td class="co"><span class="co-name">万源通</span><span class="code co-code">920060.BJ</span></td><td class="num">35.5</td><td>北交所 PCB 标的，消费电子/折叠屏</td></tr>
+        <tr><td class="co"><span class="co-name">金百泽</span><span class="code co-code">301041.SZ</span></td><td class="num">32.5</td><td>样板/小批量 + 设计服务，英伟达产业链标签</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>G. 其他 / 概念关联较弱（3 只）</h4>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>公司</th><th class="num">总市值(亿元)</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td class="co"><span class="co-name">木林森</span><span class="code co-code">002745.SZ</span></td><td class="num">132.5</td><td>LED 封装与照明，因 LED 板/线路板配套被纳入，主营非 PCB</td></tr>
+        <tr><td class="co"><span class="co-name">普天科技</span><span class="code co-code">002544.SZ</span></td><td class="num">90.8</td><td>通信规划设计（中国电科系），PCB 为通信设备配套概念</td></tr>
+        <tr><td class="co"><span class="co-name">中岩大地</span><span class="code co-code">003001.SZ</span></td><td class="num">20.8</td><td>岩土工程，概念关联度极低，属名单“噪声”成分</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <p><b>口径提示：</b>“电路板”概念 63 只中，真正与 PCB 收入强相关的约 <b>59 只</b>；另有 3 只（木林森、普天科技、中岩大地）关联较弱，1 只（欧克科技）设备属性与 PCB 关联有限。做标的筛选时应先做“收入纯度”检验，避免把主题扩散标的当作产业标的。</p>
+    <p><b>未纳入上述两口径但属产业链重要环节的公司：</b>大族数控（钻孔设备）、芯碁微装（LDI 曝光）、东威科技（VCP 电镀）、鼎泰高科（钻针全球第一）、新锐股份（铣刀）、联瑞新材（硅微粉填料）、凌玮科技（硅微粉）、菲利华（Q 布）、德福科技与嘉元科技与中一科技与海亮股份（PCB 铜箔）、宏昌电子（环氧树脂）、福斯特（干膜/FCCL）、九洲集团体系等。这些公司多以“专精特新”或细分材料身份存在于产业链，但未被 Wind 上述两个概念板块完整收录，属于“隐形环节”。</p>
+  </div>
+</section>
+
+<section id="s3">
+  <h2><span class="num">03</span>产业链结构：七个节点与物料流向</h2>
+  <p>PCB 被称为“电子产品之母”，其产业链是一个典型的“<b>材料复合 → 精密加工 → 终端配套</b>”三层结构。核心枢纽是覆铜板（CCL）：它由铜箔、树脂、玻纤布与功能性填料复合而成，再与铜球/氧化铜粉、油墨、金盐等辅料一起，经数十道工序制成 PCB 板。理解 PCB 产业链，本质上是理解 <b>CCL 两侧的议价关系</b>。</p>
+
+  <div class="chain">
+    <div class="node"><div class="nlab">节点 1<br>基础原材料</div><div class="nbody"><b>电子布 / 电子纱、铜箔、树脂、填料（硅微粉）</b><br>决定 PCB 的介电常数（Dk）与损耗因子（Df），是高频高速性能的物理上限。AI 服务器用板从 12 层升至 40—60 层，单台电子布用量为传统服务器的 3—8 倍。</div></div>
+    <div class="arrow">↓</div>
+    <div class="node"><div class="nlab">节点 2<br>覆铜板 CCL</div><div class="nbody"><b>覆铜板 + 半固化片（PP）</b><br>产业链价值与利润的分配中枢。按损耗等级分为 M2/M4（Low Loss）、M6（Very Low Loss）、M7/M8（Ultra/Extreme Low Loss）、M9/M10（Optical 级），等级越高，AI 属性越强、议价能力越强。</div></div>
+    <div class="arrow">↓</div>
+    <div class="node"><div class="nlab">节点 3<br>PCB 制造</div><div class="nbody"><b>刚性多层板、HDI、FPC、封装基板、类载板（mSAP）、陶瓷基板</b><br>工艺链：设计→开料→内层图形→层压→钻孔→电镀→外层图形→阻焊→表面处理→成型→检测。层数、阶数、线宽线距决定进入哪个下游。</div></div>
+    <div class="arrow">↓</div>
+    <div class="node"><div class="nlab">节点 4<br>PCBA / 装联</div><div class="nbody"><b>电子装联（SMT）、微组装、测试</b><br>PCB 由“板”变为“功能模块”的环节，深南电路、东山精密等均布局“3-In-One”（PCB+基板+装联）全价值链服务。</div></div>
+    <div class="arrow">↓</div>
+    <div class="node out"><div class="nlab">节点 5<br>下游硬件</div><div class="nbody"><b>AI 服务器、交换机、光模块、汽车电子、消费电子、通信基站、工控医疗航天</b><br>服务器及存储是增速最快的下游：2025 年同比增长 43.6%，2025—2030 年复合增速约 17.2%。</div></div>
+  </div>
+
+  <h3>3.1 与 PCB 平行的两条“输入支线”</h3>
+  <div class="two">
+    <div class="panel inp">
+      <h4>支线 A：设备与耗材</h4>
+      <p>PCB 厂商资本开支中设备占比通常在 <b>60% 以上</b>。核心设备包括：<b>钻孔</b>（机械钻/激光钻）、<b>曝光</b>（LDI 直接成像）、<b>电镀</b>（VCP 垂直连续电镀）、<b>检测</b>（AOI/外观检测）、<b>层压</b>。耗材包括 <b>钻针/铣刀</b>（钨钢）、<b>磷铜球</b>（电镀阳极）、<b>干膜</b>、<b>阻焊油墨</b>、<b>金盐</b>。</p>
+      <p>紧缺已经从材料蔓延到设备：部分特殊设备交期超过 <b>30 个月</b>，激光钻孔设备面临供应链约束。</p>
+    </div>
+    <div class="panel inp">
+      <h4>支线 B：设计与服务</h4>
+      <p>包括 <b>PCB 设计仿真</b>（如背板/高速链路设计）、<b>样板快件</b>、<b>检测认证</b>、<b>电子装联代工</b>。这类企业不产板或产板量小，但掌握客户入口，典型如一博科技（设计+打样）、金百泽、迅捷兴。</p>
+      <p>设计环节的价值在于“<b>先入为主</b>”：一旦设计方案定型，后续量产订单的板厂切换成本极高。</p>
+    </div>
+  </div>
+
+  <h3>3.2 各节点的盈利分布（2026Q3 算术平均）</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>环节</th><th class="num">毛利率</th><th class="num">净利率</th><th>议价能力来源</th><th>本轮景气中的位置</th></tr></thead>
+      <tbody>
+        <tr><td>电子布</td><td class="num">约 51%</td><td class="num">约 32%</td><td>织机交付周期超一年，薄布产能刚性，扩产最慢</td><td>利润弹性最大，涨价传导最顺畅</td></tr>
+        <tr><td>覆铜板（CCL）</td><td class="num">约 38%</td><td class="num">约 23%</td><td>行业集中度高，可向下游 PCB 顺价</td><td>利润已处历史高位，涨价红利集中</td></tr>
+        <tr><td>PCB 制造</td><td class="num">约 27%</td><td class="num">约 11%</td><td>行业分散，但对大客户有价格联动机制</td><td>2026Q3 方进入首个加速季度</td></tr>
+        <tr><td>树脂</td><td class="num">约 21%</td><td class="num">约 10%</td><td>认证壁垒高，但产能相对可扩</td><td>满产满销，提价 15%—20%</td></tr>
+        <tr><td>铜箔</td><td class="num">低位修复</td><td class="num">低位</td><td>加工费模式，HVLP 高端品议价力提升</td><td>低基数下利润高增，净利率仍低</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">数据来源：国金证券（2026Q3 算术平均口径）、广发证券 CCL 产业链三季报总结。铜箔因加工费模式，毛利率口径与其他环节不可直接比较。</p>
+
+  <div class="callout">
+    <p><b>关键传导规律：</b>价格沿“电子布 → 覆铜板 → PCB”顺序传导，每段传导需 2—3 个季度。这决定了报表上的收益归属：材料端在 2026Q3 已充分体现，板厂在 2026Q3 才刚进入加速期。<b>因此“今天谁涨停”与“下季度谁兑现”可能不是同一批公司。</b></p>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="num">04</span>输入侧：为 PCB 产业提供产品与服务的公司</h2>
+  <p>按“提供什么”把输入侧拆成 <b>五类关系</b>：原材料供货、辅料与化学品供货、设备供货、耗材与工具供货、设计与代工服务。下表给出每一类的代表公司、对应客户与关系性质。</p>
+
+  <h3>4.1 原材料供货关系（认证周期最长、绑定最深）</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>输入品类</th><th>代表公司</th><th>供给对象</th><th>关系性质与要点</th></tr></thead>
+      <tbody>
+        <tr><td>电子布 / 电子纱</td><td>中国巨石、中材科技（泰山玻纤）、国际复材、宏和科技、菲利华（Q 布）</td><td>生益科技、南亚新材、金安国纪、华正新材等 CCL 厂</td><td>认证+长协。电子布占 CCL 成本约 20%，仅次于铜箔；薄布/特种布产能刚性最强，扩产受织机交付制约</td></tr>
+        <tr><td>铜箔（HTE/RTF/HVLP）</td><td>铜冠铜箔、诺德股份、德福科技、嘉元科技、中一科技、海亮股份、逸豪新材、方邦股份（载体铜箔）</td><td>CCL 厂（RTF/HVLP）与 PCB 厂（部分直接采购）</td><td>认证+加工费。HVLP4 为 Rubin/GB300 平台标配，长期由三井金属主导，国产替代处于爬坡期</td></tr>
+        <tr><td>电子级树脂</td><td>圣泉集团（PPO/OPE）、东材科技、中化国际、宏昌电子、沃特股份（LCP/PEEK）</td><td>CCL 厂</td><td>配方型绑定。树脂决定 Dk/Df，切换供应商需重新认证整张 CCL</td></tr>
+        <tr><td>填料（硅微粉）</td><td>联瑞新材、凌玮科技</td><td>CCL 厂</td><td>球形硅微粉降低 CTE 与 Df，高端球硅随 AI 产品放量</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>4.2 辅料与化学品供货关系</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>输入品类</th><th>代表公司</th><th>用于哪道工序</th><th>关系性质</th></tr></thead>
+      <tbody>
+        <tr><td>磷铜球 / 铜球</td><td>江南新材</td><td>电镀（孔金属化与加厚）</td><td>耗材型持续采购，价格随铜价联动</td></tr>
+        <tr><td>感光阻焊油墨 / 光刻胶</td><td>容大感光、广信材料</td><td>内层图形、阻焊</td><td>认证型，配色与工艺参数绑定</td></tr>
+        <tr><td>PCB 专用化学品</td><td>光华科技</td><td>电镀药水、氧化铜粉、表面处理</td><td>药水管理服务型，随产能利用率同步消耗</td></tr>
+        <tr><td>干膜 / 感光覆盖膜 / FCCL</td><td>福斯特（杭州福斯特电子材料）、广信材料</td><td>图形转移、FPC 覆盖层</td><td>满坤科技以 2000 万元增资福斯特电子材料，属“以股权锁供应”</td></tr>
+        <tr><td>金盐</td><td>贵金属盐类供应商</td><td>表面处理（ENIG/沉金）</td><td>价格随金价波动，深南电路曾披露 Q3 金盐同环比上涨</td></tr>
+        <tr><td>云母绝缘材料</td><td>平安电工</td><td>耐高温绝缘、新能源场景</td><td>配套型</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>4.3 设备供货关系</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>设备类型</th><th>代表公司</th><th>作用</th><th>关系性质</th></tr></thead>
+      <tbody>
+        <tr><td>机械钻孔 / 成型</td><td>大族数控（全球 PCB 专用设备市占约 6.5%，2024 年第一）</td><td>通孔、外形加工</td><td>资本开支型，占总capex 60%+</td></tr>
+        <tr><td>LDI 直接成像曝光</td><td>芯碁微装（国内龙头，2025 年 PCB 设备销量 475 台）</td><td>内层/外层图形转移</td><td>精度升级驱动替换，类载板订单快速增长</td></tr>
+        <tr><td>VCP 垂直连续电镀</td><td>东威科技（VCP 营收 7.66 亿元）</td><td>板面电镀、填孔</td><td>与 HDI 阶数提升同步</td></tr>
+        <tr><td>激光钻孔</td><td>大族激光、英诺激光</td><td>HDI 微孔、IC 载板盲孔</td><td>交付受供应链约束，部分交期超 30 个月</td></tr>
+        <tr><td>检测（AOI/外观）</td><td>正业科技</td><td>线路缺陷检测</td><td>良率管控型</td></tr>
+        <tr><td>层压 / 压制</td><td>合锻智能</td><td>多层板压合</td><td>配套型</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>4.4 耗材与工具供货关系（“卖铲子”的高毛利环节）</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>耗材</th><th>代表公司</th><th>客户与地位</th><th>关系性质</th></tr></thead>
+      <tbody>
+        <tr><td>PCB 钻针</td><td>鼎泰高科（全球市占第一，月产能超 1.6 亿只）、民爆光电/厦芝精密（0.09—0.35mm 微钻）、中钨高新/金洲（微钻）</td><td>厦芝客户含华通电脑、健鼎科技、胜宏科技、深南电路、奥特斯、瀚宇博德、南亚电路板</td><td><b>合格供应商认证制</b>：管理体系+质量控制+现场审核，一旦进入则长期粘性、切换成本极高</td></tr>
+        <tr><td>铣刀 / 硬质合金刀具</td><td>新锐股份（收购慧联电子，PCB 铣刀产销量全球第一）、欧科亿</td><td>PCB 成型工序</td><td>耗材型，随板厂稼动率同步消耗</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted">耗材环节的特殊性：收入与板厂“开工率”高度同步，而不与板价同步。因此当行业缺货、板厂满产时，耗材企业的订单确定性往往高于板厂本身（民爆光电披露厦芝精密 Q3 营收环比 +50%、净利环比 +42.7%）。</p>
+
+  <h3>4.5 设计与代工服务关系</h3>
+  <ul>
+    <li><b>一博科技：</b>PCB 设计仿真 + 高速样板打样 + 背板设计服务，2026 年 11 月与珠海经开区签署“AI 算力高端 PCB 制造项目”投资协议，从服务向制造延伸。</li>
+    <li><b>金百泽、迅捷兴：</b>样板/快件为主，服务研发阶段的小批量需求，是客户导入新供应商的“试用入口”。</li>
+    <li><b>深南电路、东山精密：</b>提供“PCB + 封装基板 + 电子装联”全价值链服务，属于“制造+服务”复合型输出。</li>
+  </ul>
+
+  <div class="note">
+    <p><b>输入侧的“卡脖子”清单（国产化率最低的四个点）：</b>ABF 膜（味之素全球 &gt;95%，国产自给不足 5%）、BT 树脂（三菱瓦斯化学 &gt;50%）、高端 HVLP4 铜箔（三井金属主导，国产良率约 30%—40%）、高端 Q 布（日东纺+旭化成合计约 86%）。这四项是 PCB 产业链真正的技术瓶颈，也是国产替代空间最大的方向。</p>
+  </div>
+</section>
+
+<section id="s5">
+  <h2><span class="num">05</span>输出侧：PCB 产业对外提供产品与服务的对象</h2>
+  <p>输出侧不是“原材料反向”，而是 <b>PCB 产业的下游客户结构</b>。它决定了不同板厂的产能该往哪个方向配置，也决定了一家公司能否拿到 AI 溢价。</p>
+
+  <h3>5.1 按下游应用的输出关系</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>输出方向</th><th>产品形态</th><th>典型客户 / 终端</th><th>供应 PCB 的主要公司</th><th>关系特征</th></tr></thead>
+      <tbody>
+        <tr><td><b>AI 服务器 / 数据中心</b></td><td>20—60 层高多层背板、高阶 HDI、UBB/OAM 加速卡、正交背板</td><td>英伟达（GB200/GB300/Rubin）、谷歌 TPU、AMD、AWS Trainium；浪潮、新华三、超聚变、工业富联、广达、纬创、鸿海</td><td>沪电股份、胜宏科技、深南电路、广合科技、生益电子、奥士康、景旺电子、方正科技、博敏电子</td><td>需求刚性、认证周期长、单机价值量最高；订单能见度已至 2027 年</td></tr>
+        <tr><td><b>交换机 / 网络设备</b></td><td>高多层通孔板（N+N / N+M 多次压合）</td><td>思科、华为、新华三、锐捷、Arista</td><td>沪电股份、景旺电子、生益电子、广合科技、崇达技术、方正科技</td><td>与 AI 集群组网同步放量，1.6T 交换机已批量</td></tr>
+        <tr><td><b>光模块</b></td><td>超薄 mSAP 高阶 HDI，线宽线距约 25μm、孔径 50—60μm</td><td>中际旭创、新易盛、索尔思（东山精密旗下）、光迅科技</td><td>东山精密、博敏电子、中富电路、科翔股份、广合科技、四会富仕</td><td>技术要求最高的细分，能做的板厂最少，毛利率最高</td></tr>
+        <tr><td><b>汽车电子</b></td><td>汽车板（动力控制、毫米波雷达、BMS、智能座舱、ADAS 域控）、厚铜板、陶瓷基板</td><td>博世、法雷奥、大陆、欧摩威、斯坦雷、现代摩比斯、矢崎、博格华纳、德赛西威、比亚迪、零跑、特斯拉</td><td>依顿电子、世运电路、奥士康、景旺电子、金禄电子、满坤科技、博敏电子（AMB 陶瓷衬板）</td><td>认证周期最长（2—3 年）、客户粘性最强，价格敏感度低于消费电子</td></tr>
+        <tr><td><b>消费电子</b></td><td>FPC、SLP 类载板、HDI、刚挠结合板</td><td>苹果、华为、小米、三星、荣耀；华硕、仁宝、纬创等 AI PC 厂</td><td>鹏鼎控股、东山精密、弘信电子、中京电子、奕东电子、科翔股份</td><td>量大价低，靠稼动率与良率赚钱；AI 手机/AI PC 带来 HDI 升级</td></tr>
+        <tr><td><b>通信基站</b></td><td>高频高速多层板</td><td>华为、中兴、爱立信、诺基亚</td><td>深南电路、沪电股份、生益电子</td><td>5G 建设周期性明显，近年增量让位于算力</td></tr>
+        <tr><td><b>工控 / 医疗 / 航天</b></td><td>中小批量多层板、高可靠板</td><td>工业电脑、CT/核磁/呼吸机、航电与机电系统</td><td>四会富仕、天津普林、明阳电路、威尔高、深南电路</td><td>小批量多品种，毛利稳定但规模受限</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>5.2 输出侧的“能力分层”：不是所有板厂都能做 AI 板</h3>
+  <p>AI 服务器板、交换机板、光模块板在工厂、设备与规格上差异显著，形成了近乎割裂的供给格局：</p>
+  <ul>
+    <li><b>AI 服务器板：</b>6—7 阶 HDI，板厚、尺寸大、激光孔多，激光钻孔与电镀填孔需循环 6—7 次，良率突破难。由 HDI 板厂承接，典型如胜宏科技（英伟达加速卡）。</li>
+    <li><b>交换机板：</b>高多层通孔板，N+N 或 N+M 多次压合。由高多层板厂承接，典型如沪电股份、景旺电子（谷歌、思科）。</li>
+    <li><b>光模块板：</b>超薄 mSAP 高阶 HDI，线宽线距约 25μm（仅为 AI 服务器板 50—60μm 的一半），孔径 50—60μm。由具备高阶 UHDI/mSAP 能力的板厂承接。</li>
+  </ul>
+  <div class="callout">
+    <p><b>由此形成“能力即壁垒”的输出关系：</b>能做加速卡板的厂商做不了光模块板，能做交换机板的厂商做不了 GPU 加速卡（但可做英伟达交换托盘）。这意味着“PCB 板块”内部并非同质竞争，<b>选股的本质是选对下游能力圈</b>。</p>
+  </div>
+
+  <h3>5.3 输出侧的“产能出海”关系</h3>
+  <p>为应对供应链区域化与客户审查，头部板厂正把产能向东南亚迁移，形成“<b>中国研发+东南亚制造+全球交付</b>”的输出结构：</p>
+  <ul>
+    <li><b>崇达技术：</b>泰国基地已封顶，可对冲供应链区域化风险。</li>
+    <li><b>依顿电子：</b>泰国工厂规划 50 万平方米/年，2026 年 3 月已启动试生产。</li>
+    <li><b>奥士康：</b>湖南、广东、泰国三大基地，森德科技月产能 12 万平方米以上。</li>
+    <li><b>满坤科技：</b>泰国高端 PCB 基地已获 BOI 投资优惠证书，预计 2027 年陆续投产。</li>
+    <li><b>世运电路、广合科技：</b>出海贸易标签显著，海外收入占比高。</li>
+  </ul>
+</section>
+
+<section id="s6">
+  <h2><span class="num">06</span>关系的分类：输入型 vs 输出型，再细分六类</h2>
+  <p>按用户要求，先把产业链关系总分为 <b>输入（Inbound）</b> 与 <b>输出（Outbound）</b> 两大类；再在每一类内部按“关系的法律与经济性质”细分为若干子类。这样分类的好处是：<b>输入型关系决定成本与产能，输出型关系决定收入与溢价</b>，两者共同决定一家公司在周期中的位置。</p>
+
+  <div class="two">
+    <div class="panel inp">
+      <h4>输入型关系（Inbound）</h4>
+      <p>定义：PCB 产业（含 CCL）作为<b>买方</b>，从外部获取原材料、辅料、设备、耗材、设计与代工服务所形成的关系。</p>
+      <p><span class="pill in">I-1 原材料供货</span><span class="pill in">I-2 辅料化学品</span><span class="pill in">I-3 设备供货</span><span class="pill in">I-4 耗材工具</span><span class="pill in">I-5 股权一体化</span><span class="pill in">I-6 设计/代工服务</span></p>
+      <p class="muted">经济含义：决定成本曲线、产能上限与扩产节奏；本轮周期中，输入侧的稀缺性直接转化为涨价权。</p>
+    </div>
+    <div class="panel outp">
+      <h4>输出型关系（Outbound）</h4>
+      <p>定义：PCB 产业（含 CCL）作为<b>卖方</b>，向外部提供板材、基板、装联服务所形成的关系。</p>
+      <p><span class="pill out">O-1 直销大客户</span><span class="pill out">O-2 终端品牌认证</span><span class="pill out">O-3 EMS/代工</span><span class="pill out">O-4 价格联动顺价</span><span class="pill out">O-5 同环节竞合</span><span class="pill out">O-6 属地化出海</span></p>
+      <p class="muted">经济含义：决定收入结构、毛利率与订单能见度；能力圈（HDI/高多层/mSAP）决定能进入哪个输出口。</p>
+    </div>
+  </div>
+
+  <h3>6.1 关系分类总表</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>编号</th><th>关系类型</th><th>方向</th><th>具体形态</th><th>代表性企业配对</th><th>商业含义</th></tr></thead>
+      <tbody>
+        <tr><td>I-1</td><td>原材料供货 + 合格供应商认证</td><td>输入</td><td>电子布/铜箔/树脂/填料 → CCL 厂；CCL → PCB 厂</td><td>中国巨石 / 宏和科技 → 生益科技、南亚新材；生益科技 → 沪电股份、深南电路</td><td>认证周期 6—18 个月，切换需重做整板可靠性验证，粘性极强</td></tr>
+        <tr><td>I-2</td><td>辅料与化学品供货</td><td>输入</td><td>磷铜球、油墨、干膜、金盐、电镀药水</td><td>江南新材 → 各板厂电镀线；容大感光 / 广信材料 → 阻焊工序；光华科技 → 电镀药水</td><td>随稼动率同步消耗，价格随金属价联动</td></tr>
+        <tr><td>I-3</td><td>设备供货</td><td>输入</td><td>钻孔、曝光、电镀、检测、层压设备</td><td>大族数控 / 芯碁微装 / 东威科技 / 英诺激光 → 深南、沪电、胜宏等</td><td>资本开支型，占 capex 60%+；交期已排至 30 个月以上</td></tr>
+        <tr><td>I-4</td><td>耗材与工具供货</td><td>输入</td><td>钻针、铣刀</td><td>鼎泰高科 / 厦芝精密（民爆光电）/ 金洲（中钨高新）→ 深南、胜宏、华通、健鼎</td><td>收入与板厂开工率同步，订单确定性高于板厂</td></tr>
+        <tr><td>I-5</td><td><b>股权 / 控股 / 参股关系</b></td><td>输入</td><td>上游向下游一体化、母公司体内配套</td><td>生益科技 → 生益电子（控股）；中国建材 → 中国巨石、中材科技；中钨高新 → 金洲；民爆光电 → 厦芝精密（51%，拟收购剩余 49%）；大族激光 → 大族数控；金安国纪 → 安徽金瑞（电子布自供）；宝鼎科技 → 金宝电子（CCL+铜箔）；东山精密 → Multek + 索尔思</td><td>把外部交易内部化，锁定供应、共享客户认证、平滑周期波动</td></tr>
+        <tr><td>I-6</td><td>设计与代工服务</td><td>输入</td><td>PCB 设计仿真、样板快件、检测认证、装联代工</td><td>一博科技 / 金百泽 / 迅捷兴 → 研发阶段客户；深南电路、东山精密提供“PCB+基板+装联”全链条</td><td>掌握客户入口，设计定型后量产订单切换成本高</td></tr>
+        <tr><td>O-1</td><td>直销大客户关系</td><td>输出</td><td>板厂 → 服务器/交换机/光模块/汽车 Tier1 厂</td><td>沪电股份 → 英伟达/谷歌/思科；胜宏科技 → 英伟达加速卡；依顿电子 → 博世、法雷奥、比亚迪</td><td>大客户认证 + 年度框架 + 季度调价，订单能见度 1—2 年</td></tr>
+        <tr><td>O-2</td><td>终端品牌间接认证</td><td>输出</td><td>通过 EMS/ODM 进入品牌供应链（NPI 打样 → 量产）</td><td>鹏鼎控股 → 苹果；奥士康 → 华硕、仁宝、浪潮、新华三；景旺电子 → 富士康链</td><td>品牌指定用料，板厂需同时通过品牌与 EMS 双认证</td></tr>
+        <tr><td>O-3</td><td>EMS / 代工关系</td><td>输出</td><td>板厂向代工厂交付 PCBA 或裸板</td><td>富士康/鸿海、和硕、仁宝、纬创、广达 ← 鹏鼎、东山、奥士康、景旺</td><td>量大、议价弱，靠规模与良率；AI 服务器代工链溢价高于消费电子</td></tr>
+        <tr><td>O-4</td><td><b>价格联动 / 顺价关系</b></td><td>输出</td><td>原材料涨价 → 板厂向客户提价（部分签价格联动协议）</td><td>景旺电子、深南电路、依顿电子、中富电路均已实施部分产品调价</td><td>决定涨价周期中利润能否留在板厂；大客户议价力强，中小客户调价更快</td></tr>
+        <tr><td>O-5</td><td>同环节竞合 / 能力圈分割</td><td>输出</td><td>同为板厂，但按 HDI / 高多层 / mSAP 分工，交叉有限</td><td>胜宏（加速卡 HDI）vs 沪电（交换机高多层）vs 博敏/中富（光模块 mSAP）</td><td>“PCB 板块”非同质竞争，选股需匹配下游能力圈</td></tr>
+        <tr><td>O-6</td><td>属地化出海供应</td><td>输出</td><td>东南亚基地就近供应海外客户</td><td>崇达（泰国封顶）、依顿（泰国试产）、奥士康（森德科技）、满坤（泰国 2027 投产）、世运（出海贸易）</td><td>规避关税与供应链审查，获取海外客户增量订单</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>6.2 一条主链的关系图谱（文字版）</h3>
+  <div class="note">
+    <p><b>【输入】</b>中国巨石 / 中材科技（泰山玻纤）/ 国际复材 / 宏和科技（电子布）＋ 铜冠铜箔 / 诺德股份 / 德福科技（铜箔）＋ 圣泉集团 / 东材科技（树脂）＋ 联瑞新材（硅微粉）</p>
+    <p style="text-align:center;color:#12467b;font-weight:700;">↓ 供货 + 认证（I-1）</p>
+    <p><b>【中游基材】</b>生益科技 / 南亚新材 / 金安国纪 / 华正新材 / 宝鼎科技（覆铜板 CCL，M2→M10 分级）</p>
+    <p style="text-align:center;color:#12467b;font-weight:700;">↓ 供货 + 认证（I-1）＋ 设备/耗材（I-3、I-4）</p>
+    <p><b>【中游制造】</b>沪电股份 / 胜宏科技 / 深南电路 / 东山精密 / 鹏鼎控股 / 景旺电子 / 广合科技 / 生益电子 / 奥士康 / 崇达技术 / 博敏电子 …（按 HDI、高多层、FPC、mSAP、封装基板分工）</p>
+    <p style="text-align:center;color:#12467b;font-weight:700;">↓ 直销 + 品牌认证 + 价格联动（O-1、O-2、O-4）</p>
+    <p><b>【输出】</b>AI 服务器（英伟达 GB200/GB300/Rubin、谷歌 TPU、AMD、浪潮、新华三、工业富联、广达、纬创）｜交换机（思科、华为、新华三、锐捷）｜光模块（中际旭创、新易盛、索尔思）｜汽车（博世、法雷奥、大陆、比亚迪、特斯拉、德赛西威）｜消费电子（苹果、华为、小米、三星）</p>
+  </div>
+
+  <h3>6.3 三条容易被忽略的“隐性关系”</h3>
+  <ol>
+    <li><b>母子公司之间的产能优先级。</b>生益科技与生益电子、中国建材与中国巨石/中材科技、宝鼎科技与金宝电子，本质是“<b>同一实控人体内的上下游</b>”。在材料紧缺时，体内配套往往优先于外部客户，这构成一种非契约的竞争优势。</li>
+    <li><b>“以股权锁供应”的产业投资。</b>满坤科技增资杭州福斯特电子材料（感光干膜、FCCL、感光覆盖膜）2000 万元，投资占比小但目的是“强化关键原材料稳定供应、深化工艺对接”。这类小额产业投资正在成为板厂锁定上游的常见手法。</li>
+    <li><b>设备厂与板厂的联合工艺开发。</b>迅捷兴与产业链伙伴探索“NPCF RCC 新材料 + FPS 细线路减法工艺”，说明在材料涨价与线宽微缩的双重压力下，<b>设备—材料—板厂的三方协同</b>正在替代单纯的买卖关系。</li>
+  </ol>
+</section>
+
+<section id="s7">
+  <h2><span class="num">07</span>驱动逻辑、持续性与风险</h2>
+
+  <h3>7.1 本轮景气的四个驱动</h3>
+  <ol>
+    <li><b>需求端：层数升级 + 架构升级。</b>AI 服务器 PCB 层数由传统 10 层升至 16—24 层，并向 40—60 层迈进；Kyber 架构新增整柜级正交背板，单机柜 PCB 用量与价值量同步跃升。普通 PCB 约 12 层，每增加一层都要多消耗玻纤布、树脂、铜箔与覆铜板。</li>
+    <li><b>供给端：扩产周期长且刚性。</b>铜箔、覆铜板需完成客户认证；玻纤布扩产受织机交付制约（海外核心供应商织机订单排至 2027 年底）；国内板厂年内扩产募资超千亿元，但厂房完工后仍需设备安装、调试、认证、爬坡。</li>
+    <li><b>结构端：产能向高利润 AI 材料倾斜。</b>供应商优先保障 AI 产品，FR-4 等传统材料可获产能被压缩，而汽车、医疗客户受认证与采购规则约束难以换料，导致传统板供给被动收紧、价格被动上涨。</li>
+    <li><b>行为端：恐慌性提前采购。</b>部分企业超额下单、向多家供应商重复下单，拉长交期、放大订单虚高，进一步强化涨价预期。</li>
+  </ol>
+
+  <h3>7.2 持续性判断：三个跟踪指标</h3>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>跟踪指标</th><th>当前状态</th><th>验证信号（景气延续）</th><th>证伪信号（周期见顶）</th></tr></thead>
+      <tbody>
+        <tr><td>电子布月度报价（7628 / 2116）</td><td>7628 约 14.6—14.65 元/米，2116 约 20.2 元/米，仍在上行通道</td><td>月度环比继续上涨或持平于高位</td><td>连续 2 个月环比下跌</td></tr>
+        <tr><td>覆铜板提价函</td><td>建滔年内第 8 次提价；松下 2027 年 1 月起部分产品上调 200%</td><td>2027 年上半年仍有新提价函落地</td><td>龙头停止提价或出现让价抢单</td></tr>
+        <tr><td>2027 年产能投放进度</td><td>南亚新材 720 万张项目预计 2027Q3 末试运行；金安国纪 4000 万平方米项目 2027 年试生产；另有 2800 万张于 2026 下半年投产（约当现有产能 47%）</td><td>投产延期、爬坡缓慢</td><td>产能集中释放、行业库存回升</td></tr>
+        <tr><td>海外 AI 资本开支</td><td>云厂商资本开支持续扩张，AI 服务器售价计划上调最高 45%</td><td>2027 年 capex 指引上修</td><td>2028 年 capex 指引下修</td></tr>
+        <tr><td>高端认证进度</td><td>生益已放量；南亚 M9 认证中；金安国纪高频高速仍处送样、未形成收入</td><td>二线厂 M9 批量落地</td><td>认证反复、良率不达标</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout">
+    <p><b>核心分歧点：这是“供给约束下的周期”，还是“AI 材料升级的起点”？</b>若为前者，2027 年下半年新增产能投放即为终点；若为后者，2027 年只是高端与低端产能分层的开始。当前证据更支持“<b>两者叠加</b>”：传统 FR-4 的涨价是周期，M8/M9 及以上材料的放量是成长。这也解释了为何金安国纪（通用板）与生益科技（高阶材料）同样利润高增，但前者在 2027 年供给转松后的回落风险显著更大。</p>
+  </div>
+
+  <h3>7.3 风险提示</h3>
+  <ul>
+    <li><b>涨价周期属性被误读为成长性。</b>金安国纪前三季归母净利同比 +1012.67%，但主力产品为通用 FR-4/CEM-3，据其 2026 年 9 月 13 日异动公告，高频高速覆铜板仍处客户送样阶段、未形成收入。若以同一涨价弹性为其定价，易将周期收益误判为 AI 卡位。</li>
+    <li><b>产能集中释放。</b>2027 年下半年起新增产能陆续投放，涨价斜率可能趋缓；高端与低端产能的盈利差距不会因此收窄，但低端产能盈利将率先回落。</li>
+    <li><b>AI 资本开支不及预期。</b>需求不确定性主要集中在 2028 年及以后；若海外云厂商 capex 指引下修，板块估值将先于业绩反应。</li>
+    <li><b>原材料价格大幅波动。</b>铜价、电子布价格若急涨，中小板厂议价能力弱，只能自行消化成本，行业分化加剧。</li>
+    <li><b>概念口径风险。</b>“电路板”概念 63 只中包含岩土工程、LED、通信规划等弱关联标的，主题行情中易被错配；“高频PCB”概念仅 19 只，覆盖不足。使用任一单一平台名单都可能高估或低估产业链真实范围。</li>
+    <li><b>估值波动风险。</b>2026 年前三季度 PCB 板块营收同比 +45.09%、归母净利同比 +108.42%，但板块指数自 2026 年 7 月以来一度下跌 48.57%，说明基本面与股价节奏并不同步。</li>
+  </ul>
+</section>
+
+<section id="s8">
+  <h2><span class="num">08</span>数据说明与来源</h2>
+  <h3>8.1 数据口径</h3>
+  <ul>
+    <li><b>行情与市值：</b>Wind，2026 年 11 月 27 日收盘。涨停股按申万三级行业“电子—元件—印制电路板”筛选，并补充“高频PCB/电路板”概念成分，合计 18 只。</li>
+    <li><b>概念名单：</b>Wind“高频PCB”概念 19 只、“电路板”概念 63 只，截至 2026 年 11 月 27 日。</li>
+    <li><b>财务与毛利：</b>上市公司 2026 年三季报、投资者关系活动记录表；分环节毛利率采用国金证券 2026Q3 算术平均口径。</li>
+    <li><b>价格数据：</b>卓创资讯（电子纱/电子布报价）、买化塑研究院、上海证券报、建滔积层板提价通知、松下提价通知。</li>
+  </ul>
+
+  <h3>8.2 主要来源</h3>
+  <ul>
+    <li>上海证券《科技行业 2027 年度策略：AI 需求持续，算力升级与产品迭代共振》，2026-11-23</li>
+    <li>国金证券《电子行业深度研究》，2026-11-10；招商证券《PCB/CCL 板块观点更新》，2026-11-05</li>
+    <li>光大证券《电子行业 2027 年投资策略：正视短期博弈，坚守 AI 趋势》，2026-11-20</li>
+    <li>广发证券《CCL 上游材料行业 2026 年三季报总结》，2026-11-17</li>
+    <li>中信建投《玻璃纤维 2027 年投资策略：从芯算到布》，2026-11-10；东北证券《PCB 铜箔产业趋势浩荡》，2026-11-09</li>
+    <li>全球电子协会（GEA）《PCB 紧缺：全球电子产业的警钟》相关报道</li>
+    <li>Prismark 全球 PCB 市场规模预测；Yole Group 行业预测</li>
+    <li>上市公司公告与投资者关系记录：深南电路（2026-11-26）、崇达技术（2026-11-26）、奥士康（2026-11-25）、依顿电子（2026-11-26）、满坤科技（2026-11-25）、民爆光电（2026-11-26）、一博科技（2026-11-25）、容大感光（2026-11-25）、金安国纪（2026-09-13 异动公告）</li>
+    <li>Wind 资讯《电路板指数上涨 3.02%》《覆铜板指数盘中涨超 6%》，2026-11-27</li>
+  </ul>
+  <p class="muted">说明：本报告中的“涨停原因”为基于公开信息的归因梳理，涨停由资金、情绪、消息共同决定，任何单一归因都不构成完整解释。产业链环节归属按主营业务与公开披露划分，部分公司横跨多环节，已在表中标注兼营。所有公司名称与代码均直接取自 Wind 数据，未做名称—代码的人工映射。</p>
+</section>
+
+
+<footer>
+  <p>本报告基于 Wind 金融数据终端、公开公告、券商研究报告及财经媒体公开报道整理，数据截至 2026 年 11 月 27 日收盘。产业链归属按公司主营业务与公开披露归类，部分公司横跨多个环节，已在文中标注“兼营”。</p>
+  <p>本报告为产业研究梳理，不构成任何投资建议或收益承诺。</p>
+</footer>
+</div>
+</body>
+</html>

@@ -7,6 +7,7 @@ import huaweiAscendHtml from './reports/huawei-ascend-chain.html?raw';
 import domesticAiChipHtml from './reports/domestic-ai-chip-chain.html?raw';
 import robotChainHtml from './reports/robot-chain.html?raw';
 import cloudDcHtml from './reports/cloud-dc-chain.html?raw';
+import pcbChainHtml from './reports/pcb-chain.html?raw';
 
 export type ChainReportMeta = {
   id: string;
@@ -40,6 +41,12 @@ const REPORTS: Record<string, ChainReportMeta> = {
     title: '云计算数据中心产业链全景与公司关系图谱（2026-11-27）',
     publicPath: 'reports/cloud-dc-chain.html',
     html: cloudDcHtml,
+  },
+  'pcb-chain': {
+    id: 'pcb-chain',
+    title: 'PCB（印制电路板）产业链全景与今日涨停复盘（2026-11-27）',
+    publicPath: 'reports/pcb-chain.html',
+    html: pcbChainHtml,
   },
 };
 
