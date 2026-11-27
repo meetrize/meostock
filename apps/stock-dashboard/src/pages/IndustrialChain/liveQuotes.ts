@@ -13,10 +13,19 @@ export type LiveQuoteRow = {
   code: string;
   name: string;
   changePercent: number | null;
+  change: number | null;
   pe: number | null;
+  pb: number | null;
   price: number | null;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  prevClose: number | null;
+  volume: number | null;
   circulatingMarketCap: number | null;
+  totalMarketCap: number | null;
   turnoverRate: number | null;
+  volumeRatio: number | null;
   amount: number | null;
   /** A 股涨停（含主板/创业/科创/ST 阈值兜底） */
   limitUp: boolean;
@@ -94,35 +103,28 @@ export async function fetchLiveQuoteRows(
           .toLowerCase()
           .endsWith(m.code.replace(/^(sh|sz|bj|us|hk)/i, '').toLowerCase())
       );
-    const changePercent =
-      q && Number.isFinite(q.changePercent) ? Number(q.changePercent) : null;
-    const pe =
-      q && q.pe != null && Number.isFinite(Number(q.pe)) ? Number(q.pe) : null;
-    const price = q && Number.isFinite(q.price) ? Number(q.price) : null;
-    const circulatingMarketCap =
-      q &&
-      q.circulatingMarketCap != null &&
-      Number.isFinite(Number(q.circulatingMarketCap))
-        ? Number(q.circulatingMarketCap)
-        : null;
-    const turnoverRate =
-      q && q.turnoverRate != null && Number.isFinite(Number(q.turnoverRate))
-        ? Number(q.turnoverRate)
-        : null;
-    const amount =
-      q && q.amount != null && Number.isFinite(Number(q.amount))
-        ? Number(q.amount)
-        : null;
+    const numOrNull = (v: unknown): number | null =>
+      v != null && Number.isFinite(Number(v)) ? Number(v) : null;
+    const changePercent = q ? numOrNull(q.changePercent) : null;
     return {
       entityId: m.entityId,
       code: m.code,
       name: m.name,
       changePercent,
-      pe,
-      price,
-      circulatingMarketCap,
-      turnoverRate,
-      amount,
+      change: q ? numOrNull(q.change) : null,
+      pe: q ? numOrNull(q.pe) : null,
+      pb: q ? numOrNull(q.pb) : null,
+      price: q ? numOrNull(q.price) : null,
+      open: q ? numOrNull(q.open) : null,
+      high: q ? numOrNull(q.high) : null,
+      low: q ? numOrNull(q.low) : null,
+      prevClose: q ? numOrNull(q.prevClose) : null,
+      volume: q ? numOrNull(q.volume) : null,
+      circulatingMarketCap: q ? numOrNull(q.circulatingMarketCap) : null,
+      totalMarketCap: q ? numOrNull(q.totalMarketCap) : null,
+      turnoverRate: q ? numOrNull(q.turnoverRate) : null,
+      volumeRatio: q ? numOrNull(q.volumeRatio) : null,
+      amount: q ? numOrNull(q.amount) : null,
       limitUp: inferLimitUp(m.code, m.name, changePercent),
     };
   });

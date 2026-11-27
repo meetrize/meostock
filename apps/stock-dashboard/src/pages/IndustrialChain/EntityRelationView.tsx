@@ -12,20 +12,29 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronUp, LocateFixed, ZoomIn, ZoomOut } from 'lucide-react';
 import { openKlineTool } from '@/utils/multipanel';
 import {
   formatAmount,
+  formatChange,
   formatMarketCap,
   formatPercent,
   formatPrice,
   formatRatio,
   formatTurnover,
+  formatVolume,
+  formatVolumeRatio,
   getChangeColorClass,
 } from '@/utils/format';
 import { RELATION_META, RELATION_TYPES } from './relationMeta';
 import { NodeSparkline } from './NodeSparkline';
 import type { LiveQuoteRow } from './liveQuotes';
+import {
+  sinaDailyChartUrl,
+  sinaMinChartUrl,
+  toSinaAshareSymbol,
+} from './sinaCharts';
 import type {
   EntityRelation,
   EntityRelationType,
@@ -33,6 +42,12 @@ import type {
   IndustrialChainGraph,
 } from './types';
 import styles from './IndustrialChain.module.css';
+
+type TipState = {
+  entityId: string;
+  top: number;
+  left: number;
+};
 
 type QuoteMoveFilter = 'all' | 'limitUp' | 'up5' | 'down';
 
@@ -192,10 +207,11 @@ export function EntityRelationView({
   const viewportRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef<Record<string, HTMLButtonElement | null>>({});
-  const tipTimerRef = useRef<number | null>(null);
+  const tipShowTimerRef = useRef<number | null>(null);
+  const tipHideTimerRef = useRef<number | null>(null);
   const [positions, setPositions] = useState<Record<string, Rect>>({});
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [tipId, setTipId] = useState<string | null>(null);
+  const [tip, setTip] = useState<TipState | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [view, setView] = useState<ViewTransform>({ scale: 1, x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
@@ -207,9 +223,47 @@ export function EntityRelationView({
 
   useEffect(() => {
     return () => {
-      if (tipTimerRef.current) window.clearTimeout(tipTimerRef.current);
+      if (tipShowTimerRef.current) window.clearTimeout(tipShowTimerRef.current);
+      if (tipHideTimerRef.current) window.clearTimeout(tipHideTimerRef.current);
     };
   }, []);
+
+  const clearTipTimers = useCallback(() => {
+    if (tipShowTimerRef.current) {
+      window.clearTimeout(tipShowTimerRef.current);
+      tipShowTimerRef.current = null;
+    }
+    if (tipHideTimerRef.current) {
+      window.clearTimeout(tipHideTimerRef.current);
+      tipHideTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHideTip = useCallback(() => {
+    if (tipHideTimerRef.current) window.clearTimeout(tipHideTimerRef.current);
+    tipHideTimerRef.current = window.setTimeout(() => {
+      setTip(null);
+      tipHideTimerRef.current = null;
+    }, 180);
+  }, []);
+
+  const showTipForCard = useCallback(
+    (entityId: string, el: HTMLElement) => {
+      const rect = el.getBoundingClientRect();
+      const tipW = 360;
+      const tipH = 320;
+      let left = rect.right + 12;
+      let top = rect.top;
+      if (left + tipW > window.innerWidth - 10) left = rect.left - tipW - 12;
+      if (left < 10) left = 10;
+      if (top + tipH > window.innerHeight - 10) {
+        top = Math.max(10, window.innerHeight - tipH - 10);
+      }
+      if (top < 10) top = 10;
+      setTip({ entityId, top, left });
+    },
+    []
+  );
   const spaceDownRef = useRef(false);
   const dragRef = useRef<{
     pointerId: number;
@@ -292,10 +346,19 @@ export function EntityRelationView({
         code: '',
         name: '',
         changePercent: pct ?? null,
+        change: null,
         pe: null,
+        pb: null,
         price: null,
+        open: null,
+        high: null,
+        low: null,
+        prevClose: null,
+        volume: null,
         circulatingMarketCap: null,
+        totalMarketCap: null,
         turnoverRate: null,
+        volumeRatio: null,
         amount: null,
         limitUp: false,
       };
@@ -567,6 +630,22 @@ export function EntityRelationView({
     return [...rows].sort((a, b) => (b.note?.length ?? 0) - (a.note?.length ?? 0))[0]
       .note!;
   }, [graph.memberships, selectedEntityId]);
+
+  const tipEnt = tip ? graph.entities.find((e) => e.id === tip.entityId) : null;
+  const tipQuote = tip ? getQuote(tip.entityId) : undefined;
+  const tipSina = tipEnt
+    ? toSinaAshareSymbol(tipQuote?.code || tipEnt.symbols[0] || '')
+    : null;
+  const tipIo = tip ? placement.get(tip.entityId)?.ioRole : undefined;
+  const tipSegName = tip
+    ? graph.segments.find((s) => s.id === placement.get(tip.entityId)?.segmentId)?.name
+    : undefined;
+  const tipBust = Math.floor(Date.now() / 60_000);
+  let tipChgRank = '';
+  if (tipQuote?.changePercent != null && chainChgRank.length >= 3) {
+    const below = chainChgRank.filter((v) => v < tipQuote.changePercent!).length;
+    tipChgRank = `${Math.round((below / chainChgRank.length) * 100)}%`;
+  }
 
   return (
     <div className={styles.relPanel}>
@@ -916,13 +995,6 @@ export function EntityRelationView({
                             : '';
                     const sym = displaySymbol(node.symbols[0]);
                     const sparkSym = q?.code || node.symbols[0] || '';
-                    const showTip = tipId === node.id && !!q;
-                    let chgRankLabel = '';
-                    if (q?.changePercent != null && chainChgRank.length >= 3) {
-                      const below = chainChgRank.filter((v) => v < q.changePercent!).length;
-                      const pctl = Math.round((below / chainChgRank.length) * 100);
-                      chgRankLabel = `链内涨幅分位 ${pctl}%`;
-                    }
                     return (
                       <button
                         key={node.id}
@@ -944,7 +1016,7 @@ export function EntityRelationView({
                           .filter(Boolean)
                           .join(' ')}
                         style={{ ['--node-accent' as string]: layer.accent } as CSSProperties}
-                        title="单击选中 · 双击打开日K"
+                        title="单击选中 · 悬停看分时/日K · 双击打开日K"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectEntity(selected ? null : node.id);
@@ -955,20 +1027,22 @@ export function EntityRelationView({
                           const code = sparkSym || node.symbols[0];
                           if (code) openKlineTool(code, '1d');
                         }}
-                        onMouseEnter={() => {
+                        onMouseEnter={(e) => {
                           setHoveredId(node.id);
-                          if (tipTimerRef.current) window.clearTimeout(tipTimerRef.current);
-                          tipTimerRef.current = window.setTimeout(() => {
-                            setTipId(node.id);
-                          }, 240);
+                          clearTipTimers();
+                          const el = e.currentTarget;
+                          tipShowTimerRef.current = window.setTimeout(() => {
+                            showTipForCard(node.id, el);
+                            tipShowTimerRef.current = null;
+                          }, 220);
                         }}
                         onMouseLeave={() => {
                           setHoveredId(null);
-                          if (tipTimerRef.current) {
-                            window.clearTimeout(tipTimerRef.current);
-                            tipTimerRef.current = null;
+                          if (tipShowTimerRef.current) {
+                            window.clearTimeout(tipShowTimerRef.current);
+                            tipShowTimerRef.current = null;
                           }
-                          setTipId((cur) => (cur === node.id ? null : cur));
+                          scheduleHideTip();
                         }}
                       >
                         <span className={styles.relCardTop}>
@@ -1026,17 +1100,6 @@ export function EntityRelationView({
                             )}
                           </span>
                         </span>
-                        {showTip && (
-                          <span className={styles.relCardTip} role="tooltip">
-                            <span>换手 {formatTurnover(q?.turnoverRate)}</span>
-                            <span>额 {formatAmount(q?.amount)}</span>
-                            {q?.pe != null && <span>PE {formatRatio(q.pe)}</span>}
-                            {q?.circulatingMarketCap != null && (
-                              <span>流通 {formatMarketCap(q.circulatingMarketCap)}</span>
-                            )}
-                            {chgRankLabel ? <span>{chgRankLabel}</span> : null}
-                          </span>
-                        )}
                       </button>
                     );
                   })}
@@ -1192,6 +1255,178 @@ export function EntityRelationView({
           )}
         </div>
       )}
+
+      {tip &&
+        tipEnt &&
+        createPortal(
+          <div
+            className={styles.relHoverTip}
+            style={{ top: tip.top, left: tip.left }}
+            role="dialog"
+            aria-label={`${tipEnt.name} 行情预览`}
+            onMouseEnter={() => {
+              if (tipHideTimerRef.current) {
+                window.clearTimeout(tipHideTimerRef.current);
+                tipHideTimerRef.current = null;
+              }
+            }}
+            onMouseLeave={() => scheduleHideTip()}
+          >
+            <div className={styles.relHoverTipHead}>
+              <div className={styles.relHoverTipTitle}>
+                <span className={styles.relHoverTipName}>{tipEnt.name}</span>
+                <span className={styles.relHoverTipCode}>
+                  {displaySymbol(tipEnt.symbols[0])}
+                </span>
+                {tipQuote?.limitUp ? (
+                  <span className={styles.relLimitBadge}>涨停</span>
+                ) : null}
+                {tipIo === 'input' && (
+                  <span className={`${styles.ioBadge} ${styles.ioBadgeIn}`}>入</span>
+                )}
+                {tipIo === 'output' && (
+                  <span className={`${styles.ioBadge} ${styles.ioBadgeOut}`}>出</span>
+                )}
+                {tipIo === 'both' && (
+                  <span className={`${styles.ioBadge} ${styles.ioBadgeBoth}`}>双</span>
+                )}
+              </div>
+              <div className={`${styles.relHoverTipPrice} ${getChangeColorClass(tipQuote?.changePercent)}`}>
+                <span>{tipQuote?.price != null ? formatPrice(tipQuote.price) : '—'}</span>
+                <span>
+                  {tipQuote?.changePercent != null
+                    ? formatPercent(tipQuote.changePercent)
+                    : '—'}
+                </span>
+                <span>
+                  {tipQuote?.change != null ? formatChange(tipQuote.change) : '—'}
+                </span>
+              </div>
+            </div>
+
+            <div className={styles.relHoverTipGrid}>
+              <div>
+                <span>开</span>
+                <b>{formatPrice(tipQuote?.open)}</b>
+              </div>
+              <div>
+                <span>高</span>
+                <b className="text-rise">{formatPrice(tipQuote?.high)}</b>
+              </div>
+              <div>
+                <span>低</span>
+                <b className="text-fall">{formatPrice(tipQuote?.low)}</b>
+              </div>
+              <div>
+                <span>昨</span>
+                <b>{formatPrice(tipQuote?.prevClose)}</b>
+              </div>
+              <div>
+                <span>额</span>
+                <b>{formatAmount(tipQuote?.amount)}</b>
+              </div>
+              <div>
+                <span>量</span>
+                <b>{formatVolume(tipQuote?.volume)}</b>
+              </div>
+              <div>
+                <span>换</span>
+                <b>{formatTurnover(tipQuote?.turnoverRate)}</b>
+              </div>
+              <div>
+                <span>量比</span>
+                <b>{formatVolumeRatio(tipQuote?.volumeRatio)}</b>
+              </div>
+              <div>
+                <span>流通</span>
+                <b>{formatMarketCap(tipQuote?.circulatingMarketCap)}</b>
+              </div>
+              <div>
+                <span>总市</span>
+                <b>{formatMarketCap(tipQuote?.totalMarketCap)}</b>
+              </div>
+              <div>
+                <span>PE</span>
+                <b>{formatRatio(tipQuote?.pe)}</b>
+              </div>
+              <div>
+                <span>PB</span>
+                <b>{formatRatio(tipQuote?.pb)}</b>
+              </div>
+              {tipChgRank ? (
+                <div>
+                  <span>分位</span>
+                  <b>{tipChgRank}</b>
+                </div>
+              ) : null}
+              {tipSegName ? (
+                <div className={styles.relHoverTipWide}>
+                  <span>环节</span>
+                  <b>{tipSegName}</b>
+                </div>
+              ) : null}
+            </div>
+
+            {(tipEnt.revenueMix || tipSegName) && (
+              <p className={styles.relHoverTipNote} title={tipEnt.revenueMix || tipSegName}>
+                {tipEnt.revenueMix?.slice(0, 48) || tipSegName}
+                {tipEnt.revenueMix && tipEnt.revenueMix.length > 48 ? '…' : ''}
+              </p>
+            )}
+
+            {tipSina ? (
+              <div className={styles.relHoverTipCharts}>
+                <div className={styles.relHoverTipChartBlock}>
+                  <div className={styles.relHoverTipChartLabel}>新浪分时</div>
+                  <img
+                    src={sinaMinChartUrl(tipSina, tipBust)}
+                    alt={`${tipEnt.name} 分时`}
+                    className={styles.relHoverTipImg}
+                    loading="eager"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className={styles.relHoverTipChartBlock}>
+                  <div className={styles.relHoverTipChartLabel}>新浪日K</div>
+                  <img
+                    src={sinaDailyChartUrl(tipSina, tipBust)}
+                    alt={`${tipEnt.name} 日K`}
+                    className={styles.relHoverTipImg}
+                    loading="eager"
+                    decoding="async"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className={styles.relHoverTipNote}>该标的暂无新浪 A 股图（非沪深京代码）</p>
+            )}
+
+            <div className={styles.relHoverTipActions}>
+              <button
+                type="button"
+                className={styles.btn}
+                onClick={() => {
+                  const code = tipQuote?.code || tipEnt.symbols[0];
+                  if (code) openKlineTool(code, '1d');
+                }}
+              >
+                打开日K
+              </button>
+              {onWatch && tipEnt.symbols[0] && (
+                <button
+                  type="button"
+                  className={styles.btn}
+                  onClick={() => onWatch(tipEnt.symbols[0], tipEnt.name)}
+                >
+                  加入自选
+                </button>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
