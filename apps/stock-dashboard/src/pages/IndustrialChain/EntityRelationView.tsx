@@ -53,10 +53,12 @@ function readDetailHeight(): number {
 
 const LAYER_ACCENTS = ['#a78bfa', '#38bdf8', '#34d399', '#f5b75c', '#f97316', '#e879f9', '#94a3b8'];
 
+type IoRole = 'input' | 'output' | 'both';
+
 function primaryMembership(
   graph: IndustrialChainGraph,
   entityId: string
-): { segmentId: string; secondary: number } | null {
+): { segmentId: string; secondary: number; ioRole?: IoRole } | null {
   const rows = graph.memberships.filter(
     (m) => m.entityId === entityId && m.status !== 'deprecated'
   );
@@ -71,7 +73,11 @@ function primaryMembership(
     };
     return score(b) - score(a);
   });
-  return { segmentId: ranked[0].segmentId, secondary: ranked.length - 1 };
+  return {
+    segmentId: ranked[0].segmentId,
+    secondary: ranked.length - 1,
+    ioRole: ranked[0].ioRole,
+  };
 }
 
 function buildPath(a: Rect, b: Rect) {
@@ -146,6 +152,7 @@ export function EntityRelationView({
   const [panning, setPanning] = useState(false);
   const [detailOpen, setDetailOpen] = useState(true);
   const [detailHeight, setDetailHeight] = useState(readDetailHeight);
+  const [ioFilter, setIoFilter] = useState<IoRole | 'all'>('all');
   const viewRef = useRef(view);
   const spaceDownRef = useRef(false);
   const dragRef = useRef<{
@@ -174,13 +181,21 @@ export function EntityRelationView({
   const relations = graph.relations ?? [];
 
   const placement = useMemo(() => {
-    const map = new Map<string, { segmentId: string; secondary: number }>();
+    const map = new Map<
+      string,
+      { segmentId: string; secondary: number; ioRole?: IoRole }
+    >();
     for (const ent of graph.entities) {
       const p = primaryMembership(graph, ent.id);
       if (p) map.set(ent.id, p);
     }
     return map;
   }, [graph]);
+
+  const hasIoRoles = useMemo(
+    () => graph.memberships.some((m) => !!m.ioRole),
+    [graph.memberships]
+  );
 
   const egoIds = useMemo(() => {
     const focal = graph.focalEntityId;
@@ -212,9 +227,17 @@ export function EntityRelationView({
 
   const visibleEntityIds = useMemo(() => {
     const ids = new Set<string>();
+    const passIo = (id: string) => {
+      if (ioFilter === 'all') return true;
+      const role = placement.get(id)?.ioRole;
+      if (!role) return false;
+      if (ioFilter === 'both') return role === 'both';
+      return role === ioFilter || role === 'both';
+    };
     for (const ent of graph.entities) {
       if (!placement.has(ent.id)) continue;
       if (egoIds && !egoIds.has(ent.id)) continue;
+      if (!passIo(ent.id)) continue;
       ids.add(ent.id);
     }
     // 保证关系两端都在（若未 ego 过滤掉）
@@ -222,12 +245,12 @@ export function EntityRelationView({
       if (relationFilter !== 'all' && r.type !== relationFilter) continue;
       if (egoIds && !egoIds.has(r.fromEntityId) && !egoIds.has(r.toEntityId)) continue;
       if (egoIds) {
-        if (egoIds.has(r.fromEntityId)) ids.add(r.fromEntityId);
-        if (egoIds.has(r.toEntityId)) ids.add(r.toEntityId);
+        if (egoIds.has(r.fromEntityId) && passIo(r.fromEntityId)) ids.add(r.fromEntityId);
+        if (egoIds.has(r.toEntityId) && passIo(r.toEntityId)) ids.add(r.toEntityId);
       }
     }
     return ids;
-  }, [graph.entities, placement, egoIds, relations, relationFilter]);
+  }, [graph.entities, placement, egoIds, relations, relationFilter, ioFilter]);
 
   const layers = useMemo(() => {
     return graph.segments
@@ -265,7 +288,7 @@ export function EntityRelationView({
   useLayoutEffect(() => {
     const frame = requestAnimationFrame(measure);
     return () => cancelAnimationFrame(frame);
-  }, [measure, layers, selectedEntityId, egoMode, relationFilter, query]);
+  }, [measure, layers, selectedEntityId, egoMode, relationFilter, ioFilter, query]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -474,6 +497,38 @@ export function EntityRelationView({
             </button>
           ))}
         </div>
+        {hasIoRoles && (
+          <div className={styles.relFilters}>
+            {(
+              [
+                ['all', '全部I/O'],
+                ['input', '输入'],
+                ['output', '输出'],
+                ['both', '双向'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`${styles.relChip} ${ioFilter === id ? styles.relChipOn : ''}`}
+                style={{
+                  ['--rel-color' as string]:
+                    id === 'input'
+                      ? '#3b82f6'
+                      : id === 'output'
+                        ? '#10b981'
+                        : id === 'both'
+                          ? '#d97706'
+                          : '#94a3b8',
+                }}
+                onClick={() => setIoFilter(id)}
+              >
+                <span className={styles.relDot} />
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {graph.focalEntityId && (
           <button
             type="button"
@@ -674,7 +729,16 @@ export function EntityRelationView({
                       !!selectedEntityId && node.id !== selectedEntityId && !related;
                     const pct = quotePct?.get(node.id);
                     const secondary = placement.get(node.id)?.secondary ?? 0;
+                    const ioRole = placement.get(node.id)?.ioRole;
                     const isFocal = node.id === graph.focalEntityId;
+                    const ioClass =
+                      ioRole === 'input'
+                        ? styles.relIoIn
+                        : ioRole === 'output'
+                          ? styles.relIoOut
+                          : ioRole === 'both'
+                            ? styles.relIoBoth
+                            : '';
                     return (
                       <button
                         key={node.id}
@@ -688,6 +752,7 @@ export function EntityRelationView({
                           related ? styles.relCardRelated : '',
                           searchMuted || focusMuted ? styles.relCardDim : '',
                           isFocal ? styles.relCardFocal : '',
+                          ioClass,
                         ]
                           .filter(Boolean)
                           .join(' ')}
@@ -717,6 +782,21 @@ export function EntityRelationView({
                             <span className={styles.relCardName}>
                               {node.name}
                               {isFocal ? ' · 锚点' : ''}
+                              {ioRole === 'input' && (
+                                <span className={`${styles.ioBadge} ${styles.ioBadgeIn}`}>
+                                  入
+                                </span>
+                              )}
+                              {ioRole === 'output' && (
+                                <span className={`${styles.ioBadge} ${styles.ioBadgeOut}`}>
+                                  出
+                                </span>
+                              )}
+                              {ioRole === 'both' && (
+                                <span className={`${styles.ioBadge} ${styles.ioBadgeBoth}`}>
+                                  双
+                                </span>
+                              )}
                             </span>
                             <span className={styles.relCardSub}>
                               {node.revenueMix?.slice(0, 28) ?? layer.seg.name}

@@ -1,6 +1,6 @@
 import type { ChainCatalogItem } from './types';
 
-/** 官方主链目录（§1.2）；已开放 C01 / C05 */
+/** 官方主链目录（§1.2）；已开放 C01 / C05 / C06 */
 export const CHAIN_CATALOG: ChainCatalogItem[] = [
   {
     id: 'C01',
@@ -13,6 +13,12 @@ export const CHAIN_CATALOG: ChainCatalogItem[] = [
     name: '云计算数据中心',
     depth: 'observe',
     blurb: 'IDC→算力→基础软→安全→集成→应用 · 常山北明锚点',
+  },
+  {
+    id: 'C06',
+    name: '华为昇腾',
+    depth: 'observe',
+    blurb: 'L1–L5 + 输入/输出 · 报告全文可点 K 线',
   },
   {
     id: 'C02',
@@ -34,6 +40,13 @@ export const CHAIN_CATALOG: ChainCatalogItem[] = [
     depth: 'placeholder',
     building: true,
     blurb: '可与 C01 / C05 交叉（建设中）',
+  },
+  {
+    id: 'C07',
+    name: '关键矿扩展',
+    depth: 'placeholder',
+    building: true,
+    blurb: '铝 / 锂 / 镍（原 C06 顺延占位）',
   },
 ];
 

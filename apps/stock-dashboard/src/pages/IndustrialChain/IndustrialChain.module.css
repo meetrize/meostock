@@ -1540,6 +1540,148 @@
   }
 }
 
+/* —— 报告 Tab —— */
+.reportPanel {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.reportToc {
+  border-right: 1px solid var(--border-primary);
+  padding: 10px 10px 16px;
+  overflow: auto;
+  background: var(--bg-secondary);
+}
+
+.reportTocTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin: 10px 0 6px;
+  text-transform: uppercase;
+}
+
+.reportTocNav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.reportTocItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.35;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.reportTocItem:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.04));
+  color: var(--text-primary);
+}
+
+.reportTocH3 {
+  padding-left: 16px;
+  font-size: 12px;
+}
+
+.reportTocActive {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.reportScroll {
+  overflow: auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.chainReportRoot {
+  color: var(--text-primary);
+  padding: 8px 16px 32px;
+}
+
+.chainReportRoot :global(.chainReportCode) {
+  display: inline;
+  margin: 0;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--accent, #2563eb);
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chainReportRoot :global(.chainReportCode:hover) {
+  color: var(--text-primary);
+}
+
+.chainReportRoot :global(tr.chainReportIoDim) {
+  opacity: 0.28;
+}
+
+.chainReportRoot :global(tr.chainReportIoHit) {
+  outline: 1px solid color-mix(in srgb, var(--accent, #2563eb) 35%, transparent);
+  outline-offset: -1px;
+}
+
+.relIoIn {
+  --node-accent: #3b82f6 !important;
+  box-shadow: inset 3px 0 0 #3b82f6;
+}
+
+.relIoOut {
+  --node-accent: #10b981 !important;
+  box-shadow: inset 3px 0 0 #10b981;
+}
+
+.relIoBoth {
+  --node-accent: #d97706 !important;
+  box-shadow: inset 3px 0 0 #d97706;
+}
+
+.ioBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: 4px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.ioBadgeIn {
+  color: #1d4ed8;
+  background: #e8f0fe;
+}
+
+.ioBadgeOut {
+  color: #0f7b5f;
+  background: #e6f6f1;
+}
+
+.ioBadgeBoth {
+  color: #a16207;
+  background: #fdf3d7;
+}
+
 @media (max-width: 860px) {
   .body,
   .bodyNoLeft,
@@ -1558,5 +1700,16 @@
   .right {
     max-height: 320px;
     border-top: 1px solid var(--border-primary);
+  }
+
+  .reportPanel {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .reportToc {
+    border-right: none;
+    border-bottom: 1px solid var(--border-primary);
+    max-height: 140px;
   }
 }

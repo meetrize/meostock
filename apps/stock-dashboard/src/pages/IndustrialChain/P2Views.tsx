@@ -13,7 +13,7 @@ import type {
   ShockScenario,
 } from './types';
 import { quadrantLabel } from './divergence';
-import { SHOCK_PRESETS } from './shockSandbox';
+import { shockPresetsForGraph } from './shockSandbox';
 import styles from './IndustrialChain.module.css';
 
 const TIER_SHORT = {
@@ -46,6 +46,7 @@ export function CenterViewSwitch({
   const items: { id: ChainCenterView; label: string }[] = [
     { id: 'graph', label: '图谱' },
     { id: 'relations', label: '关系' },
+    { id: 'report', label: '报告' },
     { id: 'sandbox', label: '沙盘' },
     { id: 'radar', label: '背离' },
     { id: 'markets', label: '跨市场' },
@@ -87,13 +88,14 @@ export function SandboxPanel({
   onToggleCheck: (id: string) => void;
   onFocusSegment: (segmentId: string) => void;
 }) {
+  const presets = shockPresetsForGraph(graph);
   return (
     <div className={styles.p2Panel}>
       <p className={styles.detailP}>
         拖动强度并选择冲击芯片；沿边四参数扩散为 L1–L3（系数区间中点 × 权重）。
       </p>
       <div className={styles.chipRow}>
-        {SHOCK_PRESETS.map((p) => (
+        {presets.map((p) => (
           <button
             key={p.id}
             type="button"

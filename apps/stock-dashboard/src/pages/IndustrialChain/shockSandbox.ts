@@ -42,7 +42,41 @@ export const SHOCK_PRESETS: Omit<ShockScenario, 'intensity'>[] = [
     epicenterSegmentId: 'c01-memory',
     polarity: 'demand_down',
   },
+  /** C06 昇腾报告 §8.1 三条传导 */
+  {
+    id: 'shock-c06-tech',
+    kind: 'ai_demand_surge',
+    label: '昇腾·技术链（HBM 突破）',
+    description: 'HBM 架构突破 → 单卡带宽不再瓶颈 → 训练场景可用 → 算力需求非线性放大',
+    epicenterSegmentId: 'c06-hbm',
+    polarity: 'demand_up',
+  },
+  {
+    id: 'shock-c06-mfg',
+    kind: 'ai_demand_surge',
+    label: '昇腾·制造链（4096bit）',
+    description: '位宽升级 → 封装/载板/键合设备/测试/材料依次受益；去中介层抬升载板价值',
+    epicenterSegmentId: 'c06-pkg',
+    polarity: 'supply_tight',
+  },
+  {
+    id: 'shock-c06-sys',
+    kind: 'ai_demand_surge',
+    label: '昇腾·系统链（超节点）',
+    description: '单柜破 100kW → 液冷刚需；集群扩容 → 光进铜退 → 光模块/连接器价值抬升',
+    epicenterSegmentId: 'c06-system',
+    polarity: 'demand_up',
+  },
 ];
+
+/** 仅展示当前图谱中存在落点环节的冲击预设 */
+export function shockPresetsForGraph(
+  graph: IndustrialChainGraph
+): Omit<ShockScenario, 'intensity'>[] {
+  const ids = new Set(graph.segments.map((s) => s.id));
+  const matched = SHOCK_PRESETS.filter((p) => ids.has(p.epicenterSegmentId));
+  return matched.length ? matched : SHOCK_PRESETS;
+}
 
 function beneficiariesForSegment(graph: IndustrialChainGraph, segmentId: string) {
   return graph.memberships

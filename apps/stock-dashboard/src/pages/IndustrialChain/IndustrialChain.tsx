@@ -45,6 +45,7 @@ import {
   mergeLiveMetrics,
   type LiveQuoteRow,
 } from './liveQuotes';
+import { ChainReportView } from './ChainReportView';
 import { EntityRelationView } from './EntityRelationView';
 import {
   CenterViewSwitch,
@@ -59,6 +60,7 @@ import { C01_INDICATORS } from './seed/c01Indicators';
 import { C01_MARKET_METRICS } from './seed/c01MarketMetrics';
 import { C01_RESTRUCTURE } from './seed/c01Restructure';
 import { C05_INDICATORS } from './seed/c05Indicators';
+import { C06_INDICATORS } from './seed/c06Indicators';
 import {
   buildSignalCards,
   getIndicatorsForSegment,
@@ -68,6 +70,7 @@ import {
 import {
   buildEventChecklist,
   runCascade,
+  shockPresetsForGraph,
   SHOCK_PRESETS,
 } from './shockSandbox';
 import {
@@ -108,6 +111,7 @@ import styles from './IndustrialChain.module.css';
 
 function indicatorsForChain(chainId: string): LeadingIndicator[] {
   if (chainId === 'C05') return C05_INDICATORS;
+  if (chainId === 'C06') return C06_INDICATORS;
   return C01_INDICATORS;
 }
 
@@ -232,6 +236,7 @@ export function IndustrialChain() {
   const [relationFilter, setRelationFilter] = useState<EntityRelationType | 'all'>('all');
   const [relationQuery, setRelationQuery] = useState('');
   const [egoMode, setEgoMode] = useState(true);
+  const [reportScrollHint, setReportScrollHint] = useState<string | null>(null);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [centerFullscreen, setCenterFullscreen] = useState(false);
@@ -456,7 +461,7 @@ export function IndustrialChain() {
       const text = await file.text();
       const imported = importChainJson(text);
       if (!isEditableChain(imported.id)) {
-        toast.error('仅支持导入已开放主链（C01 / C05）');
+        toast.error('仅支持导入已开放主链（C01 / C05 / C06）');
         return;
       }
       saveDraft(imported);
@@ -917,7 +922,17 @@ export function IndustrialChain() {
                         setRelationQuery('');
                         setRelationFilter('all');
                         setEgoMode(true);
+                        setReportScrollHint(null);
                         setCenterView('graph');
+                        const nextGraph = getPublishedChain(item.id);
+                        if (nextGraph) {
+                          const presets = shockPresetsForGraph(nextGraph);
+                          setShock({
+                            ...(presets[0] ?? SHOCK_PRESETS[0]),
+                            intensity: 0.7,
+                          });
+                          setChecklistDone({});
+                        }
                         reloadView(item.id, false);
                       }}
                     >
@@ -1127,6 +1142,29 @@ export function IndustrialChain() {
                   onRemoveRelation={removeEntityRelation}
                 />
               )}
+              {centerView === 'report' && (
+                <ChainReportView
+                  graph={graph}
+                  scrollToHint={reportScrollHint}
+                  onSelectEntity={(id) => {
+                    setSelectedEntityId(id);
+                    const m = graph.memberships.find(
+                      (x) => x.entityId === id && x.status !== 'deprecated'
+                    );
+                    if (m) setSelectedSegId(m.segmentId);
+                    setRightTab('detail');
+                  }}
+                  onSelectSegment={(id) => setSelectedSegId(id)}
+                  onOpenRelations={(entityId) => {
+                    openEntityRelations(entityId);
+                  }}
+                  onOpenGraph={(segmentId) => {
+                    setSelectedSegId(segmentId);
+                    setCenterView('graph');
+                    setRightTab('detail');
+                  }}
+                />
+              )}
               {centerView === 'sandbox' && (
                 <SandboxPanel
                   graph={graph}
@@ -1196,7 +1234,9 @@ export function IndustrialChain() {
               )}
             </>
           ) : (
-            <div className={styles.detailEmpty}>该主链建设中，当前已开放 C01 / C05。</div>
+            <div className={styles.detailEmpty}>
+              该主链建设中，当前已开放 C01 / C05 / C06。
+            </div>
           )}
         </section>
 
@@ -1430,6 +1470,20 @@ export function IndustrialChain() {
                       <strong>价值角色</strong> {selectedSeg.valueRole}
                     </p>
                   )}
+                  {graph.reportUrl && (
+                    <div className={styles.candidateActions} style={{ marginBottom: 8 }}>
+                      <button
+                        type="button"
+                        className={styles.btn}
+                        onClick={() => {
+                          setReportScrollHint(selectedSeg.name);
+                          setCenterView('report');
+                        }}
+                      >
+                        在报告中查看
+                      </button>
+                    </div>
+                  )}
                   <dl className={styles.kv}>
                     <dt>卡脖子</dt>
                     <dd>{selectedSeg.chokeRisk ?? '—'}</dd>
@@ -1501,8 +1555,15 @@ export function IndustrialChain() {
                           )}
                         </div>
                         <div className={styles.memberSymbols}>
-                          {entity!.symbols.join(' · ')} ·{' '}
+                          {entity!.symbols.join(' · ') || '非交易'} ·{' '}
                           {STATUS_LABEL[membership.status]} · {membership.evidenceGrade}
+                          {membership.ioRole === 'input'
+                            ? ' · 输入'
+                            : membership.ioRole === 'output'
+                              ? ' · 输出'
+                              : membership.ioRole === 'both'
+                                ? ' · 双向'
+                                : ''}
                           {membership.revenueSharePct != null
                             ? ` · 占比约 ${membership.revenueSharePct}%`
                             : ''}
@@ -1537,6 +1598,18 @@ export function IndustrialChain() {
                           >
                             在关系网查看
                           </button>
+                          {graph.reportUrl && (
+                            <button
+                              type="button"
+                              className={styles.btn}
+                              onClick={() => {
+                                setReportScrollHint(entity!.name);
+                                setCenterView('report');
+                              }}
+                            >
+                              在报告中查看
+                            </button>
+                          )}
                           {entity!.symbols[0] && (
                             <button
                               type="button"

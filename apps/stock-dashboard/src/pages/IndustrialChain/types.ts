@@ -96,6 +96,8 @@ export interface ChainMembership {
   /** 与锚点公司可比/关系标签 */
   peerTag?: PeerComparability;
   roleNote?: string;
+  /** 昇腾等报告：相对枢纽的输入/输出/双向 */
+  ioRole?: 'input' | 'output' | 'both';
 }
 
 export interface ChainReleaseMeta {
@@ -139,6 +141,8 @@ export interface IndustrialChainGraph {
   focalEntityId?: string;
   /** 报告来源链接或说明 */
   reportSource?: string;
+  /** 绑定的本地报告路径（public 下或绝对 URL） */
+  reportUrl?: string;
   /** 链条级关键变量与风险 */
   chainRisks?: string[];
   /** 价值分配一句话规律 */
@@ -168,6 +172,7 @@ export type ChainRightTab =
 export type ChainCenterView =
   | 'graph'
   | 'relations'
+  | 'report'
   | 'sandbox'
   | 'radar'
   | 'markets'

@@ -15,6 +15,12 @@ export function buildCommandItems(graph: IndustrialChainGraph | null): CommandIt
       action: { type: 'view', view: 'relations' },
     },
     {
+      id: 'view-report',
+      title: '打开报告',
+      keywords: ['报告', 'report', '昇腾', 'HTML', '全文'],
+      action: { type: 'view', view: 'report' },
+    },
+    {
       id: 'view-sandbox',
       title: '打开传导沙盘',
       keywords: ['沙盘', '冲击', 'sandbox', '传导'],
