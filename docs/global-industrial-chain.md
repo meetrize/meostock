@@ -150,7 +150,7 @@ Wind/问财那种「五千条产业库」是数据商愿景；按本文开发，
 | 价值分配一句话 | `valueLaw` | Situation Room 叙事锚 |
 | **报告全文（C06 延伸）** | `reportUrl` + 中央 Tab「报告」 | 受信本地 HTML；剥离 script；代码 → `openKlineTool`；TOC / 输入输出高亮 |
 | **输入/输出标签** | `membership.ioRole`（`input`/`output`/`both`） | 关系网着色筛选；对齐合同结算方向 |
-| **企业供货/授权边** | `EntityRelation` | 枢纽 ego；证据分层；与环节边分离 |
+| **企业供货/授权边** | `EntityRelation`（`label` 短标签 / `note` 完整关系说明） | 枢纽 ego；未选中连线显短标签，选中显 `note` 全文；详情面板同步 |
 
 流程：**报告 → 人工精编种子 → 草稿/发布**；全文进「报告」Tab 保信息零漏；外源自动增量仍只进候选箱。
 

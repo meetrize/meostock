@@ -117,11 +117,15 @@ export interface EntityRelation {
   /** 关系接收方 entityId */
   toEntityId: string;
   type: EntityRelationType;
-  /** 短标签，如「服务器供货」 */
+  /** 短标签（未选中/悬停时连线显示），如「服务器供货」 */
   label: string;
   evidenceGrade: EvidenceGrade;
   confidence?: number;
   asOf?: string;
+  /**
+   * 完整关系说明（选中节点后连线与详情面板展示）。
+   * 报告驱动链写入「与枢纽/对端的关系」全文；其它链写供货/合作证据摘要。
+   */
   note?: string;
 }
 

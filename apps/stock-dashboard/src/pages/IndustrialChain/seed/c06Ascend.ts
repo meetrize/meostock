@@ -26,10 +26,10 @@ export const C06_SEED: IndustrialChainGraph = {
   ],
   relations: C06_RELATIONS,
   release: {
-    version: 1,
-    publishedAt: '2026-11-27T03:00:00.000Z',
+    version: 2,
+    publishedAt: '2026-11-27T03:30:00.000Z',
     publishedBy: 'seed',
-    note: '昇腾报告 L1–L5 全量挂载 + 企业关系 + 报告 Tab',
+    note: '关系边 note 改为报告「与华为的关系」全文；选中连线/详情可读',
   },
 
   segments: [

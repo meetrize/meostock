@@ -464,6 +464,16 @@ export function EntityRelationView({
     ? graph.entities.find((e) => e.id === selectedEntityId)
     : null;
 
+  const selectedMembershipNote = useMemo(() => {
+    if (!selectedEntityId) return null;
+    const rows = graph.memberships.filter(
+      (m) => m.entityId === selectedEntityId && m.status !== 'deprecated' && m.note
+    );
+    if (!rows.length) return null;
+    return [...rows].sort((a, b) => (b.note?.length ?? 0) - (a.note?.length ?? 0))[0]
+      .note!;
+  }, [graph.memberships, selectedEntityId]);
+
   return (
     <div className={styles.relPanel}>
       <div className={styles.relToolbar}>
@@ -637,6 +647,12 @@ export function EntityRelationView({
                 const weak = relation.evidenceGrade === 'unverified';
                 const hot = active || preview;
                 const flow = !muted;
+                // 未选中：悬停显示短标签；选中：连线中显示完整关系说明
+                const showShort = preview && !selectedEntityId;
+                const showFull = active && !!selectedEntityId;
+                const fullText = (relation.note || relation.label).trim();
+                const labelW = Math.min(280, Math.max(140, Math.ceil(fullText.length * 5.2)));
+                const labelH = Math.min(96, Math.max(36, Math.ceil(fullText.length / 22) * 14 + 10));
                 return (
                   <g
                     key={relation.id}
@@ -666,29 +682,54 @@ export function EntityRelationView({
                       />
                     )}
                     {hot && (
-                      <>
-                        <circle
-                          className={styles.relEdgeParticle}
-                          r="3.2"
-                          fill={meta.color}
+                      <circle
+                        className={styles.relEdgeParticle}
+                        r="3.2"
+                        fill={meta.color}
+                      >
+                        <animateMotion
+                          key={`${relation.id}-${selectedEntityId ?? 'x'}-${hoveredId ?? 'h'}`}
+                          dur="2.4s"
+                          repeatCount="indefinite"
+                          path={d}
+                        />
+                      </circle>
+                    )}
+                    {showShort && (
+                      <text
+                        x={mid.x}
+                        y={mid.y - 6}
+                        textAnchor="middle"
+                        className={styles.relEdgeLabel}
+                        fill={meta.color}
+                      >
+                        {relation.label}
+                      </text>
+                    )}
+                    {showFull && (
+                      <foreignObject
+                        x={mid.x - labelW / 2}
+                        y={mid.y - labelH / 2}
+                        width={labelW}
+                        height={labelH}
+                        className={styles.relEdgeNoteFo}
+                      >
+                        <div
+                          className={styles.relEdgeNote}
+                          style={{ borderColor: meta.color }}
+                          title={fullText}
                         >
-                          <animateMotion
-                            key={`${relation.id}-${selectedEntityId ?? 'x'}-${hoveredId ?? 'h'}`}
-                            dur="2.4s"
-                            repeatCount="indefinite"
-                            path={d}
-                          />
-                        </circle>
-                        <text
-                          x={mid.x}
-                          y={mid.y - 6}
-                          textAnchor="middle"
-                          className={styles.relEdgeLabel}
-                          fill={meta.color}
-                        >
-                          {relation.label}
-                        </text>
-                      </>
+                          <span
+                            className={styles.relEdgeNoteLabel}
+                            style={{ color: meta.color }}
+                          >
+                            {relation.label}
+                          </span>
+                          {relation.note && relation.note !== relation.label ? (
+                            <span className={styles.relEdgeNoteBody}>{relation.note}</span>
+                          ) : null}
+                        </div>
+                      </foreignObject>
                     )}
                   </g>
                 );
@@ -912,7 +953,14 @@ export function EntityRelationView({
               style={{ height: detailHeight }}
             >
               {selectedEnt.revenueMix && (
-                <p className={styles.detailP}>{selectedEnt.revenueMix}</p>
+                <p className={styles.detailP}>
+                  <strong>产品/服务</strong> {selectedEnt.revenueMix}
+                </p>
+              )}
+              {selectedMembershipNote && (
+                <p className={styles.detailP}>
+                  <strong>关系说明</strong> {selectedMembershipNote}
+                </p>
               )}
               <ul className={styles.relSideList}>
                 {selectedRels.length === 0 && (
@@ -936,11 +984,13 @@ export function EntityRelationView({
                         </span>{' '}
                         {other?.name ?? otherId}
                         <span className={styles.badge}>{gradeLabel(r.evidenceGrade)}</span>
+                        <span className={styles.badge}>{r.label}</span>
                       </button>
-                      <div className={styles.memberSymbols}>
-                        {r.label}
-                        {r.note ? ` · ${r.note}` : ''}
-                      </div>
+                      {r.note && (
+                        <p className={styles.relSideNote}>
+                          <strong>关系</strong> {r.note}
+                        </p>
+                      )}
                       {editable && onRemoveRelation && (
                         <button
                           type="button"
@@ -1031,8 +1081,12 @@ function RelationAddForm({
         </select>
       </label>
       <label>
-        备注
-        <input value={note} onChange={(e) => setNote(e.target.value)} />
+        关系说明
+        <input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="完整关系/供货说明（选中后连线与详情显示）"
+        />
       </label>
       <button
         type="button"
