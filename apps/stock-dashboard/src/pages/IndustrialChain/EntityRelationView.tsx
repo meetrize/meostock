@@ -269,6 +269,9 @@ export function EntityRelationView({
   const measure = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return;
+    // getBoundingClientRect 含 CSS transform；连线画在 .relWorld 内，必须换算回未缩放局部坐标，
+    // 否则缩放后再点选/重测会把 scale 乘第二次，导致连线错位。
+    const scale = viewRef.current.scale || 1;
     const base = stage.getBoundingClientRect();
     const next: Record<string, Rect> = {};
     for (const id of Object.keys(nodeRefs.current)) {
@@ -276,10 +279,10 @@ export function EntityRelationView({
       if (!el) continue;
       const rect = el.getBoundingClientRect();
       next[id] = {
-        x: rect.left - base.left,
-        y: rect.top - base.top,
-        w: rect.width,
-        h: rect.height,
+        x: (rect.left - base.left) / scale,
+        y: (rect.top - base.top) / scale,
+        w: rect.width / scale,
+        h: rect.height / scale,
       };
     }
     setPositions(next);
