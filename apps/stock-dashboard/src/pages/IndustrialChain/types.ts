@@ -145,7 +145,12 @@ export interface IndustrialChainGraph {
   focalEntityId?: string;
   /** 报告来源链接或说明 */
   reportSource?: string;
-  /** 绑定的本地报告路径（public 下或绝对 URL） */
+  /**
+   * 绑定报告 ID（优先走前端 reportRegistry 内嵌 HTML）。
+   * 例：huawei-ascend-chain；入库后与 DB chain_report.report_id 对齐。
+   */
+  reportId?: string;
+  /** 绑定的本地报告路径（public 相对/绝对 URL；作内嵌失败时的回退） */
   reportUrl?: string;
   /** 链条级关键变量与风险 */
   chainRisks?: string[];

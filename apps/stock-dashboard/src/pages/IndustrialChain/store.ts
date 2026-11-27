@@ -60,6 +60,27 @@ function saveRaw(chainId: string, state: PersistedState) {
   localStorage.setItem(storageKey(chainId), JSON.stringify(state));
 }
 
+function patchReportBindingFromSeed(
+  published: IndustrialChainGraph,
+  seed: IndustrialChainGraph
+): IndustrialChainGraph {
+  const next = cloneGraph(published);
+  let changed = false;
+  if (seed.reportId && !next.reportId) {
+    next.reportId = seed.reportId;
+    changed = true;
+  }
+  if (seed.reportUrl && !next.reportUrl) {
+    next.reportUrl = seed.reportUrl;
+    changed = true;
+  }
+  if (seed.reportSource && !next.reportSource) {
+    next.reportSource = seed.reportSource;
+    changed = true;
+  }
+  return changed ? next : published;
+}
+
 export function getPublishedChain(chainId: string): IndustrialChainGraph | null {
   if (!isEditableChain(chainId)) return null;
   const seed = getSeed(chainId);
@@ -75,7 +96,16 @@ export function getPublishedChain(chainId: string): IndustrialChainGraph | null 
     saveRaw(chainId, { published: cloneGraph(seed), draft: null });
     return cloneGraph(seed);
   }
-  return cloneGraph(stored.published);
+  const published = cloneGraph(stored.published);
+  // 旧本地种子缺 reportId 时补齐（不抬版本，避免覆盖用户草稿发布）
+  if (seed && published.release.publishedBy === 'seed' && !stored.draft) {
+    const patched = patchReportBindingFromSeed(published, seed);
+    if (patched !== published && (patched.reportId || patched.reportUrl)) {
+      saveRaw(chainId, { published: patched, draft: null });
+      return patched;
+    }
+  }
+  return published;
 }
 
 export function getDraftChain(chainId: string): IndustrialChainGraph | null {

@@ -1,9 +1,10 @@
 /**
- * 产业链绑定报告：本地 HTML 保格式展示，代码可点开 K 线，TOC / io 过滤 / 图谱互跳
+ * 产业链绑定报告：HTML 保格式内嵌展示，代码/公司名点开 K 线，TOC / io / 关系高亮
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { openKlineTool } from '@/utils/multipanel';
+import { getBundledReport, resolveReportFetchUrl } from './reportRegistry';
 import type { IndustrialChainGraph } from './types';
 import styles from './IndustrialChain.module.css';
 
@@ -16,7 +17,6 @@ const CODE_ONLY_RE = /^(\d{6}\.(?:SZ|SH|BJ))$/;
 function extractBodyAndStyle(html: string): { style: string; body: string } {
   const styleMatch = html.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
   let style = styleMatch?.[1] ?? '';
-  // scope body rules under report root; inherit dashboard background
   style = style
     .replace(/\bbody\s*\{/g, '.chainReportRoot{')
     .replace(/background\s*:\s*var\(--bg\)/g, 'background:transparent');
@@ -25,6 +25,10 @@ function extractBodyAndStyle(html: string): { style: string; body: string } {
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
   if (bodyMatch) body = bodyMatch[1];
   body = body.replace(/<script[\s\S]*?<\/script>/gi, '');
+  // SPA 误返回 index.html 时快速识别
+  if (/<div id="root"|vite|react/i.test(body) && !/<table/i.test(body)) {
+    throw new Error('报告地址被 SPA 回退拦截，请使用内嵌报告或带 BASE_URL 的路径');
+  }
   return { style, body };
 }
 
@@ -41,6 +45,16 @@ function collectCodes(html: string): string[] {
   return [...new Set(found)];
 }
 
+function makeCodeButton(code: string): HTMLButtonElement {
+  const a = document.createElement('button');
+  a.type = 'button';
+  a.className = 'chainReportCode';
+  a.dataset.code = code;
+  a.textContent = code;
+  a.title = `打开 K 线 ${code}`;
+  return a;
+}
+
 export function ChainReportView({
   graph,
   scrollToHint,
@@ -50,7 +64,6 @@ export function ChainReportView({
   onOpenGraph,
 }: {
   graph: IndustrialChainGraph;
-  /** 从图谱跳入时，匹配 H2/H3 文本并滚动 */
   scrollToHint?: string | null;
   onSelectEntity?: (entityId: string) => void;
   onSelectSegment?: (segmentId: string) => void;
@@ -63,32 +76,53 @@ export function ChainReportView({
   const [toc, setToc] = useState<TocItem[]>([]);
   const [ioFilter, setIoFilter] = useState<IoFilter>('all');
   const [activeToc, setActiveToc] = useState<string | null>(null);
+  const [focusCode, setFocusCode] = useState<string | null>(null);
 
-  const reportUrl = graph.reportUrl;
+  const bundled = useMemo(
+    () => getBundledReport(graph.reportId),
+    [graph.reportId]
+  );
+  const hasReport = !!(bundled || graph.reportUrl || graph.reportId);
 
   useEffect(() => {
-    if (!reportUrl) {
-      setRawHtml(null);
-      setError(null);
-      return;
-    }
     let cancelled = false;
     setError(null);
-    fetch(reportUrl)
+    setFocusCode(null);
+
+    if (bundled?.html) {
+      setRawHtml(bundled.html);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const url = resolveReportFetchUrl(graph.reportUrl);
+    if (!url) {
+      setRawHtml(null);
+      return;
+    }
+
+    setRawHtml(null);
+    fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`加载失败 ${r.status}`);
         return r.text();
       })
       .then((text) => {
-        if (!cancelled) setRawHtml(text);
+        if (cancelled) return;
+        if (text.includes('<div id="root"') && !text.includes('class="code"')) {
+          throw new Error('报告静态文件未找到（被前端路由回退）。请确认已内嵌或部署到 public/reports');
+        }
+        setRawHtml(text);
       })
       .catch((e: Error) => {
         if (!cancelled) setError(e.message || '报告加载失败');
       });
+
     return () => {
       cancelled = true;
     };
-  }, [reportUrl]);
+  }, [bundled, graph.reportUrl]);
 
   const symbols = useMemo(() => (rawHtml ? collectCodes(rawHtml) : []), [rawHtml]);
 
@@ -100,6 +134,27 @@ export function ChainReportView({
     return map;
   }, [graph.entities]);
 
+  const relatedCodesOf = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    const relations = graph.relations ?? [];
+    const symOf = (eid: string) =>
+      graph.entities.find((e) => e.id === eid)?.symbols[0] ?? null;
+    for (const r of relations) {
+      const a = symOf(r.fromEntityId);
+      const b = symOf(r.toEntityId);
+      if (!a && !b) continue;
+      if (a) {
+        if (!map.has(a)) map.set(a, new Set());
+        if (b) map.get(a)!.add(b);
+      }
+      if (b) {
+        if (!map.has(b)) map.set(b, new Set());
+        if (a) map.get(b)!.add(a);
+      }
+    }
+    return map;
+  }, [graph.entities, graph.relations]);
+
   const segmentByNameHint = useMemo(() => {
     const map: { re: RegExp; id: string }[] = [];
     for (const seg of graph.segments) {
@@ -108,24 +163,46 @@ export function ChainReportView({
     return map;
   }, [graph.segments]);
 
+  const openCode = (code: string) => {
+    const idx = symbols.indexOf(code);
+    openKlineTool(code, '1d', {
+      symbols: symbols.length >= 2 ? symbols : undefined,
+      index: idx >= 0 ? idx : 0,
+    });
+    setFocusCode(code);
+    const entId = entityBySymbol.get(code);
+    if (entId) onSelectEntity?.(entId);
+  };
+
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !rawHtml) return;
 
-    const { style, body } = extractBodyAndStyle(rawHtml);
+    let styleBody: { style: string; body: string };
+    try {
+      styleBody = extractBodyAndStyle(rawHtml);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '报告解析失败');
+      return;
+    }
+    const { style, body } = styleBody;
     const styleEl = document.createElement('style');
     styleEl.setAttribute('data-chain-report', '1');
-    styleEl.textContent = style;
+    styleEl.textContent = [
+      style,
+      `.chainReportRoot .chainReportCode,.chainReportRoot .chainReportName{display:inline;margin:0;padding:0 2px;border:none;background:transparent;color:var(--accent,#2563eb);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}`,
+      `.chainReportRoot .chainReportName{font-weight:700;text-decoration-style:dotted}`,
+      `.chainReportRoot tr.chainReportIoDim,.chainReportRoot tr.chainReportRelDim{opacity:.28}`,
+      `.chainReportRoot tr.chainReportIoHit,.chainReportRoot tr.chainReportRelHit{outline:1px solid color-mix(in srgb,var(--accent,#2563eb) 40%,transparent);outline-offset:-1px;background:color-mix(in srgb,var(--accent,#2563eb) 8%,transparent)}`,
+      `.chainReportRoot tr.chainReportRelFocus{outline:2px solid var(--accent,#2563eb);outline-offset:-2px}`,
+    ].join('\n');
 
     const host = document.createElement('div');
     host.className = 'wrap';
     host.innerHTML = body;
-
-    // strip outer wrap if present to avoid double padding
     const innerWrap = host.querySelector(':scope > .wrap');
     const content = innerWrap ? (innerWrap as HTMLElement) : host;
 
-    // TOC + anchors
     const items: TocItem[] = [];
     content.querySelectorAll('h2, h3').forEach((el, idx) => {
       const text = (el.textContent || '').trim();
@@ -136,7 +213,6 @@ export function ChainReportView({
     });
     setToc(items);
 
-    // linkify stock codes in text nodes & code cells
     const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
     const textNodes: Text[] = [];
     let n: Node | null;
@@ -159,31 +235,41 @@ export function ChainReportView({
         const code = m[0];
         const start = m.index ?? 0;
         if (start > last) frag.appendChild(document.createTextNode(raw.slice(last, start)));
-        const a = document.createElement('button');
-        a.type = 'button';
-        a.className = 'chainReportCode';
-        a.dataset.code = code;
-        a.textContent = code;
-        frag.appendChild(a);
+        frag.appendChild(makeCodeButton(code));
         last = start + code.length;
       }
       if (last < raw.length) frag.appendChild(document.createTextNode(raw.slice(last)));
       t.parentNode?.replaceChild(frag, t);
     }
 
-    // also mark td.code cells
     content.querySelectorAll('td.code').forEach((td) => {
       const text = (td.textContent || '').trim();
       if (!CODE_ONLY_RE.test(text)) return;
       if (td.querySelector('.chainReportCode')) return;
-      const code = text;
       td.textContent = '';
-      const a = document.createElement('button');
-      a.type = 'button';
-      a.className = 'chainReportCode';
-      a.dataset.code = code;
-      a.textContent = code;
-      td.appendChild(a);
+      td.appendChild(makeCodeButton(text));
+    });
+
+    // 表格行：公司名可点开 K 线
+    content.querySelectorAll('tbody tr').forEach((tr) => {
+      const codeBtn = tr.querySelector('.chainReportCode') as HTMLElement | null;
+      const code =
+        codeBtn?.dataset.code ||
+        (tr.querySelector('td.code')?.textContent || '').trim().match(CODE_ONLY_RE)?.[1];
+      if (!code) return;
+      (tr as HTMLElement).dataset.reportCode = code;
+      const nameTd = tr.querySelector('td:first-child');
+      if (!nameTd || nameTd.querySelector('.chainReportName')) return;
+      const nameText = (nameTd.textContent || '').trim();
+      if (!nameText || nameText === '—' || nameText === '-') return;
+      nameTd.textContent = '';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chainReportName';
+      btn.dataset.code = code;
+      btn.textContent = nameText;
+      btn.title = `打开 K 线 ${code}`;
+      nameTd.appendChild(btn);
     });
 
     root.replaceChildren(styleEl, content);
@@ -191,58 +277,57 @@ export function ChainReportView({
     const onClick = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
       if (!t) return;
-      const btn = t.closest('.chainReportCode') as HTMLElement | null;
-      if (btn?.dataset.code) {
+      const hit = t.closest('.chainReportCode, .chainReportName') as HTMLElement | null;
+      if (hit?.dataset.code) {
         e.preventDefault();
-        const code = btn.dataset.code;
-        const idx = symbols.indexOf(code);
-        openKlineTool(code, '1d', {
-          symbols: symbols.length >= 2 ? symbols : undefined,
-          index: idx >= 0 ? idx : 0,
-        });
-        const entId = entityBySymbol.get(code);
-        if (entId) onSelectEntity?.(entId);
-        return;
-      }
-      // company name strong → try sync entity
-      const strong = t.closest('strong');
-      if (strong && strong.parentElement) {
-        const row = strong.closest('tr');
-        const codeEl = row?.querySelector('.chainReportCode, td.code');
-        const code =
-          (codeEl as HTMLElement)?.dataset?.code ||
-          (codeEl?.textContent || '').trim().match(CODE_ONLY_RE)?.[1];
-        if (code) {
-          const entId = entityBySymbol.get(code);
-          if (entId) onSelectEntity?.(entId);
-        }
+        openCode(hit.dataset.code);
       }
     };
     root.addEventListener('click', onClick);
     return () => {
       root.removeEventListener('click', onClick);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openCode closes over latest symbols/maps
   }, [rawHtml, symbols, entityBySymbol, onSelectEntity]);
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    root.querySelectorAll('.tag').forEach((el) => {
-      const tag = el as HTMLElement;
-      const isIn = tag.classList.contains('t-in');
-      const isOut = tag.classList.contains('t-out');
-      const isBoth = tag.classList.contains('t-both');
-      let show = true;
-      if (ioFilter === 'input') show = isIn || isBoth;
-      else if (ioFilter === 'output') show = isOut || isBoth;
-      else if (ioFilter === 'both') show = isBoth;
-      const row = tag.closest('tr');
-      if (row) {
+    root.querySelectorAll('tr[data-report-code], tr').forEach((el) => {
+      const row = el as HTMLElement;
+      const tag = row.querySelector('.tag');
+      if (tag) {
+        const isIn = tag.classList.contains('t-in');
+        const isOut = tag.classList.contains('t-out');
+        const isBoth = tag.classList.contains('t-both');
+        let show = true;
+        if (ioFilter === 'input') show = isIn || isBoth;
+        else if (ioFilter === 'output') show = isOut || isBoth;
+        else if (ioFilter === 'both') show = isBoth;
         row.classList.toggle('chainReportIoDim', ioFilter !== 'all' && !show);
         row.classList.toggle('chainReportIoHit', ioFilter !== 'all' && show);
       }
     });
   }, [ioFilter, rawHtml]);
+
+  // 选中公司后高亮本行 + 图谱关系邻居行
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const related = focusCode ? relatedCodesOf.get(focusCode) : null;
+    root.querySelectorAll('tr[data-report-code]').forEach((el) => {
+      const row = el as HTMLElement;
+      const code = row.dataset.reportCode || '';
+      const isFocus = !!focusCode && code === focusCode;
+      const isRel = !!focusCode && !!related?.has(code);
+      row.classList.toggle('chainReportRelFocus', isFocus);
+      row.classList.toggle('chainReportRelHit', isRel);
+      row.classList.toggle(
+        'chainReportRelDim',
+        !!focusCode && !isFocus && !isRel
+      );
+    });
+  }, [focusCode, relatedCodesOf, rawHtml]);
 
   useEffect(() => {
     if (!scrollToHint || !rootRef.current) return;
@@ -255,7 +340,7 @@ export function ChainReportView({
     }
   }, [scrollToHint, rawHtml]);
 
-  if (!reportUrl) {
+  if (!hasReport) {
     return (
       <div className={styles.p2Panel}>
         <div className={styles.detailEmpty}>本链暂无绑定报告</div>
@@ -332,6 +417,16 @@ export function ChainReportView({
             </button>
           ))}
         </div>
+        {focusCode && (
+          <button
+            type="button"
+            className={styles.btn}
+            style={{ marginTop: 8 }}
+            onClick={() => setFocusCode(null)}
+          >
+            清除关系高亮（{focusCode}）
+          </button>
+        )}
         {graph.focalEntityId && (
           <button
             type="button"
@@ -343,7 +438,8 @@ export function ChainReportView({
           </button>
         )}
         <p className={styles.detailP} style={{ marginTop: 8, fontSize: 12 }}>
-          点击代码打开 K 线 · 共 {symbols.length} 只标的
+          点击公司名或代码打开 K 线 · 共 {symbols.length} 只
+          {bundled ? ' · 内嵌正文' : ''}
         </p>
       </aside>
       <div className={styles.reportScroll}>

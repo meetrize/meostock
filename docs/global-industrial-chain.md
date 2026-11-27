@@ -148,11 +148,44 @@ Wind/问财那种「五千条产业库」是数据商愿景；按本文开发，
 | 锚点公司财务摘录 | `focalEntityId` + `entity.revenueMix` | 深潜侧栏置顶，不当全链估值 |
 | 关键变量/风险 | `chainRisks` + 景气指标卡 | 生成观察级信号，默认不升行动级 |
 | 价值分配一句话 | `valueLaw` | Situation Room 叙事锚 |
-| **报告全文（C06 延伸）** | `reportUrl` + 中央 Tab「报告」 | 受信本地 HTML；剥离 script；代码 → `openKlineTool`；TOC / 输入输出高亮 |
+| **报告全文（C06 延伸）** | `reportId`（优先）+ `reportUrl`（回退）+ 中央 Tab「报告」 | **前端 `reportRegistry` 内嵌 HTML**（避免 `/dashboard` SPA 吞掉 `/reports/*`）；剥离 script；公司名/代码 → `openKlineTool`；TOC / 输入输出 / 关系邻居高亮 |
 | **输入/输出标签** | `membership.ioRole`（`input`/`output`/`both`） | 关系网着色筛选；对齐合同结算方向 |
 | **企业供货/授权边** | `EntityRelation`（`label` 短标签 / `note` 完整关系说明） | 枢纽 ego；未选中连线显短标签，选中显 `note` 全文；详情面板同步 |
 
 流程：**报告 → 人工精编种子 → 草稿/发布**；全文进「报告」Tab 保信息零漏；外源自动增量仍只进候选箱。
+
+#### 1.2.2 链报告存储设计（前端内嵌 → 服务端入库）
+
+**现状（已落地）**：受信 HTML 随前端打包（`src/pages/IndustrialChain/reports/*.html` + `reportRegistry`），图谱只存 `reportId`。这样不依赖静态路径，深链 `/dashboard/industrial-chain` 下也可读。
+
+**目标库表（SQLite，与 quote_cache 同库或独立 `data/industrial_chain.db`）**：
+
+```sql
+CREATE TABLE IF NOT EXISTS chain_report (
+  report_id     TEXT PRIMARY KEY,           -- 与 graph.reportId 对齐，如 huawei-ascend-chain
+  chain_id      TEXT NOT NULL,              -- C06
+  title         TEXT NOT NULL,
+  format        TEXT NOT NULL DEFAULT 'html', -- html | markdown
+  body          TEXT NOT NULL,              -- 全文（去 script）；体积约数十 KB
+  source_note   TEXT,                       -- 来源说明
+  published_at  TEXT NOT NULL,              -- ISO8601
+  content_hash  TEXT,                       -- sha256，便于升版检测
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chain_report_chain ON chain_report(chain_id);
+```
+
+**API 草案（后续实现）**：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/industrial-chain/reports/{report_id}` | 返回 `{ reportId, title, format, body, publishedAt }` |
+| PUT | `/api/industrial-chain/reports/{report_id}` | 管理端写入/升版（鉴权） |
+| GET | `/api/industrial-chain/reports?chain_id=C06` | 列表 |
+
+**加载优先级**：`reportRegistry` 内嵌 → `GET /api/.../reports/{id}` → `reportUrl`（`BASE_URL` + public）→ 空态。前端永远不执行报告内 `<script>`。
 
 #### B. 「目录里有」≠「全都一样深」
 
@@ -644,6 +677,8 @@ AI 汇总翻译；规则出分。景气改善 ≠ 未定价。
 - [x] 报告导入范式 §1.2.1（字段映射；概念层不建环节）  
 - [x] 企业关系网 R0：中央 Tab「关系」+ EntityRelation + C05/C01 种子 + 锚点 ego / 筛选 / 编辑 / ⌘K（§6.1，2026-11-26）  
 - [x] C06 华为昇腾：报告 Tab + HTML 全文/K 线 + L1–L5 种子 + ioRole + 关系/沙盘三条传导 + 深潜互跳（2026-11-27）  
+- [x] 报告 `reportId` 前端内嵌 + SPA/BASE_URL 路径修复；公司名可点 K 线；§1.2.2 库表设计（2026-11-27）  
+- [ ] `chain_report` 表 + `/api/industrial-chain/reports` 读写（灌库升版）  
 - [ ] 估值用完整历史分位/卖方预期；景气指标接商品与稼动真源  
 - [ ] 候选箱对接概念板块 API；胜率档案持久化  
 - [ ] 可视化增删环节；红队/决策记忆  

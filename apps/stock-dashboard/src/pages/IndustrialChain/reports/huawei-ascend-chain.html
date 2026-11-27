@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>华为昇腾产业链全景与"输入—输出"关系图谱（2026-11-27）</title>
+<style>
+  :root{
+    --ink:#111827; --ink2:#374151; --muted:#6b7280; --line:#e5e7eb;
+    --bg:#ffffff; --soft:#f8fafc;
+    --in:#1d4ed8; --in-bg:#e8f0fe;
+    --out:#0f7b5f; --out-bg:#e6f6f1;
+    --both:#a16207; --both-bg:#fdf3d7;
+    --hw:#b91c1c; --hw-bg:#fdeaea;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans CJK SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    line-height:1.75; font-size:15.5px;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:clamp(16px,4vw,48px) clamp(14px,4vw,40px) 64px;}
+  header.hero{border-bottom:3px solid var(--ink); padding-bottom:20px; margin-bottom:28px;}
+  .kicker{font-size:12.5px; letter-spacing:.14em; color:var(--muted); text-transform:uppercase; margin:0 0 10px;}
+  h1{font-size:clamp(23px,4.4vw,34px); line-height:1.32; margin:0 0 12px; letter-spacing:-.01em;}
+  .sub{color:var(--ink2); font-size:15px; margin:0;}
+  .meta{display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:14px; font-size:13px; color:var(--muted);}
+  h2{font-size:clamp(19px,3vw,24px); margin:44px 0 14px; padding-left:12px; border-left:5px solid var(--ink); line-height:1.4;}
+  h3{font-size:17px; margin:28px 0 10px; color:var(--ink);}
+  h4{font-size:15px; margin:20px 0 8px; color:var(--ink2);}
+  p{margin:10px 0;}
+  ul,ol{margin:10px 0 10px 22px; padding:0;}
+  li{margin:5px 0;}
+  small,.small{font-size:12.8px; color:var(--muted); line-height:1.65;}
+  .lead{font-size:16px; color:var(--ink2); background:var(--soft); border-left:4px solid #cbd5e1; padding:14px 18px; border-radius:0 8px 8px 0; margin:18px 0;}
+  .tw{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:14px 0; border:1px solid var(--line); border-radius:10px;}
+  table{width:100%; border-collapse:collapse; font-size:13.6px; min-width:640px;}
+  th,td{padding:9px 11px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line);}
+  thead th{background:var(--soft); font-weight:700; font-size:12.8px; color:var(--ink2); white-space:nowrap; border-bottom:2px solid var(--line);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fbfdff;}
+  td.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.6px; white-space:nowrap; color:var(--ink2);}
+  .tag{display:inline-block; font-size:11.8px; font-weight:700; padding:1px 8px; border-radius:999px; white-space:nowrap;}
+  .t-in{color:var(--in); background:var(--in-bg);}
+  .t-out{color:var(--out); background:var(--out-bg);}
+  .t-both{color:var(--both); background:var(--both-bg);}
+  .t-hw{color:var(--hw); background:var(--hw-bg);}
+  .legend{display:flex; flex-wrap:wrap; gap:10px 22px; background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:14px 18px; margin:16px 0;}
+  .legend div{font-size:13.4px; color:var(--ink2);}
+  .grid{display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); margin:16px 0;}
+  .card{border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:#fff;}
+  .card .n{font-size:24px; font-weight:800; letter-spacing:-.02em;}
+  .card .l{font-size:12.6px; color:var(--muted);}
+  .callout{border:1px solid var(--line); border-left:5px solid var(--hw); background:#fffafa; border-radius:0 8px 8px 0; padding:14px 18px; margin:16px 0;}
+  .callout.warn{border-left-color:#d97706; background:#fffdf5;}
+  .flow{background:var(--soft); border:1px solid var(--line); border-radius:10px; padding:16px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.6px; line-height:1.9; white-space:pre; overflow-x:auto;}
+  .pill{display:inline-block; background:#f1f5f9; border:1px solid var(--line); border-radius:6px; padding:1px 7px; font-size:12.2px; margin:2px 4px 2px 0; color:var(--ink2);}
+  footer{margin-top:48px; padding-top:18px; border-top:1px solid var(--line); font-size:12.6px; color:var(--muted);}
+  .src{font-size:12.4px; color:var(--muted);}
+  .src li{margin:3px 0;}
+  @media (max-width:600px){
+    body{font-size:15px;}
+    .grid{grid-template-columns:1fr;}
+    table{font-size:13px;}
+    th,td{padding:8px 9px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">产业研究 · 华为昇腾 / Ascend</p>
+  <h1>华为昇腾产业链全景与"输入—输出"关系图谱</h1>
+  <p class="sub">从自研 HBM 突破到涨停潮：六个层级、五类节点、一张双向关系表</p>
+  <div class="meta">
+    <span>数据日期：2026-11-27（盘中 10:35 快照）</span>
+    <span>覆盖公司：约 60 家（A/H 股，代码经 Wind 核验）</span>
+    <span>分类口径：输入型 / 输出型 / 双向型</span>
+  </div>
+</header>
+
+<p class="lead">今天（11月27日）A 股华为算力概念集体爆发，Wind 盘中快照显示全市场 64 只涨停股中，有 <strong>21 只</strong>落在华为/昇腾/鲲鹏/HBM/算力租赁这条主线上。触发因素不是单一的：<strong>华为自研 HBM 登上 ISSCC 2027</strong>（技术侧）、<strong>广东发文鼓励算力中心优先使用国产芯片</strong>（政策侧）、<strong>英伟达被曝暂停向东南亚四国发货</strong>（供给侧）三条催化在 48 小时内叠加，把"国产算力从芯片受限走向存储带宽突破"的叙事推到了台前。</p>
+
+<h2>一、今日盘面：涨停潮与三条催化</h2>
+
+<h3>1.1 三条催化，分别打在哪一环</h3>
+<div class="tw">
+<table>
+  <thead><tr><th>催化</th><th>时间</th><th>核心内容</th><th>直接影响的产业链节点</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>华为自研 HBM 入选 ISSCC 2027</strong></td>
+      <td>11/24–11/25</td>
+      <td>IEEE 公布 ISSCC 2027 议程草案，华为 4 篇论文入选，其中定制 HBM 方案采用 <strong>64 通道、4096bit 位宽</strong>（为 HBM4 标准 2048bit 的两倍）、<strong>5 层 W2W 晶圆混合键合</strong>，并将内存控制器集成进堆叠内部；昇腾 950PR 已搭载 HiBL 1.0（128GB / 1.6TB/s），950DT 搭载 HiZQ 2.0（144GB / 4TB/s）</td>
+      <td>HBM 颗粒、先进封装、混合键合设备、ABF 载板、测试、前驱体/塑封料</td>
+    </tr>
+    <tr>
+      <td><strong>广东省《算力发展"十五五"规划》</strong></td>
+      <td>11/26 印发</td>
+      <td>提出加强基础硬件供给能力，缩小单芯片算力代际差距，加强异构融合与协同适配，<strong>鼓励算力中心优先使用国产算力芯片</strong>，提升国产化替代水平和应用规模</td>
+      <td>整机、智算中心、算力租赁、系统集成、信创软件</td>
+    </tr>
+    <tr>
+      <td><strong>英伟达暂停向东南亚四国发货</strong></td>
+      <td>11/27 盘前</td>
+      <td>据英国《金融时报》，英伟达已通知服务器制造伙伴暂停向马来西亚、新加坡、泰国、印尼发货，戴尔、超微已告知当地买家订单无法交付</td>
+      <td>国产算力替代预期（全链条），尤其是整机与算力租赁</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="callout">
+<strong>为什么 HBM 的分量最重？</strong> 在高端 AI 加速卡的成本结构里，HBM 长期是 BOM 中最大的单项之一（H100/H200 级产品接近 50%，国产 GPU 约四成），也是美国出口管制最直接卡住中国的器件。此前国产算力的短板被理解为"制程与算力"，而这次华为用"以宽代高"（4096bit 超宽位宽 + 混合键合，而非一味堆层数）绕开了部分制程约束，意味着<strong>短板正从"算力芯片"后移到"HBM 与先进封装"</strong>——这正是今天资金从整机、软件扩散到封装、载板、设备、材料的原因。
+</div>
+
+<h3>1.2 今日涨停与领涨股（华为算力主线，21 只）</h3>
+<p class="small">口径：Wind 2026-11-27 10:35 盘中涨跌停快照，共 64 只涨停；下表为其中所属概念含华为/昇腾/鲲鹏/鸿蒙/HBM/存储器/AI算力/算力租赁/CPO 等关键词的标的。"涨停时间"为首次触及涨停时间。</p>
+<div class="tw">
+<table>
+  <thead><tr><th>证券简称</th><th>代码</th><th>涨停时间</th><th>题材标签</th><th>在昇腾链中的位置</th></tr></thead>
+  <tbody>
+    <tr><td><strong>天源迪科</strong></td><td class="code">300047.SZ</td><td>09:33</td><td>华为·鲲鹏·AI算力</td><td>软件与 ISV（电信/公安 BOSS、昇腾适配）</td></tr>
+    <tr><td><strong>常山北明</strong></td><td class="code">000158.SZ</td><td>09:25（一字）</td><td>华为·鲲鹏·鸿蒙·算力租赁</td><td>钻石级经销商 + 系统集成（政务/金融）</td></tr>
+    <tr><td><strong>拓维信息</strong></td><td class="code">002261.SZ</td><td>09:33</td><td>华为·鲲鹏·鸿蒙·算力租赁</td><td>昇腾整机（兆瀚）+ 行业方案</td></tr>
+    <tr><td><strong>神州数码</strong></td><td class="code">000034.SZ</td><td>10:01</td><td>华为·鲲鹏·鸿蒙·AI算力</td><td>昇腾整机（神州鲲泰）+ 分销</td></tr>
+    <tr><td><strong>深圳华强</strong></td><td class="code">000062.SZ</td><td>09:36</td><td>华为平台</td><td>华为计算部件总经销商</td></tr>
+    <tr><td><strong>太极股份</strong></td><td class="code">002368.SZ</td><td>10:09</td><td>华为·鲲鹏·国产软硬件</td><td>政务系统集成</td></tr>
+    <tr><td><strong>润和软件</strong></td><td class="code">300339.SZ</td><td>09:39</td><td>华为·鸿蒙·AI算力</td><td>鸿蒙/昇腾适配 + 一体机</td></tr>
+    <tr><td><strong>荣联科技</strong></td><td class="code">002642.SZ</td><td>09:46</td><td>华为</td><td>IT 服务与集成</td></tr>
+    <tr><td><strong>意华股份</strong></td><td class="code">002897.SZ</td><td>10:29</td><td>华为·CPO·光模块</td><td>高速连接器/光模块</td></tr>
+    <tr><td><strong>华胜天成</strong></td><td class="code">600410.SH</td><td>10:11</td><td>芯片</td><td>算力平台集成与运维</td></tr>
+    <tr><td><strong>恒为科技</strong></td><td class="code">603496.SH</td><td>09:58</td><td>AI算力·信创</td><td>OCS 光交换、智算中心</td></tr>
+    <tr><td><strong>证通电子</strong></td><td class="code">002197.SZ</td><td>09:25</td><td>算力租赁</td><td>IDC + OpenHarmony 终端</td></tr>
+    <tr><td><strong>浙大网新</strong></td><td class="code">600797.SH</td><td>09:30</td><td>AI算力·算力租赁</td><td>智算云与集成</td></tr>
+    <tr><td><strong>中贝通信</strong></td><td class="code">603220.SH</td><td>09:37</td><td>算力租赁</td><td>智算中心运营</td></tr>
+    <tr><td><strong>大位科技</strong></td><td class="code">600589.SH</td><td>09:30</td><td>算力租赁</td><td>IDC 与算力资源池</td></tr>
+    <tr><td><strong>中电鑫龙</strong></td><td class="code">002298.SZ</td><td>09:30</td><td>存储器</td><td>存储/电源配套（题材联动）</td></tr>
+    <tr><td><strong>时空科技</strong></td><td class="code">605178.SH</td><td>10:09</td><td>存储器</td><td>存储题材联动</td></tr>
+    <tr><td><strong>金海通</strong></td><td class="code">603061.SH</td><td>10:31</td><td>先进封装</td><td>测试分选设备（封装测试链）</td></tr>
+    <tr><td><strong>腾景科技</strong></td><td class="code">688195.SH</td><td>10:30</td><td>CPO·光模块</td><td>光学元件/光互联</td></tr>
+    <tr><td><strong>华懋科技</strong></td><td class="code">603306.SH</td><td>10:28</td><td>CPO·光模块</td><td>光互联题材联动</td></tr>
+    <tr><td><strong>捷荣技术</strong></td><td class="code">002855.SZ</td><td>09:59</td><td>华为·液冷</td><td>结构件/散热题材联动</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="small">盘面结构特征：<strong>资金分三路</strong>——一路打"软件与集成"（常山北明、拓维信息、天源迪科、神州数码，开盘 30 分钟内涨停，情绪最急），一路打"算力租赁/IDC"（证通电子、浙大网新、中贝通信、大位科技，直接受益广东政策），一路打"光互联与封装"（意华股份、腾景科技、金海通，对应 HBM/超节点硬件）。三路的共同点是都围绕华为技术底座，而非单纯的"华为手机链"。</p>
+
+<h2>二、先理解昇腾：一颗芯片如何变成一条产业链</h2>
+<p>昇腾不是"一颗芯片"，而是一套<strong>「NPU 芯片 + 自研 HBM + 灵衢互联协议 + CANN 软件栈 + 超节点整机」</strong>的五件套。理解这一点，才能理解为什么产业链上会同时出现做封装、做连接器、做数据库、做系统集成的公司。</p>
+
+<div class="flow">华为自己做的（不外供核心）
+  昇腾 NPU 芯片设计 ── 自研 HBM 架构(HiBL/HiZQ) ── 灵衢 UnifiedBus 互联 ── CANN / MindSpore 软件栈
+        │                      │                        │                     │
+        ▼                      ▼                        ▼                     ▼
+  晶圆代工(中芯)         HBM颗粒(长鑫)+封装(盛合晶微)   光互联/铜连接         OS/数据库适配
+  载板(兴森/深南)        设备(拓荆)+材料(雅克/华海诚科)  (光迅/华丰/中航)      (麒麟/海量/达梦)
+        └──────────────────────┴────────────┬───────────┴─────────────────────┘
+                                            ▼
+                              整机伙伴（买模组做整机）
+                     拓维(兆瀚) 神州数码(神州鲲泰) 烽火(长江计算)
+                     高新发展(华鲲振宇) 广电运通(五舟) 四川长虹 软通(华方) 慧博云通(宝德)
+                                            ▼
+                          超节点 / 智算中心 / 算力租赁 / 行业应用</div>
+
+<h3>2.1 产品迭代节奏（决定产业链的"需求节拍"）</h3>
+<div class="tw">
+<table>
+  <thead><tr><th>产品</th><th>定位</th><th>HBM 配置</th><th>带宽</th><th>节点</th></tr></thead>
+  <tbody>
+    <tr><td>昇腾 910B</td><td>训练/推理（存量主力）</td><td>—</td><td>—</td><td>已规模部署</td></tr>
+    <tr><td>昇腾 910C</td><td>推理（当前主力）</td><td>—</td><td>—</td><td>910C 超节点已部署超 1000 套</td></tr>
+    <tr><td>昇腾 950PR</td><td>推理 Prefill / 推荐，主打成本</td><td>HiBL 1.0，128GB</td><td>1.6TB/s</td><td>已搭载，规模商用</td></tr>
+    <tr><td>昇腾 950DT</td><td>大模型训练 / 高带宽推理</td><td>HiZQ 2.0，144GB</td><td>4TB/s</td><td>已搭载</td></tr>
+    <tr><td>昇腾 960DT</td><td>对标 B 系列</td><td>288GB</td><td>9.6TB/s</td><td>2027Q1（提前三个季度）</td></tr>
+    <tr><td>昇腾 960PR</td><td>推理</td><td>—</td><td>—</td><td>2027Q3（提前一个季度）</td></tr>
+    <tr><td>昇腾 970 / 980</td><td>FP4 算力对标 B300 及以上</td><td>—</td><td>970 约 14.4TB/s</td><td>2028 / 2029</td></tr>
+  </tbody>
+</table>
+</div>
+<p class="small">关键含义：<strong>一年一代的迭代节奏，把"国产替代"变成"持续数年的产品升级周期"</strong>。每一次迭代都会重新拉动制造、封装、测试、整机、高速互联的增量需求——这是产业链估值锚，而不是一次性主题。</p>
+
+<h2>三、产业链总体架构：六个层级</h2>
+<div class="tw">
+<table>
+  <thead><tr><th>层级</th><th>节点</th><th>在链条中的作用</th><th>价值特征</th></tr></thead>
+  <tbody>
+    <tr><td><strong>L0</strong></td><td>华为本体</td><td>芯片设计、HBM 架构、互联协议、软件栈、品牌与认证体系</td><td>不外供核心，是整个生态的"发牌方"</td></tr>
+    <tr><td><strong>L1</strong></td><td>上游制造</td><td>晶圆代工、HBM 颗粒、先进封装、载板、设备、材料、测试</td><td>技术壁垒最高，HBM 突破后弹性最大</td></tr>
+    <tr><td><strong>L2</strong></td><td>上游零部件</td><td>高速连接器/铜缆、PCB、光模块/光引擎、液冷温控、电源</td><td>超节点放大的"乘数环节"，2027 年高速互联+液冷合计约 350 亿元</td></tr>
+    <tr><td><strong>L3</strong></td><td>中游整机与超节点</td><td>昇腾整机、Atlas/CloudMatrix 超节点、ODM</td><td>收入体量大、毛利偏低，靠份额与交付</td></tr>
+    <tr><td><strong>L4</strong></td><td>软件与生态服务</td><td>OS/数据库/中间件、CANN 适配、ISV、系统集成、分销</td><td>轻资产，靠认证层级与行业 know-how</td></tr>
+    <tr><td><strong>L5</strong></td><td>下游应用</td><td>智算中心、算力租赁、政务金融能源运营商、AI 应用</td><td>决定预算与回款，是景气约束方</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>四、"输入 / 输出"分类框架</h2>
+<p>按你的要求，把所有关系归入两大类，并额外标出"双向"（同一公司在不同业务上同时具备两种关系）。判据是<strong>合同与结算的方向</strong>，而不是"合作深浅"：</p>
+
+<div class="legend">
+  <div><span class="tag t-in">输入</span> 公司把产品/服务卖给华为（或卖给华为指定的整机厂），<strong>华为是客户</strong>。典型：封装代工、载板、连接器、设备、材料、软件外包。</div>
+  <div><span class="tag t-out">输出</span> 华为把芯片/模组/主板/OS/授权/认证给公司，公司再加工或分销给最终客户，<strong>华为是供应商或授权方</strong>。典型：整机伙伴、经销商、ISV、集成商、算力运营商。</div>
+  <div><span class="tag t-both">双向</span> 两条链路同时存在。典型：既做华为软件交付外包（输入），又卖昇腾整机/方案（输出）。</div>
+</div>
+
+<div class="callout warn">
+<strong>一个容易混淆的点：</strong>"昇腾生态伙伴"这个称号（钻石/金牌/优选/部件伙伴）属于<strong>输出侧</strong>的授权关系——它证明公司有资格卖华为的东西，而不是华为在向它采购。反过来，进入"华为供应链"（如载板份额、连接器份额）才是<strong>输入侧</strong>的订单关系。今天涨停的股票里，两类都有，但驱动逻辑完全不同：输出侧看<strong>出货量与渠道</strong>，输入侧看<strong>单机价值量与份额</strong>。
+</div>
+
+<h2>五、逐环节公司与关系明细</h2>
+<p class="small">说明：代码均经 Wind 数据核验；"关系性质"依据公开报道、公司公告与券商研报整理，标注"媒体口径"的份额/订单数据请以公司公告为准。</p>
+
+<h3>L1 上游制造：HBM 突破最直接的受益层</h3>
+
+<h4>L1-1 晶圆代工</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>中芯国际</td><td class="code">688981.SH</td><td>集成电路晶圆代工（92.8%）、光掩模、凸块加工及测试</td><td>国产先进逻辑代工的主要承接方，昇腾芯片本土制造的基础产能</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>华虹宏力</td><td class="code">688347.SH</td><td>特色工艺晶圆代工（功率、模拟、嵌入式存储）</td><td>配套电源、接口等特色工艺芯片代工，属间接供给</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L1-2 HBM 颗粒（本轮最关键节点）</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>长鑫科技</td><td class="code">688825.SH</td><td>DRAM 研发设计制造一体化（DDR/LPDDR 系列，DRAM 晶圆/芯片/模组）</td><td>国产 HBM 颗粒的核心原厂，已具备 HBM3 量产能力；华为自研 HBM 方案落地将进一步拉动其颗粒迭代</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>香农芯创</td><td class="code">300475.SZ</td><td>电子元器件分销（93.7%），SK 海力士、联发科等代理</td><td><strong>非华为链</strong>：是海外 HBM 的"通道型"供给方，代表受限状态下的外部补给，与国产替代是替代关系</td><td><span class="tag t-in">输入</span>（外部通道）</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L1-3 先进封装（2.5D/3D、混合键合）</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td><strong>盛合晶微</strong></td><td class="code">688820.SH</td><td>芯粒多芯片集成封装（53.7%）、中段硅片加工（33.1%）、晶圆级封装（12.8%）</td><td>国内少数具备 2.5D 规模量产能力者，布局 3DIC 与 W2W 混合键合，已完成"4 颗 SoC + 8 颗 HBM"硅桥封装验证，与华为自研 HBM 的多芯片堆叠需求高度适配（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>通富微电</td><td class="code">002156.SZ</td><td>集成电路封装测试，先进封装/Chiplet 异构集成</td><td>与长鑫合作开发 HBM 样品；承接算力芯片封测代工</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>长电科技</td><td class="code">600584.SH</td><td>芯片封测（99.5%），晶圆级封装、2.5D/3D、SiP</td><td>先进封装产能与 XDFOI 平台，适配 HBM 配套封测</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>华天科技</td><td class="code">002185.SZ</td><td>集成电路封装测试（TSV、Bumping、FC、SiP、WLP）</td><td>具备 TSV/凸块能力，属封装产能补充</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L1-4 高端载板（ABF / FC-BGA）</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td><strong>兴森科技</strong></td><td class="code">002436.SZ</td><td>PCB（62.0%）、IC 封装基板（29.9%）、半导体测试板</td><td>昇腾 FC-BGA ABF 载板主力供应商，在昇腾供应链份额达 60–70%，22 层 ABF 载板量产、良率 90%+，对应 950DT 已形成规模订单（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>深南电路</td><td class="code">002916.SZ</td><td>印制电路板（55.9%）、封装基板（24.0%）、电子装联</td><td>FC-BGA 载板重要二供，26 层以下批量生产、9–12μm 精细线路，承接增量分流；同时供应昇腾 AI 服务器核心电路板</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+<p class="small">补充逻辑：若华为推进"去硅中介层"架构，4096 根 DQ 信号需由 FC-BGA 载板完成扇出，载板将从"配套件"升级为"信号传输枢纽"，层数、线宽、供电能力全面升级——这是载板环节估值弹性大于传统 PCB 的原因。</p>
+
+<h4>L1-5 半导体设备</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td><strong>拓荆科技</strong></td><td class="code">688072.SH</td><td>薄膜沉积设备（PECVD/ALD/SACVD/HDPCVD）+ 三维集成键合设备（W2W/CoW 混合键合与熔融键合）</td><td>5 层 W2W 混合键合是华为自研 HBM 的核心工艺，公司为国产混合键合设备主要供给方</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>北方华创</td><td class="code">002371.SZ</td><td>刻蚀、PVD、清洗、热处理等电子工艺装备（95.3%）</td><td>HBM 制造 TSV 工艺与先进封装产线的通用设备底座</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>中微公司</td><td class="code">688012.SH</td><td>CCP/ICP 刻蚀设备、薄膜设备、量检测</td><td>TSV 与高深宽比刻蚀环节，属设备第二梯队</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>长川科技</td><td class="code">300604.SZ</td><td>测试机（54.1%）、分选机（33.5%）、探针台、AOI</td><td>HBM 的 CP 测试用量约为传统 DRAM 的 4–5 倍，存储测试设备需求随之放大</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td><strong>精智达</strong></td><td class="code">688627.SH</td><td>半导体测试检测设备：DRAM FT 测试机、老化修复设备、探针卡</td><td>覆盖 HBM 测试机台 + 探针卡 + 老化修复全套方案，4096bit 超宽位宽提升测试通道要求</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L1-6 半导体材料</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>雅克科技</td><td class="code">002409.SZ</td><td>半导体前驱体材料、电子特气、光刻胶</td><td>HBM 介质层沉积所需前驱体，国产替代核心；华为自研 HBM 强化供应链自主可控诉求</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>华海诚科</td><td class="code">688535.SH</td><td>环氧塑封料（EMC）、GMC 颗粒状塑封料、胶黏剂</td><td>HBM 专用 GMC 塑封料国内主要量产方，低应力/高导热要求下随封装上量</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>联瑞新材</td><td class="code">688300.SH</td><td>功能性先进粉体：球形硅微粉、球形氧化铝</td><td>EMC/GMC 与载板上游填料，随 HBM 封装与高层载板放量</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>华正新材</td><td class="code">603186.SH</td><td>覆铜板（85.0%）、复合材料、膜材料（CBF）</td><td>CBF 功能膜已通过昇腾体系验证并进入小批量供货（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L1-7 第三方测试服务</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>伟测科技</td><td class="code">688372.SH</td><td>晶圆测试（CP）、成品测试（FT）等第三方测试服务</td><td>昇腾芯片第三方测试环节，每颗芯片必经、认证壁垒较高（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>L2 上游零部件：超节点放大的"乘数环节"</h3>
+
+<h4>L2-1 高速连接器与铜缆</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td><strong>华丰科技</strong></td><td class="code">688629.SH</td><td>光、电、流体连接器，高速线模组、线缆组件</td><td>华为高速背板连接器两大国内供应商之一；224G 高速线模组已批量交付，在昇腾服务器铜缆连接器领域份额超 60%；2026Q3 交付千套级、Q4 进入万套级（媒体/调研口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>中航光电</td><td class="code">002179.SZ</td><td>电连接器（74.8%）、光器件（18.1%）、液冷解决方案（7.1%）</td><td>高速连接器新进入者，2027 年份额有望提升至 20% 以上（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>意华股份</td><td class="code">002897.SZ</td><td>高速连接器、光模块及结构件</td><td>今日涨停标的，市场按"连接器 + 光模块"双属性交易；与昇腾的具体供货关系待公司披露确认</td><td><span class="tag t-in">输入</span>（待验证）</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L2-2 PCB</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>沪电股份</td><td class="code">002463.SZ</td><td>企业通讯市场板（82.8%）、汽车板（10.5%）、高速多层板/背板</td><td>AI 服务器与交换机高多层板主力供给，受益超节点机柜化</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>深南电路</td><td class="code">002916.SZ</td><td>PCB + 封装基板 + 电子装联一体化</td><td>昇腾 AI 服务器核心电路板与载板双供给</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L2-3 光互联 / 光模块 / 光引擎</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>光迅科技</td><td class="code">002281.SZ</td><td>光电器件与模块（接入和数据 65.2%、传输 34.6%）</td><td>NPO 光互连产业链核心标的之一，为昇腾集群万卡级互联提供光模块/器件</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>中际旭创</td><td class="code">300308.SZ</td><td>高端光通讯收发模块（99.0%），800G/1.6T</td><td>全球高速光模块龙头，受益超节点"光进铜退"；华为为其重要客户之一</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>华工科技</td><td class="code">000988.SZ</td><td>光电器件（48.6%）、激光装备（24.7%）、敏感元器件（24.0%）</td><td>光联接与无线联接，NPO 生态相关标的</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>腾景科技</td><td class="code">688195.SH</td><td>精密光学元件、光纤器件</td><td>今日涨停，属光互联题材联动；直接供货关系待确认</td><td><span class="tag t-in">输入</span>（待验证）</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h4>L2-4 液冷与温控</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>英维克</td><td class="code">002837.SZ</td><td>机房温控（56.4%）、户外机柜温控（35.4%）、全链条液冷</td><td>超节点单机柜功率突破 100kW，液冷从可选变刚需，公司为数据中心液冷主力供给</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>申菱环境</td><td class="code">301018.SZ</td><td>专业温控设备、数据中心液冷与空调系统</td><td>智算中心液冷配套，受益机柜功率密度提升</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td>飞荣达</td><td class="code">300602.SZ</td><td>热管理材料及器件（37.3%）、电磁屏蔽（29.1%）、轻量化（24.2%）</td><td>昇腾相关业务带来的收入波动较大（调研口径），弹性高但主业摊薄有限</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+<p class="small">市场空间测算（券商口径）：以 2027 年 300 万颗昇腾芯片为基数，高速互联约 200 亿元 + 液冷约 150 亿元，合计约 <strong>350 亿元</strong>；按 10–15% 净利率对应 35–50 亿元行业利润体量。</p>
+
+<h4>L2-5 电源与供电</h4>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>杰华特</td><td class="code">688141.SH</td><td>DC-DC（47.7%）、AC-DC（20.8%）、线性电源（15.1%）、信号链（12.0%）</td><td>AI 处理器供电与服务器电源管理芯片，华为链重点标的之一（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>L3 中游整机与超节点：输出侧的"总装口"</h3>
+<p class="small">这一层的共同特征是：<strong>向华为购买昇腾模组/主板/芯片，加上自有或代工的机箱、电源、液冷，做成自有品牌整机或超节点，再卖给运营商、政府与云厂商。</strong>因此它们对华为是"客户"，对下游是"供应商"，属于典型的输出型关系。</p>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>整机/超节点载体</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td><strong>拓维信息</strong></td><td class="code">002261.SZ</td><td>"兆瀚"系列 AI 服务器与一体机</td><td>华为首批昇腾硬件生产合作厂商，"鲲鹏/昇腾 AI + 行业大模型 + OpenHarmony + 云"软硬一体战略伙伴；深度参与长沙、重庆等国家级智算中心；媒体口径称 2025 年承接约 35% 昇腾服务器订单</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td><strong>神州数码</strong></td><td class="code">000034.SZ</td><td>"神州鲲泰"系列服务器</td><td>昇腾优选级合作伙伴/部件伙伴，2026 年 3 月发布基于昇腾 950PR 的整机；同时是华为重要分销商</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td><strong>高新发展</strong></td><td class="code">000628.SZ</td><td>拟通过收购华鲲振宇 70% 股权切入</td><td>华鲲振宇是华为算力服务器出货量领先的整机厂（原华为服务器团队背景），收购完成后形成"上市公司 + 昇腾整机"结构；交易进度以公告为准</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>烽火通信</td><td class="code">600498.SH</td><td>控股子公司长江计算（整机）</td><td>长江计算为鲲鹏/昇腾生态整机合作伙伴，已发布基于昇腾 950PR 的 Atlas 350 服务器；同时提供光通信与算力网络方案</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>广电运通</td><td class="code">002152.SZ</td><td>子公司广电五舟（服务器）</td><td>华为鲲鹏、昇腾"存算双引擎"合作伙伴，推出昇腾/鲲鹏系列服务器，落地金融与政务智算项目</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>四川长虹</td><td class="code">600839.SH</td><td>旗下虹信软件"天宫"系列 AI 服务器</td><td>采用昇腾芯片的整机方案，属昇腾生态整机配套；市场亦按"华鲲振宇关联"交易</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>软通动力</td><td class="code">301236.SZ</td><td>软通华方（整机）+ 天璇 MaaS 平台</td><td><strong>双向</strong>：既是昇腾部件伙伴与钻石级 APN 伙伴（输出），又是华为规模最大的软件与数字技术服务供应商之一（输入）；率先完成 DeepSeek-V4 在昇腾底座的部署</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>慧博云通</td><td class="code">301316.SZ</td><td>拟收购宝德计算（整机）</td><td>宝德是昇腾整机老牌厂商，昇腾服务器曾中标联通数科智算集采第一名，在手订单约 30.33 亿元（公告口径）；收购完成后切入整机</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>华鲲振宇 / 河南昆仑 / 宝德计算 / 超聚变</td><td class="code">未上市</td><td>昇腾/鲲鹏整机与超节点</td><td>华为体系内最核心的整机产能：华鲲（技术商务支持力度最大）、昆仑（华为原服务器部门剥离至河南国资）、宝德（最早做华为服务器、渠道体系完善）、超聚变（原华为服务器业务）</td><td><span class="tag t-out">输出</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>L4 软件、集成与分销：认证层级决定卡位</h3>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>业务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td><strong>常山北明</strong></td><td class="code">000158.SZ</td><td>系统集成及行业解决方案（82.7%）、定制软件（14.1%）</td><td>全资子公司北明软件是华为<strong>多产品钻石级经销商</strong>、昇腾生态核心伙伴，在华为云/昇腾/鲲鹏全领域合作，承担政务、金融、交通智算方案的落地交付；同时承接华为软件交付与外包（输入侧）</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>深圳华强</td><td class="code">000062.SZ</td><td>电子元器件分销与产业服务</td><td>华为计算部件（含昇腾、鲲鹏）总经销商，同时是昇腾 APN 伙伴，构建"算力器件→系统集成"全链路</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>润和软件</td><td class="code">300339.SZ</td><td>金融科技、智能物联、智慧能源软件</td><td>鸿蒙生态共建方与昇腾生态关键伙伴，推出融合昇腾算力与鸿蒙的 IntelliCore AI 一体机；同时为华为海思提供研发服务</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>中国软件</td><td class="code">600536.SH</td><td>麒麟操作系统、行业软件、系统集成</td><td>麒麟 OS 是昇腾/鲲鹏生态的国产操作系统底座，与 openEuler 同源；向客户交付"OS + 昇腾"方案</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>海量数据</td><td class="code">603138.SH</td><td>Vastbase 数据库（49.4%）、数据基础设施方案（50.4%）</td><td>基于 openGauss 路线的纯国产数据库，与鲲鹏/昇腾完成适配，随信创智算项目交付</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>达梦数据</td><td class="code">688692.SH</td><td>数据库软件授权（92.1%）、一体机</td><td>国产数据库龙头，与国产 CPU/OS 生态适配，进入党政、金融、能源信创项目</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>麒麟信安</td><td class="code">688152.SH</td><td>操作系统（66.6%）、云计算（24.0%）、信息安全（8.9%）</td><td>电力等行业操作系统，推出麒麟信安智算一体机，属"OS + 昇腾一体机"路线</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>诚迈科技</td><td class="code">300598.SZ</td><td>软件技术服务（71.1%）、软件定制（15.9%）</td><td>参股统信软件（UOS），操作系统侧生态参与者，承接鸿蒙/国产 OS 适配服务</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td>东华软件</td><td class="code">002065.SZ</td><td>系统集成（70.1%）、技术服务（19.7%）、软件（10.1%）</td><td>华为昇腾生态核心伙伴，在 CANN 领域形成"硬件部署—软件适配—场景落地"全栈服务能力</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>天源迪科</td><td class="code">300047.SZ</td><td>ICT 产品（87.1%）、运营业务、应用软件</td><td>鲲鹏/昇腾 ISV 伙伴，电信 BOSS 与公安大数据方案在昇腾底座适配；今日 20CM 涨停</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>华胜天成</td><td class="code">600410.SH</td><td>系统集成、云计算与 IT 服务</td><td>昇腾生态伙伴，提供算力平台集成、软件适配与运维；承建多个省市智算中心，所用服务器以鲲鹏/昇腾为主</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>太极股份</td><td class="code">002368.SZ</td><td>政务与行业信息化总包、系统集成</td><td>信创与政务云总包商，鲲鹏/昇腾方案集成，受益党政智算招标</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>荣联科技</td><td class="code">002642.SZ</td><td>IT 服务、系统集成、生物信息</td><td>华为生态合作方（具体认证层级以公司披露为准）</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>恒为科技</td><td class="code">603496.SH</td><td>网络可视化、智能系统平台</td><td>推出纳秒级低时延 OCS 光交换机，探索超节点光电混合互联；与中贝通信等共建智算中心</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>科大讯飞</td><td class="code">002230.SZ</td><td>开放平台（31.9%）、教育（30.0%）、运营商、智能硬件</td><td>"讯飞星火"是全民可下载大模型中唯一基于全国产算力训练的大模型，训练底座依托昇腾集群</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>云鼎科技</td><td class="code">000409.SZ</td><td>矿山智能化、AI 应用</td><td>行业 AI 应用方，与国产算力底座适配；今日涨停</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>证通电子</td><td class="code">002197.SZ</td><td>IDC（67.4%）、金融科技、OpenHarmony 终端</td><td>IDC + 鸿蒙（OpenHarmony）双属性，为政务提供 IDC 与智慧城市服务，与华为生态圈战略合作</td><td><span class="tag t-out">输出</span></td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>L5 下游：算力运营与行业客户</h3>
+<div class="tw">
+<table>
+  <thead><tr><th>公司</th><th>代码</th><th>角色</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td>中贝通信</td><td class="code">603220.SH</td><td>通信工程 + 智算中心运营</td><td>采购昇腾整机自建智算中心对外出租，赚算力缺口租金</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>浙大网新</td><td class="code">600797.SH</td><td>数智化集成、智算云服务</td><td>算力基础设施 + 行业应用总集成，受益地方算力项目招标</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>大位科技</td><td class="code">600589.SH</td><td>IDC 与算力资源池</td><td>自建算力资源池对外提供算力服务器与托管服务</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td>行业客户</td><td class="code">—</td><td>政府政务、金融、电信、能源电力、制造、交通医疗</td><td>最终预算与回款方：政务看财政与信创节点，金融/电信看国产化与 AI 应用，能源交通看资本开支</td><td>需求端</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>六、关系总表：输入侧与输出侧的价值分布</h2>
+
+<div class="grid">
+  <div class="card"><div class="n" style="color:var(--in)">约 26 家</div><div class="l">输入型：向华为（或华为指定整机厂）供货</div></div>
+  <div class="card"><div class="n" style="color:var(--out)">约 22 家</div><div class="l">输出型：从华为拿芯片/模组/授权，再卖给客户</div></div>
+  <div class="card"><div class="n" style="color:var(--both)">约 8 家</div><div class="l">双向型：既做华为的供应商，也卖华为的方案</div></div>
+  <div class="card"><div class="n">21 只</div><div class="l">今日涨停中属于昇腾主线的标的</div></div>
+</div>
+
+<h3>6.1 两侧的"生意本质"完全不同</h3>
+<div class="tw">
+<table>
+  <thead><tr><th>维度</th><th>输入侧（供应商）</th><th>输出侧（伙伴/渠道/集成）</th></tr></thead>
+  <tbody>
+    <tr><td>收入来源</td><td>华为的采购订单（或整机厂的转单）</td><td>最终客户的项款（政府/运营商/企业）</td></tr>
+    <tr><td>议价能力</td><td>取决于不可替代性：混合键合设备、ABF 载板、高速连接器议价强；通用 PCB、结构件议价弱</td><td>取决于认证层级与行业 know-how：钻石级/总经销 > 金牌 > 普通 ISV；总包 > 分包</td></tr>
+    <tr><td>毛利率区间</td><td>封装 15–30%、载板 25–40%、设备 35–45%、材料 30–50%</td><td>整机 8–15%、系统集成 10–20%、软件/ISV 30–60%</td></tr>
+    <tr><td>业绩弹性来源</td><td>单机价值量 × 昇腾出货量（量的乘数）</td><td>中标金额 × 交付节奏（项目制、Q4 集中确认）</td></tr>
+    <tr><td>关键风险</td><td>验证不通过、份额被二供分流、扩产良率</td><td>回款账期、财政预算、招标压价、垫资</td></tr>
+    <tr><td>典型标的</td><td>盛合晶微、兴森科技、拓荆科技、华丰科技、长鑫科技、雅克科技</td><td>拓维信息、神州数码、常山北明、软通动力、深圳华强、太极股份</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>6.2 价值量的迁移路径（这是本轮行情的核心逻辑）</h3>
+<div class="flow">HBM 突破（4096bit + 5层混合键合）
+   │
+   ├─→ 单卡有效算力↑ → 昇腾 950/960 出货↑ → 整机与超节点订单↑（输出侧放量）
+   │
+   ├─→ HBM 用量与层数↑ → 颗粒(长鑫)、封装(盛合晶微)、载板(兴森/深南)、设备(拓荆)、测试(精智达)、材料(雅克/华海诚科) 同步受益（输入侧价值量↑）
+   │
+   └─→ 超节点规模↑ → 铜连接(华丰)、光互联(光迅/中际旭创)、液冷(英维克/申菱)、电源(杰华特) 的"单柜价值量"↑
+                        （这是弹性最大的环节：2027 年高速互联+液冷约 350 亿元）</div>
+
+<h2>七、重点公司关系卡片</h2>
+
+<h3>① 常山北明（000158.SZ）— 双向，今日一字涨停</h3>
+<ul>
+  <li><strong>输出侧</strong>：全资子公司北明软件是华为多产品<strong>钻石级经销商</strong>、昇腾生态核心合作伙伴，在华为云、昇腾、鲲鹏全领域合作，做政务、金融、交通的智算方案落地交付。</li>
+  <li><strong>输入侧</strong>：作为软件服务商承接华为相关的定制开发与交付外包（定制软件及服务占收入 14.1%）。</li>
+  <li><strong>业务结构</strong>：系统集成及行业解决方案 82.7%（约 30.58 亿元）+ 定制软件 14.1%（约 5.22 亿元）；最新一期营收约 53.07 亿元、净利润约 −1.57 亿元，毛利率约 11.8%。</li>
+  <li><strong>关系判读</strong>：渠道与集成属性强于技术属性，弹性来自昇腾整机/方案的出货与政务智算招标，而非单机价值量。</li>
+</ul>
+
+<h3>② 拓维信息（002261.SZ）— 输出型，昇腾整机核心</h3>
+<ul>
+  <li>华为首批昇腾硬件生产合作厂商，"兆瀚"系列 AI 服务器/一体机；华为生态中少见的"鲲鹏/昇腾 AI + 行业大模型 + OpenHarmony + 云"软硬一体战略伙伴。</li>
+  <li>深度参与长沙、重庆等国家级智算中心建设；媒体口径称 2025 年承接约 35% 昇腾服务器订单（需以公告核实）。</li>
+  <li><strong>关系判读</strong>：纯正的"整机 + 交付"卡位，出货量直接决定业绩，毛利受硬件成本与招标价格双向约束。</li>
+</ul>
+
+<h3>③ 神州数码（000034.SZ）— 输出型，整机 + 分销双通道</h3>
+<ul>
+  <li>旗下"神州鲲泰"为昇腾部件伙伴，2026 年 3 月发布基于昇腾 950PR 的服务器整机；同时是华为重要分销商与云服务商。</li>
+  <li><strong>关系判读</strong>：收入体量在同类中最大（最新一期营收 1,367 亿元），但毛利率仅约 3.2%，属"规模换份额"模式，业绩弹性小于纯整机厂。</li>
+</ul>
+
+<h3>④ 软通动力（301236.SZ）— 双向，且是"最深"的双向</h3>
+<ul>
+  <li><strong>输出侧</strong>：软通华方为昇腾部件伙伴，同时是昇腾<strong>钻石级 APN 伙伴</strong>；推出天璇 MaaS 平台，自建千 P 级智算中心，率先完成 DeepSeek-V4 在昇腾底座的部署与 API 上线。</li>
+  <li><strong>输入侧</strong>：华为规模最大的软件与数字技术服务供应商之一，承接鸿蒙/昇腾的适配与研发外包。</li>
+  <li><strong>关系判读</strong>：同时吃到"服务外包的稳定现金流"和"整机/算力运营的弹性"，是理解双向关系的样板。</li>
+</ul>
+
+<h3>⑤ 华丰科技（688629.SH）— 输入型，份额最硬的零部件</h3>
+<ul>
+  <li>华为高速背板连接器两大国内供应商之一；224G 高速线模组已批量交付，在昇腾服务器铜缆连接器领域<strong>份额超 60%</strong>。</li>
+  <li>交付节奏：2026Q3 维持千套级、Q4 进入万套级；2027 年增量来自 950 模组放量 + NPU Socket/CPU Socket 新业务。</li>
+  <li><strong>关系判读</strong>：超节点越做越大，铜连接用量非线性增长；壁垒在 2000 多道工序的精密加工与良率，不是简单的机加工。</li>
+</ul>
+
+<h3>⑥ 盛合晶微（688820.SH）— 输入型，先进封装"唯一性"</h3>
+<ul>
+  <li>芯粒多芯片集成封装 53.7% + 中段硅片加工 33.1% + 晶圆级封装 12.8%，国内少数具备 2.5D 规模量产能力者。</li>
+  <li>已完成"4 颗 SoC + 8 颗 HBM"六倍光罩硅桥封装验证，可在不依赖超大硅中介层的前提下完成 HBM 与算力芯片高密度互连。</li>
+  <li><strong>关系判读</strong>：与华为"以宽代高、去中介层"的技术路线最契合，是 HBM 国产化中稀缺性最高的环节之一。</li>
+</ul>
+
+<h3>⑦ 兴森科技（002436.SZ）— 输入型，载板份额最集中</h3>
+<ul>
+  <li>PCB 62.0% + IC 封装基板 29.9%；昇腾 FC-BGA ABF 载板主力供应商，供应链份额 60–70%，22 层量产、良率 90%+，对应 950DT 已形成规模订单（媒体口径，价值约 5 亿元量级）。</li>
+  <li><strong>关系判读</strong>：若"去硅中介层"落地，4096 根 DQ 由载板扇出，公司从"配套件"升级为"信号枢纽"，是弹性最大的输入侧标的之一。</li>
+</ul>
+
+<h3>⑧ 长鑫科技（688825.SH）— 输入型，国产 HBM 的"源头"</h3>
+<ul>
+  <li>国内规模最大、技术最先进的 DRAM 研发设计制造一体化企业（LPDDR 52.0%、DDR 46.2%），已具备 HBM3 量产能力。</li>
+  <li>产能现状（调研口径）：HBM2E 月产能约 5000 片，HBM3 交付窗口在 2027Q2 末至 Q3，月产能预期 2 万片以上。</li>
+  <li><strong>关系判读</strong>：华为自研 HBM 解决的是"架构与封装"，颗粒仍要靠长鑫等原厂；国产 HBM 2027 年预计仅覆盖约 15% 的国产 GPU 需求，缺口就是长鑫的成长空间。</li>
+</ul>
+
+<h3>⑨ 拓荆科技（688072.SH）— 输入型，5 层键合的"卖铲人"</h3>
+<ul>
+  <li>薄膜沉积（PECVD/ALD/SACVD/HDPCVD）+ 三维集成键合设备（W2W 混合键合、熔融键合、CoW 键合）。</li>
+  <li>华为自研 HBM 的 5 层 W2W 混合键合是核心工艺，公司是国产混合键合设备的主要供给方。</li>
+  <li><strong>关系判读</strong>：设备订单通常领先产能 2–4 个季度，是产业链中"最早看到订单、最晚看到收入"的环节。</li>
+</ul>
+
+<h3>⑩ 高新发展（000628.SZ）— 输出型，整机资产的"壳"</h3>
+<ul>
+  <li>拟购买华鲲振宇 70% 股权；华鲲振宇为华为算力服务器出货量领先的整机厂，原华为服务器团队背景，技术与商务支持力度在整机伙伴中最强。</li>
+  <li>当前主营仍为建筑施工（96.2%）+ 功率半导体（1.1%），属于"资产注入预期"驱动。</li>
+  <li><strong>关系判读</strong>：弹性来自交易落地与并表，风险同样来自交易不确定性，不能等同于已并表的整机公司。</li>
+</ul>
+
+<h2>八、产业链的三条传导逻辑与关键变量</h2>
+
+<h3>8.1 三条传导链</h3>
+<ol>
+  <li><strong>技术链</strong>：HBM 架构突破 → 单卡带宽不再是瓶颈（950DT 4TB/s，960DT 9.6TB/s 超过 B300 的 8TB/s）→ 训练场景可用 → 从"推理替代"走向"训练替代" → 算力需求非线性放大。</li>
+  <li><strong>制造链</strong>：4096bit 位宽 → 封装尺寸/布线密度/测试通道全面升级 → 先进封装、ABF 载板、混合键合设备、测试设备、材料依次受益，且"去中介层"会让载板价值量跳升。</li>
+  <li><strong>系统链</strong>：单柜功率破 100kW → 液冷从可选变刚需；集群从千卡到十万卡 → 光进铜退（NPO/Hi-ONE）→ 光引擎、光模块、高密度连接器价值量抬升。</li>
+</ol>
+
+<h3>8.2 五个关键变量（决定逻辑能否兑现）</h3>
+<div class="tw">
+<table>
+  <thead><tr><th>变量</th><th>当前状态</th><th>观察指标</th></tr></thead>
+  <tbody>
+    <tr><td>论文 → 量产的跨度</td><td>ISSCC 2027 论文为技术展示，2027 年 2 月才正式发表；商用样品时间表预计明年初明朗</td><td>华为是否公布自研 HBM 产能规划、良率</td></tr>
+    <tr><td>国产 HBM 供给量</td><td>长鑫 HBM3 月产能预期 2 万片以上，2027 年仅能覆盖约 15% 国产 GPU 需求</td><td>长鑫 HBM3 客户验证与交付窗口（2027Q2–Q3）</td></tr>
+    <tr><td>昇腾出货量</td><td>机构测算 2027 年华为昇腾出货约 290 万颗；2026 年昇腾处理器收入或超 120 亿美元</td><td>运营商/云厂商集采中标金额与份额</td></tr>
+    <tr><td>互联路线切换</td><td>昇腾 960 采用 NPO（Hi-ONE），光进铜退开始；铜连接仍在 950 世代放量</td><td>NPO 标准（OIF/MSA）进展、光引擎供应商名单</td></tr>
+    <tr><td>政策与管制</td><td>广东"十五五"规划鼓励优先使用国产芯片；美国对 AI 算力流向管控持续收紧</td><td>各省算力规划、国产化率要求、出口管制清单变化</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2>九、风险清单</h2>
+<div class="callout warn">
+<ul style="margin:0 0 0 20px">
+  <li><strong>技术兑现风险</strong>：ISSCC 论文是研究成果，不等于量产；5 层 W2W 混合键合的良率与成本是最大不确定性，华为自己也需付出良率与成本代价。</li>
+  <li><strong>供给瓶颈未解</strong>：HBM 仍是国产算力最短板，2027 年国产 HBM 仅覆盖约 15% 需求；先进封装产能、设备交付周期都是硬约束。</li>
+  <li><strong>输入侧"份额陷阱"</strong>：媒体口径的 60–70% 份额一旦被二供分流（如深南电路承接载板二供、中航光电切入连接器），单家弹性会明显下降。</li>
+  <li><strong>输出侧"增收不增利"</strong>：整机与集成毛利仅 8–20%，叠加政府/国企账期长，收入增长未必带来利润；常山北明最新一期净利润为 −1.57 亿元即是例证。</li>
+  <li><strong>题材与业绩的时间差</strong>：今日涨停中多只标的是"题材联动"（存储器、CPO、液冷结构件），与华为并无直接供货关系，情绪退潮时回撤风险大。</li>
+  <li><strong>估值风险</strong>：板块在事件驱动下短期涨幅较大，部分标的已计入较充分的国产替代预期。</li>
+  <li><strong>地缘政治</strong>：管制若进一步升级（设备、材料、EDA），可能反向影响国内产能爬坡。</li>
+</ul>
+</div>
+
+<h2>十、数据与口径说明</h2>
+<ul class="src">
+  <li><strong>涨停数据</strong>：Wind 2026-11-27 10:35 盘中涨跌停快照，全市场 64 只涨停；"涨停时间"为首次触及涨停时间；盘中数据非收盘数据，收盘可能变化。</li>
+  <li><strong>公司代码与主营</strong>：全部经 Wind 数据核验（证券简称—代码—主营收入构成对应关系），未使用记忆映射。</li>
+  <li><strong>关系判定</strong>：基于公开报道、公司公告、券商研报与产业调研纪要整理；标注"媒体口径/券商口径/调研口径"的份额、订单、产能数据未经公司公告确认，仅作产业参考。</li>
+  <li><strong>技术参数</strong>：华为自研 HBM（64 通道、4096bit、5 层 W2W 混合键合）与昇腾 950PR/950DT 的容量与带宽，来自 IEEE ISSCC 2027 议程草案的公开报道（科创板日报、第一财经、彭博等）。</li>
+  <li><strong>市场空间测算</strong>：2027 年高速互联约 200 亿元 + 液冷约 150 亿元，为券商以 300 万颗昇腾芯片为基数的测算，属预测值而非已实现数据。</li>
+  <li><strong>本文为产业链结构梳理与公开信息整理，不构成任何投资建议、评级或买卖推荐。</strong>市场有风险，决策需独立判断。</li>
+</ul>
+
+<footer>
+  <p>报告生成时间：2026-11-27 · 数据截至盘中 10:35 · 覆盖 A 股/港股上市公司约 60 家</p>
+  <p>结构说明：L0 华为本体 → L1 上游制造 → L2 上游零部件 → L3 整机与超节点 → L4 软件与生态 → L5 下游应用；关系分类：输入（向华为供货）/ 输出（华为向其供货或授权）/ 双向。</p>
+</footer>
+
+</div>
+</body>
+</html>

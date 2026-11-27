@@ -13,6 +13,7 @@ export const C06_SEED: IndustrialChainGraph = {
   depth: 'observe',
   focalEntityId: 'ent-huawei-ascend',
   reportSource: '华为昇腾产业链与输入输出关系图谱（2026-11-27）',
+  reportId: 'huawei-ascend-chain',
   reportUrl: '/reports/huawei-ascend-chain.html',
   valueLaw:
     '输入侧看单机价值量×出货份额（封装/载板/连接器/设备议价强）；输出侧看认证层级与中标交付（整机 8–15%、集成 10–20%）。HBM 突破→单卡算力↑→整机放量；超节点放大铜/光/液冷单柜价值量。',
@@ -26,10 +27,10 @@ export const C06_SEED: IndustrialChainGraph = {
   ],
   relations: C06_RELATIONS,
   release: {
-    version: 2,
-    publishedAt: '2026-11-27T03:30:00.000Z',
+    version: 3,
+    publishedAt: '2026-11-27T04:00:00.000Z',
     publishedBy: 'seed',
-    note: '关系边 note 改为报告「与华为的关系」全文；选中连线/详情可读',
+    note: '报告改为 reportId 内嵌 HTML，修复 /dashboard 下静态路径被 SPA 吞掉',
   },
 
   segments: [
