@@ -1,6 +1,6 @@
 import type { ChainCatalogItem } from './types';
 
-/** 官方主链目录（§1.2）；已开放 C01 / C04 / C05 / C06 / C08 / C09 */
+/** 官方主链目录（§1.2）；已开放 C01 / C04 / C05 / C06 / C08 / C09 / C10 */
 export const CHAIN_CATALOG: ChainCatalogItem[] = [
   {
     id: 'C01',
@@ -37,6 +37,12 @@ export const CHAIN_CATALOG: ChainCatalogItem[] = [
     name: 'PCB',
     depth: 'observe',
     blurb: '电子布/铜箔/树脂/设备 → CCL/PCB 枢纽 → 下游应用 · 报告全文可点 K 线',
+  },
+  {
+    id: 'C10',
+    name: '光刻机（胶）',
+    depth: 'observe',
+    blurb: '光源/光学/材料/设备 → 整机/光刻胶枢纽 → 晶圆封装应用 · 报告全文可点 K 线',
   },
   {
     id: 'C02',

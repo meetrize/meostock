@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta name="data-asof" content="2026-11-27"/>
+<meta name="chain-id" content="C10"/>
+<meta name="seed-entities" content="64"/>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>光刻机（胶）产业链全景与关系图谱 · 2026-11-27</title>
+<style>
+:root{
+  --ink:#0f1a24; --ink2:#3d4d5c; --ink3:#6b7c8c;
+  --line:#e2e8ee; --line2:#eef3f7;
+  --bg:#f6f8fa; --card:#ffffff;
+  --blue:#1f4e79; --blue2:#2e6fa3; --cyan:#0f8b8d;
+  --red:#c0392b; --amber:#b7791f; --green:#1e7a5a;
+  --shadow:0 1px 2px rgba(15,26,36,.04),0 8px 24px rgba(15,26,36,.06);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Noto Sans CJK JP","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 72px}
+.hero{
+  background:linear-gradient(135deg,#0d2a44 0%,#17456e 48%,#1f6a8c 100%);
+  color:#fff;padding:44px 0 38px;margin-bottom:26px;position:relative;overflow:hidden;
+}
+.hero:after{
+  content:"";position:absolute;right:-90px;top:-90px;width:320px;height:320px;border-radius:50%;
+  background:radial-gradient(circle,rgba(120,220,232,.22),transparent 68%);
+}
+.hero .wrap{padding-bottom:0}
+.tagline{font-size:12px;letter-spacing:.22em;color:#8fc7dd;text-transform:uppercase;margin-bottom:12px}
+h1{font-size:clamp(22px,3.4vw,34px);line-height:1.35;margin:0 0 14px;font-weight:700;letter-spacing:.01em}
+.sub{color:#c3dae8;font-size:14px;max-width:820px;margin:0}
+.meta{margin-top:20px;display:flex;flex-wrap:wrap;gap:10px 22px;font-size:12.5px;color:#9dc4d8}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin:-40px 0 30px;position:relative;z-index:2}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow)}
+.kpi .k{font-size:11.5px;color:var(--ink3);letter-spacing:.05em}
+.kpi .v{font-size:26px;font-weight:700;line-height:1.25;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12px;color:var(--ink3);margin-top:2px}
+.up{color:var(--red)}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:26px 28px;margin-bottom:22px;box-shadow:var(--shadow)}
+h2{font-size:19px;margin:0 0 6px;padding-bottom:12px;border-bottom:2px solid var(--line2);font-weight:700;letter-spacing:.01em}
+h2 .no{color:var(--blue2);font-size:13px;font-weight:600;letter-spacing:.12em;margin-right:8px}
+h3{font-size:15.5px;margin:26px 0 10px;color:var(--blue);font-weight:700}
+h3:first-of-type{margin-top:16px}
+h4{font-size:14px;margin:18px 0 8px;color:var(--ink2);font-weight:700}
+p{margin:9px 0;color:var(--ink2)}
+.lead{font-size:14.5px;color:var(--ink2);margin:14px 0 4px}
+.note{font-size:12px;color:var(--ink3);margin-top:10px;line-height:1.6}
+.tw{overflow-x:auto;margin:14px 0 6px;border:1px solid var(--line);border-radius:8px}
+table{border-collapse:collapse;width:100%;min-width:620px;font-size:13px}
+th{background:#f0f5f9;color:var(--blue);font-weight:700;text-align:left;padding:10px 12px;white-space:nowrap;border-bottom:1px solid var(--line);font-size:12.5px}
+td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:top;color:var(--ink2)}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:#fafcfd}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--ink3);background:#f4f7fa;padding:1px 5px;border-radius:3px}
+.pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:20px;line-height:1.7;white-space:nowrap;font-weight:600}
+.p-in{background:#e8f1f9;color:#1f4e79}
+.p-out{background:#eaf6f0;color:#1e6a4e}
+.p-c{background:#fdf3e6;color:#8a5a12}
+.layer{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:#fbfdfe}
+.arrow{text-align:center;color:#a9bccb;font-size:17px;line-height:1.1;padding:4px 0}
+.layer-h{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
+.layer-h span.v{font-weight:600;font-size:11.5px;color:var(--ink3);background:#eef4f8;padding:1px 8px;border-radius:12px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:12px;background:#fff;border:1px solid var(--line);border-radius:6px;padding:3px 9px;color:var(--ink2);line-height:1.6}
+.chip b{font-weight:600;color:var(--ink)}
+.chip.hot{border-color:#f0c9c4;background:#fdf6f5}
+.chip.hot b{color:#b03a2e}
+.chip.out{border-color:#cbe6d8;background:#f5fbf8}
+.chip.out b{color:#1e6a4e}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:16px 0}
+.card{border:1px solid var(--line);border-radius:10px;padding:15px 17px;background:#fcfdfe}
+.card h4{margin:0 0 8px;font-size:13.5px;color:var(--blue);display:flex;gap:8px;align-items:center}
+.card h4 em{font-style:normal;font-size:11px;background:var(--blue);color:#fff;min-width:18px;height:18px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;font-weight:700}
+.card p{font-size:12.8px;margin:6px 0;line-height:1.68}
+.card .ex{font-size:12px;color:var(--ink3);border-top:1px dashed var(--line);padding-top:7px;margin-top:7px}
+ul{margin:8px 0 8px 18px;padding:0}
+li{margin:5px 0;color:var(--ink2);font-size:14px}
+blockquote{margin:14px 0;padding:12px 16px;background:#f4f8fb;border-left:3px solid var(--blue2);border-radius:0 6px 6px 0;font-size:13.5px;color:var(--ink2)}
+blockquote b{color:var(--blue)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+footer{text-align:center;color:var(--ink3);font-size:12px;padding:18px 0;line-height:1.8}
+@media(max-width:640px){
+  .wrap{padding:0 14px 48px}
+  section{padding:20px 16px;border-radius:10px}
+  .two{grid-template-columns:1fr}
+  .kpis{margin-top:-28px}
+  .kpi .v{font-size:22px}
+  table{min-width:560px}
+  h1{font-size:21px}
+  body{font-size:14.5px}
+}
+
+  .co{line-height:1.35;vertical-align:middle;}
+  .co-name{display:block;white-space:nowrap;line-height:1.35;font-weight:600;}
+  .co-name strong{font-weight:800;}
+  .co-code,td .code,td code{display:block;margin-top:2px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.3;white-space:nowrap;color:var(--muted,#64748b);font-weight:400;}
+  span.co{display:inline-block;margin:2px 6px 2px 0;vertical-align:top;}
+
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="wrap">
+    <div class="tagline">Industry Chain Map · 2026.11.27</div>
+    <h1>光刻机（胶）产业链全景与公司关系图谱</h1>
+    <p class="sub">今日涨停复盘 · 产业链节点拆解 · 输入／输出双向关系分类 · PCB概念股全名单交叉验证</p>
+    <div class="meta">
+      <span>数据日期：2026年11月27日（周五，收盘）</span>
+      <span>数据来源：Wind 金融终端、公开新闻与公告</span>
+      <span>口径：A股，不含港股与未上市公司（另注）</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="kpis">
+    <div class="kpi"><div class="k">光刻机指数 8841237.WI</div><div class="v up">+13.79%</div><div class="d">成交额 360.78 亿元</div></div>
+    <div class="kpi"><div class="k">光刻机（胶）概念</div><div class="v up">+12.66%</div><div class="d">概念涨幅（证券之星口径）</div></div>
+    <div class="kpi"><div class="k">高频PCB指数 8841256.WI</div><div class="v up">+10.94%</div><div class="d">成交额 403.00 亿元</div></div>
+    <div class="kpi"><div class="k">PCB板概念</div><div class="v up">+12.16%</div><div class="d">概念涨幅</div></div>
+    <div class="kpi"><div class="k">全市场涨停家数</div><div class="v">439</div><div class="d">含北交所，普涨型情绪</div></div>
+  </div>
+
+  <section>
+    <h2><span class="no">01</span>今日盘面：一场由政策定调引爆的“硬科技普涨”</h2>
+    <p class="lead">今天不是光刻机单独起舞，而是半导体设备、材料、PCB、光通信在同一时间窗口被同时点燃。理解这一点，是理解涨停结构的前提。</p>
+
+    <h3>1.1 三条并行的催化主线</h3>
+    <div class="grid2">
+      <div class="card">
+        <h4><em>1</em>政策端：顶层定调 + 地方规划</h4>
+        <p>工信部在国新办“十五五”推进新型工业化发布会上表示，未来五年将加快打造集成电路等新兴支柱产业，加强关键核心技术攻关。</p>
+        <p>上海印发战略性新兴产业“十五五”规划，提出重点发展集成电路先导产业，到2030年战略性新兴产业增加值达2.1万亿元。</p>
+        <div class="ex">指向：设备与材料的“十五五”订单前置预期</div>
+      </div>
+      <div class="card">
+        <h4><em>2</em>产业端：国产DUV量产 + 断供倒逼</h4>
+        <p>上海企业已小规模量产首款国产DUV光刻机，预计年内交付5台至国内晶圆厂；中特微电子向惠科交付首批7台国产光刻机，2026年订单突破亿元。</p>
+        <p>美国正游说日本，计划限制对中国大陆客户出口高端光刻胶，海外供给收紧预期升温，晶圆厂加快导入国产替代。</p>
+        <div class="ex">指向：整机验证突破 → 零部件订单；断供 → 光刻胶验证加速</div>
+      </div>
+      <div class="card">
+        <h4><em>3</em>市场端：稳市预期 + 板块超跌</h4>
+        <p>高层重磅会议释放稳市预期，A股三大指数直线拉升，风险偏好快速回暖；PCB板块自7月以来区间最大回撤达48.57%，具备超跌反弹基础。</p>
+        <div class="ex">指向：高β成长板块的估值修复，弹性集中在中小市值</div>
+      </div>
+    </div>
+
+    <h3>1.2 涨停的时间结构：午后是主升段</h3>
+    <p>从封板时间看，光刻机（胶）方向的涨停高度集中在 <b>13:00—14:15</b>，与“高层会议稳市预期”消息扩散、以及午后半导体设备板块资金净流入超32亿元的时间点高度吻合。仅国风新材（09:39）、华懋科技（10:28）、腾景科技（10:30）、芯碁微装（11:20）属于上午先行封板，是当日真正的“先手盘”。</p>
+    <blockquote><b>读法：</b>上午封板的是“有独立逻辑的资金”（业绩、订单、并购、技术突破），午后封板的是“板块β资金”。前者决定持续性，后者决定当日强度。判断次日溢价，应优先看上午封板且未开板的标的。</blockquote>
+    <p class="note">注：全市场439只涨停中含大量非半导体标的（深圳国资、ST、北交所小市值等），本报告仅聚焦光刻机（胶）与PCB两条主线。指数涨幅为Wind概念指数收盘涨幅。</p>
+  </section>
+
+  <section>
+    <h2><span class="no">02</span>今日光刻机（胶）涨停个股：22只，四层结构</h2>
+    <p class="lead">取 Wind“光刻机”概念成分股（43只）与当日涨停名单（439只）的交集共 19 只，再补入被市场归入光刻机（胶）热股、但概念标签缺失的国恩股份、国风新材、华亚智能，合计 <b>22 只</b>。</p>
+    <p>这22只并非同质，按其在产业链中的位置可以清晰切成四层：<b>光学与光源（5只）</b>、<b>材料与化学品（9只）</b>、<b>设备与零部件（6只）</b>、<b>下游应用与股权（2只）</b>。涨幅前7只全部是20cm涨跌幅限制的科创板／创业板标的（联合化学、波长光电、茂莱光学、安集科技、腾景科技、芯源微、芯碁微装），说明当日资金极度偏好“高弹性+可讲工艺故事”的品种。其中<b>光刻胶方向7只涨停</b>（华懋科技、雅克科技、东材科技、彤程新材、国风新材、国恩股份、联合化学），且全部为首板。</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr>
+          <th>公司</th><th class="n">涨幅</th><th class="n">收盘(元)</th>
+          <th>产业链位置</th><th>涨停核心驱动（据公开资讯）</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="co"><span class="co-name">联合化学</span><span class="code co-code">301209.SZ</span></td><td class="n up">+20.01%</td><td class="n">49.42</td><td>光刻胶单体</td><td>控股子公司启辰半导体光刻胶单体项目进入试生产，产品可用于KrF树脂；参股曝光机企业米莱芯程；小市值、股东户数环比增超七成</td></tr>
+          <tr><td class="co"><span class="co-name">波长光电</span><span class="code co-code">301421.SZ</span></td><td class="n up">+20.00%</td><td class="n">75.78</td><td>光学镜头／元件</td><td>具备光刻机配套大孔径光学镜头能力，反射镜、聚焦镜、平行光源用于接近式掩模光刻与直写光刻；叠加PCB、激光三重概念</td></tr>
+          <tr><td class="co"><span class="co-name">茂莱光学</span><span class="code co-code">688502.SH</span></td><td class="n up">+20.00%</td><td class="n">427.20</td><td>深紫外物镜／光学器件</td><td>193nm深紫外物镜镜头与光学器件已向上海微电子成套商业化交付；2026Q1在手订单6.6亿元、其中69%来自半导体</td></tr>
+          <tr><td class="co"><span class="co-name">安集科技</span><span class="code co-code">688019.SH</span></td><td class="n up">+20.00%</td><td class="n">228.85</td><td>湿电子化学品／配套试剂</td><td>CMP抛光液龙头，光刻胶剥离液等配套试剂协同放量，深度配套中芯国际、长江存储</td></tr>
+          <tr><td class="co"><span class="co-name">腾景科技</span><span class="code co-code">688195.SH</span></td><td class="n up">+20.00%</td><td class="n">102.34</td><td>精密光学元件</td><td>前三季营收增超七成、净利增超五成，Q3单季营收接近翻倍；AI光互联+半导体光学双轮，股权激励落地</td></tr>
+          <tr><td class="co"><span class="co-name">芯源微</span><span class="code co-code">688037.SH</span></td><td class="n up">+20.00%</td><td class="n">275.40</td><td>涂胶显影设备（Track）</td><td>国内唯一实现前道涂胶显影设备产业化的企业，打破东京电子垄断；与光刻胶使用强绑定，直接受益国产胶导入</td></tr>
+          <tr><td class="co"><span class="co-name">芯碁微装</span><span class="code co-code">688630.SH</span></td><td class="n up">+20.00%</td><td class="n">251.16</td><td>直写光刻设备</td><td>微纳直写光刻龙头，晶圆级WLP2000P导入多家先进封装厂，面板级PLP2000获客户订单；先进封装光刻机国内市占超90%</td></tr>
+          <tr><td class="co"><span class="co-name">电科数字</span><span class="code co-code">600850.SH</span></td><td class="n up">+10.05%</td><td class="n">12.16</td><td>数字基建／洁净厂房配套</td><td>AI全栈服务+智算基础设施，前三季营收78.95亿元；光刻区厂务与数字化配套，属弱关联β品种</td></tr>
+          <tr><td class="co"><span class="co-name">东材科技</span><span class="code co-code">601208.SH</span></td><td class="n up">+10.02%</td><td class="n">28.33</td><td>电子树脂（光刻胶上游）</td><td>高速电子树脂收入同比增超126%，与韩国Chemax合资布局单体/光酸/树脂合成纯化；AI电子树脂+偏光片基膜双线</td></tr>
+          <tr><td class="co"><span class="co-name">晶方科技</span><span class="code co-code">603005.SH</span></td><td class="n up">+10.02%</td><td class="n">20.76</td><td>先进封装（输出端）</td><td>晶圆级封装龙头，半导体板块整体上涨13.56%下的β品种</td></tr>
+          <tr><td class="co"><span class="co-name">冠石科技</span><span class="code co-code">605588.SH</span></td><td class="n up">+10.02%</td><td class="n">34.93</td><td>光掩膜版（Mask）</td><td>光掩膜版55nm量产、40nm启动验证、28nm进入试产；定增获证监会注册批复；前三季经营现金流增近六成</td></tr>
+          <tr><td class="co"><span class="co-name">雅克科技</span><span class="code co-code">002409.SZ</span></td><td class="n up">+10.01%</td><td class="n">80.14</td><td>前驱体／特气／面板光刻胶</td><td>华飞电子、江苏雅睿合计获超20亿元战略增资；AI存储上行带动材料放量；资产负债率降至30.2%、财务费用降超58%</td></tr>
+          <tr><td class="co"><span class="co-name">奥普光电</span><span class="code co-code">002338.SZ</span></td><td class="n up">+10.01%</td><td class="n">35.82</td><td>光栅编码器／光电测控</td><td>前三季归母净利增超140%、扣非增近两倍；子公司禹衡光学纳米级光栅编码器支撑国产双工件台；新董事长出自长春光机所</td></tr>
+          <tr><td class="co"><span class="co-name">华亚智能</span><span class="code co-code">003043.SZ</span></td><td class="n up">+10.01%</td><td class="n">40.46</td><td>精密金属结构件</td><td>半导体设备精密零部件，覆盖光刻/刻蚀/薄膜沉积/涂胶显影，已进入上海微电子产业链；13:02封板</td></tr>
+          <tr><td class="co"><span class="co-name">国恩股份</span><span class="code co-code">002768.SZ</span></td><td class="n up">+10.00%</td><td class="n">50.36</td><td>改性塑料／电子级氟材料</td><td>前三季归母净利9.82亿元(+近60%)；15.04亿元收购四川中氟能80%股权切入电子级氟材料；AI算力子公司获15亿元担保</td></tr>
+          <tr><td class="co"><span class="co-name">彤程新材</span><span class="code co-code">603650.SH</span></td><td class="n up">+10.00%</td><td class="n">48.51</td><td>光刻胶成品（全品类）</td><td>控股北京科华（KrF市占率超40%、长江存储良率98.7%），除EUV外全品类覆盖；2026H1电子化学品收入6.91亿元、占约32%</td></tr>
+          <tr><td class="co"><span class="co-name">华懋科技</span><span class="code co-code">603306.SH</span></td><td class="n up">+10.00%</td><td class="n">39.61</td><td>光刻胶（参股一体化平台）</td><td>持股徐州博康，覆盖单体→树脂→成品，树脂纯度99.999%、单体产能150吨；10:28封板且全天未开板，封单7284万元</td></tr>
+          <tr><td class="co"><span class="co-name">至纯科技</span><span class="code co-code">603690.SH</span></td><td class="n up">+10.00%</td><td class="n">17.82</td><td>湿法清洗／高纯工艺系统</td><td>半导体湿法清洗设备与高纯工艺系统，受益晶圆厂扩产与设备国产化</td></tr>
+          <tr><td class="co"><span class="co-name">张江高科</span><span class="code co-code">600895.SH</span></td><td class="n up">+10.00%</td><td class="n">24.97</td><td>整机股权（上海微电子）</td><td>持有上海微电子10.779%股份，为A股唯一直接参股国产前道光刻机整机龙头的标的</td></tr>
+          <tr><td class="co"><span class="co-name">江化微</span><span class="code co-code">603078.SH</span></td><td class="n up">+9.99%</td><td class="n">28.85</td><td>湿电子化学品／配套试剂</td><td>光刻胶配套试剂（显影液、剥离液、稀释剂、边胶清洗剂）龙头，江阴/镇江/四川三大基地产能释放</td></tr>
+          <tr><td class="co"><span class="co-name">福晶科技</span><span class="code co-code">002222.SZ</span></td><td class="n up">+9.99%</td><td class="n">47.45</td><td>激光晶体（光源上游）</td><td>全球非线性光学晶体市占超60%，供光刻机光源系统核心材料；前三季营收11.63亿(+38%)、净利3.24亿(+48.8%)，精密光学元件营收增71.8%</td></tr>
+          <tr><td class="co"><span class="co-name">国风新材</span><span class="code co-code">000859.SZ</span></td><td class="n up">+9.94%</td><td class="n">7.74</td><td>光刻胶配套材料</td><td>光刻胶配套材料+光刻胶研发推进，低价小市值；09:39全市场最早封板之一，情绪先行标的</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>2.1 四层结构的内在差异</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>层次</th><th>代表个股</th><th>上涨逻辑</th><th>持续性判断依据</th></tr></thead>
+        <tbody>
+          <tr><td><b>光学与光源</b><br><span class="pill p-in">输入</span></td><td>茂莱光学、波长光电、腾景科技、福晶科技、奥普光电</td><td>国产DUV整机交付→物镜/镜头/晶体订单；同时被AI光互联、激光雷达二次加持</td><td>看上海微电子交付节奏与在手订单，是产业链最“硬”的环节</td></tr>
+          <tr><td><b>材料与化学品</b><br><span class="pill p-in">输入</span></td><td>彤程新材、雅克科技、华懋科技、东材科技、联合化学、国恩股份、国风新材、安集科技、江化微</td><td>日本高端光刻胶断供预期→国产替代验证加速；KrF/ArF从0到1</td><td>看具体品类的客户验证进度与吨级订单，而非概念标签</td></tr>
+          <tr><td><b>设备与零部件</b><br><span class="pill p-in">输入</span></td><td>芯源微、芯碁微装、至纯科技、冠石科技、华亚智能、电科数字</td><td>设备国产化率提升，2026年国内主要设备公司订单体量有望达1500–2000亿元</td><td>看订单/合同负债与交付确认节奏</td></tr>
+          <tr><td><b>下游应用与股权</b><br><span class="pill p-out">输出</span></td><td>晶方科技（先进封装）、张江高科（整机股权）</td><td>先进封装扩产受益；整机参股的稀缺性溢价</td><td>张江高科看上海微电子估值重估，晶方看封装景气</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">同日涨停但不在“光刻机”概念成分股内、属强相关的扩展标的：屹唐股份（688729，+19.98%，干法去胶全球市占33.7%、刻蚀设备首次出海欧洲）、洁美科技（002859，+9.99%，拟收购超高精度光学抛光设备龙头埃福思，毛利率超65%）。这两只是“设备+并购”逻辑，与光刻机主线共振但不完全等同。</p>
+  </section>
+
+  <section>
+    <h2><span class="no">03</span>PCB板概念：全名单与今日涨停</h2>
+    <p class="lead">PCB是本次与光刻机（胶）并行、且存在实质交集的一条线。原因在于：<b>光刻胶的下游应用之一就是PCB</b>，而PCB的上游（覆铜板、电子布、树脂、铜箔）与光刻胶上游（树脂、单体）共享同一批化工企业。</p>
+
+    <h3>3.1 今日PCB方向涨停个股：19只，覆盖全链条</h3>
+    <p>从涨停名单中按“电路板／高频PCB／覆铜板／电子布”标签提取，今日PCB链共有 <b>19 只</b>涨停，且罕见地覆盖了从电子布、覆铜板到PCB制造、设备的<b>每一个环节</b>——这是产业链整体景气、而非单点炒作的特征。</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>公司</th><th class="n">涨幅</th><th class="n">收盘(元)</th><th>PCB链位置</th><th>驱动</th></tr></thead>
+        <tbody>
+          <tr><td class="co"><span class="co-name">崇达技术</span><span class="code co-code">002815.SZ</span></td><td class="n up">+10.03%</td><td class="n">16.79</td><td>PCB制造</td><td>高频PCB+AI手机+华为链，小盘高弹性</td></tr>
+          <tr><td class="co"><span class="co-name">生益科技</span><span class="code co-code">600183.SH</span></td><td class="n up">+10.01%</td><td class="n">68.04</td><td>覆铜板（CCL）</td><td>前三季营收332.08亿(+61.1%)、归母净利67.27亿(+175.4%)；Q3单季净利增238.4%；中期分红14.57亿元</td></tr>
+          <tr><td class="co"><span class="co-name">宏和科技</span><span class="code co-code">603256.SH</span></td><td class="n up">+10.01%</td><td class="n">70.47</td><td>电子级玻纤布</td><td>前三季营收增超130%、净利增超430%；电子布均价同比涨近200%，满产满销、库存低位</td></tr>
+          <tr><td class="co"><span class="co-name">景旺电子</span><span class="code co-code">603228.SH</span></td><td class="n up">+10.01%</td><td class="n">64.53</td><td>PCB制造</td><td>前三季归母净利增超七成、Q3单季增近240%；珠海金湾5条mSAP产线投产，H股募资近50亿港元</td></tr>
+          <tr><td class="co"><span class="co-name">博敏电子</span><span class="code co-code">603936.SH</span></td><td class="n up">+10.01%</td><td class="n">12.64</td><td>PCB制造</td><td>低价小盘PCB，板块β驱动</td></tr>
+          <tr><td class="co"><span class="co-name">宝鼎科技</span><span class="code co-code">002552.SZ</span></td><td class="n up">+10.00%</td><td class="n">30.03</td><td>覆铜板</td><td>高频PCB+覆铜板，山东国资入股，小市值</td></tr>
+          <tr><td class="co"><span class="co-name">广合科技</span><span class="code co-code">001389.SZ</span></td><td class="n up">+10.00%</td><td class="n">90.61</td><td>PCB制造（服务器）</td><td>服务器PCB核心供应商，AI算力订单饱满；A+H双平台</td></tr>
+          <tr><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td class="n up">+10.00%</td><td class="n">89.20</td><td>PCB制造（AI服务器）</td><td>高多层板龙头，英伟达产业链核心标的，成交额居前</td></tr>
+          <tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td class="n up">+10.00%</td><td class="n">224.92</td><td>PCB+封装基板</td><td>PCB/基板/电子装联三位一体；11:17封板未开板，封单2.21亿元</td></tr>
+          <tr><td class="co"><span class="co-name">东山精密</span><span class="code co-code">002384.SZ</span></td><td class="n up">+10.00%</td><td class="n">79.77</td><td>PCB/FPC制造</td><td>前三季营收453.79亿(+67.6%)、归母净利52.89亿(+332.3%)；13:02封板，封单6.01亿元，主力净流入28.56亿元</td></tr>
+          <tr><td class="co"><span class="co-name">大族激光</span><span class="code co-code">002008.SZ</span></td><td class="n up">+10.00%</td><td class="n">47.62</td><td>PCB/光刻设备</td><td>PCB钻孔/曝光设备+接近式光刻机已投入市场，设备双属性</td></tr>
+          <tr><td class="co"><span class="co-name">兴森科技</span><span class="code co-code">002436.SZ</span></td><td class="n up">+10.00%</td><td class="n">26.41</td><td>PCB+IC载板</td><td>PCB样板/小批量龙头，IC封装基板国产化，国家大基金持仓</td></tr>
+          <tr><td class="co"><span class="co-name">鹏鼎控股</span><span class="code co-code">002938.SZ</span></td><td class="n up">+10.00%</td><td class="n">50.38</td><td>PCB/FPC制造</td><td>全球最大PCB企业，苹果链核心，超跌反弹</td></tr>
+          <tr><td class="co"><span class="co-name">金安国纪</span><span class="code co-code">002636.SZ</span></td><td class="n up">+10.00%</td><td class="n">51.46</td><td>覆铜板</td><td>前三季营收65.43亿(+超一倍)、归母净利增超十倍；电子级玻纤布项目投产实现上游自供；定增获批</td></tr>
+          <tr><td class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></td><td class="n up">+10.00%</td><td class="n">125.25</td><td>覆铜板</td><td>前三季营收56.1亿(+75.5%)、归母净利8亿(+11.8倍)；定增获上交所审核通过，扩高端覆铜板产能</td></tr>
+          <tr><td class="co"><span class="co-name">奥士康</span><span class="code co-code">002913.SZ</span></td><td class="n up">+10.00%</td><td class="n">69.27</td><td>PCB制造</td><td>前三季营收51.13亿(+26.8%)、归母净利4.54亿(+60.9%)；Q3单季净利增329.2%</td></tr>
+          <tr><td class="co"><span class="co-name">红板科技</span><span class="code co-code">603459.SH</span></td><td class="n up">+9.99%</td><td class="n">55.14</td><td>PCB制造（光模块板）</td><td>800G/1.6T高速光模块PCB已批量供货，配合头部客户新项目验证</td></tr>
+          <tr><td class="co"><span class="co-name">骏亚科技</span><span class="code co-code">603386.SH</span></td><td class="n up">+9.99%</td><td class="n">15.97</td><td>PCB制造</td><td>中大批量PCB，低价小盘，板块β驱动</td></tr>
+          <tr><td class="co"><span class="co-name">中国巨石</span><span class="code co-code">600176.SH</span></td><td class="n up">+9.98%</td><td class="n">28.42</td><td>电子布/玻纤</td><td>前三季营收180.78亿(+超三成)、归母净利翻倍，ROE升至16.11%；电子布10月提价落地，淮安10万吨电子纱满产</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">另有芯碁微装（+20%，PCB直写光刻设备）、弘信电子（涨超10%）、南亚新材（涨超8%）、生益电子（涨超4%）等当日大涨但未封板，构成完整的PCB链共振。结构上，<b>上游材料（电子布/覆铜板）的业绩弹性显著大于中游PCB制造</b>：宏和净利+430%、金安+十倍、华正+11.8倍，而PCB制造端多在+60%~+330%区间。</p>
+
+    <h3>3.2 PCB板概念全名单（按环节归类）</h3>
+    <p>不同平台（同花顺、东方财富、通达信、Wind）的“PCB概念”口径差异很大：窄口径只含48只申万三级“印制电路板”公司，宽口径会延伸到覆铜板、电子布、铜箔、树脂、设备、化学品，数量可达80只以上。下表按产业链环节整合，标注各环节的A股代表公司。</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>环节</th><th>在PCB成本中的角色</th><th>A股代表公司</th></tr></thead>
+        <tbody>
+          <tr><td><b>① 电子布／玻纤</b></td><td>覆铜板的增强骨架，高端Low-Dk布是AI服务器瓶颈</td><td><span class="co"><span class="co-name">宏和科技</span><span class="code co-code">603256.SH</span></span>、<span class="co"><span class="co-name">中国巨石</span><span class="code co-code">600176.SH</span></span>、<span class="co"><span class="co-name">中材科技</span><span class="code co-code">002080.SZ</span></span>、<span class="co"><span class="co-name">国际复材</span><span class="code co-code">301526.SZ</span></span></td></tr>
+          <tr><td><b>② 铜箔</b></td><td>导电层，HVLP高频铜箔是高速板关键</td><td><span class="co"><span class="co-name">铜冠铜箔</span><span class="code co-code">301217.SZ</span></span>、<span class="co"><span class="co-name">诺德股份</span><span class="code co-code">600110.SH</span></span>、<span class="co"><span class="co-name">嘉元科技</span><span class="code co-code">688388.SH</span></span>、<span class="co"><span class="co-name">德福科技</span><span class="code co-code">301511.SZ</span></span></td></tr>
+          <tr><td><b>③ 树脂</b></td><td>决定介电损耗（Df），碳氢/PTFE树脂是AI板核心</td><td><span class="co"><span class="co-name">东材科技</span><span class="code co-code">601208.SH</span></span>、<span class="co"><span class="co-name">同宇新材</span><span class="code co-code">301630.SZ</span></span>、<span class="co"><span class="co-name">圣泉集团</span><span class="code co-code">605589.SH</span></span>、<span class="co"><span class="co-name">宏昌电子</span><span class="code co-code">603002.SH</span></span>、<span class="co"><span class="co-name">世名科技</span><span class="code co-code">300522.SZ</span></span>、<span class="co"><span class="co-name">濮阳惠成</span><span class="code co-code">300481.SZ</span></span></td></tr>
+          <tr><td><b>④ 覆铜板（CCL）</b></td><td>PCB的核心基材，占成本约30–40%</td><td><span class="co"><span class="co-name">生益科技</span><span class="code co-code">600183.SH</span></span>、<span class="co"><span class="co-name">南亚新材</span><span class="code co-code">688519.SH</span></span>、<span class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></span>、<span class="co"><span class="co-name">金安国纪</span><span class="code co-code">002636.SZ</span></span>、<span class="co"><span class="co-name">宝鼎科技</span><span class="code co-code">002552.SZ</span></span>、<span class="co"><span class="co-name">宏昌电子</span><span class="code co-code">603002.SH</span></span>；港股建滔积层板(01888.HK)</td></tr>
+          <tr><td><b>⑤ PCB制造</b></td><td>本环节，48家申万三级“印制电路板”公司</td><td><span class="co"><span class="co-name">鹏鼎控股</span><span class="code co-code">002938.SZ</span></span>、<span class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></span>、<span class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></span>、<span class="co"><span class="co-name">东山精密</span><span class="code co-code">002384.SZ</span></span>、<span class="co"><span class="co-name">胜宏科技</span><span class="code co-code">300476.SZ</span></span>、<span class="co"><span class="co-name">景旺电子</span><span class="code co-code">603228.SH</span></span>、健鼎/<span class="co"><span class="co-name">崇达技术</span><span class="code co-code">002815.SZ</span></span>、<span class="co"><span class="co-name">兴森科技</span><span class="code co-code">002436.SZ</span></span>、<span class="co"><span class="co-name">世运电路</span><span class="code co-code">603920.SH</span></span>、<span class="co"><span class="co-name">奥士康</span><span class="code co-code">002913.SZ</span></span>、<span class="co"><span class="co-name">广合科技</span><span class="code co-code">001389.SZ</span></span>、<span class="co"><span class="co-name">博敏电子</span><span class="code co-code">603936.SH</span></span>、<span class="co"><span class="co-name">中京电子</span><span class="code co-code">002579.SZ</span></span>、<span class="co"><span class="co-name">超声电子</span><span class="code co-code">000823.SZ</span></span>、<span class="co"><span class="co-name">依顿电子</span><span class="code co-code">603328.SH</span></span>、<span class="co"><span class="co-name">四会富仕</span><span class="code co-code">300852.SZ</span></span>、<span class="co"><span class="co-name">明阳电路</span><span class="code co-code">300739.SZ</span></span>、<span class="co"><span class="co-name">科翔股份</span><span class="code co-code">300903.SZ</span></span>、<span class="co"><span class="co-name">中富电路</span><span class="code co-code">300814.SZ</span></span>、<span class="co"><span class="co-name">金禄电子</span><span class="code co-code">301282.SZ</span></span>、<span class="co"><span class="co-name">威尔高</span><span class="code co-code">301251.SZ</span></span>、<span class="co"><span class="co-name">天津普林</span><span class="code co-code">002134.SZ</span></span>、<span class="co"><span class="co-name">骏亚科技</span><span class="code co-code">603386.SH</span></span>、<span class="co"><span class="co-name">迅捷兴</span><span class="code co-code">688655.SH</span></span>、<span class="co"><span class="co-name">生益电子</span><span class="code co-code">688183.SH</span></span>、<span class="co"><span class="co-name">满坤科技</span><span class="code co-code">301132.SZ</span></span>、<span class="co"><span class="co-name">本川智能</span><span class="code co-code">300964.SZ</span></span>、<span class="co"><span class="co-name">强达电路</span><span class="code co-code">301628.SZ</span></span>、<span class="co"><span class="co-name">澳弘电子</span><span class="code co-code">605058.SH</span></span>、<span class="co"><span class="co-name">金百泽</span><span class="code co-code">301041.SZ</span></span>、<span class="co"><span class="co-name">一博科技</span><span class="code co-code">301366.SZ</span></span>、<span class="co"><span class="co-name">嘉立创</span><span class="code co-code">001232.SZ</span></span>、<span class="co"><span class="co-name">方正科技</span><span class="code co-code">600601.SH</span></span>、<span class="co"><span class="co-name">超颖电子</span><span class="code co-code">603175.SH</span></span>、<span class="co"><span class="co-name">红板科技</span><span class="code co-code">603459.SH</span></span>、<span class="co"><span class="co-name">万源通</span><span class="code co-code">920060.SH</span></span>、<span class="co"><span class="co-name">则成电子</span><span class="code co-code">920821.SH</span></span>、<span class="co"><span class="co-name">协和电子</span><span class="code co-code">605258.SH</span></span>、<span class="co"><span class="co-name">中英科技</span><span class="code co-code">300936.SZ</span></span>、<span class="co"><span class="co-name">逸豪新材</span><span class="code co-code">301176.SZ</span></span>、<span class="co"><span class="co-name">贤丰控股</span><span class="code co-code">002141.SZ</span></span>、<span class="co"><span class="co-name">华塑控股</span><span class="code co-code">000509.SZ</span></span>、<span class="co"><span class="co-name">民爆光电</span><span class="code co-code">301362.SZ</span></span>、<span class="co"><span class="co-name">奕东电子</span><span class="code co-code">301123.SZ</span></span></td></tr>
+          <tr><td><b>⑥ 钻孔／曝光／检测设备</b></td><td>PCB产线资本开支，交期已排至2年后</td><td><span class="co"><span class="co-name">大族数控</span><span class="code co-code">301200.SZ</span></span>、<span class="co"><span class="co-name">芯碁微装</span><span class="code co-code">688630.SH</span></span>、<span class="co"><span class="co-name">大族激光</span><span class="code co-code">002008.SZ</span></span>、<span class="co"><span class="co-name">英诺激光</span><span class="code co-code">301021.SZ</span></span>、<span class="co"><span class="co-name">正业科技</span><span class="code co-code">300410.SZ</span></span>、<span class="co"><span class="co-name">合锻智能</span><span class="code co-code">603011.SH</span></span>、<span class="co"><span class="co-name">欧科亿</span><span class="code co-code">688308.SH</span></span>、鼎泰高科(01377.HK)</td></tr>
+          <tr><td><b>⑦ 油墨／化学品</b></td><td>阻焊油墨、湿膜光刻胶、电镀化学品</td><td><span class="co"><span class="co-name">容大感光</span><span class="code co-code">300576.SZ</span></span>、<span class="co"><span class="co-name">广信材料</span><span class="code co-code">300537.SZ</span></span>、<span class="co"><span class="co-name">光华科技</span><span class="code co-code">002741.SZ</span></span>、<span class="co"><span class="co-name">三孚新科</span><span class="code co-code">688359.SH</span></span>、<span class="co"><span class="co-name">江南新材</span><span class="code co-code">603124.SH</span></span></td></tr>
+          <tr><td><b>⑧ 专用材料／辅材</b></td><td>铜球、阳极、载板、封装基板</td><td><span class="co"><span class="co-name">江南新材</span><span class="code co-code">603124.SH</span></span>、<span class="co"><span class="co-name">方邦股份</span><span class="code co-code">688020.SH</span></span>、兴森科技(002436，IC载板)、深南电路(002916，封装基板)、中钨高新(000657，微型钻头原料)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">名单以Wind“电路板”概念（63只）、“印制电路板”申万三级行业（48只）与公开资料交叉整合，部分公司跨环节经营（如生益科技覆铜板+生益电子PCB、东材科技树脂+光电材料），按主营归入主要环节。</p>
+
+    <h3>3.3 PCB的产业逻辑：为什么和光刻机同日爆发</h3>
+    <div class="grid2">
+      <div class="card">
+        <h4><em>供</em>供给端：材料紧缺 + 设备交期拉长</h4>
+        <p>全球电子协会数据：2026年1–9月PCB订单量同比+56.1%，出货量仅+13.3%，高多层板交付周期拉长至16–20周甚至更久。上游核心材料紧张预计延续至2027年上半年。</p>
+        <p>PCB核心生产设备交期拉长，订单排至2年后，扩产存在硬性瓶颈。</p>
+      </div>
+      <div class="card">
+        <h4><em>需</em>需求端：AI服务器 + 1.6T光模块</h4>
+        <p>高盛预计2028年AI服务器PCB市场规模有望达840亿美元；AI服务器对板层、高速传输、板材性能要求显著高于传统服务器，带动单机柜价值量提升。</p>
+        <p>中信证券：PCB/CCL景气周期具备持续性，短期AI迭代放量叠加传统板材涨价，2026下半年业绩有望走强；ASIC、载板、PTFE等细分存超额收益。</p>
+      </div>
+    </div>
+    <p>业绩已验证：PCB行业2026年前三季度营收3324.60亿元（+45.09%）、归母净利458.32亿元（+108.42%）；Q3单季营收1463.39亿元（+85.40%，环比+41.27%）、归母净利240.94亿元（+196.00%，环比+75.56%）。利润增速显著高于收入增速，盈利弹性正在释放（国金证券口径）。</p>
+    <blockquote><b>与光刻胶的交集：</b>PCB光刻胶（阻焊油墨、湿膜光刻胶）是光刻胶三大应用之一。容大感光PCB光刻胶收入9.93亿元、占比92.87%；广信材料为PCB光刻胶头部，龙南基地1.6万吨产能已投产。这意味着“光刻胶+PCB”双概念标的（容大感光、广信材料、波长光电）在两条主线同时升温时具备双击效应。</blockquote>
+  </section>
+
+  <section>
+    <h2><span class="no">04</span>光刻机（胶）产业链：五个层级、十三个节点</h2>
+    <p class="lead">把“光刻机”与“光刻胶”放在同一张图里，会发现它们是<b>两条并行的供应链，共用一个下游</b>：光刻机提供“曝光能力”，光刻胶提供“感光材料”，二者在晶圆厂的同一道工序中必须匹配使用。任何一方的国产化突破，都会拉动另一方的验证需求。</p>
+
+    <h3>4.1 层级结构图</h3>
+    <div style="margin:18px 0 10px">
+      <div class="layer">
+        <div class="layer-h">L1　基础材料层<span class="v">输入的最上游</span></div>
+        <div class="chips">
+          <span class="chip"><b>光学晶体</b> 福晶科技</span>
+          <span class="chip"><b>光学玻璃/石英</b> 石英股份·菲利华</span>
+          <span class="chip"><b>光刻胶树脂</b> 圣泉集团·八亿时空·东材科技</span>
+          <span class="chip"><b>单体</b> 联合化学·瑞联新材·常青科技</span>
+          <span class="chip"><b>光引发剂/PAG</b> 久日新材·强力新材·扬帆新材</span>
+          <span class="chip"><b>电子特气</b> 南大光电·雅克科技·华特气体</span>
+          <span class="chip"><b>湿电子化学品</b> 江化微·安集科技·上海新阳</span>
+          <span class="chip"><b>色浆/颜料</b> 百合花·杭华股份</span>
+        </div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer">
+        <div class="layer-h">L2　核心部件层<span class="v">整机成本的约 65%</span></div>
+        <div class="chips">
+          <span class="chip hot"><b>光源系统 ~20%</b> 科益虹源(未上市)·福晶科技·炬光科技</span>
+          <span class="chip hot"><b>光学系统 ~30%</b> 茂莱光学·波长光电·腾景科技·国望光学(未上市)</span>
+          <span class="chip hot"><b>工件台 ~15%</b> 华卓精科(未上市)·奥普光电(编码器)</span>
+          <span class="chip"><b>掩膜版</b> 冠石科技·路维光电·清溢光电</span>
+          <span class="chip"><b>精密结构件/真空</b> 华亚智能·新莱应材·富创精密</span>
+        </div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer">
+        <div class="layer-h">L3　工艺设备与厂务配套层<span class="v">与胶/机强绑定</span></div>
+        <div class="chips">
+          <span class="chip"><b>涂胶显影 Track</b> 芯源微</span>
+          <span class="chip"><b>直写光刻</b> 芯碁微装·苏大维格·大族激光</span>
+          <span class="chip"><b>清洗设备</b> 至纯科技·蓝英装备</span>
+          <span class="chip"><b>温控/冷却</b> 海立股份</span>
+          <span class="chip"><b>去胶/刻蚀</b> 屹唐股份</span>
+          <span class="chip"><b>量测/检测</b> 精测电子·中科飞测</span>
+        </div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer">
+        <div class="layer-h">L4　整机集成与材料制造层<span class="v">产业中枢</span></div>
+        <div class="chips">
+          <span class="chip"><b>前道整机</b> 上海微电子(未上市) ← 张江高科持股10.779% / 海立股份参股</span>
+          <span class="chip"><b>先进封装/步进机</b> 芯上微装(未上市)</span>
+          <span class="chip"><b>光刻胶成品</b> 彤程新材·南大光电·鼎龙股份·上海新阳·晶瑞电材·华懋科技·容大感光·广信材料·飞凯材料·艾森股份</span>
+        </div>
+      </div>
+      <div class="arrow">▼</div>
+      <div class="layer">
+        <div class="layer-h">L5　下游输出层<span class="v">输出＝对外提供产品</span></div>
+        <div class="chips">
+          <span class="chip out"><b>晶圆制造</b> 中芯国际·华虹公司·晶合集成·华润微</span>
+          <span class="chip out"><b>存储</b> 长江存储·长鑫存储(均未上市)</span>
+          <span class="chip out"><b>先进封装</b> 长电科技·通富微电·华天科技·晶方科技·盛合晶微</span>
+          <span class="chip out"><b>面板显示</b> 京东方A·TCL科技·深天马A·维信诺</span>
+          <span class="chip out"><b>PCB</b> 沪电股份·深南电路·景旺电子·胜宏科技·鹏鼎控股</span>
+          <span class="chip out"><b>功率/分立</b> 士兰微·扬杰科技·新洁能</span>
+        </div>
+      </div>
+    </div>
+
+    <h3>4.2 十三个节点的价值与国产化进度</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>节点</th><th>在产业链中的作用</th><th class="n">价值占比</th><th>国产化进度（公开口径）</th><th>A股卡位公司</th></tr></thead>
+        <tbody>
+          <tr><td><b>1. 光源系统</b></td><td>准分子激光器／EUV光源，框定制程上限</td><td class="n">约20%</td><td>科益虹源40W干式/60W浸没式，功率逼近ASML 80W档；EUV光源仍差一个数量级（商用需250W）</td><td>福晶科技、炬光科技、英诺激光</td></tr>
+          <tr><td><b>2. 光学系统</b></td><td>照明+投影物镜，技术难度最高</td><td class="n">约30%</td><td>国望光学28nm浸没式曝光光学系统通过验证；与蔡司约差2代，EUV多层膜反射率60% vs ASML 69%</td><td>茂莱光学、波长光电、腾景科技、苏大维格</td></tr>
+          <tr><td><b>3. 工件台</b></td><td>双工件台纳米级同步定位</td><td class="n">约15%</td><td>华卓精科定位精度1.7nm、动态响应反超ASML；EUV要求±0.3nm，差距清晰</td><td>奥普光电（光栅编码器）、华卓精科（未上市）</td></tr>
+          <tr><td><b>4. 掩膜版</b></td><td>图形母版，决定线宽精度</td><td class="n">—</td><td>冠石科技55nm量产、40nm验证、28nm试产；路维光电/清溢光电覆盖平板与半导体掩膜</td><td>冠石科技、路维光电、清溢光电</td></tr>
+          <tr><td><b>5. 精密结构件/真空</b></td><td>整机骨架、气体与真空传输</td><td class="n">—</td><td>新莱应材超高纯管路阀门；华亚智能覆盖光刻/刻蚀/薄膜沉积/涂胶显影</td><td>华亚智能、新莱应材、富创精密、正帆科技</td></tr>
+          <tr><td><b>6. 涂胶显影设备</b></td><td>光刻胶的涂布与显影，与胶强绑定</td><td class="n">—</td><td>芯源微为国内唯一产业化企业，此前被东京电子垄断</td><td>芯源微</td></tr>
+          <tr><td><b>7. 直写光刻设备</b></td><td>无掩膜直写，用于先进封装/PCB/面板</td><td class="n">—</td><td>芯碁微装先进封装光刻机国内市占超90%、全球35%；苏大维格晶圆级/面板级直写</td><td>芯碁微装、苏大维格、大族激光</td></tr>
+          <tr><td><b>8. 清洗与厂务</b></td><td>光学系统清洗、湿法清洗、温控</td><td class="n">—</td><td>蓝英装备为全球唯一通过ASML认证的光刻机光学系统清洗设备商；海立股份为上海微电子封装光刻机供冷却系统</td><td>至纯科技、蓝英装备、海立股份</td></tr>
+          <tr><td><b>9. 光刻胶成品</b></td><td>感光核心材料</td><td class="n">—</td><td>g/i线国产化率超95%；KrF约40%（2026年自给率有望近五成）；ArF此前不足1%，南大光电为唯一28nm ArF规模量产；EUV仍空白</td><td>彤程新材、南大光电、鼎龙股份、上海新阳、晶瑞电材、华懋科技</td></tr>
+          <tr><td><b>10. 光刻胶树脂/单体</b></td><td>决定分辨率与感度，占胶成本大头</td><td class="n">—</td><td>八亿时空建成国内首条百吨级KrF树脂双产线；圣泉集团电子级酚醛树脂供货；联合化学单体试生产</td><td>圣泉集团、八亿时空、东材科技、联合化学、瑞联新材</td></tr>
+          <tr><td><b>11. 光引发剂/PAG</b></td><td>感光反应核心组分，壁垒极高</td><td class="n">—</td><td>久日新材攻克EUV光刻胶用光致产酸剂（PAG），打破日本20年垄断；强力新材为全球PCB光刻胶主要材料供应商</td><td>久日新材、强力新材、扬帆新材</td></tr>
+          <tr><td><b>12. 配套试剂</b></td><td>显影液、剥离液、稀释剂、EBR</td><td class="n">—</td><td>江化微为湿电子化学品龙头；安集科技CMP抛光液+剥离液协同；上海新阳电镀液/清洗液平台化</td><td>江化微、安集科技、上海新阳</td></tr>
+          <tr><td><b>13. 整机集成</b></td><td>把上万个零件集成为可量产设备</td><td class="n">—</td><td>上海微电子SSA600系列90nm干式DUV规模出货，28nm浸没式DUV通过中芯国际验证；整机国产化率超70%，国产28nm机型国产化率超85%</td><td>张江高科（参股）、海立股份（参股+配套）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">价值占比为整机成本结构（光学约30%、光源约20%、工件台约15%，三大件合计约三分之二），来源为公开产业研究口径；国产化率为不同机构披露的区间值，存在口径差异，仅作方向参考。</p>
+  </section>
+
+  <section>
+    <h2><span class="no">05</span>输入类全景：谁在给光刻机（胶）产业“供货”</h2>
+    <p class="lead"><span class="pill p-in">输入</span> 定义为：<b>向光刻机／光刻胶产业提供产品、材料、设备或服务</b>的企业。按“卖什么→卖给谁→什么关系”三层展开。</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>节点</th><th>公司（代码）</th><th>输入的具体产品／服务</th><th>关系对象</th><th>关系类型</th><th class="n">今日</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="3"><b>光源</b></td><td class="co"><span class="co-name">福晶科技</span><span class="code co-code">002222.SZ</span></td><td>LBO/BBO非线性光学晶体、激光晶体</td><td>光刻机光源系统、激光器厂商（全球市占超60%）</td><td>材料供货</td><td class="n up">+9.99%</td></tr>
+          <tr><td class="co"><span class="co-name">炬光科技</span><span class="code co-code">688167.SH</span></td><td>激光光学元器件、光场匀化模块</td><td>光刻照明系统、准分子激光器</td><td>部件供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">英诺激光</span><span class="code co-code">301021.SZ</span></td><td>紫外/深紫外激光器</td><td>直写光刻、PCB曝光设备</td><td>设备供货</td><td class="n">—</td></tr>
+          <tr><td rowspan="4"><b>光学</b></td><td class="co"><span class="co-name">茂莱光学</span><span class="code co-code">688502.SH</span></td><td>193nm深紫外物镜镜头、精密光学器件、镀膜</td><td><b>上海微电子</b>（成套商业化交付）、半导体量测</td><td>直接供货+联合开发</td><td class="n up">+20.00%</td></tr>
+          <tr><td class="co"><span class="co-name">波长光电</span><span class="code co-code">301421.SZ</span></td><td>大孔径光学镜头、反射镜、聚焦镜、平行光源</td><td>接近式掩模光刻、直写光刻设备厂</td><td>部件供货</td><td class="n up">+20.00%</td></tr>
+          <tr><td class="co"><span class="co-name">腾景科技</span><span class="code co-code">688195.SH</span></td><td>精密光学元件、光纤器件、晶体元件</td><td>半导体光学设备、光通信</td><td>元件供货</td><td class="n up">+20.00%</td></tr>
+          <tr><td class="co"><span class="co-name">苏大维格</span><span class="code co-code">300331.SZ</span></td><td>微纳光学、直写光刻设备、掩模</td><td>晶圆厂、掩模版厂（维普半导体已进量产线）</td><td>设备+技术协同</td><td class="n">—</td></tr>
+          <tr><td rowspan="2"><b>工件台</b></td><td class="co"><span class="co-name">奥普光电</span><span class="code co-code">002338.SZ</span></td><td>纳米级光栅编码器（子公司禹衡光学）、光电测控</td><td>国产双工件台、高端数控机床</td><td>核心部件供货</td><td class="n up">+10.01%</td></tr>
+          <tr><td>华卓精科（未上市）</td><td>六自由度双工件台，定位精度1.7nm</td><td>上海微电子</td><td>独家配套</td><td class="n">—</td></tr>
+          <tr><td><b>掩膜版</b></td><td class="co"><span class="co-name">冠石科技</span><span class="code co-code">605588.SH</span></td><td>半导体光掩膜版（55nm量产/40nm验证/28nm试产）</td><td>晶圆厂、显示面板厂</td><td>产品验证→量产</td><td class="n up">+10.02%</td></tr>
+          <tr><td rowspan="3"><b>结构件/真空</b></td><td class="co"><span class="co-name">华亚智能</span><span class="code co-code">003043.SZ</span></td><td>精密金属结构件、洁净室设备</td><td><b>上海微电子</b>、中芯国际</td><td>直接供货</td><td class="n up">+10.01%</td></tr>
+          <tr><td class="co"><span class="co-name">新莱应材</span><span class="code co-code">300260.SZ</span></td><td>超高纯气体/真空管路、阀门</td><td>半导体设备厂（含光刻机气体传输）</td><td>部件供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">富创精密</span><span class="code co-code">688409.SH</span></td><td>精密金属零部件、气体管路模块</td><td>刻蚀/薄膜/光刻设备</td><td>部件供货</td><td class="n">—</td></tr>
+          <tr><td><b>涂胶显影</b></td><td class="co"><span class="co-name">芯源微</span><span class="code co-code">688037.SH</span></td><td>前道涂胶显影机（Track）、物理清洗机</td><td>中芯国际、长江存储、华虹</td><td>设备供货（国产唯一）</td><td class="n up">+20.00%</td></tr>
+          <tr><td><b>直写光刻</b></td><td class="co"><span class="co-name">芯碁微装</span><span class="code co-code">688630.SH</span></td><td>晶圆级/面板级直写光刻设备</td><td>先进封装厂、PCB厂、面板厂</td><td>设备供货</td><td class="n up">+20.00%</td></tr>
+          <tr><td rowspan="2"><b>清洗/温控</b></td><td class="co"><span class="co-name">蓝英装备</span><span class="code co-code">300293.SZ</span></td><td>光刻机光学系统清洗设备（纳米级）</td><td><b>ASML</b>（全球唯一认证）、国产整机厂</td><td>认证供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">海立股份</span><span class="code co-code">600619.SH</span></td><td>封装光刻机冷却系统</td><td><b>上海微电子</b>（零部件级→系统级升级）</td><td>配套供货+参股</td><td class="n">—</td></tr>
+          <tr><td rowspan="6"><b>光刻胶成品</b></td><td class="co"><span class="co-name">彤程新材</span><span class="code co-code">603650.SH</span></td><td>g/i线、KrF、ArF光刻胶、EBR、抗反射涂层；面板胶</td><td>中芯国际、长江存储（KrF良率98.7%）、京东方</td><td>控股北京科华+客户认证</td><td class="n up">+10.00%</td></tr>
+          <tr><td class="co"><span class="co-name">南大光电</span><span class="code co-code">300346.SZ</span></td><td>ArF光刻胶（28nm规模量产，良率99.7%）、KrF</td><td>中芯国际、华为海思、长江存储</td><td>唯一量产+客户验证</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">鼎龙股份</span><span class="code co-code">300054.SZ</span></td><td>浸没式ArF、高端KrF；树脂/单体/PAG自主</td><td>主流晶圆厂（8款产品批量订单，2026H1约1000加仑）</td><td>全流程自供+批量供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">上海新阳</span><span class="code co-code">300236.SZ</span></td><td>I线/KrF/ArF干法/ArF浸没式；电镀液、清洗液</td><td>主流晶圆厂、存储厂（100吨/年产能）</td><td>平台型供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">晶瑞电材</span><span class="code co-code">300655.SZ</span></td><td>i线（市占超60%）、KrF量产、ArF送样</td><td>中芯国际、合肥长鑫</td><td>子公司瑞红苏州供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">华懋科技</span><span class="code co-code">603306.SH</span></td><td>参股徐州博康：单体→树脂→成品一体化</td><td>国内光刻胶厂（树脂纯度99.999%）</td><td>股权关系（参股）</td><td class="n up">+10.00%</td></tr>
+          <tr><td rowspan="4"><b>胶用树脂/单体</b></td><td class="co"><span class="co-name">圣泉集团</span><span class="code co-code">605589.SH</span></td><td>电子级酚醛树脂、PHS树脂、丙烯酸树脂</td><td>国内g/i线、KrF光刻胶企业</td><td>原材料供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">八亿时空</span><span class="code co-code">688181.SH</span></td><td>KrF光刻胶树脂（百吨级双产线）</td><td>国内KrF胶厂商</td><td>原材料供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">东材科技</span><span class="code co-code">601208.SH</span></td><td>电子树脂、单体/光酸（与韩国Chemax合资）</td><td>光刻胶企业、AI服务器PCB</td><td>合资+供货</td><td class="n up">+10.02%</td></tr>
+          <tr><td class="co"><span class="co-name">联合化学</span><span class="code co-code">301209.SZ</span></td><td>光刻胶单体（启辰半导体试生产，用于KrF树脂）</td><td>KrF光刻胶树脂厂</td><td>子公司自建</td><td class="n up">+20.01%</td></tr>
+          <tr><td rowspan="2"><b>光引发剂/PAG</b></td><td class="co"><span class="co-name">久日新材</span><span class="code co-code">688199.SH</span></td><td>光引发剂（全球产量最大）、PAG、光敏剂</td><td>光刻胶企业（已对接21家核心客户）</td><td>原材料供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">强力新材</span><span class="code co-code">300429.SZ</span></td><td>光引发剂、KrF用光酸及单体、树脂</td><td>全球PCB光刻胶主要材料供应</td><td>原材料供货</td><td class="n">—</td></tr>
+          <tr><td rowspan="3"><b>配套试剂/湿化学品</b></td><td class="co"><span class="co-name">江化微</span><span class="code co-code">603078.SH</span></td><td>显影液、剥离液、稀释剂、边胶清洗剂</td><td>晶圆厂、面板厂（直销100%）</td><td>配套试剂供货</td><td class="n up">+9.99%</td></tr>
+          <tr><td class="co"><span class="co-name">安集科技</span><span class="code co-code">688019.SH</span></td><td>CMP抛光液、光刻胶剥离液、清洗液</td><td>中芯国际、长江存储（ArF制程配套）</td><td>核心耗材供货</td><td class="n up">+20.00%</td></tr>
+          <tr><td class="co"><span class="co-name">上海新阳</span><span class="code co-code">300236.SZ</span></td><td>电镀液、清洗液、蚀刻液</td><td>晶圆制造、先进封装</td><td>平台型供货</td><td class="n">—</td></tr>
+          <tr><td rowspan="2"><b>电子特气</b></td><td class="co"><span class="co-name">南大光电</span><span class="code co-code">300346.SZ</span></td><td>MO源、氢类/含氟电子特气</td><td>晶圆厂、光刻/刻蚀工艺</td><td>气体供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">雅克科技</span><span class="code co-code">002409.SZ</span></td><td>前驱体、电子特气、面板彩色光刻胶</td><td>京东方、LG显示、华星光电、长存/长鑫</td><td>平台型供货</td><td class="n up">+10.01%</td></tr>
+          <tr><td><b>整机（股权）</b></td><td class="co"><span class="co-name">张江高科</span><span class="code co-code">600895.SH</span></td><td>资本投入、园区与产业服务</td><td><b>上海微电子</b>（持股10.779%）</td><td><b>股权关系</b></td><td class="n up">+10.00%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">“—”表示当日未涨停或未纳入涨停统计；涨幅仅用于交叉验证市场关注度，不代表基本面判断。</p>
+  </section>
+
+  <section>
+    <h2><span class="no">06</span>输出类全景：谁在“用”光刻机（胶）对外供货</h2>
+    <p class="lead"><span class="pill p-out">输出</span> 定义为：<b>消费光刻机／光刻胶的产能，并以此对外提供产品</b>的企业。它们不是产业链的供应方，而是产业价值的“变现端”。</p>
+
+    <div class="tw">
+      <table>
+        <thead><tr><th>输出方向</th><th>代表公司（代码）</th><th>使用光刻能力产出的产品</th><th>与光刻产业的关系</th><th class="n">今日</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="3"><b>逻辑晶圆制造</b></td><td class="co"><span class="co-name">中芯国际</span><span class="code co-code">688981.SH</span></td><td>28nm及以上成熟制程晶圆代工</td><td>上海微电子28nm浸没式DUV验证客户；国产胶/设备首要验证平台</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">华虹公司</span><span class="code co-code">688347.SH</span></td><td>特色工艺晶圆代工（功率/模拟）</td><td>成熟制程光刻机主要采购方</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">晶合集成</span><span class="code co-code">688249.SH</span></td><td>面板驱动芯片代工</td><td>i线/KrF光刻胶大量用户</td><td class="n">—</td></tr>
+          <tr><td><b>存储</b></td><td>长江存储 / 长鑫存储（未上市）</td><td>3D NAND / DRAM</td><td>KrF/ArF胶最大验证与放量基地（科华良率98.7%即出自长存）</td><td class="n">—</td></tr>
+          <tr><td rowspan="4"><b>先进封装</b></td><td class="co"><span class="co-name">长电科技</span><span class="code co-code">600584.SH</span></td><td>FC-BGA、2.5D/3D封装</td><td>直写光刻、厚膜光刻胶用户</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">通富微电</span><span class="code co-code">002156.SZ</span></td><td>Chiplet、HBM封装</td><td>先进封装光刻设备需求方</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">晶方科技</span><span class="code co-code">603005.SH</span></td><td>晶圆级封装（WLCSP）</td><td>使用光刻做重布线/凸点</td><td class="n up">+10.02%</td></tr>
+          <tr><td class="co"><span class="co-name">盛合晶微</span><span class="code co-code">688820.SH</span></td><td>2.5D/3D、硅中介层</td><td>直写光刻与PSPI光刻胶用户</td><td class="n">涨停</td></tr>
+          <tr><td rowspan="3"><b>面板显示</b></td><td class="co"><span class="co-name">京东方A</span><span class="code co-code">000725.SZ</span></td><td>LCD/OLED面板</td><td>面板光刻胶（雅克、彤程北旭）核心客户</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">TCL科技</span><span class="code co-code">000100.SZ</span></td><td>大尺寸面板</td><td>面板胶与曝光设备用户</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">深天马A</span><span class="code co-code">000050.SZ</span></td><td>中小尺寸/车载显示</td><td>面板光刻胶验证客户</td><td class="n">—</td></tr>
+          <tr><td rowspan="5"><b>PCB</b></td><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td>AI服务器高多层板</td><td>PCB光刻胶（阻焊/湿膜）用户</td><td class="n up">+10.00%</td></tr>
+          <tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td>PCB+封装基板</td><td>PCB胶与载板光刻胶用户</td><td class="n up">+10.00%</td></tr>
+          <tr><td class="co"><span class="co-name">景旺电子</span><span class="code co-code">603228.SH</span></td><td>多层板、HDI、mSAP</td><td>PCB光刻胶主要客户</td><td class="n up">+10.01%</td></tr>
+          <tr><td class="co"><span class="co-name">胜宏科技</span><span class="code co-code">300476.SZ</span></td><td>AI服务器/显卡PCB</td><td>高端PCB胶用户</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">鹏鼎控股</span><span class="code co-code">002938.SZ</span></td><td>FPC/HDI（全球最大PCB厂）</td><td>FPC光刻胶用户</td><td class="n">—</td></tr>
+          <tr><td><b>功率/分立</b></td><td>士兰微 <code>600460</code>、扬杰科技 <code>300373</code>、新洁能 <code>605111</code></td><td>IGBT、MOSFET、功率器件</td><td>6–8英寸线使用接近式/步进光刻机</td><td class="n">—</td></tr>
+          <tr><td><b>MEMS/特色</b></td><td class="co"><span class="co-name">必创科技</span><span class="code co-code">300667.SZ</span></td><td>MEMS传感器</td><td>石英MEMS光刻工艺产业化</td><td class="n">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <blockquote><b>为什么“输出”值得单独看：</b>输入端决定国产化天花板，输出端决定订单弹性。当输入端突破（如28nm DUV交付），最先受益的其实是输出端的晶圆厂——因为它们获得了不被卡脖子的产能；而当输出端景气（如AI服务器PCB涨价），又会反向拉动输入端的材料与设备。二者是<b>双向正反馈</b>，不是单向链条。</blockquote>
+  </section>
+
+  <section>
+    <h2><span class="no">07</span>公司之间的关系：六大类型</h2>
+    <p class="lead">产业链不是一张静态的公司名单，而是一组可分类的关系。把关系拆成六类后，才能回答“谁离不开谁”“谁只是蹭概念”“谁的护城河来自体制而非技术”。</p>
+
+    <div class="grid2">
+      <div class="card">
+        <h4><em>A</em>股权／资本关系</h4>
+        <p>通过参股、控股、大基金注资形成的绑定，是最强的关系，因为它同时绑定订单与治理。</p>
+        <p>典型：张江高科持股上海微电子10.779%；海立股份参股上海微电子并为封装光刻机供冷却系统；彤程新材控股北京科华；华懋科技参股徐州博康；国家大基金三期930亿元投向华芯鼎新（整机）、710亿元投向国投集新（零部件）。</p>
+        <div class="ex">识别信号：持股比例、是否并表、是否有董事席位</div>
+      </div>
+      <div class="card">
+        <h4><em>B</em>直接供货／订单关系</h4>
+        <p>最普遍的一类，但有“一级配套”与“二级配套”之分。一级配套直接进整机BOM，二级配套供设备厂或材料厂。</p>
+        <p>典型：茂莱光学→上海微电子（物镜镜头）；华亚智能→上海微电子/中芯国际（结构件）；奥普光电（禹衡）→国产双工件台（编码器）；蓝英装备→ASML（光学系统清洗设备）。</p>
+        <div class="ex">识别信号：年报“前五大客户”、募投项目下游、调研纪要</div>
+      </div>
+      <div class="card">
+        <h4><em>C</em>联合研发／技术协同</h4>
+        <p>共同承担国家专项、共建实验室、联合攻关。这类关系不产生当期收入，但决定3–5年后的卡位。</p>
+        <p>典型：国望光学承接国家研发任务、与上海微电子配套；茂莱光学与整机厂共同定义光学指标；东材科技与韩国Chemax合资做单体/光酸/树脂纯化；苏州组建“激光核聚变关键材料与核心器件创新联合体”（亨芯石英牵头、联合上海光机所）。</p>
+        <div class="ex">识别信号：科技部/工信部专项、联合专利、技术委员会名单</div>
+      </div>
+      <div class="card">
+        <h4><em>D</em>客户验证／认证关系</h4>
+        <p>半导体材料特有的“送样—加仑样—小批量—量产”四阶段。验证通过才是真订单，否则只是概念。</p>
+        <p>典型：南大光电ArF通过中芯国际/华为海思验证；彤程北京科华KrF在长江存储良率98.7%；鼎龙8款胶获批量订单、2026H1约1000加仑；上海新阳ArF浸没式取得销售订单；冠石科技掩膜版40nm验证中。</p>
+        <div class="ex">识别信号：公告“通过客户验证”“批量供货”“加仑样”</div>
+      </div>
+      <div class="card">
+        <h4><em>E</em>同源院所／实控人关系</h4>
+        <p>中国半导体最容易被忽视的一条暗线：很多公司的技术源头是同一家院所，形成隐性的“技术派系”。</p>
+        <p>中科院长春光机所系：奥普光电、国望光学；中科院福建物构所系：福晶科技；中科院上海光机所：EUV光源LPP路线、国望上海节点；中航工业系：深南电路；中建材系：中国巨石、中材科技；中国电科系：电科数字。</p>
+        <div class="ex">识别信号：实控人、董事长履历、首席科学家出处</div>
+      </div>
+      <div class="card">
+        <h4><em>F</em>竞争／替代关系</h4>
+        <p>既是国产替代海外的“对外竞争”，也是国内同行之间的“对内竞争”。后者常被忽略，却是估值分化的关键。</p>
+        <p>对外：彤程/南大/鼎龙 vs TOK（23%）、JSR（19%）、信越、杜邦（四家合计约85%）；芯源微 vs 东京电子（Track）。对内：ArF赛道南大光电先发、鼎龙/彤程/上海新阳追赶；PCB胶赛道容大感光 vs 广信材料。</p>
+        <div class="ex">识别信号：同一品类的产能扩张公告、价格战、毛利率下行</div>
+      </div>
+    </div>
+
+    <h3>7.1 关系类型对照矩阵</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>关系类型</th><th>本质</th><th>输入侧典型</th><th>输出侧典型</th><th>对投资的含义</th><th>验证指标</th></tr></thead>
+        <tbody>
+          <tr><td><b>A 股权</b></td><td>资本绑定，共享成长</td><td>张江高科→上海微电子；彤程→北京科华；华懋→徐州博康</td><td>大基金→晶圆厂</td><td>稀缺性溢价最高，但弹性受持股比例限制</td><td>持股比例、是否并表</td></tr>
+          <tr><td><b>B 供货</b></td><td>订单绑定，随产能释放</td><td>茂莱→上微；华亚→上微/中芯；江化微→晶圆厂</td><td>生益→PCB厂；沪电→服务器厂</td><td>看订单/合同负债，最实在</td><td>前五大客户占比、在手订单</td></tr>
+          <tr><td><b>C 联合研发</b></td><td>技术绑定，远期卡位</td><td>国望光学、茂莱、东材×Chemax</td><td>晶圆厂与设备厂共研工艺</td><td>短期无利润，长期决定能否进BOM</td><td>专项编号、联合专利</td></tr>
+          <tr><td><b>D 验证认证</b></td><td>准入绑定，壁垒最高</td><td>南大ArF、鼎龙8款、冠石40nm</td><td>晶圆厂切换国产胶的意愿</td><td>验证节点是最强催化，也是最易证伪</td><td>公告措辞、加仑样→吨级</td></tr>
+          <tr><td><b>E 院所同源</b></td><td>技术血统，隐性背书</td><td>福晶、奥普、国望、苏大维格</td><td>—</td><td>决定技术真实性，防“伪概念”</td><td>实控人、核心团队履历</td></tr>
+          <tr><td><b>F 竞争替代</b></td><td>份额争夺，此消彼长</td><td>彤程/南大/鼎龙 vs 日本四强</td><td>国产PCB厂 vs 台日厂商</td><td>决定毛利率天花板与估值分化</td><td>国产化率、价格、毛利率</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>7.2 五条关键关系链（把公司串起来看）</h3>
+
+    <h4>链条一：上海微电子生态圈——整机拉动型</h4>
+    <p>上海微电子（未上市）是唯一的“链主”。围绕它形成的配套圈是：<b>张江高科</b>（股权10.779%）→ <b>茂莱光学</b>（物镜镜头/光学器件）→ <b>华亚智能</b>（精密结构件/洁净设备）→ <b>海立股份</b>（冷却系统，零部件级升系统级）→ <b>奥普光电</b>（经华卓精科工件台间接供编码器）→ <b>蓝英装备</b>（光学系统清洗）→ <b>国望光学</b>（曝光光学系统，未上市）。这条链的共性是：<b>收入体量小、对单一大客户依赖高、弹性极大</b>。整机交付节奏是唯一的核心变量。</p>
+
+    <h4>链条二：中科院长春光机所系——技术血统型</h4>
+    <p><b>奥普光电</b>（实控人长春光机所体系，新任董事长出自该所）与<b>国望光学</b>（承担国家28nm浸没式曝光光学系统任务，北京研发+长春元件+上海光机三地协同）同源。这条链决定了国产光刻机“光学”这一最难环节的技术底座。同属中科院系但不同所的还有<b>福晶科技</b>（福建物构所，光源晶体）与<b>苏大维格</b>（苏州大学，微纳光学）。判断这类公司，看的不是季度业绩，而是<b>是否承担国家专项、是否进入整机BOM</b>。</p>
+
+    <h4>链条三：徐州博康系——一体化材料型</h4>
+    <p><b>华懋科技</b>参股徐州博康，博康是国内少有的“单体→树脂→成品”一体化平台，树脂纯度99.999%、单体产能150吨（计划2026年扩至300吨）。这条链的特殊性在于：博康既是<b>光刻胶成品商</b>，又是<b>上游单体/树脂供应商</b>，同时扮演输入与输出的双重角色，因此它既向彤程、南大等成品厂供货，又与它们竞争。华懋科技的股价弹性来自“参股比例×博康估值重估”，而非自身主业。</p>
+
+    <h4>链条四：中芯国际／长江存储验证链——准入决定型</h4>
+    <p><b>南大光电</b>（ArF通过中芯、海思验证）→ <b>彤程新材/北京科华</b>（KrF在长存良率98.7%）→ <b>鼎龙股份</b>（8款批量订单）→ <b>上海新阳</b>（ArF浸没式有订单）→ <b>晶瑞电材</b>（i线供中芯、长鑫）。这条链上，<b>晶圆厂的验证进度就是催化本身</b>。同一品类里谁先拿到“吨级订单”，谁就吃掉未来三年的份额。这也是为什么“通过验证”公告的股价弹性远大于“送样”。</p>
+
+    <h4>链条五：PCB—光刻胶共用上游——交叉型</h4>
+    <p><b>东材科技</b>（电子树脂，既供光刻胶又供AI服务器PCB）、<b>圣泉集团</b>（酚醛树脂，g/i线胶核心树脂+覆铜板树脂）、<b>容大感光</b>（PCB光刻胶92.87%）、<b>广信材料</b>（PCB光刻胶）、<b>波长光电</b>（光学镜头+PCB概念）。这条链是本次两条主线同时爆发的“物理接口”：<b>同一个上游，两个下游景气，形成需求叠加</b>。当AI服务器PCB涨价与光刻胶断供预期同时出现，这类公司的业绩弹性是单倍逻辑的1.5–2倍。</p>
+  </section>
+
+  <section>
+    <h2><span class="no">08</span>交叉验证：“一鱼两吃”的标的清单</h2>
+    <p class="lead">同时在光刻机（胶）与PCB两条主线中出现、且具备实质业务（非单纯概念标签）的公司，是本次行情中逻辑最完整的群体。</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>公司</th><th>代码</th><th>光刻机（胶）身份</th><th>PCB身份</th><th>交叉点</th><th class="n">今日</th></tr></thead>
+        <tbody>
+          <tr><td class="co"><span class="co-name">东材科技</span><span class="code co-code">601208.SH</span></td><td>光刻胶单体/树脂（与Chemax合资）</td><td>AI服务器PCB用碳氢树脂</td><td>同一套树脂合成能力，两个高景气下游</td><td class="n up">+10.02%</td></tr>
+          <tr><td class="co"><span class="co-name">圣泉集团</span><span class="code co-code">605589.SH</span></td><td>g/i线光刻胶用电子级酚醛树脂</td><td>覆铜板用酚醛/环氧树脂</td><td>树脂平台型，双向供货</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">容大感光</span><span class="code co-code">300576.SZ</span></td><td>半导体g/i线胶（延伸）</td><td>PCB光刻胶龙头（占营收92.87%）</td><td>PCB胶基本盘+半导体胶期权</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">广信材料</span><span class="code co-code">300537.SZ</span></td><td>半导体胶布局</td><td>PCB光刻胶头部，龙南1.6万吨投产</td><td>PCB+FPD+IC三线</td><td class="n">—</td></tr>
+          <tr><td class="co"><span class="co-name">波长光电</span><span class="code co-code">301421.SZ</span></td><td>光刻机光学镜头/反射镜</td><td>PCB曝光设备光学件</td><td>同一光学能力，两个设备下游</td><td class="n up">+20.00%</td></tr>
+          <tr><td class="co"><span class="co-name">芯碁微装</span><span class="code co-code">688630.SH</span></td><td>先进封装直写光刻</td><td>PCB直写曝光设备</td><td>直写技术平台，封装+PCB双市场</td><td class="n up">+20.00%</td></tr>
+          <tr><td class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></td><td>—（光刻胶概念外延）</td><td>覆铜板+高频材料</td><td>纯PCB链，与光刻胶同属电子材料</td><td class="n">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">判断“实质业务”与“概念标签”的分界：是否有对应产品的营收披露、是否公告客户验证、是否有产能落地。仅靠互动易回复“有相关技术储备”的，归为概念标签。</p>
+  </section>
+
+  <section>
+    <h2><span class="no">09</span>风险边界与后续跟踪指标</h2>
+
+    <h3>9.1 四条主要风险</h3>
+    <div class="grid2">
+      <div class="card">
+        <h4><em>1</em>情绪风险：439只涨停的普涨不可持续</h4>
+        <p>当日全市场439只涨停、半导体概念涨13.56%，属于典型的情绪极值。历史上此类普涨次日分化率极高，午后封板的β品种回撤风险显著大于上午封板的α品种。</p>
+      </div>
+      <div class="card">
+        <h4><em>2</em>验证风险：光刻胶“送样”不等于“订单”</h4>
+        <p>多数国产光刻胶仍处送样/加仑样阶段，收入占比极低（南大光刻胶收入占比超0.8%、上海新阳超0.5%）。一旦验证延迟，估值将快速回归。</p>
+      </div>
+      <div class="card">
+        <h4><em>3</em>技术风险：EUV差距仍在扩大</h4>
+        <p>光源功率50–100W vs 商用250W、反射率60% vs 69%、大尺寸光学元件量产能力不足；ASML高NA EUV（NA&gt;0.55）剑指3nm以下，差距有被再拉大的可能。</p>
+      </div>
+      <div class="card">
+        <h4><em>4</em>政策与外部风险</h4>
+        <p>美国《出口管制改革法案》修正案把DUV限制扩大到28nm先进封装设备；日本高端光刻胶出口政策仍存变数（既是国产替代催化，也可能引发供应链短期断链）。</p>
+      </div>
+    </div>
+
+    <h3>9.2 跟踪清单：看什么、什么频率</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>跟踪对象</th><th>具体指标</th><th>频率</th><th>意义</th></tr></thead>
+        <tbody>
+          <tr><td>上海微电子</td><td>28nm浸没式DUV交付台数、客户名单、国产化率</td><td>季度/事件</td><td>整条输入链的总开关</td></tr>
+          <tr><td>光刻胶验证</td><td>KrF/ArF“吨级订单”公告、加仑样转量产</td><td>事件驱动</td><td>材料股最强催化</td></tr>
+          <tr><td>晶圆厂资本开支</td><td>中芯、华虹、长存、长鑫的Capex指引</td><td>季度</td><td>设备与材料订单的先行指标</td></tr>
+          <tr><td>光刻胶国产化率</td><td>g/i线、KrF、ArF分品类自给率</td><td>半年</td><td>判断替代空间还剩多少</td></tr>
+          <tr><td>PCB景气</td><td>PCB订单/出货增速比、高多层板交期、覆铜板价格</td><td>月度</td><td>输出端需求，反向拉动材料</td></tr>
+          <tr><td>电子布/树脂价格</td><td>电子布均价、Low-Dk布供给、碳氢树脂报价</td><td>月度</td><td>PCB链利润分配的关键</td></tr>
+          <tr><td>政策</td><td>大基金三期投向、十五五集成电路专项、地方补贴</td><td>事件</td><td>估值中枢的支撑</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>9.3 一句话总结</h3>
+    <blockquote>
+      光刻机（胶）产业链的真正结构，是<b>“一个链主（上海微电子）+ 两条并行供应链（设备零部件 / 光刻胶材料）+ 一个共用出口（晶圆厂与PCB厂）”</b>。<br><br>
+      <b>输入侧</b>看的是“能不能进BOM、能不能过验证”，本质是<b>准入壁垒</b>；<br>
+      <b>输出侧</b>看的是“产能利不利用得上、价格能不能传导”，本质是<b>周期弹性</b>；<br>
+      而把两者连起来的，是<b>股权、供货、共研、验证、院所血统、竞争替代</b>这六类关系。<br><br>
+      今日22只光刻机（胶）涨停中，真正同时具备“技术血统 + 验证进展 + 订单能见度”的不足三分之一；其余多属板块β。区分这两类，比记住名单更重要。
+    </blockquote>
+  </section>
+
+  <section>
+    <h2><span class="no">10</span>附：产业链节点—公司速查索引</h2>
+    <div class="tw">
+      <table>
+        <thead><tr><th>节点</th><th>输入侧公司（供方）</th><th>输出侧承接方（用方）</th></tr></thead>
+        <tbody>
+          <tr><td>光源</td><td>福晶科技、炬光科技、英诺激光、科益虹源*</td><td>上海微电子*、芯上微装*</td></tr>
+          <tr><td>光学</td><td>茂莱光学、波长光电、腾景科技、苏大维格、国望光学*</td><td>上海微电子*、芯碁微装</td></tr>
+          <tr><td>工件台</td><td>华卓精科*、奥普光电</td><td>上海微电子*</td></tr>
+          <tr><td>掩膜版</td><td>冠石科技、路维光电、清溢光电</td><td>中芯国际、华虹、面板厂</td></tr>
+          <tr><td>结构件/真空</td><td>华亚智能、新莱应材、富创精密、正帆科技</td><td>上海微电子*、中芯国际</td></tr>
+          <tr><td>涂胶显影</td><td>芯源微</td><td>中芯国际、长江存储*、华虹</td></tr>
+          <tr><td>直写光刻</td><td>芯碁微装、苏大维格、大族激光</td><td>长电科技、通富微电、PCB厂</td></tr>
+          <tr><td>清洗/温控</td><td>至纯科技、蓝英装备、海立股份</td><td>ASML、上海微电子*</td></tr>
+          <tr><td>光刻胶成品</td><td>彤程新材、南大光电、鼎龙股份、上海新阳、晶瑞电材、华懋科技、容大感光、广信材料、飞凯材料、艾森股份</td><td>中芯国际、长江存储*、京东方、PCB厂</td></tr>
+          <tr><td>树脂/单体</td><td>圣泉集团、八亿时空、东材科技、联合化学、瑞联新材、常青科技</td><td>彤程、南大、鼎龙等成品厂</td></tr>
+          <tr><td>光引发剂/PAG</td><td>久日新材、强力新材、扬帆新材</td><td>光刻胶成品厂</td></tr>
+          <tr><td>配套试剂</td><td>江化微、安集科技、上海新阳</td><td>晶圆厂、面板厂</td></tr>
+          <tr><td>电子特气</td><td>南大光电、雅克科技、华特气体、金宏气体</td><td>晶圆厂、设备厂</td></tr>
+          <tr><td>整机集成</td><td>上海微电子*（张江高科持股）、芯上微装*</td><td>中芯国际、华虹、积塔、惠科</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">* 为未上市公司。带 * 的节点往往由国有院所或地方国资主导，是理解“技术血统型”关系的关键。名单以公开披露与产业研究整理，不构成完整覆盖。</p>
+  </section>
+
+</div>
+<footer>
+  本报告基于 Wind 金融终端数据与公开新闻、公告、研报整理，数据截至 2026年11月27日收盘。<br>
+  产业链环节归属依据公司公开披露的业务与客户关系归纳，部分公司横跨多个环节，表中标注其主要卡位。<br>
+  本报告为产业信息梳理，不构成任何投资建议。
+</footer>
+</body>
+</html>

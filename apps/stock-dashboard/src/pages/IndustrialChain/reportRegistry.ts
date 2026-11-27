@@ -8,6 +8,7 @@ import domesticAiChipHtml from './reports/domestic-ai-chip-chain.html?raw';
 import robotChainHtml from './reports/robot-chain.html?raw';
 import cloudDcHtml from './reports/cloud-dc-chain.html?raw';
 import pcbChainHtml from './reports/pcb-chain.html?raw';
+import lithographyHtml from './reports/lithography-chain.html?raw';
 
 export type ChainReportMeta = {
   id: string;
@@ -47,6 +48,12 @@ const REPORTS: Record<string, ChainReportMeta> = {
     title: 'PCB（印制电路板）产业链全景与今日涨停复盘（2026-11-27）',
     publicPath: 'reports/pcb-chain.html',
     html: pcbChainHtml,
+  },
+  'lithography-chain': {
+    id: 'lithography-chain',
+    title: '光刻机（胶）产业链全景与公司关系图谱（2026-11-27）',
+    publicPath: 'reports/lithography-chain.html',
+    html: lithographyHtml,
   },
 };
 

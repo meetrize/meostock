@@ -64,6 +64,7 @@ import { C05_INDICATORS } from './seed/c05Indicators';
 import { C06_INDICATORS } from './seed/c06Indicators';
 import { C08_INDICATORS } from './seed/c08Indicators';
 import { C09_INDICATORS } from './seed/c09Indicators';
+import { C10_INDICATORS } from './seed/c10Indicators';
 import {
   buildSignalCards,
   getIndicatorsForSegment,
@@ -118,6 +119,7 @@ function indicatorsForChain(chainId: string): LeadingIndicator[] {
   if (chainId === 'C06') return C06_INDICATORS;
   if (chainId === 'C08') return C08_INDICATORS;
   if (chainId === 'C09') return C09_INDICATORS;
+  if (chainId === 'C10') return C10_INDICATORS;
   return C01_INDICATORS;
 }
 
@@ -467,7 +469,7 @@ export function IndustrialChain() {
       const text = await file.text();
       const imported = importChainJson(text);
       if (!isEditableChain(imported.id)) {
-        toast.error('仅支持导入已开放主链（C01 / C04 / C05 / C06 / C08 / C09）');
+        toast.error('仅支持导入已开放主链（C01 / C04 / C05 / C06 / C08 / C09 / C10）');
         return;
       }
       saveDraft(imported);
@@ -1237,7 +1239,7 @@ export function IndustrialChain() {
             </>
           ) : (
             <div className={styles.detailEmpty}>
-              该主链建设中，当前已开放 C01 / C04 / C05 / C06 / C08 / C09。
+              该主链建设中，当前已开放 C01 / C04 / C05 / C06 / C08 / C09 / C10。
             </div>
           )}
         </section>

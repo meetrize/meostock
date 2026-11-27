@@ -8,6 +8,7 @@ import { C05_SEED } from './seed/c05CloudDc';
 import { C06_SEED } from './seed/c06Ascend';
 import { C08_SEED } from './seed/c08Robot';
 import { C09_SEED } from './seed/c09Pcb';
+import { C10_SEED } from './seed/c10Lithography';
 import type { IndustrialChainGraph } from './types';
 
 const STORAGE_PREFIX = 'industrial-chain.';
@@ -20,6 +21,7 @@ const SEEDS: Record<string, IndustrialChainGraph> = {
   C06: C06_SEED,
   C08: C08_SEED,
   C09: C09_SEED,
+  C10: C10_SEED,
 };
 
 export function supportedChainIds(): string[] {
