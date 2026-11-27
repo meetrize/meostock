@@ -34,12 +34,15 @@
   small,.small{font-size:12.8px; color:var(--muted); line-height:1.65;}
   .lead{font-size:16px; color:var(--ink2); background:var(--soft); border-left:4px solid #cbd5e1; padding:14px 18px; border-radius:0 8px 8px 0; margin:18px 0;}
   .tw{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:14px 0; border:1px solid var(--line); border-radius:10px;}
-  table{width:100%; border-collapse:collapse; font-size:13.6px; min-width:640px;}
+  table{width:100%; border-collapse:collapse; font-size:13.6px; min-width:560px;}
   th,td{padding:9px 11px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line);}
   thead th{background:var(--soft); font-weight:700; font-size:12.8px; color:var(--ink2); white-space:nowrap; border-bottom:2px solid var(--line);}
   tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:#fbfdff;}
-  td.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.6px; white-space:nowrap; color:var(--ink2);}
+  td.co{white-space:nowrap; vertical-align:top; min-width:6.8em;}
+  .co-name{display:block; white-space:nowrap; line-height:1.35; font-weight:600;}
+  .co-name strong{font-weight:800;}
+  .co-code, td .code{display:block; margin-top:2px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px; line-height:1.3; white-space:nowrap; color:var(--muted); font-weight:400;}
   .tag{display:inline-block; font-size:11.8px; font-weight:700; padding:1px 8px; border-radius:999px; white-space:nowrap;}
   .t-in{color:var(--in); background:var(--in-bg);}
   .t-out{color:var(--out); background:var(--out-bg);}
@@ -75,7 +78,7 @@
   <p class="sub">从自研 HBM 突破到涨停潮：六个层级、五类节点、一张双向关系表</p>
   <div class="meta">
     <span>数据日期：2026-11-27（盘中 10:35 快照）</span>
-    <span>覆盖公司：约 60 家（A/H 股，代码经 Wind 核验）</span>
+    <span>覆盖公司：约 134 家（含选股通主题池与涨停池增补；代码经 Wind/选股宝核验）</span>
     <span>分类口径：输入型 / 输出型 / 双向型</span>
   </div>
 </header>
@@ -119,29 +122,29 @@
 <p class="small">口径：Wind 2026-11-27 10:35 盘中涨跌停快照，共 64 只涨停；下表为其中所属概念含华为/昇腾/鲲鹏/鸿蒙/HBM/存储器/AI算力/算力租赁/CPO 等关键词的标的。"涨停时间"为首次触及涨停时间。</p>
 <div class="tw">
 <table>
-  <thead><tr><th>证券简称</th><th>代码</th><th>涨停时间</th><th>题材标签</th><th>在昇腾链中的位置</th></tr></thead>
+  <thead><tr><th>证券简称</th><th>涨停时间</th><th>题材标签</th><th>在昇腾链中的位置</th></tr></thead>
   <tbody>
-    <tr><td><strong>天源迪科</strong></td><td class="code">300047.SZ</td><td>09:33</td><td>华为·鲲鹏·AI算力</td><td>软件与 ISV（电信/公安 BOSS、昇腾适配）</td></tr>
-    <tr><td><strong>常山北明</strong></td><td class="code">000158.SZ</td><td>09:25（一字）</td><td>华为·鲲鹏·鸿蒙·算力租赁</td><td>钻石级经销商 + 系统集成（政务/金融）</td></tr>
-    <tr><td><strong>拓维信息</strong></td><td class="code">002261.SZ</td><td>09:33</td><td>华为·鲲鹏·鸿蒙·算力租赁</td><td>昇腾整机（兆瀚）+ 行业方案</td></tr>
-    <tr><td><strong>神州数码</strong></td><td class="code">000034.SZ</td><td>10:01</td><td>华为·鲲鹏·鸿蒙·AI算力</td><td>昇腾整机（神州鲲泰）+ 分销</td></tr>
-    <tr><td><strong>深圳华强</strong></td><td class="code">000062.SZ</td><td>09:36</td><td>华为平台</td><td>华为计算部件总经销商</td></tr>
-    <tr><td><strong>太极股份</strong></td><td class="code">002368.SZ</td><td>10:09</td><td>华为·鲲鹏·国产软硬件</td><td>政务系统集成</td></tr>
-    <tr><td><strong>润和软件</strong></td><td class="code">300339.SZ</td><td>09:39</td><td>华为·鸿蒙·AI算力</td><td>鸿蒙/昇腾适配 + 一体机</td></tr>
-    <tr><td><strong>荣联科技</strong></td><td class="code">002642.SZ</td><td>09:46</td><td>华为</td><td>IT 服务与集成</td></tr>
-    <tr><td><strong>意华股份</strong></td><td class="code">002897.SZ</td><td>10:29</td><td>华为·CPO·光模块</td><td>高速连接器/光模块</td></tr>
-    <tr><td><strong>华胜天成</strong></td><td class="code">600410.SH</td><td>10:11</td><td>芯片</td><td>算力平台集成与运维</td></tr>
-    <tr><td><strong>恒为科技</strong></td><td class="code">603496.SH</td><td>09:58</td><td>AI算力·信创</td><td>OCS 光交换、智算中心</td></tr>
-    <tr><td><strong>证通电子</strong></td><td class="code">002197.SZ</td><td>09:25</td><td>算力租赁</td><td>IDC + OpenHarmony 终端</td></tr>
-    <tr><td><strong>浙大网新</strong></td><td class="code">600797.SH</td><td>09:30</td><td>AI算力·算力租赁</td><td>智算云与集成</td></tr>
-    <tr><td><strong>中贝通信</strong></td><td class="code">603220.SH</td><td>09:37</td><td>算力租赁</td><td>智算中心运营</td></tr>
-    <tr><td><strong>大位科技</strong></td><td class="code">600589.SH</td><td>09:30</td><td>算力租赁</td><td>IDC 与算力资源池</td></tr>
-    <tr><td><strong>中电鑫龙</strong></td><td class="code">002298.SZ</td><td>09:30</td><td>存储器</td><td>存储/电源配套（题材联动）</td></tr>
-    <tr><td><strong>时空科技</strong></td><td class="code">605178.SH</td><td>10:09</td><td>存储器</td><td>存储题材联动</td></tr>
-    <tr><td><strong>金海通</strong></td><td class="code">603061.SH</td><td>10:31</td><td>先进封装</td><td>测试分选设备（封装测试链）</td></tr>
-    <tr><td><strong>腾景科技</strong></td><td class="code">688195.SH</td><td>10:30</td><td>CPO·光模块</td><td>光学元件/光互联</td></tr>
-    <tr><td><strong>华懋科技</strong></td><td class="code">603306.SH</td><td>10:28</td><td>CPO·光模块</td><td>光互联题材联动</td></tr>
-    <tr><td><strong>捷荣技术</strong></td><td class="code">002855.SZ</td><td>09:59</td><td>华为·液冷</td><td>结构件/散热题材联动</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>天源迪科</strong></span><span class="code co-code">300047.SZ</span></td><td>09:33</td><td>华为·鲲鹏·AI算力</td><td>软件与 ISV（电信/公安 BOSS、昇腾适配）</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>常山北明</strong></span><span class="code co-code">000158.SZ</span></td><td>09:25（一字）</td><td>华为·鲲鹏·鸿蒙·算力租赁</td><td>钻石级经销商 + 系统集成（政务/金融）</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>拓维信息</strong></span><span class="code co-code">002261.SZ</span></td><td>09:33</td><td>华为·鲲鹏·鸿蒙·算力租赁</td><td>昇腾整机（兆瀚）+ 行业方案</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>神州数码</strong></span><span class="code co-code">000034.SZ</span></td><td>10:01</td><td>华为·鲲鹏·鸿蒙·AI算力</td><td>昇腾整机（神州鲲泰）+ 分销</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>深圳华强</strong></span><span class="code co-code">000062.SZ</span></td><td>09:36</td><td>华为平台</td><td>华为计算部件总经销商</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>太极股份</strong></span><span class="code co-code">002368.SZ</span></td><td>10:09</td><td>华为·鲲鹏·国产软硬件</td><td>政务系统集成</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>润和软件</strong></span><span class="code co-code">300339.SZ</span></td><td>09:39</td><td>华为·鸿蒙·AI算力</td><td>鸿蒙/昇腾适配 + 一体机</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>荣联科技</strong></span><span class="code co-code">002642.SZ</span></td><td>09:46</td><td>华为</td><td>IT 服务与集成</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>意华股份</strong></span><span class="code co-code">002897.SZ</span></td><td>10:29</td><td>华为·CPO·光模块</td><td>高速连接器/光模块</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>华胜天成</strong></span><span class="code co-code">600410.SH</span></td><td>10:11</td><td>芯片</td><td>算力平台集成与运维</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>恒为科技</strong></span><span class="code co-code">603496.SH</span></td><td>09:58</td><td>AI算力·信创</td><td>OCS 光交换、智算中心</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>证通电子</strong></span><span class="code co-code">002197.SZ</span></td><td>09:25</td><td>算力租赁</td><td>IDC + OpenHarmony 终端</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>浙大网新</strong></span><span class="code co-code">600797.SH</span></td><td>09:30</td><td>AI算力·算力租赁</td><td>智算云与集成</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>中贝通信</strong></span><span class="code co-code">603220.SH</span></td><td>09:37</td><td>算力租赁</td><td>智算中心运营</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>大位科技</strong></span><span class="code co-code">600589.SH</span></td><td>09:30</td><td>算力租赁</td><td>IDC 与算力资源池</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>中电鑫龙</strong></span><span class="code co-code">002298.SZ</span></td><td>09:30</td><td>存储器</td><td>存储/电源配套（题材联动）</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>时空科技</strong></span><span class="code co-code">605178.SH</span></td><td>10:09</td><td>存储器</td><td>存储题材联动</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>金海通</strong></span><span class="code co-code">603061.SH</span></td><td>10:31</td><td>先进封装</td><td>测试分选设备（封装测试链）</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>腾景科技</strong></span><span class="code co-code">688195.SH</span></td><td>10:30</td><td>CPO·光模块</td><td>光学元件/光互联</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>华懋科技</strong></span><span class="code co-code">603306.SH</span></td><td>10:28</td><td>CPO·光模块</td><td>光互联题材联动</td></tr>
+    <tr><td class="co"><span class="co-name"><strong>捷荣技术</strong></span><span class="code co-code">002855.SZ</span></td><td>09:59</td><td>华为·液冷</td><td>结构件/散热题材联动</td></tr>
   </tbody>
 </table>
 </div>
@@ -217,10 +220,10 @@
 <h4>L1-1 晶圆代工</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>中芯国际</td><td class="code">688981.SH</td><td>集成电路晶圆代工（92.8%）、光掩模、凸块加工及测试</td><td>国产先进逻辑代工的主要承接方，昇腾芯片本土制造的基础产能</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>华虹宏力</td><td class="code">688347.SH</td><td>特色工艺晶圆代工（功率、模拟、嵌入式存储）</td><td>配套电源、接口等特色工艺芯片代工，属间接供给</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">中芯国际</span><span class="code co-code">688981.SH</span></td><td>集成电路晶圆代工（92.8%）、光掩模、凸块加工及测试</td><td>国产先进逻辑代工的主要承接方，昇腾芯片本土制造的基础产能</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">华虹宏力</span><span class="code co-code">688347.SH</span></td><td>特色工艺晶圆代工（功率、模拟、嵌入式存储）</td><td>配套电源、接口等特色工艺芯片代工，属间接供给</td><td><span class="tag t-in">输入</span></td></tr>
   </tbody>
 </table>
 </div>
@@ -228,10 +231,10 @@
 <h4>L1-2 HBM 颗粒（本轮最关键节点）</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>长鑫科技</td><td class="code">688825.SH</td><td>DRAM 研发设计制造一体化（DDR/LPDDR 系列，DRAM 晶圆/芯片/模组）</td><td>国产 HBM 颗粒的核心原厂，已具备 HBM3 量产能力；华为自研 HBM 方案落地将进一步拉动其颗粒迭代</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>香农芯创</td><td class="code">300475.SZ</td><td>电子元器件分销（93.7%），SK 海力士、联发科等代理</td><td><strong>非华为链</strong>：是海外 HBM 的"通道型"供给方，代表受限状态下的外部补给，与国产替代是替代关系</td><td><span class="tag t-in">输入</span>（外部通道）</td></tr>
+    <tr><td class="co"><span class="co-name">长鑫科技</span><span class="code co-code">688825.SH</span></td><td>DRAM 研发设计制造一体化（DDR/LPDDR 系列，DRAM 晶圆/芯片/模组）</td><td>国产 HBM 颗粒的核心原厂，已具备 HBM3 量产能力；华为自研 HBM 方案落地将进一步拉动其颗粒迭代</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">香农芯创</span><span class="code co-code">300475.SZ</span></td><td>电子元器件分销（93.7%），SK 海力士、联发科等代理</td><td><strong>非华为链</strong>：是海外 HBM 的"通道型"供给方，代表受限状态下的外部补给，与国产替代是替代关系</td><td><span class="tag t-in">输入</span>（外部通道）</td></tr>
   </tbody>
 </table>
 </div>
@@ -239,12 +242,12 @@
 <h4>L1-3 先进封装（2.5D/3D、混合键合）</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td><strong>盛合晶微</strong></td><td class="code">688820.SH</td><td>芯粒多芯片集成封装（53.7%）、中段硅片加工（33.1%）、晶圆级封装（12.8%）</td><td>国内少数具备 2.5D 规模量产能力者，布局 3DIC 与 W2W 混合键合，已完成"4 颗 SoC + 8 颗 HBM"硅桥封装验证，与华为自研 HBM 的多芯片堆叠需求高度适配（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>通富微电</td><td class="code">002156.SZ</td><td>集成电路封装测试，先进封装/Chiplet 异构集成</td><td>与长鑫合作开发 HBM 样品；承接算力芯片封测代工</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>长电科技</td><td class="code">600584.SH</td><td>芯片封测（99.5%），晶圆级封装、2.5D/3D、SiP</td><td>先进封装产能与 XDFOI 平台，适配 HBM 配套封测</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>华天科技</td><td class="code">002185.SZ</td><td>集成电路封装测试（TSV、Bumping、FC、SiP、WLP）</td><td>具备 TSV/凸块能力，属封装产能补充</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name"><strong>盛合晶微</strong></span><span class="code co-code">688820.SH</span></td><td>芯粒多芯片集成封装（53.7%）、中段硅片加工（33.1%）、晶圆级封装（12.8%）</td><td>国内少数具备 2.5D 规模量产能力者，布局 3DIC 与 W2W 混合键合，已完成"4 颗 SoC + 8 颗 HBM"硅桥封装验证，与华为自研 HBM 的多芯片堆叠需求高度适配（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">通富微电</span><span class="code co-code">002156.SZ</span></td><td>集成电路封装测试，先进封装/Chiplet 异构集成</td><td>与长鑫合作开发 HBM 样品；承接算力芯片封测代工</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">长电科技</span><span class="code co-code">600584.SH</span></td><td>芯片封测（99.5%），晶圆级封装、2.5D/3D、SiP</td><td>先进封装产能与 XDFOI 平台，适配 HBM 配套封测</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">华天科技</span><span class="code co-code">002185.SZ</span></td><td>集成电路封装测试（TSV、Bumping、FC、SiP、WLP）</td><td>具备 TSV/凸块能力，属封装产能补充</td><td><span class="tag t-in">输入</span></td></tr>
   </tbody>
 </table>
 </div>
@@ -252,10 +255,10 @@
 <h4>L1-4 高端载板（ABF / FC-BGA）</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td><strong>兴森科技</strong></td><td class="code">002436.SZ</td><td>PCB（62.0%）、IC 封装基板（29.9%）、半导体测试板</td><td>昇腾 FC-BGA ABF 载板主力供应商，在昇腾供应链份额达 60–70%，22 层 ABF 载板量产、良率 90%+，对应 950DT 已形成规模订单（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>深南电路</td><td class="code">002916.SZ</td><td>印制电路板（55.9%）、封装基板（24.0%）、电子装联</td><td>FC-BGA 载板重要二供，26 层以下批量生产、9–12μm 精细线路，承接增量分流；同时供应昇腾 AI 服务器核心电路板</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name"><strong>兴森科技</strong></span><span class="code co-code">002436.SZ</span></td><td>PCB（62.0%）、IC 封装基板（29.9%）、半导体测试板</td><td>昇腾 FC-BGA ABF 载板主力供应商，在昇腾供应链份额达 60–70%，22 层 ABF 载板量产、良率 90%+，对应 950DT 已形成规模订单（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td>印制电路板（55.9%）、封装基板（24.0%）、电子装联</td><td>FC-BGA 载板重要二供，26 层以下批量生产、9–12μm 精细线路，承接增量分流；同时供应昇腾 AI 服务器核心电路板</td><td><span class="tag t-in">输入</span></td></tr>
   </tbody>
 </table>
 </div>
@@ -264,13 +267,13 @@
 <h4>L1-5 半导体设备</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td><strong>拓荆科技</strong></td><td class="code">688072.SH</td><td>薄膜沉积设备（PECVD/ALD/SACVD/HDPCVD）+ 三维集成键合设备（W2W/CoW 混合键合与熔融键合）</td><td>5 层 W2W 混合键合是华为自研 HBM 的核心工艺，公司为国产混合键合设备主要供给方</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>北方华创</td><td class="code">002371.SZ</td><td>刻蚀、PVD、清洗、热处理等电子工艺装备（95.3%）</td><td>HBM 制造 TSV 工艺与先进封装产线的通用设备底座</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>中微公司</td><td class="code">688012.SH</td><td>CCP/ICP 刻蚀设备、薄膜设备、量检测</td><td>TSV 与高深宽比刻蚀环节，属设备第二梯队</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>长川科技</td><td class="code">300604.SZ</td><td>测试机（54.1%）、分选机（33.5%）、探针台、AOI</td><td>HBM 的 CP 测试用量约为传统 DRAM 的 4–5 倍，存储测试设备需求随之放大</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td><strong>精智达</strong></td><td class="code">688627.SH</td><td>半导体测试检测设备：DRAM FT 测试机、老化修复设备、探针卡</td><td>覆盖 HBM 测试机台 + 探针卡 + 老化修复全套方案，4096bit 超宽位宽提升测试通道要求</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name"><strong>拓荆科技</strong></span><span class="code co-code">688072.SH</span></td><td>薄膜沉积设备（PECVD/ALD/SACVD/HDPCVD）+ 三维集成键合设备（W2W/CoW 混合键合与熔融键合）</td><td>5 层 W2W 混合键合是华为自研 HBM 的核心工艺，公司为国产混合键合设备主要供给方</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">北方华创</span><span class="code co-code">002371.SZ</span></td><td>刻蚀、PVD、清洗、热处理等电子工艺装备（95.3%）</td><td>HBM 制造 TSV 工艺与先进封装产线的通用设备底座</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">中微公司</span><span class="code co-code">688012.SH</span></td><td>CCP/ICP 刻蚀设备、薄膜设备、量检测</td><td>TSV 与高深宽比刻蚀环节，属设备第二梯队</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">长川科技</span><span class="code co-code">300604.SZ</span></td><td>测试机（54.1%）、分选机（33.5%）、探针台、AOI</td><td>HBM 的 CP 测试用量约为传统 DRAM 的 4–5 倍，存储测试设备需求随之放大</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name"><strong>精智达</strong></span><span class="code co-code">688627.SH</span></td><td>半导体测试检测设备：DRAM FT 测试机、老化修复设备、探针卡</td><td>覆盖 HBM 测试机台 + 探针卡 + 老化修复全套方案，4096bit 超宽位宽提升测试通道要求</td><td><span class="tag t-in">输入</span></td></tr>
   </tbody>
 </table>
 </div>
@@ -278,12 +281,12 @@
 <h4>L1-6 半导体材料</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>雅克科技</td><td class="code">002409.SZ</td><td>半导体前驱体材料、电子特气、光刻胶</td><td>HBM 介质层沉积所需前驱体，国产替代核心；华为自研 HBM 强化供应链自主可控诉求</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>华海诚科</td><td class="code">688535.SH</td><td>环氧塑封料（EMC）、GMC 颗粒状塑封料、胶黏剂</td><td>HBM 专用 GMC 塑封料国内主要量产方，低应力/高导热要求下随封装上量</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>联瑞新材</td><td class="code">688300.SH</td><td>功能性先进粉体：球形硅微粉、球形氧化铝</td><td>EMC/GMC 与载板上游填料，随 HBM 封装与高层载板放量</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>华正新材</td><td class="code">603186.SH</td><td>覆铜板（85.0%）、复合材料、膜材料（CBF）</td><td>CBF 功能膜已通过昇腾体系验证并进入小批量供货（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">雅克科技</span><span class="code co-code">002409.SZ</span></td><td>半导体前驱体材料、电子特气、光刻胶</td><td>HBM 介质层沉积所需前驱体，国产替代核心；华为自研 HBM 强化供应链自主可控诉求</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">华海诚科</span><span class="code co-code">688535.SH</span></td><td>环氧塑封料（EMC）、GMC 颗粒状塑封料、胶黏剂</td><td>HBM 专用 GMC 塑封料国内主要量产方，低应力/高导热要求下随封装上量</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">联瑞新材</span><span class="code co-code">688300.SH</span></td><td>功能性先进粉体：球形硅微粉、球形氧化铝</td><td>EMC/GMC 与载板上游填料，随 HBM 封装与高层载板放量</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">华正新材</span><span class="code co-code">603186.SH</span></td><td>覆铜板（85.0%）、复合材料、膜材料（CBF）</td><td>CBF 功能膜已通过昇腾体系验证并进入小批量供货（媒体口径）</td><td><span class="tag t-in">输入</span></td></tr>
   </tbody>
 </table>
 </div>
@@ -291,9 +294,9 @@
 <h4>L1-7 第三方测试服务</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>伟测科技</td><td class="code">688372.SH</td><td>晶圆测试（CP）、成品测试（FT）等第三方测试服务</td><td>昇腾芯片第三方测试环节，每颗芯片必经、认证壁垒较高（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">伟测科技</span><span class="code co-code">688372.SH</span></td><td>晶圆测试（CP）、成品测试（FT）等第三方测试服务</td><td>昇腾芯片第三方测试环节，每颗芯片必经、认证壁垒较高（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
   </tbody>
 </table>
 </div>
@@ -303,22 +306,23 @@
 <h4>L2-1 高速连接器与铜缆</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td><strong>华丰科技</strong></td><td class="code">688629.SH</td><td>光、电、流体连接器，高速线模组、线缆组件</td><td>华为高速背板连接器两大国内供应商之一；224G 高速线模组已批量交付，在昇腾服务器铜缆连接器领域份额超 60%；2026Q3 交付千套级、Q4 进入万套级（媒体/调研口径）</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>中航光电</td><td class="code">002179.SZ</td><td>电连接器（74.8%）、光器件（18.1%）、液冷解决方案（7.1%）</td><td>高速连接器新进入者，2027 年份额有望提升至 20% 以上（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>意华股份</td><td class="code">002897.SZ</td><td>高速连接器、光模块及结构件</td><td>今日涨停标的，市场按"连接器 + 光模块"双属性交易；与昇腾的具体供货关系待公司披露确认</td><td><span class="tag t-in">输入</span>（待验证）</td></tr>
-  </tbody>
+    <tr><td class="co"><span class="co-name"><strong>华丰科技</strong></span><span class="code co-code">688629.SH</span></td><td>光、电、流体连接器，高速线模组、线缆组件</td><td>华为高速背板连接器两大国内供应商之一；224G 高速线模组已批量交付，在昇腾服务器铜缆连接器领域份额超 60%；2026Q3 交付千套级、Q4 进入万套级（媒体/调研口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">中航光电</span><span class="code co-code">002179.SZ</span></td><td>电连接器（74.8%）、光器件（18.1%）、液冷解决方案（7.1%）</td><td>高速连接器新进入者，2027 年份额有望提升至 20% 以上（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">意华股份</span><span class="code co-code">002897.SZ</span></td><td>高速连接器、光模块及结构件</td><td>今日涨停标的，市场按"连接器 + 光模块"双属性交易；与昇腾的具体供货关系待公司披露确认</td><td><span class="tag t-in">输入</span>（待验证）</td></tr>
+    <tr><td class="co"><span class="co-name">神宇股份</span><span class="code co-code">300563.SZ</span></td><td>高速连接/线缆配套（增补）</td><td>为华为昇腾服务器及智算中心提供高频高速射频同轴电缆；针对昇腾算力集群高带宽、低时延的传输需求，优化电缆结构设计与信号稳定性，其产品可适配昇腾AI服务器内部及集群间的高频信号传输场景，已实现批量供货</td><td><span class="tag t-in">输入</span></td></tr>
+</tbody>
 </table>
 </div>
 
 <h4>L2-2 PCB</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>沪电股份</td><td class="code">002463.SZ</td><td>企业通讯市场板（82.8%）、汽车板（10.5%）、高速多层板/背板</td><td>AI 服务器与交换机高多层板主力供给，受益超节点机柜化</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>深南电路</td><td class="code">002916.SZ</td><td>PCB + 封装基板 + 电子装联一体化</td><td>昇腾 AI 服务器核心电路板与载板双供给</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">沪电股份</span><span class="code co-code">002463.SZ</span></td><td>企业通讯市场板（82.8%）、汽车板（10.5%）、高速多层板/背板</td><td>AI 服务器与交换机高多层板主力供给，受益超节点机柜化</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">深南电路</span><span class="code co-code">002916.SZ</span></td><td>PCB + 封装基板 + 电子装联一体化</td><td>昇腾 AI 服务器核心电路板与载板双供给</td><td><span class="tag t-in">输入</span></td></tr>
   </tbody>
 </table>
 </div>
@@ -326,25 +330,28 @@
 <h4>L2-3 光互联 / 光模块 / 光引擎</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>光迅科技</td><td class="code">002281.SZ</td><td>光电器件与模块（接入和数据 65.2%、传输 34.6%）</td><td>NPO 光互连产业链核心标的之一，为昇腾集群万卡级互联提供光模块/器件</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>中际旭创</td><td class="code">300308.SZ</td><td>高端光通讯收发模块（99.0%），800G/1.6T</td><td>全球高速光模块龙头，受益超节点"光进铜退"；华为为其重要客户之一</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>华工科技</td><td class="code">000988.SZ</td><td>光电器件（48.6%）、激光装备（24.7%）、敏感元器件（24.0%）</td><td>光联接与无线联接，NPO 生态相关标的</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>腾景科技</td><td class="code">688195.SH</td><td>精密光学元件、光纤器件</td><td>今日涨停，属光互联题材联动；直接供货关系待确认</td><td><span class="tag t-in">输入</span>（待验证）</td></tr>
-  </tbody>
+    <tr><td class="co"><span class="co-name">光迅科技</span><span class="code co-code">002281.SZ</span></td><td>光电器件与模块（接入和数据 65.2%、传输 34.6%）</td><td>NPO 光互连产业链核心标的之一，为昇腾集群万卡级互联提供光模块/器件</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">中际旭创</span><span class="code co-code">300308.SZ</span></td><td>高端光通讯收发模块（99.0%），800G/1.6T</td><td>全球高速光模块龙头，受益超节点"光进铜退"；华为为其重要客户之一</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">华工科技</span><span class="code co-code">000988.SZ</span></td><td>光电器件（48.6%）、激光装备（24.7%）、敏感元器件（24.0%）</td><td>光联接与无线联接，NPO 生态相关标的</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">腾景科技</span><span class="code co-code">688195.SH</span></td><td>精密光学元件、光纤器件</td><td>今日涨停，属光互联题材联动；直接供货关系待确认</td><td><span class="tag t-in">输入</span>（待验证）</td></tr>
+    <tr><td class="co"><span class="co-name">特发信息</span><span class="code co-code">000070.SZ</span></td><td>光互联/光模块配套（增补）</td><td>为昇腾AI服务器集群提供高速互联光通信解决方案，优化算力节点间数据传输效率；依托多年通信技术积累，完成多款光模块与昇腾Atlas系列服务器的兼容性测试，可满足智算中心万卡级互联场景需求，同时参与昇腾生态通信链路安全优化</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">中嘉博创</span><span class="code co-code">000889.SZ</span></td><td>光互联/光模块配套（增补）</td><td>1、公司与华为终端、华为云、IT等涉及短信相关的业务领域合作； 2、公司申请名称一种通过插片式安装的光通信无源器件专利，全资子公司海南博创云天经营范围包含算力销售</td><td><span class="tag t-in">输入</span></td></tr>
+</tbody>
 </table>
 </div>
 
 <h4>L2-4 液冷与温控</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>英维克</td><td class="code">002837.SZ</td><td>机房温控（56.4%）、户外机柜温控（35.4%）、全链条液冷</td><td>超节点单机柜功率突破 100kW，液冷从可选变刚需，公司为数据中心液冷主力供给</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>申菱环境</td><td class="code">301018.SZ</td><td>专业温控设备、数据中心液冷与空调系统</td><td>智算中心液冷配套，受益机柜功率密度提升</td><td><span class="tag t-in">输入</span></td></tr>
-    <tr><td>飞荣达</td><td class="code">300602.SZ</td><td>热管理材料及器件（37.3%）、电磁屏蔽（29.1%）、轻量化（24.2%）</td><td>昇腾相关业务带来的收入波动较大（调研口径），弹性高但主业摊薄有限</td><td><span class="tag t-in">输入</span></td></tr>
-  </tbody>
+    <tr><td class="co"><span class="co-name">英维克</span><span class="code co-code">002837.SZ</span></td><td>机房温控（56.4%）、户外机柜温控（35.4%）、全链条液冷</td><td>超节点单机柜功率突破 100kW，液冷从可选变刚需，公司为数据中心液冷主力供给</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">申菱环境</span><span class="code co-code">301018.SZ</span></td><td>专业温控设备、数据中心液冷与空调系统</td><td>智算中心液冷配套，受益机柜功率密度提升</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">飞荣达</span><span class="code co-code">300602.SZ</span></td><td>热管理材料及器件（37.3%）、电磁屏蔽（29.1%）、轻量化（24.2%）</td><td>昇腾相关业务带来的收入波动较大（调研口径），弹性高但主业摊薄有限</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">佳力图</span><span class="code co-code">603912.SH</span></td><td>液冷/温控（增补）</td><td>1、华为系公司主要客户之一，公司为华为数据中心提供温控节能设备，覆盖精密空调与冷板式、浸没式液冷等机房控温方案； 2、公司掌握磁悬浮压缩机在冷水机组产品中的应用技术，为数据中心等领域提供相关的制冷解决方案</td><td><span class="tag t-in">输入</span></td></tr>
+</tbody>
 </table>
 </div>
 <p class="small">市场空间测算（券商口径）：以 2027 年 300 万颗昇腾芯片为基数，高速互联约 200 亿元 + 液冷约 150 亿元，合计约 <strong>350 亿元</strong>；按 10–15% 净利率对应 35–50 亿元行业利润体量。</p>
@@ -352,10 +359,11 @@
 <h4>L2-5 电源与供电</h4>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>提供的产品/服务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>杰华特</td><td class="code">688141.SH</td><td>DC-DC（47.7%）、AC-DC（20.8%）、线性电源（15.1%）、信号链（12.0%）</td><td>AI 处理器供电与服务器电源管理芯片，华为链重点标的之一（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
-  </tbody>
+    <tr><td class="co"><span class="co-name">杰华特</span><span class="code co-code">688141.SH</span></td><td>DC-DC（47.7%）、AC-DC（20.8%）、线性电源（15.1%）、信号链（12.0%）</td><td>AI 处理器供电与服务器电源管理芯片，华为链重点标的之一（券商口径）</td><td><span class="tag t-in">输入</span></td></tr>
+    <tr><td class="co"><span class="co-name">泰嘉股份</span><span class="code co-code">002843.SZ</span></td><td>电源/供电（增补）</td><td>1、公司大功率电源业务含数据中心电源，为客户代工服务器电源模块产品；子公司罗定雅达与华为开展合作，积极对接华为各类电源产品生产，为华为服务器及数据中心提供电源模块等配套； 2、公司是掌握双金属带锯条生产工艺并实现规模化生产的业内领先企业，系中国航天中国运载火箭技术研究院认可的硬质合金带锯条合格供应商</td><td><span class="tag t-in">输入</span></td></tr>
+</tbody>
 </table>
 </div>
 
@@ -363,65 +371,134 @@
 <p class="small">这一层的共同特征是：<strong>向华为购买昇腾模组/主板/芯片，加上自有或代工的机箱、电源、液冷，做成自有品牌整机或超节点，再卖给运营商、政府与云厂商。</strong>因此它们对华为是"客户"，对下游是"供应商"，属于典型的输出型关系。</p>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>整机/超节点载体</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>整机/超节点载体</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td><strong>拓维信息</strong></td><td class="code">002261.SZ</td><td>"兆瀚"系列 AI 服务器与一体机</td><td>华为首批昇腾硬件生产合作厂商，"鲲鹏/昇腾 AI + 行业大模型 + OpenHarmony + 云"软硬一体战略伙伴；深度参与长沙、重庆等国家级智算中心；媒体口径称 2025 年承接约 35% 昇腾服务器订单</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td><strong>神州数码</strong></td><td class="code">000034.SZ</td><td>"神州鲲泰"系列服务器</td><td>昇腾优选级合作伙伴/部件伙伴，2026 年 3 月发布基于昇腾 950PR 的整机；同时是华为重要分销商</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td><strong>高新发展</strong></td><td class="code">000628.SZ</td><td>拟通过收购华鲲振宇 70% 股权切入</td><td>华鲲振宇是华为算力服务器出货量领先的整机厂（原华为服务器团队背景），收购完成后形成"上市公司 + 昇腾整机"结构；交易进度以公告为准</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>烽火通信</td><td class="code">600498.SH</td><td>控股子公司长江计算（整机）</td><td>长江计算为鲲鹏/昇腾生态整机合作伙伴，已发布基于昇腾 950PR 的 Atlas 350 服务器；同时提供光通信与算力网络方案</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>广电运通</td><td class="code">002152.SZ</td><td>子公司广电五舟（服务器）</td><td>华为鲲鹏、昇腾"存算双引擎"合作伙伴，推出昇腾/鲲鹏系列服务器，落地金融与政务智算项目</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>四川长虹</td><td class="code">600839.SH</td><td>旗下虹信软件"天宫"系列 AI 服务器</td><td>采用昇腾芯片的整机方案，属昇腾生态整机配套；市场亦按"华鲲振宇关联"交易</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>软通动力</td><td class="code">301236.SZ</td><td>软通华方（整机）+ 天璇 MaaS 平台</td><td><strong>双向</strong>：既是昇腾部件伙伴与钻石级 APN 伙伴（输出），又是华为规模最大的软件与数字技术服务供应商之一（输入）；率先完成 DeepSeek-V4 在昇腾底座的部署</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>慧博云通</td><td class="code">301316.SZ</td><td>拟收购宝德计算（整机）</td><td>宝德是昇腾整机老牌厂商，昇腾服务器曾中标联通数科智算集采第一名，在手订单约 30.33 亿元（公告口径）；收购完成后切入整机</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>华鲲振宇 / 河南昆仑 / 宝德计算 / 超聚变</td><td class="code">未上市</td><td>昇腾/鲲鹏整机与超节点</td><td>华为体系内最核心的整机产能：华鲲（技术商务支持力度最大）、昆仑（华为原服务器部门剥离至河南国资）、宝德（最早做华为服务器、渠道体系完善）、超聚变（原华为服务器业务）</td><td><span class="tag t-out">输出</span></td></tr>
-  </tbody>
+    <tr><td class="co"><span class="co-name"><strong>拓维信息</strong></span><span class="code co-code">002261.SZ</span></td><td>"兆瀚"系列 AI 服务器与一体机</td><td>华为首批昇腾硬件生产合作厂商，"鲲鹏/昇腾 AI + 行业大模型 + OpenHarmony + 云"软硬一体战略伙伴；深度参与长沙、重庆等国家级智算中心；媒体口径称 2025 年承接约 35% 昇腾服务器订单</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name"><strong>神州数码</strong></span><span class="code co-code">000034.SZ</span></td><td>"神州鲲泰"系列服务器</td><td>昇腾优选级合作伙伴/部件伙伴，2026 年 3 月发布基于昇腾 950PR 的整机；同时是华为重要分销商</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name"><strong>高新发展</strong></span><span class="code co-code">000628.SZ</span></td><td>拟通过收购华鲲振宇 70% 股权切入</td><td>华鲲振宇是华为算力服务器出货量领先的整机厂（原华为服务器团队背景），收购完成后形成"上市公司 + 昇腾整机"结构；交易进度以公告为准</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">烽火通信</span><span class="code co-code">600498.SH</span></td><td>控股子公司长江计算（整机）</td><td>长江计算为鲲鹏/昇腾生态整机合作伙伴，已发布基于昇腾 950PR 的 Atlas 350 服务器；同时提供光通信与算力网络方案</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">广电运通</span><span class="code co-code">002152.SZ</span></td><td>子公司广电五舟（服务器）</td><td>华为鲲鹏、昇腾"存算双引擎"合作伙伴，推出昇腾/鲲鹏系列服务器，落地金融与政务智算项目</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">四川长虹</span><span class="code co-code">600839.SH</span></td><td>旗下虹信软件"天宫"系列 AI 服务器</td><td>采用昇腾芯片的整机方案，属昇腾生态整机配套；市场亦按"华鲲振宇关联"交易</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">软通动力</span><span class="code co-code">301236.SZ</span></td><td>软通华方（整机）+ 天璇 MaaS 平台</td><td><strong>双向</strong>：既是昇腾部件伙伴与钻石级 APN 伙伴（输出），又是华为规模最大的软件与数字技术服务供应商之一（输入）；率先完成 DeepSeek-V4 在昇腾底座的部署</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">慧博云通</span><span class="code co-code">301316.SZ</span></td><td>拟收购宝德计算（整机）</td><td>宝德是昇腾整机老牌厂商，昇腾服务器曾中标联通数科智算集采第一名，在手订单约 30.33 亿元（公告口径）；收购完成后切入整机</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">远东传动</span><span class="code co-code">002406.SZ</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>公司对外投资持有许昌瑞东电子科技有限责任公司30%股权，许昌瑞东公司持有黄河科技集团信息产业发展有限公司40%股权，黄河信产聚焦于国产化通用计算的鲲鹏系列和AI计算的昇腾系列服务器、微型计算机及软硬一体解决方案</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">东方国信</span><span class="code co-code">300166.SZ</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>与华为以“算力硬件+行业应用”模式深化昇腾合作，深耕工业、金融、通信领域，其工业互联网平台Cloudiip基于昇腾AI处理器开发设备故障预测、工艺优化应用，部分算法已完成与昇腾Atlas系列的兼容性认证</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">三联虹普</span><span class="code co-code">300384.SZ</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>公司与华为联合推出了化纤行业首个工业AI集成应用解决方案；将昇腾算力与化纤生产工艺深度融合，开发设备故障预测、工艺参数优化模型，部署于涤纶、锦纶生产线，通过昇腾Atlas服务器提升生产数据实时分析能力，实现能耗降低、良品率提升，已完成核心算法与昇腾平台的适配</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">天亿马</span><span class="code co-code">301178.SZ</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>1、公司与华为在智慧政务、智慧交通领域长期合作，解决方案嵌入华为产品，核心产品社会管理网格化系统通过华为FusionCloud云平台互联互通测试； 2、公司为客户搭建国产高性能算力服务器集群，提供算力及存储资源服务，算力业务已落地深圳开放智算中心1000P FP16</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">奥尼电子</span><span class="code co-code">301189.SZ</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>公司已取得华为昇腾APN银牌部件伙伴资质，计划融入华为的产品、方案与生态，共同为客户交付解决方案</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">卡莱特</span><span class="code co-code">301391.SZ</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>公司已率先在昇腾Atlas 800 A3超节点平台完成DeepSeek V4的部署和调度，自主研发的算力调度平台能够实现跨卡、跨节点的系统级算力调度与任务管理</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">同方股份</span><span class="code co-code">600100.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>同方计算机在多领域和华为在计算产业进行了深度合作，包括华为鲲鹏、昇腾、存储产品线等，公司AI服务器主要型号为基于昇腾技术的训练服务器、推理服务器以及基于上述设备打造的人工智能超级计算机解决方案；完成多款软硬件产品与昇腾生态的兼容性认证</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">宝兰德</span><span class="code co-code">688058.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>华为昇腾生态中间件合作伙伴，为昇腾算力平台提供应用服务器、消息中间件产品；完成核心中间件产品与昇腾AI平台的兼容性认证，优化中间件在高算力场景下的并发处理能力；参与昇腾中间件生态标准制定</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">高凌信息</span><span class="code co-code">688175.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>聚焦昇腾算力平台通信安全与网络优化，开发加密通信、网络调度产品，适配昇腾AI服务器集群，实现算力网络数据加密传输、智能调度，保障网络安全与传输效率；完成核心产品与昇腾生态的兼容性测试，为智算中心、政企客户提供通信安全支撑</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">格灵深瞳</span><span class="code co-code">688207.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>聚焦计算机视觉领域昇腾合作，开发智能安防、智慧交通解决方案，基于昇腾算力优化目标检测、行为分析算法，提升复杂场景下识别准确率与处理速度，完成多款视觉智能产品与昇腾Atlas服务器适配，应用于机场、地铁、园区安防场景；参与昇腾视觉大模型联合研发，优化算法在边缘端的运行效能</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">品高股份</span><span class="code co-code">688227.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>华为昇腾生态合作伙伴，完成云平台与昇腾AI服务器的兼容性认证，支持政企客户实现算力资源集约化管理</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">云从科技</span><span class="code co-code">688327.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>华为昇腾领先级合作伙伴，自主研发的“从容”大模型与昇腾Atlas系列硬件完成底层全栈优化；双方在武汉国家网安基地联手打造智算中心训推一体化中心，解决大模型训练数据安全与算力调度难题；将昇腾算力与自身感知、认知决策技术结合，推动国产AI应用规模化落地</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">云天励飞</span><span class="code co-code">688343.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>公司已加入华为昇腾万里伙伴计划，与华为联合打造有竞争力的人工智能解决方案，聚焦计算机视觉与昇腾生态融合，开发智能安防、智慧城市解决方案；完成视觉智能产品与昇腾Atlas服务器适配</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">九联科技</span><span class="code co-code">688609.SH</span></td><td>昇腾生态整机/方案（选股通/涨停池增补）</td><td>华为昇腾银牌APN合作伙伴；聚焦昇腾边缘算力终端研发，开发智能机顶盒、边缘网关等产品，适配昇腾310系列芯片，实现边缘场景数据实时处理、AI推理。完成边缘终端与昇腾生态的兼容性认证，应用于智慧家庭、园区、政务场景</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">华鲲振宇 / 河南昆仑 / 宝德计算 / 超聚变</span><span class="code co-code">未上市</span></td><td>昇腾/鲲鹏整机与超节点</td><td>华为体系内最核心的整机产能：华鲲（技术商务支持力度最大）、昆仑（华为原服务器部门剥离至河南国资）、宝德（最早做华为服务器、渠道体系完善）、超聚变（原华为服务器业务）</td><td><span class="tag t-out">输出</span></td></tr>
+</tbody>
 </table>
 </div>
 
 <h3>L4 软件、集成与分销：认证层级决定卡位</h3>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>业务</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>业务</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td><strong>常山北明</strong></td><td class="code">000158.SZ</td><td>系统集成及行业解决方案（82.7%）、定制软件（14.1%）</td><td>全资子公司北明软件是华为<strong>多产品钻石级经销商</strong>、昇腾生态核心伙伴，在华为云/昇腾/鲲鹏全领域合作，承担政务、金融、交通智算方案的落地交付；同时承接华为软件交付与外包（输入侧）</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>深圳华强</td><td class="code">000062.SZ</td><td>电子元器件分销与产业服务</td><td>华为计算部件（含昇腾、鲲鹏）总经销商，同时是昇腾 APN 伙伴，构建"算力器件→系统集成"全链路</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>润和软件</td><td class="code">300339.SZ</td><td>金融科技、智能物联、智慧能源软件</td><td>鸿蒙生态共建方与昇腾生态关键伙伴，推出融合昇腾算力与鸿蒙的 IntelliCore AI 一体机；同时为华为海思提供研发服务</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>中国软件</td><td class="code">600536.SH</td><td>麒麟操作系统、行业软件、系统集成</td><td>麒麟 OS 是昇腾/鲲鹏生态的国产操作系统底座，与 openEuler 同源；向客户交付"OS + 昇腾"方案</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>海量数据</td><td class="code">603138.SH</td><td>Vastbase 数据库（49.4%）、数据基础设施方案（50.4%）</td><td>基于 openGauss 路线的纯国产数据库，与鲲鹏/昇腾完成适配，随信创智算项目交付</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>达梦数据</td><td class="code">688692.SH</td><td>数据库软件授权（92.1%）、一体机</td><td>国产数据库龙头，与国产 CPU/OS 生态适配，进入党政、金融、能源信创项目</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>麒麟信安</td><td class="code">688152.SH</td><td>操作系统（66.6%）、云计算（24.0%）、信息安全（8.9%）</td><td>电力等行业操作系统，推出麒麟信安智算一体机，属"OS + 昇腾一体机"路线</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>诚迈科技</td><td class="code">300598.SZ</td><td>软件技术服务（71.1%）、软件定制（15.9%）</td><td>参股统信软件（UOS），操作系统侧生态参与者，承接鸿蒙/国产 OS 适配服务</td><td><span class="tag t-both">双向</span></td></tr>
-    <tr><td>东华软件</td><td class="code">002065.SZ</td><td>系统集成（70.1%）、技术服务（19.7%）、软件（10.1%）</td><td>华为昇腾生态核心伙伴，在 CANN 领域形成"硬件部署—软件适配—场景落地"全栈服务能力</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>天源迪科</td><td class="code">300047.SZ</td><td>ICT 产品（87.1%）、运营业务、应用软件</td><td>鲲鹏/昇腾 ISV 伙伴，电信 BOSS 与公安大数据方案在昇腾底座适配；今日 20CM 涨停</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>华胜天成</td><td class="code">600410.SH</td><td>系统集成、云计算与 IT 服务</td><td>昇腾生态伙伴，提供算力平台集成、软件适配与运维；承建多个省市智算中心，所用服务器以鲲鹏/昇腾为主</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>太极股份</td><td class="code">002368.SZ</td><td>政务与行业信息化总包、系统集成</td><td>信创与政务云总包商，鲲鹏/昇腾方案集成，受益党政智算招标</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>荣联科技</td><td class="code">002642.SZ</td><td>IT 服务、系统集成、生物信息</td><td>华为生态合作方（具体认证层级以公司披露为准）</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>恒为科技</td><td class="code">603496.SH</td><td>网络可视化、智能系统平台</td><td>推出纳秒级低时延 OCS 光交换机，探索超节点光电混合互联；与中贝通信等共建智算中心</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>科大讯飞</td><td class="code">002230.SZ</td><td>开放平台（31.9%）、教育（30.0%）、运营商、智能硬件</td><td>"讯飞星火"是全民可下载大模型中唯一基于全国产算力训练的大模型，训练底座依托昇腾集群</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>云鼎科技</td><td class="code">000409.SZ</td><td>矿山智能化、AI 应用</td><td>行业 AI 应用方，与国产算力底座适配；今日涨停</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>证通电子</td><td class="code">002197.SZ</td><td>IDC（67.4%）、金融科技、OpenHarmony 终端</td><td>IDC + 鸿蒙（OpenHarmony）双属性，为政务提供 IDC 与智慧城市服务，与华为生态圈战略合作</td><td><span class="tag t-out">输出</span></td></tr>
-  </tbody>
+    <tr><td class="co"><span class="co-name"><strong>常山北明</strong></span><span class="code co-code">000158.SZ</span></td><td>系统集成及行业解决方案（82.7%）、定制软件（14.1%）</td><td>全资子公司北明软件是华为<strong>多产品钻石级经销商</strong>、昇腾生态核心伙伴，在华为云/昇腾/鲲鹏全领域合作，承担政务、金融、交通智算方案的落地交付；同时承接华为软件交付与外包（输入侧）</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">深圳华强</span><span class="code co-code">000062.SZ</span></td><td>电子元器件分销与产业服务</td><td>华为计算部件（含昇腾、鲲鹏）总经销商，同时是昇腾 APN 伙伴，构建"算力器件→系统集成"全链路</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">润和软件</span><span class="code co-code">300339.SZ</span></td><td>金融科技、智能物联、智慧能源软件</td><td>鸿蒙生态共建方与昇腾生态关键伙伴，推出融合昇腾算力与鸿蒙的 IntelliCore AI 一体机；同时为华为海思提供研发服务</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">中国软件</span><span class="code co-code">600536.SH</span></td><td>麒麟操作系统、行业软件、系统集成</td><td>麒麟 OS 是昇腾/鲲鹏生态的国产操作系统底座，与 openEuler 同源；向客户交付"OS + 昇腾"方案</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">海量数据</span><span class="code co-code">603138.SH</span></td><td>Vastbase 数据库（49.4%）、数据基础设施方案（50.4%）</td><td>基于 openGauss 路线的纯国产数据库，与鲲鹏/昇腾完成适配，随信创智算项目交付</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">达梦数据</span><span class="code co-code">688692.SH</span></td><td>数据库软件授权（92.1%）、一体机</td><td>国产数据库龙头，与国产 CPU/OS 生态适配，进入党政、金融、能源信创项目</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">麒麟信安</span><span class="code co-code">688152.SH</span></td><td>操作系统（66.6%）、云计算（24.0%）、信息安全（8.9%）</td><td>电力等行业操作系统，推出麒麟信安智算一体机，属"OS + 昇腾一体机"路线</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">诚迈科技</span><span class="code co-code">300598.SZ</span></td><td>软件技术服务（71.1%）、软件定制（15.9%）</td><td>参股统信软件（UOS），操作系统侧生态参与者，承接鸿蒙/国产 OS 适配服务</td><td><span class="tag t-both">双向</span></td></tr>
+    <tr><td class="co"><span class="co-name">东华软件</span><span class="code co-code">002065.SZ</span></td><td>系统集成（70.1%）、技术服务（19.7%）、软件（10.1%）</td><td>华为昇腾生态核心伙伴，在 CANN 领域形成"硬件部署—软件适配—场景落地"全栈服务能力</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">天源迪科</span><span class="code co-code">300047.SZ</span></td><td>ICT 产品（87.1%）、运营业务、应用软件</td><td>鲲鹏/昇腾 ISV 伙伴，电信 BOSS 与公安大数据方案在昇腾底座适配；今日 20CM 涨停</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">华胜天成</span><span class="code co-code">600410.SH</span></td><td>系统集成、云计算与 IT 服务</td><td>昇腾生态伙伴，提供算力平台集成、软件适配与运维；承建多个省市智算中心，所用服务器以鲲鹏/昇腾为主</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">太极股份</span><span class="code co-code">002368.SZ</span></td><td>政务与行业信息化总包、系统集成</td><td>信创与政务云总包商，鲲鹏/昇腾方案集成，受益党政智算招标</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">荣联科技</span><span class="code co-code">002642.SZ</span></td><td>IT 服务、系统集成、生物信息</td><td>华为生态合作方（具体认证层级以公司披露为准）</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">恒为科技</span><span class="code co-code">603496.SH</span></td><td>网络可视化、智能系统平台</td><td>推出纳秒级低时延 OCS 光交换机，探索超节点光电混合互联；与中贝通信等共建智算中心</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">科大讯飞</span><span class="code co-code">002230.SZ</span></td><td>开放平台（31.9%）、教育（30.0%）、运营商、智能硬件</td><td>"讯飞星火"是全民可下载大模型中唯一基于全国产算力训练的大模型，训练底座依托昇腾集群</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">云鼎科技</span><span class="code co-code">000409.SZ</span></td><td>矿山智能化、AI 应用</td><td>行业 AI 应用方，与国产算力底座适配；今日涨停</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">证通电子</span><span class="code co-code">002197.SZ</span></td><td>IDC（67.4%）、金融科技、OpenHarmony 终端</td><td>IDC + 鸿蒙（OpenHarmony）双属性，为政务提供 IDC 与智慧城市服务，与华为生态圈战略合作</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">许继电气</span><span class="code co-code">000400.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>聚焦电力系统昇腾算力应用，开发智能电网调度、变电站运维解决方案，基于昇腾AI芯片优化电网负荷预测、故障诊断算法，实现电网调度响应速度提升30%以上；完成变电站智能巡检系统与昇腾硬件适配，通过AI视觉分析实现设备缺陷自动识别；参与电力行业昇腾大模型联合研发</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">神州信息</span><span class="code co-code">000555.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>基于昇腾算力优化金融数据处理、信贷审批算法，为银行客户提供国产化算力替代支撑</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">南天信息</span><span class="code co-code">000948.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司是华为的一级经销商和重要的ISV（独立软件开发商）战略合作伙伴，也是华为在大数据、云计算分布式数据库以及数通&amp;安全（CSP五钻）认证服务商（华为最高级别的服务商认证）；深耕金融领域昇腾应用，开发智能柜员、金融风控解决方案，为银行客户提供国产化算力替代支撑</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">新 大 陆</span><span class="code co-code">000997.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>将昇腾AI能力集成至智能POS机、物联网网关等终端设备，实现商品识别、消费行为分析等功能；完成终端硬件与昇腾边缘算力平台的适配，支持零售场景实时数据处理与智能决策</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">天融信</span><span class="code co-code">002212.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>利用昇腾算力提升安全防护的实时性与精准度，完成安全产品与昇腾AI平台的兼容性认证，为政府、企业昇腾算力平台提供全周期安全保障</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">川大智胜</span><span class="code co-code">002253.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>基于昇腾算力优化考试视频分析、主观题评卷算法，实现作弊行为自动识别、评卷效率提升40%以上，其人工智能评卷系统已在55个项目应用</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">亚联发展</span><span class="code co-code">002316.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司在华为昇腾方面为华为认证级ISV伙伴；完成核心工业软件与昇腾平台的兼容性认证，助力企业实现生产流程数字化、智能化转型，同时提供昇腾算力平台运维支撑，保障工业场景下算力稳定运行</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">高德红外</span><span class="code co-code">002414.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>华为昇腾万里伙伴计划，将昇腾AI能力与红外探测技术融合，提升复杂环境下目标识别准确率与响应速度，完成红外智能设备与昇腾边缘算力平台适配，应用于安防、工业、医疗场景</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">真视通</span><span class="code co-code">002771.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>将昇腾AI能力集成至会议系统，实现语音转写、实时翻译、智能字幕生成等功能，为企业、政府客户提供昇腾适配版可视化运维平台，实时监测算力设备运行状态，保障系统稳定</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">盛视科技</span><span class="code co-code">002990.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>聚焦口岸、政务领域昇腾应用，开发智能查验、政务服务解决方，完成智能查验设备与昇腾边缘算力平台适配，应用于机场、港口、政务大厅</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">楚天龙</span><span class="code co-code">003040.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>1、公司与华为云签署框架合作协议，聚焦云计算、人工智能、数字人民币生态建设等方向，双方还将探索数字金融与鸿蒙生态深化合作，聚焦鸿蒙生态物联网端侧应用，打造智能合约平台为核心的场景解决方案； 2、《上海市浦东新区促进离岸金融业务发展若干规定（草案）》公开征求意见，提出支持建设数字人民币跨境、离岸及区块链基础设施；公司数字人民币业务已覆盖公共交通、政务服务、零售</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">超图软件</span><span class="code co-code">300036.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司自2009年开始为华为的GIS基础软件供应商，公司作为华为的最高级合作伙伴和专家顾问成员单位；联合打造SuperMap GIS鲲鹏昇腾解决方案，对核心产品深度全栈优化，开发效率提升25%；基于昇腾优化地理空间AI技术底座SuperMap AIF，实现地理特征自动识别、变化趋势预测；联合开发的禹贡空间数据库性能同比提升30%，在自然资源领域实现亿级数据秒级</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">数字政通</span><span class="code co-code">300075.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>基于昇腾算力打造智慧城市管理解决方案，开发智能城管、应急指挥系统，优化城市事件识别、资源调度算法，利用昇腾算力提升城市管理的实时性与精准度；完成核心系统与昇腾AI平台的适配，在多地智慧城市项目落地应用</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">高新兴</span><span class="code co-code">300098.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>广州人工智能生态联盟实验室（昇腾）发起公司之一，华为领先级ISV、生态合作伙伴；聚焦物联网与昇腾生态融合，开发智能物联网终端、边缘计算解决方案，基于昇腾算力优化终端数据处理、设备协同算法，实现物联网终端智能化升级</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">国投智能</span><span class="code co-code">300188.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>昇腾生态战略合作伙伴，子公司美亚大千实现了在人像超分辨率重建的产品化，为国企客户提供昇腾适配版智能化解决方案，实现国资运营效率提升</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">华宇软件</span><span class="code co-code">300271.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>聚焦法律、政务领域昇腾生态落地，基于昇腾算力优化法律文书生成、案件相似度匹配算法，已在多地法院、检察院落地应用；完成核心产品与昇腾AI平台的兼容性认证，实现政务数据智能分析、业务流程自动化</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">ST创意</span><span class="code co-code">300366.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>依托昇腾算力布局数字创意、智慧城市领域，开发AI内容生成、城市可视化解决方案，为文旅、政企客户提供虚拟展厅、数字宣传内容制作服务</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">昆仑万维</span><span class="code co-code">300418.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>与华为昇腾合作聚焦大模型训练与行业应用，将自研大模型与昇腾算力深度融合；基于昇腾910B芯片优化大模型训练效率，缩短训练周期30%以上；联合开发行业大模型解决方案，适配金融、媒体等场景需求</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">神思电子</span><span class="code co-code">300479.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司加入昇腾万里ISV伙伴计划，成为首批昇腾万里伙伴；聚焦身份识别领域昇腾应用，开发AI身份核验、智能终端解决方案，完成智能识别终端与昇腾边缘算力平台适配，应用于政务、金融、安防场景</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">华自科技</span><span class="code co-code">300490.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>与长沙昇腾人工智能创新中心签约，深度布局电力、能源领域昇腾应用；基于昇腾芯片及算法平台，开发电力行业大模型、储能安全预警系统；自研AI主机可提供边缘算力支撑，整合200余项行业算法，构建“端-边-行业”的AI算力体系；推进“昇腾智造”解决方案，赋能电力设备智能化运维与能源高效管理</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">先进数通</span><span class="code co-code">300541.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司为华为多产品钻石经销商，为银行、证券客户搭建基于昇腾芯片的智能风控、数据分析平台，完成多款金融核心软件与昇腾硬件的适配迁移；依托昇腾算力优化金融交易实时处理、客户画像分析能力，同时提供算力集群运维支撑</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">汇纳科技</span><span class="code co-code">300609.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>华为智能计算生态联盟的首批成员，基于昇腾算力打造零售行业客流分析、消费行为洞察解决方案，实现门店客流实时监测、消费偏好预测</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">万兴科技</span><span class="code co-code">300624.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司是华为云的战略合作伙伴，在昇腾算力、数字人支持、AI大模型、品牌营销、生态共建等方面均有合作；完成核心产品与昇腾平台的兼容性认证，为用户提供高效、智能的创意工具</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">彩讯股份</span><span class="code co-code">300634.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>华为首百家鲲鹏+昇腾ISV合作伙伴之一；公司是华为智能计算的安全邮件系统合作伙伴，公司Richmail邮件产品同时获得了华为鲲鹏、华为昇腾技术认证；参与昇腾生态邮件安全大模型联合研发，提升垃圾邮件识别、敏感信息检测效率，赋能企业数字化转型</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">正元智慧</span><span class="code co-code">300645.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>聚焦教育、园区领域昇腾应用，开发智能校园、智慧园区管理解决方案；基于昇腾算力优化人员身份识别、能耗监测、安防预警算法，部署于高校、产业园区</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">科蓝软件</span><span class="code co-code">300663.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司为华为智能计算解决方案合作伙伴，从基础软件到行业应用；深耕金融领域昇腾应用，开发智能银行、数字钱包解决方案，基于昇腾算力优化金融风控、客户服务算法，实现信贷审批效率提升、服务响应速度加快</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">宇信科技</span><span class="code co-code">300674.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>作为国内规模最大的银行IT解决方案提供商之一，宇信科技长期保持在数据中台细分市场的领先地位；公司数据中台产品家族包含二十多个子产品，完整覆盖数据全生命周期的所有过程，该产品家族已完成与鲲鹏、申威、TIDB、TDSQL、GBASE、GAUSSDB、TDH等国内重要基础软硬件企业的兼容性认证</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">法本信息</span><span class="code co-code">300925.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>1、华为是公司客户之一，公司持续深耕华为等大客户，提供软件技术服务，并密切关注华为星闪等前沿技术带来的市场机遇； 2、公司已与主流大模型公司建立生态合作，形成基础大模型→垂直大模型→Agent行业应用全栈能力，FarAIGPTCoder代码生成大模型算法通过国家网信办深度合成服务算法备案并落地运营商、银行等行业</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">零点有数</span><span class="code co-code">301169.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>依托昇腾算力开展数据分析与决策咨询服务，优化市场调研、政务研判算法，基于昇腾AI平台处理海量调研数据，实现用户需求预测、政策效果评估精准化，为政企客户提供昇腾适配版数据分析报告</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">中亦科技</span><span class="code co-code">301208.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司为华为钻石经销商，认证产品类别为华为云Stack；同时为华为金牌经销商，代理的华为产品中包含昇腾产品并已签署销售合同</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">通达海</span><span class="code co-code">301378.SZ</span></td><td>软件/ISV/集成/分销（增补）</td><td>积极推进相关产品基于“鲲鹏+昇腾”的原生开发和兼容性适配工作，并取得了相关技术认证</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">佳都科技</span><span class="code co-code">600728.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>华为的ISV（独立软件开发商）之一；昇腾“最佳原生开发伙伴”，推出基于昇腾910B的“知行交通大模型训推一体机”，集成自研交通大模型，训练效率较同类产品提升150%，该产品在广州地铁、杭州萧山机场落地，交通流量预测准确率超90%</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">鼎信通讯</span><span class="code co-code">603421.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司与华为基于T3核心板合作研发台区智能融合终端项目，并将华为星闪、鸿蒙系统作为国产化技术引入自身电力系统产品</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">多伦科技</span><span class="code co-code">603528.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司作为华为昇腾AI产业链的重要合作伙伴之一，与华为昇腾合作完成多项信创技术及产品的认证，包含鲲鹏技术认证书、华为昇腾技术认证书、麒麟软件认证书等；依托昇腾算力打造智慧交通、驾培驾考解决方案，完成智能交通设备与昇腾平台适配，应用于城市交通管控、驾培机构</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">南威软件</span><span class="code co-code">603636.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>依托昇腾算力打造智慧政务、数字政府解决方案，完成核心政务软件与昇腾硬件的兼容性认证，在多地政务服务中心落地应用</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">七一二</span><span class="code co-code">603712.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>聚焦军工、专网领域昇腾应用，开发智能通信、指挥调度解决方案；完成专网设备与昇腾平台的兼容性认证，为军工、政务专网客户提供服务</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">博汇科技</span><span class="code co-code">688004.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>基于昇腾算力开发媒体内容智能审核、运维解决方案，为广电、互联网客户提供昇腾适配版智能运维系统；参与昇腾媒体大模型生态共建，助力媒体行业实现内容生产、审核、分发全流程智能化升级</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">安恒信息</span><span class="code co-code">688023.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>开发昇腾适配版入侵检测、漏洞扫描产品，利用AI算法实时监测算力平台安全风险，提升威胁识别准确率与响应速度；参与昇腾生态安全标准制定，优化大模型训练数据脱敏、隐私保护技术</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">佳华科技</span><span class="code co-code">688051.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>依托昇腾算力打造智慧环保、能源管理解决方案；多个产品通过华为鲲鹏和昇腾适配认证，并入选华为严选及好望商城；完成智能监测设备与昇腾边缘算力平台适配，应用于工业园区、环保监测站点</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">*ST航图</span><span class="code co-code">688066.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>基于昇腾算力开发遥感数据智能分析解决方案，优化卫星影像处理、地理信息提取算法；依托昇腾AI算力提升遥感数据处理效率，实现地表变化监测、资源勘探精准化；完成遥感分析软件与昇腾平台适配，应用于国土、农业、环保场景</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">兴图新科</span><span class="code co-code">688081.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>基于昇腾算力优化音视频编解码、实时传输算法，聚焦音视频领域昇腾应用，开发智能视频会议、指挥调度解决方案；完成视频设备与昇腾平台适配，应用于军工、政务、企业场景</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">品茗科技</span><span class="code co-code">688109.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>聚焦建筑行业昇腾应用，开发智能建造、工程管理解决方案，基于昇腾算力优化工程质量检测、进度管理算法，实现建筑施工过程智能化监控</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">智洋创新</span><span class="code co-code">688191.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司是华为昇腾生态体系的战略合作伙伴之一；聚焦电力、交通领域昇腾边缘算力应用，开发智能巡检解决方案，完成核心算法与昇腾边缘算力平台适配，设备误检率低于0.5%，已在多地电力线路、高速公路落地应用</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">ST信安</span><span class="code co-code">688201.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司已完成基于鲲鹏CPU的TEE密码产品研制并获商用密码产品认证二级证书，金蜂巢AI智算信创一体机搭载华为昇腾NPU、配备鲲鹏920处理器</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">开普云</span><span class="code co-code">688228.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>公司内容安全一体机产品采用华为“鲲鹏+昇腾”双引擎作为CPU处理器，搭载公司自主研发的内容安全软件产品满足用户数据保密需求；核心产品与昇腾硬件完成兼容性认证，在多地融媒体中心、政务云项目落地应用</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">浩瀚深度</span><span class="code co-code">688292.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>与华为举行了“浩瀚深度与华为昇腾原生开发合作签约仪式”，浩瀚深度将基于昇腾全栈解决方案进行浩瀚AI应用创新</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">安必平</span><span class="code co-code">688393.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>聚焦医疗领域昇腾应用，开发AI病理诊断解决方案，基于昇腾算力优化病理切片识别、病灶分析算法，提升病理诊断准确率与效率，完成病理诊断系统与昇腾AI平台的适配</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">中科星图</span><span class="code co-code">688568.SH</span></td><td>软件/ISV/集成/分销（增补）</td><td>依托GEOVIS数字地球和昇腾AI基础软硬件、华为云基础设施，合作共建“天临空地”一体化遥感智能开源生态；基于昇腾算力开发地理信息智能分析平台，优化卫星影像处理、空间数据挖掘算法，依托昇腾AI算力提升空间数据处理效率，实现全球地理信息实时分析、可视化展示，应用于国土、气象、国防场景</td><td><span class="tag t-out">输出</span></td></tr>
+</tbody>
 </table>
 </div>
 
 <h3>L5 下游：算力运营与行业客户</h3>
 <div class="tw">
 <table>
-  <thead><tr><th>公司</th><th>代码</th><th>角色</th><th>与华为的关系</th><th>类别</th></tr></thead>
+  <thead><tr><th>公司</th><th>角色</th><th>与华为的关系</th><th>类别</th></tr></thead>
   <tbody>
-    <tr><td>中贝通信</td><td class="code">603220.SH</td><td>通信工程 + 智算中心运营</td><td>采购昇腾整机自建智算中心对外出租，赚算力缺口租金</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>浙大网新</td><td class="code">600797.SH</td><td>数智化集成、智算云服务</td><td>算力基础设施 + 行业应用总集成，受益地方算力项目招标</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>大位科技</td><td class="code">600589.SH</td><td>IDC 与算力资源池</td><td>自建算力资源池对外提供算力服务器与托管服务</td><td><span class="tag t-out">输出</span></td></tr>
-    <tr><td>行业客户</td><td class="code">—</td><td>政府政务、金融、电信、能源电力、制造、交通医疗</td><td>最终预算与回款方：政务看财政与信创节点，金融/电信看国产化与 AI 应用，能源交通看资本开支</td><td>需求端</td></tr>
+    <tr><td class="co"><span class="co-name">中贝通信</span><span class="code co-code">603220.SH</span></td><td>通信工程 + 智算中心运营</td><td>采购昇腾整机自建智算中心对外出租，赚算力缺口租金</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">浙大网新</span><span class="code co-code">600797.SH</span></td><td>数智化集成、智算云服务</td><td>算力基础设施 + 行业应用总集成，受益地方算力项目招标</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">大位科技</span><span class="code co-code">600589.SH</span></td><td>IDC 与算力资源池</td><td>自建算力资源池对外提供算力服务器与托管服务</td><td><span class="tag t-out">输出</span></td></tr>
+        <tr><td class="co"><span class="co-name">直真科技</span><span class="code co-code">003007.SZ</span></td><td>算力运营/配套（增补）</td><td>1、公司拥有数据中心智能运维软件系统产品，参加了电信运营商大型集团级数据中心、省级数据中心相关OSS系统的建设，与华为在昇腾生态原生开发、鲲鹏生态原生开发方面签署了合作协议，共同推进算力原生应用开发； 2、公司承建“千帆星座”卫星互联网网络管理中心系统及“国网星座”运控流量预测系统已上线并通过专家评审，支撑卫星发射及在轨测试，深度参与天地一体化信息网络建设;</td><td><span class="tag t-out">输出</span></td></tr>
+    <tr><td class="co"><span class="co-name">光环新网</span><span class="code co-code">300383.SZ</span></td><td>算力运营/配套（增补）</td><td>华为云核心合作伙伴，依托北京、上海等一线城市优质数据中心资源，为华为昇腾AI计算产业提供全栈数据中心服务；双方签署战略合作协议，覆盖低碳数据中心、智能光伏储能及昇腾AI计算业务等领域</td><td><span class="tag t-out">输出</span></td></tr>
+<tr><td class="co"><span class="co-name">行业客户</span><span class="code co-code">—</span></td><td>政府政务、金融、电信、能源电力、制造、交通医疗</td><td>最终预算与回款方：政务看财政与信创节点，金融/电信看国产化与 AI 应用，能源交通看资本开支</td><td>需求端</td></tr>
   </tbody>
 </table>
+</div>
+
+
+<div class="callout">
+<strong>增补说明（2026-11-27）：</strong>已并入选股通「华为昇腾」主题池增量标的，以及当日涨停池中主题概念为「华为昇腾」且原报告未收录的上市公司；关系描述取自选股通主题说明 / 选股宝涨停原因，标注「增补」。题材联动与间接合作请以公司公告为准。
 </div>
 
 <h2>六、关系总表：输入侧与输出侧的价值分布</h2>
 
 <div class="grid">
-  <div class="card"><div class="n" style="color:var(--in)">约 26 家</div><div class="l">输入型：向华为（或华为指定整机厂）供货</div></div>
-  <div class="card"><div class="n" style="color:var(--out)">约 22 家</div><div class="l">输出型：从华为拿芯片/模组/授权，再卖给客户</div></div>
+  <div class="card"><div class="n" style="color:var(--in)">约 38 家</div><div class="l">输入型：向华为（或华为指定整机厂）供货</div></div>
+  <div class="card"><div class="n" style="color:var(--out)">约 85 家</div><div class="l">输出型：从华为拿芯片/模组/授权，再卖给客户</div></div>
   <div class="card"><div class="n" style="color:var(--both)">约 8 家</div><div class="l">双向型：既做华为的供应商，也卖华为的方案</div></div>
   <div class="card"><div class="n">21 只</div><div class="l">今日涨停中属于昇腾主线的标的</div></div>
 </div>
@@ -569,7 +646,7 @@
 </ul>
 
 <footer>
-  <p>报告生成时间：2026-11-27 · 数据截至盘中 10:35 · 覆盖 A 股/港股上市公司约 60 家</p>
+  <p>报告生成时间：2026-11-27 · 数据截至盘中 10:35 · 覆盖 A 股/港股上市公司约 134 家</p>
   <p>结构说明：L0 华为本体 → L1 上游制造 → L2 上游零部件 → L3 整机与超节点 → L4 软件与生态 → L5 下游应用；关系分类：输入（向华为供货）/ 输出（华为向其供货或授权）/ 双向。</p>
 </footer>
 

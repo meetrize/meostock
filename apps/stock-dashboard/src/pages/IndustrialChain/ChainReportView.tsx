@@ -190,8 +190,9 @@ export function ChainReportView({
     styleEl.setAttribute('data-chain-report', '1');
     styleEl.textContent = [
       style,
-      `.chainReportRoot .chainReportCode,.chainReportRoot .chainReportName{display:inline;margin:0;padding:0 2px;border:none;background:transparent;color:var(--accent,#2563eb);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}`,
-      `.chainReportRoot .chainReportName{font-weight:700;text-decoration-style:dotted}`,
+      `.chainReportRoot .chainReportCode,.chainReportRoot .chainReportName{display:inline;margin:0;padding:0;border:none;background:transparent;color:var(--accent,#2563eb);font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}`,
+      `.chainReportRoot .chainReportName{font-weight:700;text-decoration-style:dotted;white-space:nowrap}`,
+      `.chainReportRoot .co-code .chainReportCode{font:inherit;color:inherit;text-decoration-color:color-mix(in srgb,var(--accent,#2563eb) 55%,transparent)}`,
       `.chainReportRoot tr.chainReportIoDim,.chainReportRoot tr.chainReportRelDim{opacity:.28}`,
       `.chainReportRoot tr.chainReportIoHit,.chainReportRoot tr.chainReportRelHit{outline:1px solid color-mix(in srgb,var(--accent,#2563eb) 40%,transparent);outline-offset:-1px;background:color-mix(in srgb,var(--accent,#2563eb) 8%,transparent)}`,
       `.chainReportRoot tr.chainReportRelFocus{outline:2px solid var(--accent,#2563eb);outline-offset:-2px}`,
@@ -220,7 +221,7 @@ export function ChainReportView({
       const t = n as Text;
       const parent = t.parentElement;
       if (!parent) continue;
-      if (parent.closest('script, style, a, button')) continue;
+      if (parent.closest('script, style, a, button, .co-code, td.code')) continue;
       if (!CODE_RE.test(t.nodeValue || '')) continue;
       CODE_RE.lastIndex = 0;
       textNodes.push(t);
@@ -242,34 +243,36 @@ export function ChainReportView({
       t.parentNode?.replaceChild(frag, t);
     }
 
-    content.querySelectorAll('td.code').forEach((td) => {
-      const text = (td.textContent || '').trim();
+    content.querySelectorAll('.co-code, td.code').forEach((el) => {
+      const text = (el.textContent || '').trim();
       if (!CODE_ONLY_RE.test(text)) return;
-      if (td.querySelector('.chainReportCode')) return;
-      td.textContent = '';
-      td.appendChild(makeCodeButton(text));
+      if (el.querySelector('.chainReportCode')) return;
+      el.textContent = '';
+      el.appendChild(makeCodeButton(text));
     });
 
-    // 表格行：公司名可点开 K 线
+    // 表格行：公司名可点开 K 线（合并列时只包 .co-name，避免抹掉代码）
     content.querySelectorAll('tbody tr').forEach((tr) => {
-      const codeBtn = tr.querySelector('.chainReportCode') as HTMLElement | null;
+      const codeEl = tr.querySelector('.co-code, td.code, .chainReportCode') as HTMLElement | null;
       const code =
-        codeBtn?.dataset.code ||
-        (tr.querySelector('td.code')?.textContent || '').trim().match(CODE_ONLY_RE)?.[1];
+        codeEl?.dataset.code ||
+        (codeEl?.textContent || '').trim().match(CODE_ONLY_RE)?.[1];
       if (!code) return;
       (tr as HTMLElement).dataset.reportCode = code;
-      const nameTd = tr.querySelector('td:first-child');
-      if (!nameTd || nameTd.querySelector('.chainReportName')) return;
-      const nameText = (nameTd.textContent || '').trim();
+      const nameHost =
+        (tr.querySelector('.co-name') as HTMLElement | null) ||
+        (tr.querySelector('td.co, td:first-child') as HTMLElement | null);
+      if (!nameHost || nameHost.querySelector('.chainReportName')) return;
+      const nameText = (nameHost.textContent || '').trim();
       if (!nameText || nameText === '—' || nameText === '-') return;
-      nameTd.textContent = '';
+      nameHost.textContent = '';
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'chainReportName';
       btn.dataset.code = code;
       btn.textContent = nameText;
       btn.title = `打开 K 线 ${code}`;
-      nameTd.appendChild(btn);
+      nameHost.appendChild(btn);
     });
 
     root.replaceChildren(styleEl, content);
